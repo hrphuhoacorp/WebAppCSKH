@@ -1,0 +1,6 @@
+@WebAppInfractor_HostAddress = http://localhost:5187
+
+GET {{WebAppInfractor_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
