@@ -33,20 +33,14 @@ namespace WebAppAPI.Controllers
                 new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = false, // localhost
+                    Secure = true, // localhost
                     SameSite = SameSiteMode.Lax,
                     Expires = DateTimeOffset.UtcNow.AddHours(1),
                     Path = "/",
                 }
             );
 
-            return Ok(
-                new
-                {
-                    Status = "Success",
-                    Message = "Đăng nhập thành công",
-                }
-            );
+            return Ok(new { Status = "Success", Message = "Đăng nhập thành công" });
         }
 
         [Authorize]
