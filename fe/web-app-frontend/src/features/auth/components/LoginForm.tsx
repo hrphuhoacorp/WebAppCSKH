@@ -38,11 +38,11 @@ export default function LoginForm() {
             toast.success(response.message);
 
             // window.location.href = '/dashboard';
-            router.push('/dashboard');
+            router.replace("/dashboard");
 
         } catch (error: any) {
             toast.error( 
-                
+
                 error?.response?.data?.Message ??
                 'Sai tài khoản hoặc mật khẩu'
             );

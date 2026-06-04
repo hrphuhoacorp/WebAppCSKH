@@ -27,14 +27,16 @@ namespace WebAppAPI.Controllers
         {
             var token = await _authService.Login(dto);
 
+            Response.Cookies.Delete("token");
+
             Response.Cookies.Append(
                 "token",
                 token,
                 new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = true, // localhost
-                    SameSite = SameSiteMode.Lax,
+                    Secure = true,
+                    SameSite = SameSiteMode.None,
                     Expires = DateTimeOffset.UtcNow.AddHours(1),
                     Path = "/",
                 }
