@@ -38,7 +38,7 @@ export default function LoginForm() {
             toast.success(response.message);
 
             // window.location.href = '/dashboard';
-            router.replace("/dashboard");
+            window.location.href = '/dashboard';
 
         } catch (error: any) {
             toast.error( 
