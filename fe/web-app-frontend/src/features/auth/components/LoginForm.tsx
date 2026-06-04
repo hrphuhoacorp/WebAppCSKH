@@ -19,7 +19,7 @@ import { LoginFormData, loginSchema } from '../schemas/login.schema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { authApi } from '../api/auth.api';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 
 export default function LoginForm() {
     const {
@@ -37,7 +37,8 @@ export default function LoginForm() {
 
             toast.success(response.message);
 
-            window.location.href = '/dashboard';
+            // window.location.href = '/dashboard';
+            router.push('/dashboard');
 
         } catch (error: any) {
             toast.error(
