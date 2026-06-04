@@ -1,5 +1,4 @@
 import { api } from "@/services/axios";
-import { ParamsOf } from '../../../../.next/dev/types/routes';
 
 export const customerApi = {
     getCustomers: async (data: {
