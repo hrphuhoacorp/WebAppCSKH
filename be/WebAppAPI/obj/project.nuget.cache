@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "KKWG3cBGdCY=",
+  "dgSpecHash": "1c4AkzwCoCk=",
   "success": true,
-  "projectFilePath": "D:\\Project\\WebAppCSKH\\WebAppAPI\\WebAppAPI.csproj",
+  "projectFilePath": "D:\\Project\\WebAppCSKH\\be\\WebAppAPI\\WebAppAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\phuoc\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512",
     "C:\\Users\\phuoc\\.nuget\\packages\\closedxml\\0.105.0\\closedxml.0.105.0.nupkg.sha512",

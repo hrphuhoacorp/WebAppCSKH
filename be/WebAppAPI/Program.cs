@@ -108,16 +108,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 //cors
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
         "AllowAllOrigins",
         builder =>
-            builder
-                .WithOrigins("http://localhost:3000")
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials()
+            builder.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()
     );
 });
 

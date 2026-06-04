@@ -3327,11 +3327,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Project\\WebAppCSKH\\WebAppAPI\\WebAppAPI.csproj",
+      "projectUniqueName": "D:\\Project\\WebAppCSKH\\be\\WebAppAPI\\WebAppAPI.csproj",
       "projectName": "WebAppAPI",
-      "projectPath": "D:\\Project\\WebAppCSKH\\WebAppAPI\\WebAppAPI.csproj",
+      "projectPath": "D:\\Project\\WebAppCSKH\\be\\WebAppAPI\\WebAppAPI.csproj",
       "packagesPath": "C:\\Users\\phuoc\\.nuget\\packages\\",
-      "outputPath": "D:\\Project\\WebAppCSKH\\WebAppAPI\\obj\\",
+      "outputPath": "D:\\Project\\WebAppCSKH\\be\\WebAppAPI\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -3352,8 +3352,8 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "D:\\Project\\WebAppCSKH\\WebAppInfractor\\WebAppInfractor.csproj": {
-              "projectPath": "D:\\Project\\WebAppCSKH\\WebAppInfractor\\WebAppInfractor.csproj"
+            "D:\\Project\\WebAppCSKH\\be\\WebAppInfractor\\WebAppInfractor.csproj": {
+              "projectPath": "D:\\Project\\WebAppCSKH\\be\\WebAppInfractor\\WebAppInfractor.csproj"
             }
           }
         }
