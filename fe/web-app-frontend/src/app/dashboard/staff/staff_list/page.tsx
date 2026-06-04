@@ -137,12 +137,14 @@ export default function UsersPage() {
                         placeholder="Nhập tên, email, số điện thoại..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <Search sx={{ color: '#94a3b8', fontSize: 20 }} />
-                                </InputAdornment>
-                            ),
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Search sx={{ color: '#94a3b8', fontSize: 20 }} />
+                                    </InputAdornment>
+                                ),
+                            },
                         }}
                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                     />
