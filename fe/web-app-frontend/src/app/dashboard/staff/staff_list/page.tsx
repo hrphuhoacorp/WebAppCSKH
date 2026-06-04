@@ -27,7 +27,7 @@ import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { userApi } from '@/features/user/api/user.api';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import UserDetailDialog from '@/features/user/components/UserDetailDialog';
-import EditUserDialog from '@/features/user/components/EditUserDialog';
+// import EditUserDialog from '@/features/user/components/EditUserDialog';
 import DeleteUserDialog from '@/features/user/components/DeleteUserDialog';
 
 type UserRow = {
@@ -245,7 +245,7 @@ export default function UsersPage() {
 
             {/* Các Dialog được gọi điều hướng */}
             <UserDetailDialog open={detailOpen} userId={selectedUser?.id ?? null} onClose={() => { setDetailOpen(false); setSelectedUser(null); }} />
-            <EditUserDialog open={editOpen} user={selectedUser} branchOptions={branchOptions} onClose={() => { setEditOpen(false); setSelectedUser(null); }} onSuccess={fetchUsers} />
+            {/* <EditUserDialog open={editOpen} user={selectedUser} branchOptions={branchOptions} onClose={() => { setEditOpen(false); setSelectedUser(null); }} onSuccess={fetchUsers} /> */}
             <DeleteUserDialog open={deleteOpen} user={selectedUser} onClose={() => { setDeleteOpen(false); setSelectedUser(null); }} onSuccess={fetchUsers} />
         </Box>
     );

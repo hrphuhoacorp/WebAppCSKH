@@ -31,7 +31,13 @@ export default function DeleteUserDialog({ open, user, onClose, onSuccess }: Pro
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
+        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth slotProps={{
+            paper: {
+                sx: {
+                    borderRadius: '14px',
+                },
+            },
+        }}>
             <DialogTitle sx={{ fontWeight: 800, color: '#d32f2f', pb: 1.5 }}>
                 Xác nhận xóa nhân sự
             </DialogTitle>

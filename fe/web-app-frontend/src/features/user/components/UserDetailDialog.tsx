@@ -21,7 +21,13 @@ function UserDetailDialog({ open, userId, onClose }: any) {
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
+        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth slotProps={{
+            paper: {
+                sx: {
+                    borderRadius: '14px',
+                },
+            },
+        }}>
             <DialogTitle sx={{ fontWeight: 800, color: '#086839', display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
                 Chi tiết nhân sự
                 <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
@@ -34,19 +40,19 @@ function UserDetailDialog({ open, userId, onClose }: any) {
                         {/* Khu vực thông tin chi tiết cá nhân */}
                         <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '10px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                             <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6}>
+                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Họ và tên</Typography>
                                     <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>{user.name}</Typography>
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
+                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Địa chỉ Email</Typography>
                                     <Typography sx={{ fontWeight: 600, color: '#1e293b' }}>{user.email || '-'}</Typography>
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
+                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Số điện thoại</Typography>
                                     <Typography sx={{ fontWeight: 600, color: '#1e293b' }}>{user.phone || '-'}</Typography>
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
+                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Chi nhánh trực thuộc</Typography>
                                     <Typography sx={{ fontWeight: 600, color: '#086839' }}>{user.branchesName || '-'}</Typography>
                                 </Grid>
