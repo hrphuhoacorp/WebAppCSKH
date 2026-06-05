@@ -33,16 +33,14 @@ export default function LoginForm() {
     const onSubmit = async (data: LoginFormData) => {
         try {
             const response = await authApi.login(data);
-            
+
 
             toast.success(response.message);
 
-            // window.location.href = '/dashboard';
-            // window.location.href = '/dashboard';
-            router.push('/dashboard');
-            router.refresh();
+            window.location.href = '/dashboard';
+
         } catch (error: any) {
-            toast.error( 
+            toast.error(
 
                 error?.response?.data?.Message ??
                 'Sai tài khoản hoặc mật khẩu'

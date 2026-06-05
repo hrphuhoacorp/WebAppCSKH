@@ -6,7 +6,7 @@ using WebAppInfractor.Models;
 public interface IAuthService
 {
     Task<string> Login(AuthLoginDTO loginDTO);
-    Task<AuthProfile> GetProfile(int userId);
+    Task<UserDTO> GetProfile(int userId);
     Task<string> CreateAccount(AuthCreateDTO createDTO);
     Task<string> ChangePassword(
         int userId,
@@ -15,7 +15,7 @@ public interface IAuthService
         string confirmPassword
     );
     Task<string> ResetPassword(int userId);
-    Task<string> DeleteAccount(int userId, DateTime updatedAt);
+    Task<string> DeleteAccount(int userId, DateTime updatedAt, int currentId);
 }
 
 public class AuthService : IAuthService
@@ -26,6 +26,7 @@ public class AuthService : IAuthService
     private readonly IUserRoleRepository _userRoleRepository;
     private readonly IBranchRepository _branchRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IActivityService _auditLogService;
 
     public AuthService(
         IUserRepository userRepository,
@@ -33,7 +34,8 @@ public class AuthService : IAuthService
         JwtAuthService jwtAuthService,
         IUserRoleRepository userRoleRepository,
         IRoleRepository roleRepository,
-        IBranchRepository branchRepository
+        IBranchRepository branchRepository,
+        IActivityService auditLogService
     )
     {
         _userRepository = userRepository;
@@ -42,6 +44,7 @@ public class AuthService : IAuthService
         _userRoleRepository = userRoleRepository;
         _branchRepository = branchRepository;
         _roleRepository = roleRepository;
+        _auditLogService = auditLogService;
     }
 
     public async Task<string> Login(AuthLoginDTO loginDTO)
@@ -71,32 +74,68 @@ public class AuthService : IAuthService
         }
 
         var token = _jwtAuthService.GenerateToken(user);
+
+        await _auditLogService.SaveLogAsync(
+            userId: user.Id,
+            staffCode: user.StaffCode,
+            action: "LOGIN",
+            tableName: "users",
+            recordId: user.Id,
+            oldData: null,
+            newData: null
+        );
+
         return token;
     }
 
-    public async Task<AuthProfile> GetProfile(int userId)
+    public async Task<UserDTO> GetProfile(int userId)
     {
         var user = await _userRepository
             .GetAll()
-            .Include(u => u.UserRoles)
-            .ThenInclude(ur => ur.Role)
             .Include(u => u.Branches)
-            .AsNoTracking()
-            .SingleOrDefaultAsync(u => u.Id == userId);
+            .Include(u => u.ImportsHistories)
+            .Include(u => u.TodoTasks)
+            .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
 
-        if (user == null || user.DeletedAt.HasValue)
+        if (user == null)
         {
-            throw new NotFoundException("Người dùng không tồn tại");
+            throw new NotFoundException("Không tìm thấy người dùng");
         }
 
-        var profile = new AuthProfile
+        var roles = await _userRoleRepository
+            .GetAll()
+            .Where(ur => ur.UserId == userId)
+            .Select(ur => new RoleDTO { Id = ur.Role.Id, Name = ur.Role.Name })
+            .ToListAsync();
+        var importHistories = user.ImportsHistories.Select(ih => ih.ImportDate).ToList();
+
+        var profile = new UserDTO
         {
             Id = user.Id,
+            StaffCode = user.StaffCode,
             Name = user.Name,
             Email = user.Email,
+            Phone = user.Phone,
             BranchesId = user.BranchesId,
-            BranchesName = user.Branches?.Name ?? "",
-            Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList(),
+            BranchesName = user.Branches?.Name,
+            DayOfBirth = user.DayOfBirth,
+            Roles = roles,
+
+            ImportHistories = user
+                .ImportsHistories.OrderByDescending(ih => ih.ImportDate)
+                .Select(ih => new ImportHistoryDTO
+                {
+                    Id = ih.Id,
+                    FileName = ih.FileName,
+                    SuccessCount = ih.SuccessCount,
+                    ErrorCount = ih.ErrorCount,
+                    ImportDate = ih.ImportDate,
+                })
+                .ToList(),
+
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
+            DeletedAt = user.DeletedAt,
         };
 
         return profile;
@@ -159,6 +198,8 @@ public class AuthService : IAuthService
                 Email = createDTO.Email.Trim().ToLower(),
                 Phone = createDTO.Phone.Trim(),
                 BranchesId = createDTO.BranchesId,
+                DayOfBirth = createDTO.DayOfBirth,
+                StaffCode = createDTO.StaffCode,
                 Password = PasswordHelper.HashPassword(createDTO.Phone), // Mật khẩu mặc định, nên yêu cầu người dùng đổi sau khi đăng nhập
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
@@ -178,6 +219,7 @@ public class AuthService : IAuthService
 
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
+
             return "Tạo tài khoản thành công";
         }
         catch
@@ -199,7 +241,7 @@ public class AuthService : IAuthService
         {
             var user = await _userRepository
                 .GetAll()
-                .FirstOrDefaultAsync(u => u.Id == userId || u.DeletedAt == null);
+                .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
             if (user == null)
             {
                 throw new NotFoundException("Người dùng không tồn tại");
@@ -217,10 +259,20 @@ public class AuthService : IAuthService
             user.Password = PasswordHelper.HashPassword(newPassword);
             user.UpdatedAt = DateTime.Now;
 
+            await _userRepository.Update(user);
+
+            // await _auditLogService.SaveLogAsync(
+            //     userId: user.Id,
+            //     staffCode: user.StaffCode,
+            //     action: "Chang_Password",
+            //     tableName: "users",
+            //     recordId: user.Id,
+            //     oldData: currentPassword,
+            //     newData: newPassword
+            // );
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            await _userRepository.Update(user);
             return "Đổi mật khẩu thành công";
         }
         catch
@@ -259,7 +311,7 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<string> DeleteAccount(int userId, DateTime updatedAt)
+    public async Task<string> DeleteAccount(int userId, DateTime updatedAt, int currentId)
     {
         using var transaction = await _unitOfWork.BeginTransactionAsync();
         try
@@ -272,6 +324,12 @@ public class AuthService : IAuthService
             {
                 throw new NotFoundException("Người dùng không tồn tại");
             }
+
+            if (user.Id == currentId)
+            {
+                throw new BadRequestException("Không thể xóa tài khoản hiện tại");
+            }
+
             if (user.UpdatedAt != updatedAt)
             {
                 throw new ConflictException(

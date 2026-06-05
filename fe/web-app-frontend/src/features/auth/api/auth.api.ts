@@ -22,4 +22,14 @@ export const authApi = {
         return response.data;
     },
 
+    changePassword: async (data: {
+        currentPassword: string;
+        newPassword: string;
+        confirmPassword: string;
+    }) => {
+        const response = await api.post('/Auth/ChangePassword', data);
+
+        return response.data;
+    },
+
 };

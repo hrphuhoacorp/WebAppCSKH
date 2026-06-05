@@ -65,5 +65,17 @@ namespace WebAppAPI.Controllers
                 StatusReponse.Success
             );
         }
+
+        [HttpGet("GetAllRolesAsync")]
+        public async Task<ResponseValue<List<RoleDTO>>> GetAllRolesAsync()
+        {
+            var result = await _userService.GetAllRoleAsync();
+
+            return new ResponseValue<List<RoleDTO>>(
+                result,
+                "Lấy danh sách vai trò thành công",
+                StatusReponse.Success
+            );
+        }
     }
 }

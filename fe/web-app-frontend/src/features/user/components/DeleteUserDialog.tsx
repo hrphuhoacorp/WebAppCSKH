@@ -24,7 +24,7 @@ export default function DeleteUserDialog({ open, user, onClose, onSuccess }: Pro
             onSuccess();
             onClose();
         } catch (error: any) {
-            toast.error(error?.response?.data?.message ?? 'Xóa nhân sự thất bại');
+            toast.error(error?.response?.data?.Message ?? 'Xóa nhân sự thất bại');
         } finally {
             setDeleting(false);
         }

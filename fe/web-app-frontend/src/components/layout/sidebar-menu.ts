@@ -1,6 +1,7 @@
 import {
     LayoutDashboard,
     ShoppingCart,
+    User,
     Users,
 } from 'lucide-react';
 
@@ -45,5 +46,15 @@ export const sidebarMenu = [
             },
         ],
 
+    },
+    {
+        title: 'Tổng hợp link',
+        children: [
+            {
+                title: 'Tổng hợp link',
+                href: '/dashboard/links',
+                icon: Users
+            }
+        ],
     }
 ];

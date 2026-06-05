@@ -35,8 +35,8 @@ namespace WebAppAPI.Controllers
                 new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.None,
+                    Secure = false,
+                    SameSite = SameSiteMode.Lax,
                     Expires = DateTimeOffset.UtcNow.AddHours(1),
                     Path = "/",
                 }
@@ -47,7 +47,7 @@ namespace WebAppAPI.Controllers
 
         [Authorize]
         [HttpGet("Profile")]
-        public async Task<ResponseValue<AuthProfile>> GetProfile()
+        public async Task<ResponseValue<UserDTO>> GetProfile()
         {
             var userIdClaim = httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
                 c.Type == "Id"
@@ -56,7 +56,7 @@ namespace WebAppAPI.Controllers
             int userId = int.Parse(userIdClaim.Value);
             var profile = await _authService.GetProfile(userId);
 
-            return new ResponseValue<AuthProfile>(
+            return new ResponseValue<UserDTO>(
                 profile,
                 "Lấy thông tin người dùng thành công",
                 StatusReponse.Success
@@ -86,11 +86,7 @@ namespace WebAppAPI.Controllers
 
         [Authorize]
         [HttpPost("ChangePassword")]
-        public async Task<ResponseValue<string>> ChangePassword(
-            string currentPassword,
-            string newPassword,
-            string confirmPassword
-        )
+        public async Task<ResponseValue<string>> ChangePassword([FromBody] ChangePasswordDTO dto)
         {
             var userIdClaim = httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
                 c.Type == "Id"
@@ -104,10 +100,11 @@ namespace WebAppAPI.Controllers
             int userId = int.Parse(userIdClaim.Value);
             var result = await _authService.ChangePassword(
                 userId,
-                currentPassword,
-                newPassword,
-                confirmPassword
+                dto.CurrentPassword,
+                dto.NewPassword,
+                dto.ConfirmPassword
             );
+
             return new ResponseValue<string>(
                 result,
                 "Đổi mật khẩu thành công",
@@ -134,7 +131,19 @@ namespace WebAppAPI.Controllers
             [FromQuery] DateTime updatedAt
         )
         {
-            var result = await _authService.DeleteAccount(userId, updatedAt);
+            var userIdClaim = httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+
+            if (userIdClaim == null)
+            {
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng");
+            }
+            var result = await _authService.DeleteAccount(
+                userId,
+                updatedAt,
+                int.Parse(userIdClaim.Value)
+            );
             return new ResponseValue<string>(
                 result,
                 "Xóa tài khoản thành công",

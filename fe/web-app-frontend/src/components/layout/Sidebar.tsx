@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { authApi } from '@/features/auth/api/auth.api';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
+import { useAuth } from '@/providers/AuthProviders';
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -19,24 +20,11 @@ export default function Sidebar() {
             ...prev,
             [title]: !prev[title],
         }));
-    };
+    }
     const router = useRouter();
     //lấy profile để hiển thị tên người dùng ở sidebar
-    const [profile, setProfile] = useState<{ name: string, email: string, roles: string, id: number, brandName: string } | null>(null);
-    useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                const response = await authApi.getProfile();
-                console.log(response);
-                setProfile(response.content);
-            } catch (error: any) {
-                toast.error(error?.response?.data?.Message);
-            }
-        };
 
-        fetchProfile();
-    },[]);
-
+    const { profile } = useAuth();
 
     const handleLogout = async () => {
         try {
@@ -77,7 +65,8 @@ export default function Sidebar() {
                 textAlign: 'center',
                 display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center', gap: 1.5, px: 1, pb: 2, mb: 2, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                alignItems: 'center', gap: 1.5, px: 1, pb: 2, mb: 2, borderBottom: '1px solid rgba(255,255,255,0.07)'
+            }}>
                 {/* <Box sx={{ width: 32, height: 32, borderRadius: 2, background: 'linear-gradient(135deg, #22c55e, #16a34a)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, boxShadow: '0 0 16px rgba(34,197,94,0.35)' }}>
                     🌿
                 </Box>

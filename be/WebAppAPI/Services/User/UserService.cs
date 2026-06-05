@@ -4,6 +4,7 @@ using WebAppInfractor.Models;
 
 public interface IUserService
 {
+    Task<List<RoleDTO>> GetAllRoleAsync();
     Task<PagedResult<UserGetAllDTO>> GetAllAsync(
         string? search,
         string? role,
@@ -25,18 +26,21 @@ public class UserService : IUserService
     private readonly IUserRoleRepository _userRoleRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBranchRepository _branchRepository;
+    private readonly IRoleRepository _roleRepository;
 
     public UserService(
         IUserRepository userRepository,
         IUserRoleRepository userRoleRepository,
         IUnitOfWork unitOfWork,
-        IBranchRepository branchRepository
+        IBranchRepository branchRepository,
+        IRoleRepository roleRepository
     )
     {
         _userRepository = userRepository;
         _userRoleRepository = userRoleRepository;
         _unitOfWork = unitOfWork;
         _branchRepository = branchRepository;
+        _roleRepository = roleRepository;
     }
 
     public async Task<PagedResult<UserGetAllDTO>> GetAllAsync(
@@ -92,6 +96,7 @@ public class UserService : IUserService
             .Select(u => new UserGetAllDTO
             {
                 Id = u.User.Id,
+                StaffCode = u.User.StaffCode,
                 Name = u.User.Name,
                 Email = u.User.Email,
                 CreatedAt = u.User.CreatedAt,
@@ -99,6 +104,7 @@ public class UserService : IUserService
                 DeletedAt = u.User.DeletedAt,
                 Phone = u.User.Phone,
                 BranchesName = u.User.Branches.Name,
+                DayOfBirth = u.User.DayOfBirth,
                 Roles = u.Roles,
             })
             .ToListAsync();
@@ -129,22 +135,25 @@ public class UserService : IUserService
         var roles = await _userRoleRepository
             .GetAll()
             .Where(ur => ur.UserId == id)
-            .Select(ur => ur.Role.Name)
+            .Select(ur => new RoleDTO { Id = ur.Role.Id, Name = ur.Role.Name })
             .ToListAsync();
-
         var importHistories = user.ImportsHistories.Select(ih => ih.ImportDate).ToList();
 
         return new UserDTO
         {
             Id = user.Id,
+            StaffCode = user.StaffCode,
             Name = user.Name,
             Email = user.Email,
             Phone = user.Phone,
+            BranchesId = user.BranchesId,
             BranchesName = user.Branches?.Name,
+            DayOfBirth = user.DayOfBirth,
             Roles = roles,
 
             ImportHistories = user
-                .ImportsHistories.Select(ih => new ImportHistoryDTO
+                .ImportsHistories.OrderByDescending(ih => ih.ImportDate)
+                .Select(ih => new ImportHistoryDTO
                 {
                     Id = ih.Id,
                     FileName = ih.FileName,
@@ -186,9 +195,9 @@ public class UserService : IUserService
                     "Dữ liệu đã được cập nhật bởi người dùng khác. Vui lòng tải lại trang và thử lại."
                 );
             }
-            if (user.DayOfBirth.HasValue)
+            if (dto.DayOfBirth.HasValue)
             {
-                var dob = user.DayOfBirth.Value;
+                var dob = dto.DayOfBirth.Value;
 
                 if (dob > DateTime.Now)
                 {
@@ -285,7 +294,6 @@ public class UserService : IUserService
                 Email = user.Email,
                 Phone = user.Phone,
                 BranchesName = user.Branches.Name,
-                Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList(),
                 // TodoTasks = user.TodoTasks.ToList(),
                 ImportHistories = user
                     .ImportsHistories.Select(ih => new ImportHistoryDTO
@@ -311,5 +319,15 @@ public class UserService : IUserService
 
             throw;
         }
+    }
+
+    public async Task<List<RoleDTO>> GetAllRoleAsync()
+    {
+        var roles = await _roleRepository
+            .GetAll()
+            .Select(r => new RoleDTO { Id = r.Id, Name = r.Name })
+            .ToListAsync();
+
+        return roles;
     }
 }

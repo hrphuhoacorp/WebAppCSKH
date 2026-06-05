@@ -4,15 +4,34 @@ import { useEffect, useState } from 'react';
 import { userApi } from '../api/user.api';
 import { Box, Dialog, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, Typography, IconButton, Grid, Paper, Divider, alpha, TableContainer } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
+import { sidebarMenu } from '../../../components/layout/sidebar-menu';
 
 function UserDetailDialog({ open, userId, onClose }: any) {
     const [user, setUser] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (!open || !userId) return;
-        userApi.getUserById(userId).then((res) => {
-            setUser(res.content);
-        });
+        if (!open || !userId) {
+            setUser(null);
+            setLoading(false);
+            return;
+        }
+
+        const fetchUser = async () => {
+            try {
+                setLoading(true);
+
+                const res = await userApi.getUserById(userId);
+                setUser(res.content);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUser();
     }, [open, userId]);
 
     const formatDate = (value?: string | null) => {
@@ -33,28 +52,40 @@ function UserDetailDialog({ open, userId, onClose }: any) {
                 <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
             </DialogTitle>
             <Divider />
-
+            <LoadingOverlay open={loading} text="Đang tải thông tin nhân sự..." />
             <DialogContent sx={{ p: 3 }}>
                 {user && (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                         {/* Khu vực thông tin chi tiết cá nhân */}
                         <Paper variant="outlined" sx={{ p: 2.5, borderRadius: '10px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                             <Grid container spacing={2}>
-                                 <Grid size={{ xs: 12, sm: 6 }}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Mã nhân viên</Typography>
+                                    <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>{user.staffCode}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Họ và tên</Typography>
                                     <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>{user.name}</Typography>
                                 </Grid>
-                                 <Grid size={{ xs: 12, sm: 6 }}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Ngày sinh</Typography>
+                                    <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>{formatDate(user.dayOfBirth)}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Địa chỉ Email</Typography>
                                     <Typography sx={{ fontWeight: 600, color: '#1e293b' }}>{user.email || '-'}</Typography>
                                 </Grid>
-                                 <Grid size={{ xs: 12, sm: 6 }}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Số điện thoại</Typography>
                                     <Typography sx={{ fontWeight: 600, color: '#1e293b' }}>{user.phone || '-'}</Typography>
                                 </Grid>
-                                 <Grid size={{ xs: 12, sm: 6 }}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Chi nhánh trực thuộc</Typography>
                                     <Typography sx={{ fontWeight: 600, color: '#086839' }}>{user.branchesName || '-'}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Vai trò</Typography>
+                                    <Typography sx={{ fontWeight: 600, color: '#086839' }}>{user.roles?.length ? user.roles.map((item: any) => item.name).join(', ') : '-'}</Typography>
                                 </Grid>
                             </Grid>
                         </Paper>

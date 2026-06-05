@@ -14,7 +14,7 @@ export const userApi = {
 
         return response.data;
     },
-      getUserById: async (id: number) => {
+    getUserById: async (id: number) => {
         const response = await api.get(`/User/GetUserByIdAsync/${id}`);
         return response.data;
     },
@@ -25,9 +25,16 @@ export const userApi = {
     },
 
     deleteUser: async (id: number, updatedAt: string) => {
-        const response = await api.delete(`/User/DeleteUserAsync/${id}`, {
+        const response = await api.delete(`/Auth/DeleteAccount?userId=${id}`, {
             params: { updatedAt },
         });
         return response.data;
     },
+
+    getRoles: async () => {
+        const response = await api.get('/User/GetAllRolesAsync');
+        return response.data;
+    },
+
+
 }

@@ -16,6 +16,8 @@ public partial class MemBerContext : DbContext
     {
     }
 
+    public virtual DbSet<ActivityLog> ActivityLogs { get; set; }
+
     public virtual DbSet<Branch> Branches { get; set; }
 
     public virtual DbSet<Customer> Customers { get; set; }
@@ -59,6 +61,51 @@ public partial class MemBerContext : DbContext
             .HasPostgresExtension("extensions", "pgcrypto")
             .HasPostgresExtension("extensions", "uuid-ossp")
             .HasPostgresExtension("vault", "supabase_vault");
+
+        modelBuilder.Entity<ActivityLog>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("activity_logs_pkey");
+
+            entity.ToTable("activity_logs");
+
+            entity.HasIndex(e => e.CreatedAt, "idx_activity_logs_created_at");
+
+            entity.HasIndex(e => e.StaffCode, "idx_activity_logs_staff_code");
+
+            entity.HasIndex(e => new { e.TableName, e.RecordId }, "idx_activity_logs_table_record");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Action)
+                .HasMaxLength(50)
+                .HasColumnName("action");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.IpAddress)
+                .HasMaxLength(45)
+                .HasColumnName("ip_address");
+            entity.Property(e => e.NewData)
+                .HasColumnType("jsonb")
+                .HasColumnName("new_data");
+            entity.Property(e => e.OldData)
+                .HasColumnType("jsonb")
+                .HasColumnName("old_data");
+            entity.Property(e => e.RecordId).HasColumnName("record_id");
+            entity.Property(e => e.StaffCode)
+                .HasMaxLength(50)
+                .HasColumnName("staff_code");
+            entity.Property(e => e.TableName)
+                .HasMaxLength(100)
+                .HasColumnName("table_name");
+            entity.Property(e => e.UserAgent).HasColumnName("user_agent");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.User).WithMany(p => p.ActivityLogs)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("activity_logs_user_id_fkey");
+        });
 
         modelBuilder.Entity<Branch>(entity =>
         {
@@ -411,6 +458,8 @@ public partial class MemBerContext : DbContext
 
             entity.HasIndex(e => e.Email, "users_email_key").IsUnique();
 
+            entity.HasIndex(e => e.StaffCode, "users_staff_code_key").IsUnique();
+
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.BranchesId).HasColumnName("branches_id");
             entity.Property(e => e.CreatedAt)
@@ -435,6 +484,9 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Phone)
                 .HasMaxLength(255)
                 .HasColumnName("phone");
+            entity.Property(e => e.StaffCode)
+                .HasMaxLength(50)
+                .HasColumnName("staff_code");
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")

@@ -25,6 +25,10 @@ public partial class User
 
     public DateTime? DayOfBirth { get; set; }
 
+    public string? StaffCode { get; set; }
+
+    public virtual ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
+
     public virtual Branch? Branches { get; set; }
 
     public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();

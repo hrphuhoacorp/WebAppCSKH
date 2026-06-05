@@ -20,23 +20,26 @@ import {
     TextField,
     Typography,
     alpha,
+    Tooltip,
 } from '@mui/material';
-import { Search, Edit, Delete, Visibility } from '@mui/icons-material';
+import { Search, Edit, Delete, Visibility, PersonSearch, FilterList } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { userApi } from '@/features/user/api/user.api';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import UserDetailDialog from '@/features/user/components/UserDetailDialog';
-// import EditUserDialog from '@/features/user/components/EditUserDialog';
 import DeleteUserDialog from '@/features/user/components/DeleteUserDialog';
+import EditUserDialog from '@/features/user/components/EditUserDialog';
 
 type UserRow = {
     id: number;
+    staffCode: string;
     name: string;
     email: string;
     phone: string;
     branchesName: string;
     branchesId: number;
+    dayOfBirth: string;
     roles: string[];
     roleIds: number[];
     createdAt: string;
@@ -44,6 +47,12 @@ type UserRow = {
 };
 
 const roleOptions = ['Admin', 'Manager', 'Staff'];
+
+const ROLE_COLOR: Record<string, { bg: string; color: string; border: string }> = {
+    Admin: { bg: '#fef3c7', color: '#b45309', border: '#fde68a' },
+    Manager: { bg: '#ede9fe', color: '#7c3aed', border: '#ddd6fe' },
+    Staff: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+};
 
 export default function UsersPage() {
     const [users, setUsers] = useState<UserRow[]>([]);
@@ -107,29 +116,125 @@ export default function UsersPage() {
         }
     };
 
-    useEffect(() => {
-        fetchBranches();
-    }, []);
+    useEffect(() => { fetchBranches(); }, []);
+    useEffect(() => { fetchUsers(); }, [page, pageSize, debouncedSearch, role, branchId]);
 
-    useEffect(() => {
-        fetchUsers();
-    }, [page, pageSize, debouncedSearch, role, branchId]);
+    const hasActiveFilter = !!debouncedSearch || !!role || !!branchId;
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f8fafc', overflow: 'hidden' }}>
+        <Box
+            sx={{
+                p: { xs: 2, md: 4 },
+                height: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: '#f0f7f3',
+                backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
+                overflow: 'hidden',
+            }}
+        >
             <LoadingOverlay open={loading} text="Đang tải danh sách nhân sự..." />
 
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="h4" sx={{ fontWeight: 800, color: '#086839', letterSpacing: '-0.75px' }}>
-                    Danh Sách Nhân Sự
-                </Typography>
-                <Typography sx={{ color: '#64748b', fontWeight: 500, fontSize: '0.95rem', mt: 0.5 }}>
-                    Theo dõi thông tin nhân sự, phân quyền và chi nhánh làm việc trong hệ thống
-                </Typography>
+            {/* ── Page Header ── */}
+            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                <Box>
+                    <Typography
+                        variant="h4"
+                        sx={{
+                            fontWeight: 800,
+                            color: '#086839',
+                            letterSpacing: '-0.5px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
+                        }}
+                    >
+                        <Box
+                            component="span"
+                            sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 38,
+                                height: 38,
+                                borderRadius: '10px',
+                                bgcolor: '#66bb92',
+                                color: '#fff',
+                                fontSize: 20,
+                                flexShrink: 0,
+                            }}
+                        >
+                            👥
+                        </Box>
+                        Danh Sách Nhân Sự
+                    </Typography>
+                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
+                        Theo dõi thông tin nhân sự, phân quyền và chi nhánh trong hệ thống
+                    </Typography>
+                </Box>
+
+                {/* Total badge */}
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        bgcolor: '#fff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        px: 2,
+                        py: 1,
+                        boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
+                    }}
+                >
+                    <Box
+                        sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: '#22c55e',
+                            boxShadow: '0 0 0 3px rgba(34,197,94,0.2)',
+                        }}
+                    />
+                    <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
+                        {total.toLocaleString('vi-VN')} nhân sự
+                    </Typography>
+                </Box>
             </Box>
 
-            {/* Thanh Bộ Lọc */}
-            <Paper elevation={0} sx={{ p: 2.5, borderRadius: '14px', mb: 3, border: '1px solid #e2e8f0', bgcolor: 'white' }}>
+            {/* ── Filter Bar ── */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 2.5,
+                    borderRadius: '20px',
+                    mb: 2.5,
+                    border: '1px solid #e2e8f0',
+                    bgcolor: '#fff',
+                    boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <FilterList sx={{ color: '#086839', fontSize: 18 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>
+                        Bộ lọc
+                    </Typography>
+                    {hasActiveFilter && (
+                        <Chip
+                            label="Đang lọc"
+                            size="small"
+                            sx={{
+                                bgcolor: '#dcfce7',
+                                color: '#15803d',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                height: 20,
+                                border: '1px solid #bbf7d0',
+                            }}
+                        />
+                    )}
+                </Box>
+
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr' }, gap: 2 }}>
                     <TextField
                         size="small"
@@ -146,7 +251,13 @@ export default function UsersPage() {
                                 ),
                             },
                         }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '12px',
+                                '&.Mui-focused fieldset': { borderColor: '#086839' },
+                            },
+                            '& label.Mui-focused': { color: '#086839' },
+                        }}
                     />
 
                     <TextField
@@ -155,10 +266,18 @@ export default function UsersPage() {
                         label="Vai trò"
                         value={role}
                         onChange={(e) => { setRole(e.target.value); setPage(0); }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '12px',
+                                '&.Mui-focused fieldset': { borderColor: '#086839' },
+                            },
+                            '& label.Mui-focused': { color: '#086839' },
+                        }}
                     >
                         <MenuItem value="">Tất cả vai trò</MenuItem>
-                        {roleOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                        {roleOptions.map((item) => (
+                            <MenuItem key={item} value={item}>{item}</MenuItem>
+                        ))}
                     </TextField>
 
                     <TextField
@@ -167,21 +286,71 @@ export default function UsersPage() {
                         label="Chi nhánh"
                         value={branchId}
                         onChange={(e) => { setBranchId(e.target.value ? Number(e.target.value) : ''); setPage(0); }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: '12px',
+                                '&.Mui-focused fieldset': { borderColor: '#086839' },
+                            },
+                            '& label.Mui-focused': { color: '#086839' },
+                        }}
                     >
                         <MenuItem value="">Tất cả chi nhánh</MenuItem>
-                        {branchOptions.map((item) => <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>)}
+                        {branchOptions.map((item) => (
+                            <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                        ))}
                     </TextField>
                 </Box>
             </Paper>
 
-            {/* Bảng dữ liệu */}
-            <TableContainer component={Paper} elevation={0} sx={{ flex: 1, minHeight: 0, borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'auto', bgcolor: 'white' }}>
+            {/* ── Table ── */}
+            <TableContainer
+                component={Paper}
+                elevation={0}
+                sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    borderRadius: '20px',
+                    border: '1px solid #e2e8f0',
+                    overflow: 'auto',
+                    bgcolor: '#fff',
+                    boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
+                    '&::-webkit-scrollbar': { width: 6, height: 6 },
+                    '&::-webkit-scrollbar-track': { bgcolor: '#f8fafc' },
+                    '&::-webkit-scrollbar-thumb': {
+                        bgcolor: '#cbd5e1',
+                        borderRadius: 3,
+                        '&:hover': { bgcolor: '#94a3b8' },
+                    },
+                }}
+            >
                 <Table stickyHeader size="medium">
                     <TableHead>
                         <TableRow>
-                            {['Tên nhân sự', 'Email', 'Số điện thoại', 'Vai trò', 'Chi nhánh', 'Ngày tạo', 'Thao tác'].map((label) => (
-                                <TableCell key={label} sx={{ bgcolor: '#f1f5f9', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', py: 2 }}>
+                            {[
+                                'Mã nhân viên',
+                                'Tên nhân sự',
+                                'Email',
+                                'Số điện thoại',
+                                'Ngày sinh',
+                                'Vai trò',
+                                'Chi nhánh',
+                                'Ngày tạo',
+                                'Thao tác',
+                            ].map((label) => (
+                                <TableCell
+                                    key={label}
+                                    sx={{
+                                        bgcolor: '#f8fafc',
+                                        color: '#475569',
+                                        fontWeight: 700,
+                                        whiteSpace: 'nowrap',
+                                        fontSize: 12,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.6px',
+                                        py: 1.75,
+                                        borderBottom: '2px solid #e2e8f0',
+                                    }}
+                                >
                                     {label}
                                 </TableCell>
                             ))}
@@ -189,33 +358,173 @@ export default function UsersPage() {
                     </TableHead>
 
                     <TableBody>
-                        {users.map((user) => (
-                            <TableRow key={user.id} hover sx={{ '&:hover': { bgcolor: '#f8fafc !important' } }}>
-                                <TableCell sx={{ fontWeight: 700, color: '#086839' }}>{user.name}</TableCell>
-                                <TableCell sx={{ color: '#334155' }}>{user.email || '-'}</TableCell>
-                                <TableCell sx={{ color: '#334155' }}>{user.phone || '-'}</TableCell>
+                        {users.map((user, index) => (
+                            <TableRow
+                                key={user.id}
+                                sx={{
+                                    bgcolor: index % 2 === 0 ? '#fff' : '#fafcfb',
+                                    '&:hover': {
+                                        bgcolor: '#f0fdf4 !important',
+                                        '& .action-btn': { opacity: 1 },
+                                    },
+                                    transition: 'background-color 0.15s',
+                                }}
+                            >
+                                {/* Mã nhân viên */}
                                 <TableCell>
-                                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                                        {user.roles?.length ? user.roles.map((item) => (
-                                            <Chip key={item} label={item} size="small" sx={{ bgcolor: alpha('#086839', 0.06), color: '#086839', fontWeight: 600, border: `1px solid ${alpha('#086839', 0.15)}`, borderRadius: '6px' }} />
-                                        )) : '-'}
+                                    <Typography
+                                        sx={{
+                                            fontWeight: 700,
+                                            fontSize: 13,
+                                            color: '#475569',
+                                            fontFamily: 'monospace',
+                                            bgcolor: '#f1f5f9',
+                                            px: 1,
+                                            py: 0.4,
+                                            borderRadius: '6px',
+                                            display: 'inline-block',
+                                        }}
+                                    >
+                                        {user.staffCode}
+                                    </Typography>
+                                </TableCell>
+
+                                {/* Tên */}
+                                <TableCell>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box
+                                            sx={{
+                                                width: 32,
+                                                height: 32,
+                                                borderRadius: '10px',
+                                                bgcolor: alpha('#086839', 0.1),
+                                                color: '#086839',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontWeight: 800,
+                                                fontSize: 13,
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            {user.name?.charAt(0)}
+                                        </Box>
+                                        <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 14, whiteSpace: 'nowrap' }}>
+                                            {user.name}
+                                        </Typography>
+                                    </Box>
+                                </TableCell>
+
+                                <TableCell sx={{ color: '#475569', fontSize: 13 }}>{user.email || '-'}</TableCell>
+                                <TableCell sx={{ color: '#475569', fontSize: 13, whiteSpace: 'nowrap' }}>{user.phone || '-'}</TableCell>
+                                <TableCell sx={{ color: '#64748b', fontSize: 13, whiteSpace: 'nowrap' }}>{formatDate(user.dayOfBirth)}</TableCell>
+
+                                {/* Vai trò */}
+                                <TableCell>
+                                    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                                        {user.roles?.length
+                                            ? user.roles.map((r) => {
+                                                const c = ROLE_COLOR[r] ?? { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
+                                                return (
+                                                    <Chip
+                                                        key={r}
+                                                        label={r}
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: c.bg,
+                                                            color: c.color,
+                                                            fontWeight: 700,
+                                                            fontSize: 11,
+                                                            border: `1px solid ${c.border}`,
+                                                            borderRadius: '6px',
+                                                            height: 22,
+                                                        }}
+                                                    />
+                                                );
+                                            })
+                                            : <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>-</Typography>
+                                        }
                                     </Stack>
                                 </TableCell>
+
+                                {/* Chi nhánh */}
                                 <TableCell>
-                                    <Chip label={user.branchesName || '-'} size="small" sx={{ bgcolor: alpha('#2563eb', 0.06), color: '#2563eb', fontWeight: 600, border: `1px solid ${alpha('#2563eb', 0.15)}`, borderRadius: '6px' }} />
+                                    <Chip
+                                        label={user.branchesName || '-'}
+                                        size="small"
+                                        sx={{
+                                            bgcolor: alpha('#2563eb', 0.06),
+                                            color: '#2563eb',
+                                            fontWeight: 600,
+                                            fontSize: 11,
+                                            border: `1px solid ${alpha('#2563eb', 0.15)}`,
+                                            borderRadius: '6px',
+                                            height: 22,
+                                            whiteSpace: 'nowrap',
+                                        }}
+                                    />
                                 </TableCell>
-                                <TableCell sx={{ color: '#64748b' }}>{formatDate(user.createdAt)}</TableCell>
+
+                                <TableCell sx={{ color: '#94a3b8', fontSize: 13, whiteSpace: 'nowrap' }}>
+                                    {formatDate(user.createdAt)}
+                                </TableCell>
+
+                                {/* Thao tác */}
                                 <TableCell>
-                                    <Stack direction="row" spacing={1}>
-                                        <IconButton size="small" title="Xem chi tiết" sx={{ color: '#64748b', '&:hover': { color: '#086839', bgcolor: alpha('#086839', 0.08) } }} onClick={() => { setSelectedUser(user); setDetailOpen(true); }}>
-                                            <Visibility fontSize="small" />
-                                        </IconButton>
-                                        <IconButton size="small" title="Sửa" sx={{ color: '#64748b', '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) } }} onClick={() => { setSelectedUser(user); setEditOpen(true); }}>
-                                            <Edit fontSize="small" />
-                                        </IconButton>
-                                        <IconButton size="small" title="Xóa" sx={{ color: '#64748b', '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) } }} onClick={() => { setSelectedUser(user); setDeleteOpen(true); }}>
-                                            <Delete fontSize="small" />
-                                        </IconButton>
+                                    <Stack direction="row" spacing={0.5}>
+                                        <Tooltip title="Xem chi tiết" arrow>
+                                            <IconButton
+                                                size="small"
+                                                className="action-btn"
+                                                sx={{
+                                                    color: '#94a3b8',
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: '8px',
+                                                    '&:hover': { color: '#086839', bgcolor: alpha('#086839', 0.08) },
+                                                    transition: 'all 0.15s',
+                                                }}
+                                                onClick={() => { setSelectedUser(user); setDetailOpen(true); }}
+                                            >
+                                                <Visibility sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                        </Tooltip>
+
+                                        <Tooltip title="Chỉnh sửa" arrow>
+                                            <IconButton
+                                                size="small"
+                                                className="action-btn"
+                                                sx={{
+                                                    color: '#94a3b8',
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: '8px',
+                                                    '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) },
+                                                    transition: 'all 0.15s',
+                                                }}
+                                                onClick={() => { setSelectedUser(user); setEditOpen(true); }}
+                                            >
+                                                <Edit sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                        </Tooltip>
+
+                                        <Tooltip title="Xóa" arrow>
+                                            <IconButton
+                                                size="small"
+                                                className="action-btn"
+                                                sx={{
+                                                    color: '#94a3b8',
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: '8px',
+                                                    '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) },
+                                                    transition: 'all 0.15s',
+                                                }}
+                                                onClick={() => { setSelectedUser(user); setDeleteOpen(true); }}
+                                            >
+                                                <Delete sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                        </Tooltip>
                                     </Stack>
                                 </TableCell>
                             </TableRow>
@@ -223,8 +532,28 @@ export default function UsersPage() {
 
                         {!users.length && !loading && (
                             <TableRow>
-                                <TableCell colSpan={7} align="center" sx={{ py: 8, color: '#64748b' }}>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>Không tìm thấy nhân sự nào tương thích</Typography>
+                                <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+                                        <Box
+                                            sx={{
+                                                width: 56,
+                                                height: 56,
+                                                borderRadius: '16px',
+                                                bgcolor: '#f1f5f9',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            <PersonSearch sx={{ fontSize: 28, color: '#94a3b8' }} />
+                                        </Box>
+                                        <Typography sx={{ fontWeight: 700, color: '#64748b', fontSize: 15 }}>
+                                            Không tìm thấy nhân sự nào
+                                        </Typography>
+                                        <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>
+                                            Thử thay đổi bộ lọc hoặc từ khoá tìm kiếm
+                                        </Typography>
+                                    </Box>
                                 </TableCell>
                             </TableRow>
                         )}
@@ -232,21 +561,53 @@ export default function UsersPage() {
                 </Table>
             </TableContainer>
 
-            <TablePagination
-                component="div"
-                count={total}
-                page={page}
-                rowsPerPage={pageSize}
-                onPageChange={(_, newPage) => setPage(newPage)}
-                onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-                labelRowsPerPage="Số dòng hiển thị:"
-                sx={{ bgcolor: 'white', borderTop: '1px solid #e2e8f0' }}
-            />
+            {/* ── Pagination ── */}
+            <Box
+                sx={{
+                    bgcolor: '#fff',
+                    border: '1px solid #e2e8f0',
+                    borderTop: 'none',
+                    borderRadius: '0 0 20px 20px',
+                    overflow: 'hidden',
+                }}
+            >
+                <TablePagination
+                    component="div"
+                    count={total}
+                    page={page}
+                    rowsPerPage={pageSize}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+                    labelRowsPerPage="Số dòng:"
+                    sx={{
+                        '& .MuiTablePagination-toolbar': { minHeight: 48 },
+                        '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                            fontSize: 13,
+                            color: '#64748b',
+                        },
+                    }}
+                />
+            </Box>
 
-            {/* Các Dialog được gọi điều hướng */}
-            <UserDetailDialog open={detailOpen} userId={selectedUser?.id ?? null} onClose={() => { setDetailOpen(false); setSelectedUser(null); }} />
-            {/* <EditUserDialog open={editOpen} user={selectedUser} branchOptions={branchOptions} onClose={() => { setEditOpen(false); setSelectedUser(null); }} onSuccess={fetchUsers} /> */}
-            <DeleteUserDialog open={deleteOpen} user={selectedUser} onClose={() => { setDeleteOpen(false); setSelectedUser(null); }} onSuccess={fetchUsers} />
+            {/* ── Dialogs ── */}
+            <UserDetailDialog
+                open={detailOpen}
+                userId={selectedUser?.id ?? null}
+                onClose={() => { setDetailOpen(false); setSelectedUser(null); }}
+            />
+            <EditUserDialog
+                open={editOpen}
+                userId={selectedUser?.id}
+                branchOptions={branchOptions}
+                onClose={() => { setEditOpen(false); setSelectedUser(null); }}
+                onSuccess={fetchUsers}
+            />
+            <DeleteUserDialog
+                open={deleteOpen}
+                user={selectedUser}
+                onClose={() => { setDeleteOpen(false); setSelectedUser(null); }}
+                onSuccess={fetchUsers}
+            />
         </Box>
     );
 }

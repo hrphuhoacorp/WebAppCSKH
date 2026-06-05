@@ -4,6 +4,7 @@ import { CssBaseline, ThemeProvider } from '@mui/material';
 
 import { Toaster } from 'react-hot-toast';
 import { theme } from '../theme/theme';
+import { AuthProvider } from './AuthProviders';
 
 export default function AppProviders({
     children,
@@ -11,10 +12,12 @@ export default function AppProviders({
     children: React.ReactNode;
 }) {
     return (
-        <ThemeProvider theme={theme}>
-            <CssBaseline />
-            {children}
-            <Toaster position="top-right" />
-        </ThemeProvider>
+        <AuthProvider>
+            <ThemeProvider theme={theme}>
+                <CssBaseline />
+                {children}
+                <Toaster position="top-right" />
+            </ThemeProvider>
+        </AuthProvider>
     );
 }
