@@ -1,4 +1,5 @@
 import Sidebar from '@/components/layout/Sidebar';
+import ProtectedRoute from '@/providers/ProtectedRoute';
 
 export default function DashboardLayout({
     children,
@@ -6,21 +7,23 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div
-            style={{
-                display: 'flex',
-                minHeight: '100vh',
-            }}
-        >
-            <Sidebar />
-
-            <main
+        <ProtectedRoute>
+            <div
                 style={{
-                    flex: 1,
+                    display: 'flex',
+                    minHeight: '100vh',
                 }}
             >
-                {children}
-            </main>
-        </div>
+                <Sidebar />
+
+                <main
+                    style={{
+                        flex: 1,
+                    }}
+                >
+                    {children}
+                </main>
+            </div>
+        </ProtectedRoute>
     );
 }
