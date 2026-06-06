@@ -1,0 +1,96 @@
+name: Deploy .NET API to VPS Docker
+
+# Cấu hình kích hoạt: Tự chạy khi push code vào nhánh main
+on:
+  push:
+    branches: [ "main" ]
+
+# Định nghĩa các biến môi trường dùng chung
+env:
+  REGISTRY: ghcr.io
+  # Chuyển tên repository về chữ thường để làm tên Docker Image (Ví dụ: ghcr.io/username/repo-name)
+  IMAGE_NAME: ${{ github.repository }} 
+  CONTAINER_NAME: my-backend-api
+  PORT_HOST: 10000
+  PORT_CONTAINER: 10000
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: actions/buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+
+      # Tiến hành Build và Push Docker Image lên GitHub Packages
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./be # Đổi từ . thành ./be (để lấy ngữ cảnh build trong thư mục be)
+          file: ./be/Dockerfile # Đổi từ ./Dockerfile thành ./be/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push # Chờ bước build hoàn thành mới chạy bước này
+
+    steps:
+      - name: Executing remote ssh commands to deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          # Nếu bạn dùng SSH Key thì mở dòng dưới và comment dòng password ở trên lại
+          # key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # 1. Đăng nhập vào GitHub Registry ngay trên VPS để có quyền tải Image về
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+            
+            # 2. Xóa Container cũ nếu đang chạy để giải phóng Port
+            if [ "$(docker ps -a -q -f name=${{ env.CONTAINER_NAME }})" ]; then
+                echo "Stopping and removing existing container..."
+                docker rm -f ${{ env.CONTAINER_NAME }}
+            fi
+            
+            # 3. Kéo (Pull) Docker Image mới nhất vừa được build từ GitHub về VPS
+            echo "Pulling latest docker image..."
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            
+            # 4. Khởi chạy Container mới với Image vừa kéo về
+            echo "Starting new container..."
+            docker run -d \
+              --name ${{ env.CONTAINER_NAME }} \
+              -p ${{ env.PORT_HOST }}:${{ env.PORT_CONTAINER }} \
+              --network=host \
+              --restart always \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+              
+            # 5. Dọn dẹp các Docker Image cũ bị thừa (Dangling Images) để tránh đầy ổ cứng VPS
+            echo "Cleaning up old unused images..."
+            docker image prune -f
