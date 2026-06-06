@@ -18,17 +18,18 @@ import {
     Avatar,
     Divider,
 } from '@mui/material';
-import { BarChart, LineChart, PieChart } from '@mui/x-charts';
+import { BarChart, PieChart } from '@mui/x-charts';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
-import { ordersApi } from '@/features/orders/api/orders.api'; // Import ordersApi để lấy chi nhánh
+import { ordersApi } from '@/features/orders/api/orders.api';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import CakeIcon from '@mui/icons-material/Cake';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import FilterListIcon from '@mui/icons-material/FilterList';
 
 export default function DashboardPage() {
     const [loading, setLoading] = useState(false);
@@ -38,34 +39,17 @@ export default function DashboardPage() {
     const [year, setYear] = useState('');
     const [source, setSource] = useState('');
     const [branchId, setBranchId] = useState('');
-    const [branches, setBranches] = useState<any[]>([]); // State lưu danh sách chi nhánh từ API
+    const [branches, setBranches] = useState<any[]>([]);
     const [dashboard, setDashboard] = useState<any>(null);
-
-    const palette = {
-        primary: '#6366f1',
-        primaryLight: '#818cf8',
-        secondary: '#ec4899',
-        gold: '#f59e0b',
-        success: '#10b981',
-        info: '#0ea5e9',
-        surface: '#f3f4f6',
-        surfaceCard: '#ffffff',
-        border: '#e5e7eb',
-        text: '#1f2937',
-        textMuted: '#6b7280',
-        chartColors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#F9CA24', '#F0932B', '#6AB04C', '#E056FD', '#22A6B3'],
-    };
 
     const formatMoney = (value: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value ?? 0);
 
-    // Gọi API lấy danh sách chi nhánh khi component mount
     const fetchBranches = async () => {
         try {
             const response = await ordersApi.getBranches();
-            // Xử lý dữ liệu linh hoạt nếu API bọc trong thuộc tính content hoặc trả về mảng trực tiếp
             setBranches(response.content || response || []);
-        } catch (error) {
+        } catch {
             toast.error('Không tải được danh sách chi nhánh');
         }
     };
@@ -89,104 +73,125 @@ export default function DashboardPage() {
         }
     };
 
-    useEffect(() => {
-        fetchBranches();
-    }, []);
+    useEffect(() => { fetchBranches(); }, []);
+    useEffect(() => { fetchDashboard(); }, [fromDate, toDate, month, year, source, branchId]);
 
-    useEffect(() => {
-        fetchDashboard();
-    }, [fromDate, toDate, month, year, source, branchId]);
-
-    const cardSx = {
-        background: palette.surfaceCard,
-        border: `1px solid ${palette.border}`,
-        borderRadius: 4,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        '&:hover': {
-            boxShadow: '0 12px 28px rgba(0,0,0,0.08)',
-            transform: 'translateY(-4px)',
-        },
-    };
+    const hasFilter = fromDate || toDate || month || year || source || branchId;
 
     return (
-        <Box sx={{ minHeight: '100vh', background: palette.surface, p: { xs: 2, md: 4 } }}>
+        <Box
+            sx={{
+                minHeight: '100vh',
+                bgcolor: '#f0f7f3',
+                backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
+                p: { xs: 2, md: 4 },
+            }}
+        >
             <LoadingOverlay open={loading} fullScreen text="Đang tải dashboard..." />
 
-            {/* ─── Header ─── */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+            {/* ── Header ── */}
+            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
                 <Box>
                     <Typography
                         variant="h4"
                         sx={{
                             fontWeight: 800,
-                            background: `#086839`,
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            letterSpacing: '-0.02em',
-                            lineHeight: 1.2
+                            color: '#086839',
+                            letterSpacing: '-0.5px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
                         }}
                     >
+                        <Box
+                            component="span"
+                            sx={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 38,
+                                height: 38,
+                                borderRadius: '10px',
+                                bgcolor: '#086839',
+                                color: '#fff',
+                                fontSize: 20,
+                                flexShrink: 0,
+                            }}
+                        >
+                            📊
+                        </Box>
                         Dashboard
                     </Typography>
-                    <Typography sx={{ color: palette.textMuted, fontSize: 14, mt: 0.5, fontWeight: 500 }}>
-                        Báo cáo kinh doanh tổng quan
+                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
+                        Báo cáo kinh doanh tổng quan theo thời gian thực
                     </Typography>
                 </Box>
-
-              
             </Box>
 
-            {/* ─── Filters Thanh Bộ Lọc Toàn Diện ─── */}
-            <Paper sx={{ p: 3, mb: 4, ...cardSx }} elevation={0}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' }, gap: 2 }}>
-                    <TextField
-                        size="small" type="date" label="Từ ngày"
-                        value={fromDate} onChange={(e) => setFromDate(e.target.value)}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        fullWidth
-                    />
-                    <TextField
-                        size="small" type="date" label="Đến ngày"
-                        value={toDate} onChange={(e) => setToDate(e.target.value)}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        fullWidth
-                    />
-                    <TextField
-                        select size="small" label="Tháng"
-                        value={month} onChange={(e) => setMonth(e.target.value)}
-                        fullWidth
-                    >
+            {/* ── Filter Bar ── */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 2.5,
+                    borderRadius: '20px',
+                    mb: 3,
+                    border: '1px solid #e2e8f0',
+                    bgcolor: '#fff',
+                    boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <FilterListIcon sx={{ color: '#086839', fontSize: 18 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>Bộ lọc</Typography>
+                    {hasFilter && (
+                        <Chip
+                            label="Đang lọc"
+                            size="small"
+                            sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }}
+                        />
+                    )}
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(6,1fr)' }, gap: 2 }}>
+                    {[
+                        { label: 'Từ ngày', type: 'date', value: fromDate, onChange: setFromDate },
+                        { label: 'Đến ngày', type: 'date', value: toDate, onChange: setToDate },
+                    ].map(({ label, type, value, onChange }) => (
+                        <TextField
+                            key={label}
+                            size="small"
+                            type={type}
+                            label={label}
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            fullWidth
+                            sx={filterFieldSx}
+                        />
+                    ))}
+
+                    <TextField select size="small" label="Tháng" value={month} onChange={(e) => setMonth(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả tháng</MenuItem>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                             <MenuItem key={m} value={m}>Tháng {m}</MenuItem>
                         ))}
                     </TextField>
-                    <TextField
-                        select size="small" label="Năm"
-                        value={year} onChange={(e) => setYear(e.target.value)}
-                        fullWidth
-                    >
+
+                    <TextField select size="small" label="Năm" value={year} onChange={(e) => setYear(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả năm</MenuItem>
                         {[2024, 2025, 2026, 2027].map((y) => (
                             <MenuItem key={y} value={y}>Năm {y}</MenuItem>
                         ))}
                     </TextField>
-                    <TextField
-                        select size="small" label="Nguồn khách"
-                        value={source} onChange={(e) => setSource(e.target.value)}
-                        fullWidth
-                    >
+
+                    <TextField select size="small" label="Nguồn khách" value={source} onChange={(e) => setSource(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả các nguồn</MenuItem>
                         {['Zalo', 'Facebook', 'GrabMark', 'ShopeeFood'].map((s) => (
                             <MenuItem key={s} value={s}>{s}</MenuItem>
                         ))}
                     </TextField>
-                    <TextField
-                        select size="small" label="Chi nhánh"
-                        value={branchId} onChange={(e) => setBranchId(e.target.value)}
-                        fullWidth
-                    >
+
+                    <TextField select size="small" label="Chi nhánh" value={branchId} onChange={(e) => setBranchId(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả chi nhánh</MenuItem>
                         {branches.map((b: any) => (
                             <MenuItem key={b.id || b.branchId} value={b.id || b.branchId}>
@@ -199,134 +204,174 @@ export default function DashboardPage() {
 
             {dashboard && (
                 <>
-                    {/* ─── KPI Cards ─── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 2.5, mb: 4 }}>
-                        <KpiCard title="Tổng đơn hàng" value={dashboard.totalOrders}
-                            icon={<ShoppingCartIcon sx={{ fontSize: 24, color: '#fff' }} />}
-                            gradient="linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%)" palette={palette} />
-
-                        <KpiCard title="Tổng khách hàng" value={dashboard.totalCustomers}
-                            icon={<PeopleAltIcon sx={{ fontSize: 24, color: '#fff' }} />}
-                            gradient="linear-gradient(135deg, #4ECDC4 0%, #6EE7E7 100%)" palette={palette} />
-
-                        <KpiCard title="Tổng doanh thu" value={formatMoney(dashboard.totalRevenue)}
-                            icon={<MonetizationOnIcon sx={{ fontSize: 24, color: '#fff' }} />}
-                            gradient="linear-gradient(135deg, #F9CA24 0%, #F6E58D 100%)" palette={palette} />
-
-                        <KpiCard title="Trung bình / đơn" value={formatMoney(dashboard.averageOrderValue)}
-                            icon={<TrendingUpIcon sx={{ fontSize: 24, color: '#fff' }} />}
-                            gradient="linear-gradient(135deg, #E056FD 0%, #BE2EDD 100%)" palette={palette} />
+                    {/* ── KPI Cards ── */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4,1fr)' }, gap: 2.5, mb: 3 }}>
+                        <KpiCard
+                            title="Tổng đơn hàng"
+                            value={dashboard.totalOrders}
+                            icon={<ShoppingCartIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            color="#ef4444"
+                            lightColor="#fee2e2"
+                        />
+                        <KpiCard
+                            title="Tổng khách hàng"
+                            value={dashboard.totalCustomers}
+                            icon={<PeopleAltIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            color="#0ea5e9"
+                            lightColor="#e0f2fe"
+                        />
+                        <KpiCard
+                            title="Tổng doanh thu"
+                            value={formatMoney(dashboard.totalRevenue)}
+                            icon={<MonetizationOnIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            color="#086839"
+                            lightColor="#dcfce7"
+                        />
+                        <KpiCard
+                            title="Trung bình / đơn"
+                            value={formatMoney(dashboard.averageOrderValue)}
+                            icon={<TrendingUpIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            color="#8b5cf6"
+                            lightColor="#ede9fe"
+                        />
                     </Box>
 
-                    {/* ─── Revenue + Order Status ─── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3, mb: 4 }}>
-                        <Paper sx={{ ...cardSx, p: 3.5 }} elevation={0}>
-                            <SectionLabel title="Biểu đồ doanh thu theo tháng" palette={palette} />
-                            <LineChart
-                                height={320}
-                                colors={[palette.primary]}
+                    {/* ── Revenue Bar Chart + Order Status Pie ── */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3, mb: 3 }}>
+                        <ChartCard title="Doanh thu theo tháng" icon="📈">
+                            <BarChart
+                                height={300}
+                                colors={['#086839']}
+                                borderRadius={8}
                                 xAxis={[{
-                                    scaleType: 'point',
-                                    data: dashboard.revenueByMonth.map((x: any) => `Tháng ${x.month}`),
+                                    scaleType: 'band',
+                                    data: dashboard.revenueByMonth.map((x: any) => `T${x.month}`),
+                                    tickLabelStyle: { fontSize: 12, fill: '#64748b' },
+                                }]}
+                                yAxis={[{
+                                    tickLabelStyle: { fontSize: 11, fill: '#94a3b8' },
                                 }]}
                                 series={[{
                                     data: dashboard.revenueByMonth.map((x: any) => x.revenue),
-                                    label: 'Doanh thu',
-                                    area: true,
-                                    showMark: true,
-                                    curve: 'catmullRom',
+                                    label: 'Doanh thu (VNĐ)',
+                                    valueFormatter: (v) => formatMoney(v ?? 0),
                                 }]}
                                 sx={{
-                                    '.MuiLineElement-root': { strokeWidth: 3 },
+                                    '.MuiBarElement-root': {
+                                        fill: 'url(#greenGrad)',
+                                    },
+                                    '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
+                                    '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
                                 }}
                             />
-                        </Paper>
+                        </ChartCard>
 
-                        <Paper sx={{ ...cardSx, p: 3.5 }} elevation={0}>
-                            <SectionLabel title="Phân bổ trạng thái đơn" palette={palette} />
+                        <ChartCard title="Phân bổ trạng thái đơn" icon="🥧">
                             <PieChart
-                                height={320}
-                                colors={palette.chartColors}
+                                height={300}
+                                colors={['#086839', '#22c55e', '#86efac', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']}
                                 series={[{
-                                    data: dashboard.ordersByStatus.map((x: any, i: number) => {
-                                        const visualValue = (x.value > 0 && x.value < 50) ? 80 : x.value;
-                                        return {
-                                            id: i,
-                                            value: visualValue,
-                                            label: `${x.name} (${x.value})`,
-                                        };
-                                    }),
-                                    innerRadius: 65,
-                                    outerRadius: 110,
+                                    data: dashboard.ordersByStatus.map((x: any, i: number) => ({
+                                        id: i,
+                                        value: x.value > 0 && x.value < 50 ? 80 : x.value,
+                                        label: `${x.name} (${x.value})`,
+                                    })),
+                                    innerRadius: 60,
+                                    outerRadius: 105,
                                     paddingAngle: 4,
                                     cornerRadius: 8,
                                     cx: '50%',
                                 }]}
+                                slotProps={{
+                                    legend: {
+                                        direction: 'vertical',
+                                        position: { vertical: 'middle', horizontal: 'end' },
+
+                                    },
+                                }}
+                                sx={{
+                                    '& .MuiChartsLegend-label': {
+                                        fontSize: 11,
+                                        fill: '#475569',
+                                    },
+                                    '& .MuiChartsLegend-mark': {
+                                        transform: 'scale(0.8)',
+                                    },
+                                }}
                             />
-                        </Paper>
+                        </ChartCard>
                     </Box>
 
-                    {/* ─── By Source + By Branch ─── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 4 }}>
-                        <Paper sx={{ ...cardSx, p: 3.5 }} elevation={0}>
-                            <SectionLabel title="Khách hàng từ các nguồn" palette={palette} />
+                    {/* ── By Source + By Branch ── */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
+                        <ChartCard title="Khách hàng từ các nguồn" icon="🌐">
                             <BarChart
-                                height={320}
-                                colors={[palette.secondary]}
+                                height={280}
+                                colors={['#ec4899']}
                                 borderRadius={8}
                                 xAxis={[{
                                     scaleType: 'band',
                                     data: dashboard.customersBySource.map((x: any) => x.name),
+                                    tickLabelStyle: { fontSize: 12, fill: '#64748b' },
                                 }]}
                                 series={[{
                                     data: dashboard.customersBySource.map((x: any) => x.value),
                                     label: 'Số lượng khách',
                                 }]}
+                                sx={{
+                                    '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
+                                    '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
+                                }}
                             />
-                        </Paper>
+                        </ChartCard>
 
-                        <Paper sx={{ ...cardSx, p: 3.5 }} elevation={0}>
-                            <SectionLabel title="Doanh thu theo chi nhánh" palette={palette} />
+                        <ChartCard title="Doanh thu theo chi nhánh" icon="🏪">
                             <BarChart
-                                height={320}
-                                colors={[palette.info]}
+                                height={280}
+                                colors={['#0ea5e9']}
                                 borderRadius={8}
                                 xAxis={[{
                                     scaleType: 'band',
                                     data: dashboard.revenueByBranch.map((x: any) => x.name),
+                                    tickLabelStyle: { fontSize: 12, fill: '#64748b' },
                                 }]}
                                 series={[{
                                     data: dashboard.revenueByBranch.map((x: any) => x.value),
                                     label: 'Doanh thu',
+                                    valueFormatter: (v) => formatMoney(v ?? 0),
                                 }]}
+                                sx={{
+                                    '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
+                                    '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
+                                }}
                             />
-                        </Paper>
+                        </ChartCard>
                     </Box>
 
-                    {/* ─── Top Customers + Birthdays ─── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.5fr 1fr' }, gap: 3 }}>
-                        <Paper sx={{ ...cardSx, p: 3.5 }} elevation={0}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                                <Box sx={{ p: 1, borderRadius: 2, background: 'rgba(245,158,11,0.15)' }}>
-                                    <EmojiEventsIcon sx={{ color: palette.gold, fontSize: 24 }} />
+                    {/* ── Top Customers + Birthdays ── */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.6fr 1fr' }, gap: 3 }}>
+                        {/* Top Customers */}
+                        <Paper elevation={0} sx={cardSx}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+                                <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <EmojiEventsIcon sx={{ color: '#d97706', fontSize: 20 }} />
                                 </Box>
-                                <SectionLabel title="Vinh danh Khách hàng (Top Doanh thu)" palette={palette} noMargin />
+                                <Box>
+                                    <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
+                                        Vinh danh khách hàng
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Top doanh thu cao nhất</Typography>
+                                </Box>
                             </Box>
 
-                            <Table size="medium">
+                            <Table size="small">
                                 <TableHead>
                                     <TableRow>
-                                        {['Hạng', 'Khách hàng', 'Liên hệ', 'Số đơn', 'Tổng chi tiêu'].map((h, i) => (
+                                        {['#', 'Khách hàng', 'SĐT', 'Đơn', 'Chi tiêu'].map((h, i) => (
                                             <TableCell
                                                 key={h}
                                                 align={i >= 3 ? 'right' : 'left'}
-                                                sx={{
-                                                    color: palette.textMuted,
-                                                    fontSize: 12,
-                                                    fontWeight: 700,
-                                                    textTransform: 'uppercase',
-                                                    borderColor: palette.border,
-                                                }}
+                                                sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', borderColor: '#f1f5f9', py: 1.2 }}
                                             >
                                                 {h}
                                             </TableCell>
@@ -338,44 +383,43 @@ export default function DashboardPage() {
                                         <TableRow
                                             key={item.customerId}
                                             sx={{
-                                                '&:hover': { background: '#f8fafc' },
-                                                '& td': { borderColor: palette.border, py: 2 },
+                                                '&:hover': { bgcolor: '#f8faf9' },
+                                                '& td': { borderColor: '#f1f5f9', py: 1.5 },
+                                                transition: 'background 0.12s',
                                             }}
                                         >
-                                            <TableCell sx={{ fontSize: 16, width: 60 }}>
-                                                {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : <Typography sx={{ fontWeight: 600, color: palette.textMuted, pl: 1 }}>{idx + 1}</Typography>}
+                                            <TableCell sx={{ width: 44, fontSize: 18 }}>
+                                                {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
+                                                    <Typography sx={{ fontWeight: 700, color: '#cbd5e1', fontSize: 14, pl: 0.5 }}>{idx + 1}</Typography>
+                                                )}
                                             </TableCell>
                                             <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                     <Avatar
                                                         sx={{
-                                                            width: 36, height: 36, fontSize: 14,
-                                                            background: `linear-gradient(135deg, ${palette.primary}, ${palette.secondary})`,
-                                                            fontWeight: 700,
-                                                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                                            width: 32, height: 32, fontSize: 13,
+                                                            bgcolor: idx === 0 ? '#fef3c7' : idx === 1 ? '#f1f5f9' : idx === 2 ? '#fff7ed' : '#f0fdf4',
+                                                            color: idx === 0 ? '#d97706' : idx === 1 ? '#64748b' : idx === 2 ? '#ea580c' : '#086839',
+                                                            fontWeight: 800,
+                                                            border: `2px solid ${idx === 0 ? '#fde68a' : idx === 1 ? '#e2e8f0' : idx === 2 ? '#fed7aa' : '#bbf7d0'}`,
                                                         }}
                                                     >
                                                         {item.customerName?.[0]}
                                                     </Avatar>
-                                                    <Typography sx={{ fontWeight: 700, color: palette.text, fontSize: 14 }}>
+                                                    <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap' }}>
                                                         {item.customerName}
                                                     </Typography>
                                                 </Box>
                                             </TableCell>
-                                            <TableCell sx={{ color: palette.textMuted, fontSize: 14, fontWeight: 500 }}>{item.phone}</TableCell>
+                                            <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.phone}</TableCell>
                                             <TableCell align="right">
                                                 <Chip
-                                                    label={`${item.totalOrders} đơn`}
-                                                    sx={{
-                                                        background: 'rgba(16,185,129,0.1)',
-                                                        color: palette.success,
-                                                        fontWeight: 700,
-                                                        fontSize: 13,
-                                                        px: 1,
-                                                    }}
+                                                    label={item.totalOrders}
+                                                    size="small"
+                                                    sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 12, height: 22, border: '1px solid #bbf7d0' }}
                                                 />
                                             </TableCell>
-                                            <TableCell align="right" sx={{ color: palette.gold, fontWeight: 800, fontSize: 15 }}>
+                                            <TableCell align="right" sx={{ fontWeight: 800, color: '#d97706', fontSize: 13, whiteSpace: 'nowrap' }}>
                                                 {formatMoney(item.totalRevenue)}
                                             </TableCell>
                                         </TableRow>
@@ -384,49 +428,59 @@ export default function DashboardPage() {
                             </Table>
                         </Paper>
 
-                        <Paper sx={{ ...cardSx, p: 3.5 }} elevation={0}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                                <Box sx={{ p: 1, borderRadius: 2, background: 'rgba(236,72,153,0.15)' }}>
-                                    <CakeIcon sx={{ color: palette.secondary, fontSize: 24 }} />
+                        {/* Birthday Customers */}
+                        <Paper elevation={0} sx={cardSx}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+                                <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: '#fce7f3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <CakeIcon sx={{ color: '#db2777', fontSize: 20 }} />
                                 </Box>
-                                <SectionLabel title="Sinh nhật trong tháng" palette={palette} noMargin />
+                                <Box>
+                                    <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
+                                        Sinh nhật tháng này
+                                    </Typography>
+                                    <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Khách hàng cần chúc mừng</Typography>
+                                </Box>
                             </Box>
 
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                                 {dashboard.birthdayCustomersThisMonth.map((item: any, idx: number) => (
                                     <Box key={item.customerId}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 0.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
                                             <Avatar
                                                 sx={{
-                                                    width: 42, height: 42, fontSize: 16,
-                                                    background: 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%)',
-                                                    color: '#d61f69',
+                                                    width: 38, height: 38, fontSize: 15,
+                                                    bgcolor: '#fce7f3',
+                                                    color: '#db2777',
                                                     fontWeight: 800,
+                                                    border: '2px solid #fbcfe8',
                                                 }}
                                             >
                                                 {item.customerName?.[0]}
                                             </Avatar>
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography sx={{ fontWeight: 700, color: palette.text, fontSize: 14, mb: 0.5 }}>
+                                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, mb: 0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                     {item.customerName}
                                                 </Typography>
-                                                <Typography sx={{ color: palette.textMuted, fontSize: 13, fontWeight: 500 }}>
+                                                <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>
                                                     {item.phone}
                                                 </Typography>
                                             </Box>
                                             <Chip
                                                 label={new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(item.dayOfBirth))}
+                                                size="small"
                                                 sx={{
-                                                    background: 'linear-gradient(135deg, #E056FD, #BE2EDD)',
-                                                    color: '#fff',
+                                                    bgcolor: '#fce7f3',
+                                                    color: '#db2777',
                                                     fontWeight: 700,
-                                                    fontSize: 13,
-                                                    boxShadow: '0 2px 6px rgba(190, 46, 221, 0.3)'
+                                                    fontSize: 12,
+                                                    border: '1px solid #fbcfe8',
+                                                    height: 24,
+                                                    flexShrink: 0,
                                                 }}
                                             />
                                         </Box>
                                         {idx < dashboard.birthdayCustomersThisMonth.length - 1 && (
-                                            <Divider sx={{ borderColor: palette.border, mt: 1.5 }} />
+                                            <Divider sx={{ borderColor: '#f1f5f9' }} />
                                         )}
                                     </Box>
                                 ))}
@@ -439,65 +493,89 @@ export default function DashboardPage() {
     );
 }
 
-// ─── Sub-components ───────────────────────────────────────────
+// ── Shared styles ──────────────────────────────────────────────
+
+const cardSx = {
+    bgcolor: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '20px',
+    p: 3,
+    boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
+    transition: 'box-shadow 0.2s',
+    '&:hover': { boxShadow: '0 6px 24px rgba(8,104,57,0.1)' },
+};
+
+const filterFieldSx = {
+    '& .MuiOutlinedInput-root': {
+        borderRadius: '12px',
+        '&.Mui-focused fieldset': { borderColor: '#086839' },
+    },
+    '& label.Mui-focused': { color: '#086839' },
+};
+
+// ── Sub-components ────────────────────────────────────────────
 
 function KpiCard({
-    title, value, icon, gradient, palette,
+    title, value, icon, color, lightColor,
 }: {
-    title: string; value: string | number; icon: React.ReactNode; gradient: string; palette: any;
+    title: string;
+    value: string | number;
+    icon: React.ReactNode;
+    color: string;
+    lightColor: string;
 }) {
     return (
         <Card
+            elevation={0}
             sx={{
-                background: '#ffffff',
-                border: 'none',
-                borderRadius: 4,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
-                transition: 'all 0.3s ease',
+                bgcolor: '#fff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '20px',
+                boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
+                transition: 'all 0.2s',
                 position: 'relative',
                 overflow: 'hidden',
                 '&:hover': {
-                    transform: 'translateY(-5px)',
-                    boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 8px 28px rgba(0,0,0,0.1)',
                 },
                 '&::after': {
                     content: '""',
                     position: 'absolute',
                     bottom: 0, left: 0, right: 0,
-                    height: 4,
-                    background: gradient,
+                    height: 3,
+                    bgcolor: color,
+                    borderRadius: '0 0 4px 4px',
                 },
             }}
         >
-            <CardContent sx={{ p: '24px !important' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography
-                        sx={{
-                            color: palette.textMuted,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                        }}
-                    >
+            <CardContent sx={{ p: '20px !important' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                    <Typography sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1.4, maxWidth: '60%' }}>
                         {title}
                     </Typography>
                     <Box
                         sx={{
+                            width: 38, height: 38,
+                            borderRadius: '12px',
+                            bgcolor: lightColor,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            width: 44, height: 44, borderRadius: 3,
-                            background: gradient,
-                            boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
+                            flexShrink: 0,
                         }}
                     >
-                        {icon}
+                        {/* Clone icon with correct color */}
+                        <Box sx={{ '& svg': { color: `${color} !important`, fontSize: '20px !important' } }}>
+                            {icon}
+                        </Box>
                     </Box>
                 </Box>
                 <Typography
                     sx={{
-                        fontSize: typeof value === 'string' && value.length > 12 ? 22 : 32,
+                        fontSize: typeof value === 'string' && value.length > 12 ? 18 : 28,
                         fontWeight: 800,
-                        color: palette.text,
+                        color: '#1e293b',
                         lineHeight: 1.2,
+                        letterSpacing: '-0.5px',
                     }}
                 >
                     {value}
@@ -507,17 +585,28 @@ function KpiCard({
     );
 }
 
-function SectionLabel({ title, palette, noMargin }: { title: string; palette: any; noMargin?: boolean }) {
+function ChartCard({ title, icon, children }: { title: string; icon?: string; children: React.ReactNode }) {
     return (
-        <Typography
-            sx={{
-                fontWeight: 800,
-                color: palette.text,
-                fontSize: 16,
-                mb: noMargin ? 0 : 3,
-            }}
-        >
-            {title}
-        </Typography>
+        <Paper elevation={0} sx={cardSx}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                {icon && (
+                    <Box
+                        sx={{
+                            width: 32, height: 32,
+                            borderRadius: '9px',
+                            bgcolor: '#dcfce7',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 16,
+                        }}
+                    >
+                        {icon}
+                    </Box>
+                )}
+                <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
+                    {title}
+                </Typography>
+            </Box>
+            {children}
+        </Paper>
     );
 }

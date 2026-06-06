@@ -3,13 +3,15 @@
 import { useEffect, useState, useRef } from 'react';
 import * as React from 'react';
 import * as signalR from '@microsoft/signalr';
-import { CircularProgress, colors, InputAdornment, LinearProgress } from '@mui/material';
+import { CircularProgress, InputAdornment, LinearProgress, Stack } from '@mui/material';
 import {
+    Autocomplete,
     Box,
     Button,
     Checkbox,
     Chip,
     Collapse,
+    Divider,
     FormControl,
     IconButton,
     InputLabel,
@@ -17,7 +19,6 @@ import {
     MenuItem,
     Paper,
     Select,
-    Stack,
     Table,
     TableBody,
     TableCell,
@@ -26,10 +27,8 @@ import {
     TablePagination,
     TableRow,
     TextField,
-    Typography,
-    Autocomplete,
     Tooltip,
-    Divider,
+    Typography,
     alpha,
 } from '@mui/material';
 import {
@@ -37,41 +36,23 @@ import {
     KeyboardArrowUp,
     ViewColumn,
     FileUpload,
-    FilterAlt,
+    FilterList,
     Search,
-    ExpandMore,
     Refresh,
+    ExpandMore,
 } from '@mui/icons-material';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
 
-const branchColors = [
-    '#6366f1', // Indigo
-    '#8b5cf6', // Violet
-    '#ec4899', // Pink
-    '#f59e0b', // Amber
-    '#10b981', // Emerald
-    '#3b82f6', // Blue
-    '#f43f5e', // Rose
-];
+const branchColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
 
 const getBranchStyle = (branchName: string) => {
     if (!branchName) return {};
-
-    const charCodeSum = branchName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const color = branchColors[charCodeSum % branchColors.length];
-
-    return {
-        bgcolor: alpha(color, 0.08),
-        color: color,
-        fontWeight: 700,
-        border: `1px solid ${alpha(color, 0.2)}`,
-        borderRadius: '6px',
-        fontSize: '0.75rem',
-        height: '24px'
-    };
+    const sum = branchName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const color = branchColors[sum % branchColors.length];
+    return { bgcolor: alpha(color, 0.08), color, fontWeight: 700, border: `1px solid ${alpha(color, 0.2)}`, borderRadius: '6px', fontSize: '0.72rem', height: '22px' };
 };
 
 const columns = [
@@ -89,36 +70,49 @@ const columns = [
 ] as const;
 
 const sourceOption = [
-    { id: 1, name: "Zalo", color: "#0068FF" },
-    { id: 2, name: "Facebook", color: "#042550" },
-    { id: 3, name: "GrabMart", color: "#00B14F" },
-    { id: 4, name: "ShopeeFood", color: "#EE4D2D" },
-    { id: 5, name: "ShopeeMart", color: "#be653c" }
+    { id: 1, name: 'Zalo', color: '#0068FF' },
+    { id: 2, name: 'Facebook', color: '#042550' },
+    { id: 3, name: 'GrabMart', color: '#00B14F' },
+    { id: 4, name: 'ShopeeFood', color: '#EE4D2D' },
+    { id: 5, name: 'ShopeeMart', color: '#be653c' },
 ];
 
 const getSourceStyle = (sourceName: string) => {
-    const source = sourceOption.find(s => s.name === sourceName);
+    const source = sourceOption.find((s) => s.name === sourceName);
     const color = source?.color || '#64748b';
-    return {
-        bgcolor: alpha(color, 0.08),
-        color: color,
-        fontWeight: 700,
-        border: `1px solid ${alpha(color, 0.25)}`,
-        borderRadius: '6px',
-        fontSize: '0.75rem',
-    };
+    return { bgcolor: alpha(color, 0.08), color, fontWeight: 700, border: `1px solid ${alpha(color, 0.25)}`, borderRadius: '6px', fontSize: '0.72rem', height: '22px' };
+};
+
+const getStatusColor = (statusName: string) => {
+    switch (statusName?.toLowerCase()) {
+        case 'hoàn thành': return '#10b981';
+        case 'đang giao dịch': return '#f59e0b';
+        case 'chờ xác nhận': return '#0288d1';
+        case 'đã hủy': return '#ef4444';
+        case 'đang xử lý': return '#84cc16';
+        default: return '#64748b';
+    }
+};
+
+const getStatusStyle = (statusName: string) => {
+    const color = getStatusColor(statusName);
+    return { bgcolor: alpha(color, 0.08), color, fontWeight: 700, border: `1px solid ${alpha(color, 0.2)}`, borderRadius: '6px', fontSize: '0.72rem', height: '22px' };
+};
+
+const filterFieldSx = {
+    '& .MuiOutlinedInput-root': { borderRadius: '12px', '&.Mui-focused fieldset': { borderColor: '#086839' } },
+    '& label.Mui-focused': { color: '#086839' },
 };
 
 export default function OrdersPage() {
-    const [orders, setOrders] = useState<any[]>([]); // Đổi tạm thành any[] nếu thiếu file schema gốc của bạn
-    const [total, setTotal] = useState(100);
+    const [orders, setOrders] = useState<any[]>([]);
+    const [total, setTotal] = useState(0);
     const [openRow, setOpenRow] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [filterOpen, setFilterOpen] = useState(false);
     const [statusOptions, setStatusOptions] = useState<{ id: number; name: string; color: string }[]>([]);
     const [branchOptions, setBranchOptions] = useState<{ id: number; name: string }[]>([]);
 
-    // Filters state
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(25);
     const [search, setSearch] = useState('');
@@ -130,97 +124,53 @@ export default function OrdersPage() {
     const [sortBy, setSortBy] = useState('purchaseDate');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [loading, setLoading] = useState(false);
-
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [visibleColumns, setVisibleColumns] = useState<string[]>(
-        columns.filter(c => c.key !== 'grossProfit').map((c) => c.key)
-    );
-
-    const formatMoney = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
-    const formatDate = (value: string) =>
-        new Intl.DateTimeFormat('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        }).format(new Date(value));
-
     const [importing, setImporting] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
     const [orderDetailOpen, setOrderDetailOpen] = useState(false);
-    const [progress, setProgress] = useState({
-        current: 0,
-        total: 0,
-    });
+    const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-    const getStatusColor = (statusName: string) => {
-        switch (statusName?.toLowerCase()) {
-            case 'hoàn thành': return '#10b981'; // Emerald sáng sủa hơn
-            case 'đang giao dịch': return '#f59e0b'; // Amber sáng
-            case 'chờ xác nhận': return '#0288d1';
-            case 'đã hủy': return '#ef4444'; // Red hiện đại
-            case 'đang xử lý': return '#84cc16';
-            default: return '#64748b';
-        }
-    };
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [visibleColumns, setVisibleColumns] = useState<string[]>(
+        columns.filter((c) => c.key !== 'grossProfit').map((c) => c.key)
+    );
 
-    // realtime
+    const formatMoney = (value: number) =>
+        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+    const formatDate = (value: string) =>
+        new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+
+    const hasFilter = search || fromDate || toDate || status || branch || source;
+
+    // ── SignalR ──
     useEffect(() => {
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl(
-                `${process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN}/hubs/import`,
-                {
-                    withCredentials: true,
-                }
-            )
+            .withUrl(`${process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN}/hubs/import`, { withCredentials: true })
             .withAutomaticReconnect()
             .build();
-
-        connection.on('ImportProgress', (data) => {
-            console.log('ImportProgress:', data);
-
-            setProgress({
-                current: data.current,
-                total: data.total,
-            });
-        });
-
-        connection
-            .start()
-            .catch((error) => {
-                console.error('SignalR connection error:', error);
-            });
-
-        return () => {
-            connection.stop();
-        };
+        connection.on('ImportProgress', (data) => setProgress({ current: data.current, total: data.total }));
+        connection.start().catch((e) => console.error('SignalR error:', e));
+        return () => { connection.stop(); };
     }, []);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search);
-            setPage(0);
-        }, 500);
-
-        return () => clearTimeout(timer);
+        const t = setTimeout(() => { setDebouncedSearch(search); setPage(0); }, 500);
+        return () => clearTimeout(t);
     }, [search]);
 
     const fetchOrders = async () => {
         try {
             setLoading(true);
             const response = await ordersApi.getOrders({
-                page: page + 1,
-                pageSize,
+                page: page + 1, pageSize,
                 search: debouncedSearch || undefined,
                 fromDate: fromDate || undefined,
                 toDate: toDate || undefined,
                 statusId: status?.id || undefined,
                 branchId: branch?.id || undefined,
                 source: source?.name || undefined,
-                sortBy: sortBy,
-                sortDir: sortDir,
+                sortBy, sortDir,
             });
-
             setTotal(response.content.totalItems);
             setOrders(response.content.items);
         } catch (error: any) {
@@ -230,134 +180,54 @@ export default function OrdersPage() {
         }
     };
 
-    useEffect(() => {
-        fetchOrders();
-    }, [
-        page,
-        pageSize,
-        debouncedSearch,
-        fromDate,
-        toDate,
-        status,
-        branch,
-        sortBy,
-        source,
-        sortDir,
-    ]);
+    useEffect(() => { fetchOrders(); }, [page, pageSize, debouncedSearch, fromDate, toDate, status, branch, source, sortBy, sortDir]);
 
     useEffect(() => {
         const fetchStatus = async () => {
-            try {
-                const response = await ordersApi.getStatuses();
-                setStatusOptions(response.content);
-            } catch (error: any) {
-                toast.error(error?.response?.data?.Message);
-            }
-        }
+            try { const r = await ordersApi.getStatuses(); setStatusOptions(r.content); } catch { }
+        };
         const fetchBranch = async () => {
-            try {
-                const response = await ordersApi.getBranches();
-                setBranchOptions(response.content);
-            } catch (error: any) {
-                toast.error(error?.response?.data?.Message);
-            }
-        }
-        fetchStatus();
-        fetchBranch();
+            try { const r = await ordersApi.getBranches(); setBranchOptions(r.content); } catch { }
+        };
+        fetchStatus(); fetchBranch();
     }, []);
 
     const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         try {
-            setProgress({
-                current: 0,
-                total: 0,
-            });
+            setProgress({ current: 0, total: 0 });
             setImporting(true);
             const response = await ordersApi.importExcel(file);
-
             toast.custom((t) => (
-                <div
-                    className={`${t.visible ? 'animate-enter' : 'animate-leave'}`}
-                    style={{
-                        maxWidth: '350px',
-                        width: '100%',
-                        background: '#fff',
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        pointerEvents: 'auto',
-                        borderLeft: '5px solid #10b981',
-                        padding: '16px',
-                        gap: '12px'
-                    }}
-                >
-                    <div style={{
-                        background: '#ecfdf5',
-                        borderRadius: '50%',
-                        width: '40px',
-                        height: '40px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                    }}>
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16.6667 5L7.50004 14.1667L3.33337 10" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                <div style={{ maxWidth: 350, width: '100%', background: '#fff', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', borderRadius: 12, display: 'flex', pointerEvents: 'auto', borderLeft: '5px solid #10b981', padding: 16, gap: 12 }}>
+                    <div style={{ background: '#ecfdf5', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M16.6667 5L7.50004 14.1667L3.33337 10" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </div>
-
                     <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: '15px', color: '#111827', marginBottom: '4px' }}>
-                            Import Excel thành công
-                        </div>
-                        <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: '#6b7280' }}>
-                            <div>
-                                Thành công: <b style={{ color: '#059669' }}>{response.content.successfulImports}</b>
-                            </div>
-                            <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: '12px' }}>
-                                Tổng dòng: <b style={{ color: '#111827' }}>{response.content.totalRows}</b>
-                            </div>
+                        <div style={{ fontWeight: 600, fontSize: 15, color: '#111827', marginBottom: 4 }}>Import Excel thành công</div>
+                        <div style={{ display: 'flex', gap: 16, fontSize: 13, color: '#6b7280' }}>
+                            <div>Thành công: <b style={{ color: '#059669' }}>{response.content.successfulImports}</b></div>
+                            <div style={{ borderLeft: '1px solid #e5e7eb', paddingLeft: 12 }}>Tổng dòng: <b style={{ color: '#111827' }}>{response.content.totalRows}</b></div>
                         </div>
                     </div>
-
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', alignSelf: 'start', color: '#9ca3af' }}
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
+                    <button onClick={() => toast.dismiss(t.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', alignSelf: 'start', color: '#9ca3af' }}>✕</button>
                 </div>
             ), { duration: 4000 });
-
             await fetchOrders();
-
         } catch (error: any) {
-            toast.error(
-                error?.response?.data?.errorMessages?.join(', ') ??
-                error?.response?.data?.message ??
-                'Có lỗi xảy ra'
-            );
+            toast.error(error?.response?.data?.errorMessages?.join(', ') ?? error?.response?.data?.message ?? 'Có lỗi xảy ra');
         } finally {
             setImporting(false);
-            if (e.target) {
-                e.target.value = '';
-            }
+            if (e.target) e.target.value = '';
         }
     };
 
-    const getStatusStyle = (statusName: string) => {
-        const color = getStatusColor(statusName);
-        return {
-            bgcolor: alpha(color, 0.08),
-            color: color,
-            fontWeight: 700,
-            border: `1px solid ${alpha(color, 0.2)}`,
-            borderRadius: '6px',
-            fontSize: '0.75rem',
-        };
+    const handleResetFilter = () => {
+        setSearch(''); setFromDate(''); setToDate('');
+        setStatus(null); setBranch(null); setSource(null);
+        setSortBy('purchaseDate'); setSortDir('desc');
+        setPage(0); setPageSize(25); setFilterOpen(false);
     };
 
     return (
@@ -368,36 +238,56 @@ export default function OrdersPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                bgcolor: '#f8fafc', // Tạo độ tương phản tốt với các card trắng
+                bgcolor: '#f0f7f3',
+                backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
             }}
         >
             <LoadingOverlay open={loading} text="Đang tải đơn hàng..." />
 
-            {/* Header Section */}
-            <Box
-                sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    justifyContent: 'space-between',
-                    alignItems: { xs: 'flex-start', sm: 'center' },
-                    gap: 2,
-                    mb: 4,
-                }}
-            >
+            {/* ── Header ── */}
+            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
                 <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 800, color: '#086839', letterSpacing: '-0.75px', mb: 0.5 }}>
+                    <Typography
+                        variant="h4"
+                        sx={{ fontWeight: 800, color: '#086839', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: 1.5 }}
+                    >
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: '10px', bgcolor: '#086839', color: '#fff', fontSize: 20, flexShrink: 0 }}>
+                            🧾
+                        </Box>
                         Danh Sách Đơn Hàng
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
+                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
                         Theo dõi, quản lý doanh thu và trạng thái đơn hàng thời gian thực
                     </Typography>
                 </Box>
 
-                <Stack direction="row" spacing={1.5} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                    <input type="file" hidden ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx, .xls" />
+                <Box
+                    sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        gap: 1.5,
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                    }}
+                >
+                    {/* Import progress bar */}
+                    {importing && progress.total > 0 && (
+                        <Box sx={{ minWidth: 200, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
+                            <Typography sx={{ fontSize: 12, color: '#64748b', mb: 0.5 }}>
+                                Đã import {progress.current} / {progress.total} dòng
+                            </Typography>
+                            <LinearProgress
+                                variant="determinate"
+                                value={(progress.current / progress.total) * 100}
+                                sx={{ height: 6, borderRadius: 99, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#086839', borderRadius: 99 } }}
+                            />
+                        </Box>
+                    )}
+
+                    <input type="file" hidden ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls" />
                     <Button
                         variant="outlined"
-                        startIcon={importing ? <CircularProgress size={18} color="inherit" /> : <FileUpload />}
+                        startIcon={importing ? <CircularProgress size={16} color="inherit" /> : <FileUpload sx={{ fontSize: 18 }} />}
                         disabled={importing}
                         onClick={() => fileInputRef.current?.click()}
                         sx={{
@@ -405,283 +295,179 @@ export default function OrdersPage() {
                             color: '#086839',
                             borderWidth: '1.5px',
                             fontWeight: 700,
-                            borderRadius: '10px',
+                            borderRadius: '12px',
                             px: 2.5,
-                            '&:hover': {
-                                borderWidth: '1.5px',
-                                borderColor: '#064e2b',
-                                bgcolor: alpha('#086839', 0.06),
-                            },
+                            textTransform: 'none',
+                            '&:hover': { borderWidth: '1.5px', borderColor: '#064e2b', bgcolor: alpha('#086839', 0.06) },
                         }}
                     >
                         {importing ? 'Đang xử lý...' : 'Nhập Excel'}
-                    {importing && progress.total > 0 && (
-                        <Box sx={{ minWidth: 220 }}>
-                            <LinearProgress
-                                variant="determinate"
-                                value={(progress.current / progress.total) * 100}
-                                sx={{
-                                    height: 8,
-                                    borderRadius: 99,
-                                    bgcolor: '#e2e8f0',
-                                    '& .MuiLinearProgress-bar': {
-                                        bgcolor: '#086839',
-                                    },
-                                }}
-                            />
+                    </Button>
 
-                            <Typography sx={{ fontSize: 12, mt: 0.5, color: '#64748b' }}>
-                                Đã import {progress.current} / {progress.total} dòng
-                            </Typography>
-                        </Box>
-                    )}
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<Refresh />}
-                        sx={{
-                            bgcolor: '#086839',
-                            color: 'white',
-                            fontWeight: 700,
-                            borderRadius: '10px',
-                            px: 2.5,
-                            boxShadow: '0 4px 12px rgba(8, 104, 57, 0.2)',
-                            '&:hover': {
-                                bgcolor: '#064e2b',
-                                boxShadow: '0 6px 16px rgba(8, 104, 57, 0.3)',
-                            },
-                        }}
-                        onClick={() => {
-                            setSearch('');
-                            setFromDate('');
-                            setToDate('');
-                            setStatus(null);
-                            setBranch(null);
-                            setSource(null);
-                            setSortBy('purchaseDate');
-                            setSortDir('desc');
-                            setPage(0);
-                            setPageSize(25);
-                            setFilterOpen(false);
-                        }}
-                    >
-                        Xóa lọc
-                    </Button>
-                </Stack>
+                    <Tooltip title="Xóa tất cả bộ lọc" arrow>
+                        <Button
+                            variant="contained"
+                            startIcon={<Refresh sx={{ fontSize: 18 }} />}
+                            onClick={handleResetFilter}
+                            sx={{
+                                bgcolor: '#086839',
+                                color: '#fff',
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                px: 2.5,
+                                textTransform: 'none',
+                                boxShadow: '0 4px 12px rgba(8,104,57,0.2)',
+                                '&:hover': { bgcolor: '#064e2b', boxShadow: '0 6px 16px rgba(8,104,57,0.3)' },
+                            }}
+                        >
+                            Xóa lọc
+                        </Button>
+                    </Tooltip>
+                </Box>
             </Box>
 
-            {/* Filter Section */}
+            {/* ── Filter Bar ── */}
             <Paper
                 elevation={0}
-                sx={{
-                    p: 2.5,
-                    borderRadius: '16px',
-                    mb: 3,
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                    bgcolor: 'white'
-                }}
+                sx={{ p: 2.5, borderRadius: '20px', mb: 2.5, border: '1px solid #e2e8f0', bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}
             >
+                {/* Filter toggle header */}
                 <Box
                     onClick={() => setFilterOpen(!filterOpen)}
-                    sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                    }}
+                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
                 >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ p: 1, bgcolor: alpha('#086839', 0.08), borderRadius: '8px', display: 'flex' }}>
-                            <FilterAlt sx={{ color: '#086839', fontSize: 20 }} />
-                        </Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                            Bộ lọc tìm kiếm
-                        </Typography>
+                        <FilterList sx={{ color: '#086839', fontSize: 18 }} />
+                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>Bộ lọc tìm kiếm</Typography>
+                        {hasFilter && (
+                            <Chip label="Đang lọc" size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }} />
+                        )}
                     </Box>
-
-                    <IconButton size="small" sx={{ color: '#086839', bgcolor: alpha('#086839', 0.04) }}>
-                        <ExpandMore
-                            sx={{
-                                transition: '0.2s',
-                                transform: filterOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                            }}
-                        />
+                    <IconButton size="small" sx={{ color: '#086839', pointerEvents: 'none' }}>
+                        <ExpandMore sx={{ transition: '0.2s', transform: filterOpen ? 'rotate(180deg)' : 'rotate(0deg)', fontSize: 20 }} />
                     </IconButton>
                 </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr 1.2fr' }, gap: 2, mt: 2.5 }}>
+                {/* Always-visible: search + date range */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '2fr 1fr 1fr' }, gap: 2, mt: 2 }}>
                     <TextField
                         size="small"
-                        placeholder="Mã đơn, tên, SĐT..."
+                        placeholder="Mã đơn, tên khách hàng, SĐT..."
                         label="Tìm kiếm nhanh"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        slotProps={{
-                            input: {
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                    </InputAdornment>
-                                ),
-                            },
-                        }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                        slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ color: '#94a3b8', fontSize: 20 }} /></InputAdornment> } }}
+                        sx={filterFieldSx}
                     />
-
-                    <Autocomplete
-                        size="small"
-                        options={statusOptions}
-                        getOptionLabel={(option) => option.name}
-                        value={status}
-                        onChange={(_, newValue) => setStatus(newValue)}
-                        renderOption={(props, option) => {
-                            const { key, ...otherProps } = props;
-                            const color = getStatusColor(option.name);
-                            return (
-                                <li key={key} {...otherProps} style={{ padding: '6px 16px' }}>
-                                    <Chip
-                                        label={option.name}
-                                        size="small"
-                                        sx={getStatusStyle(option.name)}
-                                    />
-                                </li>
-                            );
-                        }}
-                        renderInput={(params) => <TextField {...params} label="Trạng thái" />}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                    />
-
-                    <Autocomplete
-                        size="small"
-                        options={branchOptions}
-                        getOptionLabel={(option) => option.name}
-                        value={branch}
-                        onChange={(_, newValue) => setBranch(newValue)}
-                        renderOption={(props, option) => (
-                            <li {...props} style={{ padding: '6px 16px' }}>
-                                <Chip
-                                    label={option.name}
-                                    size="small"
-                                    sx={getBranchStyle(option.name)}
-                                />
-                            </li>
-                        )}
-                        renderInput={(params) => <TextField {...params} label="Chi nhánh" />}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                    />
-
-                    <Autocomplete
-                        size="small"
-                        options={sourceOption}
-                        getOptionLabel={(option) => option.name}
-                        value={source}
-                        onChange={(_, newValue) => setSource(newValue)}
-                        renderOption={(props, option) => (
-                            <li {...props}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.5 }}>
-                                    <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: option.color }} />
-                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{option.name}</Typography>
-                                </Box>
-                            </li>
-                        )}
-                        renderInput={(params) => <TextField {...params} label="Nguồn" />}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                    />
-
-                    <Stack direction="row" spacing={1}>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            type="date"
-                            label="Từ ngày"
-                            slotProps={{ inputLabel: { shrink: true } }}
-                            value={fromDate}
-                            onChange={(e) => setFromDate(e.target.value)}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                        />
-                        <TextField
-                            fullWidth
-                            size="small"
-                            type="date"
-                            label="Đến ngày"
-                            slotProps={{ inputLabel: { shrink: true } }}
-                            value={toDate}
-                            onChange={(e) => setToDate(e.target.value)}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                        />
-                    </Stack>
+                    <TextField size="small" type="date" label="Từ ngày" value={fromDate} onChange={(e) => setFromDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth sx={filterFieldSx} />
+                    <TextField size="small" type="date" label="Đến ngày" value={toDate} onChange={(e) => setToDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth sx={filterFieldSx} />
                 </Box>
 
+                {/* Collapsible: status / branch / source / sort / column */}
                 <Collapse in={filterOpen} timeout="auto" unmountOnExit>
-                    <Box sx={{ mt: 1 }}>
-                        <Divider sx={{ my: 2, borderStyle: 'dashed', borderColor: '#e2e8f0' }} />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                            <Stack direction="row" spacing={1.5}>
-                                <FormControl size="small" sx={{ minWidth: 150 }}>
-                                    <InputLabel>Sắp xếp theo</InputLabel>
-                                    <Select value={sortBy} label="Sắp xếp theo" onChange={(e) => setSortBy(e.target.value)} sx={{ borderRadius: '10px' }}>
-                                        <MenuItem value="purchaseDate">Ngày mua</MenuItem>
-                                        <MenuItem value="revenue">Doanh thu</MenuItem>
-                                    </Select>
-                                </FormControl>
-                                <FormControl size="small" sx={{ minWidth: 120 }}>
-                                    <InputLabel>Thứ tự</InputLabel>
-                                    <Select value={sortDir} label="Thứ tự" onChange={(e) => setSortDir(e.target.value as any)} sx={{ borderRadius: '10px' }}>
-                                        <MenuItem value="desc">Giảm dần</MenuItem>
-                                        <MenuItem value="asc">Tăng dần</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Stack>
+                    <Divider sx={{ my: 2, borderStyle: 'dashed', borderColor: '#f1f5f9' }} />
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3,1fr)' }, gap: 2, mb: 2 }}>
+                        <Autocomplete
+                            size="small" options={statusOptions} getOptionLabel={(o) => o.name} value={status}
+                            onChange={(_, v) => setStatus(v)}
+                            renderOption={(props, option) => {
+                                const { key, ...rest } = props;
+                                return <li key={key} {...rest} style={{ padding: '6px 16px' }}><Chip label={option.name} size="small" sx={getStatusStyle(option.name)} /></li>;
+                            }}
+                            renderInput={(params) => <TextField {...params} label="Trạng thái" />}
+                            sx={filterFieldSx}
+                        />
+                        <Autocomplete
+                            size="small" options={branchOptions} getOptionLabel={(o) => o.name} value={branch}
+                            onChange={(_, v) => setBranch(v)}
+                            renderOption={(props, option) => (
+                                <li {...props} style={{ padding: '6px 16px' }}><Chip label={option.name} size="small" sx={getBranchStyle(option.name)} /></li>
+                            )}
+                            renderInput={(params) => <TextField {...params} label="Chi nhánh" />}
+                            sx={filterFieldSx}
+                        />
+                        <Autocomplete
+                            size="small" options={sourceOption} getOptionLabel={(o) => o.name} value={source}
+                            onChange={(_, v) => setSource(v)}
+                            renderOption={(props, option) => (
+                                <li {...props}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.5, px: 1 }}>
+                                        <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: option.color, flexShrink: 0 }} />
+                                        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{option.name}</Typography>
+                                    </Box>
+                                </li>
+                            )}
+                            renderInput={(params) => <TextField {...params} label="Nguồn" />}
+                            sx={filterFieldSx}
+                        />
+                    </Box>
 
-                            <Button
-                                variant="text"
-                                startIcon={<ViewColumn />}
-                                onClick={(e) => setAnchorEl(e.currentTarget)}
-                                sx={{ color: '#086839', fontWeight: 700, borderRadius: '8px' }}
-                            >
-                                Tùy chỉnh cột
-                            </Button>
-                        </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+                        <Stack direction="row" spacing={1.5}>
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Sắp xếp theo</InputLabel>
+                                <Select value={sortBy} label="Sắp xếp theo" onChange={(e) => setSortBy(e.target.value)} sx={{ borderRadius: '12px' }}>
+                                    <MenuItem value="purchaseDate">Ngày mua</MenuItem>
+                                    <MenuItem value="revenue">Doanh thu</MenuItem>
+                                </Select>
+                            </FormControl>
+                            <FormControl size="small" sx={{ minWidth: 120 }}>
+                                <InputLabel>Thứ tự</InputLabel>
+                                <Select value={sortDir} label="Thứ tự" onChange={(e) => setSortDir(e.target.value as any)} sx={{ borderRadius: '12px' }}>
+                                    <MenuItem value="desc">Giảm dần</MenuItem>
+                                    <MenuItem value="asc">Tăng dần</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Stack>
+
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<ViewColumn fontSize="small" />}
+                            onClick={(e) => setAnchorEl(e.currentTarget)}
+                            sx={{ borderColor: '#e2e8f0', color: '#475569', borderRadius: '10px', fontWeight: 600, textTransform: 'none', '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: '#f0fdf4' } }}
+                        >
+                            Tùy chỉnh cột
+                        </Button>
                     </Box>
                 </Collapse>
             </Paper>
 
-            {/* Table Section */}
+            {/* ── Table ── */}
             <TableContainer
                 component={Paper}
+                elevation={0}
                 sx={{
                     flex: 1,
                     minHeight: 0,
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+                    borderRadius: '20px 20px 0 0',
                     border: '1px solid #e2e8f0',
+                    borderBottom: 'none',
                     overflow: 'auto',
-                    bgcolor: 'white',
+                    bgcolor: '#fff',
+                    boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
                     '&::-webkit-scrollbar': { width: 6, height: 6 },
-                    '&::-webkit-scrollbar-thumb': {
-                        backgroundColor: alpha('#086839', 0.2),
-                        borderRadius: 10,
-                    },
-                    '&::-webkit-scrollbar-track': { backgroundColor: 'transparent' },
+                    '&::-webkit-scrollbar-track': { bgcolor: '#f8fafc' },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3, '&:hover': { bgcolor: '#94a3b8' } },
                 }}
             >
-                <Table stickyHeader>
+                <Table stickyHeader size="medium">
                     <TableHead>
                         <TableRow>
-                            <TableCell sx={{ bgcolor: '#086839', color: 'white', width: 60 }} />
-                            {columns.filter(c => visibleColumns.includes(c.key)).map((column) => (
+                            <TableCell sx={{ bgcolor: '#086839', width: 52, borderBottom: '2px solid rgba(255,255,255,0.15)' }} />
+                            {columns.filter((c) => visibleColumns.includes(c.key)).map((column) => (
                                 <TableCell
                                     key={column.key}
                                     sx={{
                                         bgcolor: '#086839',
-                                        color: 'white',
+                                        color: 'rgba(255,255,255,0.95)',
                                         fontWeight: 700,
                                         whiteSpace: 'nowrap',
+                                        fontSize: 11,
                                         textTransform: 'uppercase',
-                                        fontSize: '0.75rem',
-                                        letterSpacing: '0.5px',
-                                        py: 2
+                                        letterSpacing: '0.6px',
+                                        py: 2,
+                                        borderBottom: '2px solid rgba(255,255,255,0.15)',
                                     }}
                                 >
                                     {column.label}
@@ -689,99 +475,119 @@ export default function OrdersPage() {
                             ))}
                         </TableRow>
                     </TableHead>
+
                     <TableBody>
-                        {orders.map((order) => (
+                        {orders.map((order, index) => (
                             <React.Fragment key={order.id}>
+                                {/* Main row */}
                                 <TableRow
-                                    hover
-                                    sx={{
-                                        '& > *': { borderBottom: '1px solid #f1f5f9 !important' },
-                                        cursor: 'pointer',
-                                        transition: 'background-color 0.2s',
-                                        '&:hover': { bgcolor: '#f8fafc !important' }
-                                    }}
                                     onClick={() => setOpenRow(openRow === order.id ? null : order.id)}
+                                    sx={{
+                                        cursor: 'pointer',
+                                        bgcolor: index % 2 === 0 ? '#fff' : '#fafcfb',
+                                        '& > *': { borderBottom: '1px solid #f1f5f9 !important' },
+                                        '&:hover': { bgcolor: '#f0fdf4 !important' },
+                                        transition: 'background-color 0.15s',
+                                    }}
                                 >
-                                    <TableCell onClick={(e) => e.stopPropagation()}>
-                                        <IconButton size="small" onClick={() => setOpenRow(openRow === order.id ? null : order.id)}>
-                                            {openRow === order.id ? <KeyboardArrowUp color="primary" /> : <KeyboardArrowDown />}
-                                        </IconButton>
-                                    </TableCell>
-                                    {visibleColumns.includes('orderCode') && (
-                                        <TableCell
+                                    <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 1 }}>
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => setOpenRow(openRow === order.id ? null : order.id)}
                                             sx={{
-                                                fontWeight: 700,
-                                                color: '#086839',
-                                                '&:hover': {
-                                                    color: '#1b8f57',
-                                                    textDecoration: 'underline',
-                                                },
-                                            }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedOrderId(order.id);
-                                                setOrderDetailOpen(true);
+                                                width: 28, height: 28, borderRadius: '8px',
+                                                bgcolor: openRow === order.id ? alpha('#086839', 0.1) : 'transparent',
+                                                color: openRow === order.id ? '#086839' : '#94a3b8',
+                                                '&:hover': { bgcolor: alpha('#086839', 0.08), color: '#086839' },
+                                                transition: 'all 0.15s',
                                             }}
                                         >
-                                            {order.orderCode}
+                                            {openRow === order.id
+                                                ? <KeyboardArrowUp sx={{ fontSize: 18 }} />
+                                                : <KeyboardArrowDown sx={{ fontSize: 18 }} />}
+                                        </IconButton>
+                                    </TableCell>
+
+                                    {visibleColumns.includes('orderCode') && (
+                                        <TableCell
+                                            onClick={(e) => { e.stopPropagation(); setSelectedOrderId(order.id); setOrderDetailOpen(true); }}
+                                            sx={{ cursor: 'pointer' }}
+                                        >
+                                            <Typography sx={{ fontWeight: 700, fontSize: 12, color: '#086839', fontFamily: 'monospace', bgcolor: '#f0fdf4', px: 1, py: 0.4, borderRadius: '6px', display: 'inline-block', border: '1px solid #bbf7d0', '&:hover': { textDecoration: 'underline' } }}>
+                                                {order.orderCode}
+                                            </Typography>
                                         </TableCell>
                                     )}
-                                    {visibleColumns.includes('purchaseDate') && <TableCell sx={{ color: '#475569', fontWeight: 500 }}>{formatDate(order.purchaseDate)}</TableCell>}
-                                    {visibleColumns.includes('customerName') && <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>{order.customerName}</TableCell>}
-                                    {visibleColumns.includes('customerPhone') && <TableCell sx={{ color: '#475569' }}>{order.customerPhone}</TableCell>}
-                                    {visibleColumns.includes('statusName') && (
+                                    {visibleColumns.includes('purchaseDate') && <TableCell sx={{ color: '#64748b', fontSize: 13, whiteSpace: 'nowrap' }}>{formatDate(order.purchaseDate)}</TableCell>}
+                                    {visibleColumns.includes('customerName') && (
                                         <TableCell>
-                                            <Chip label={order.statusName} size="small" sx={getStatusStyle(order.statusName)} />
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                <Box sx={{ width: 28, height: 28, borderRadius: '8px', bgcolor: alpha('#086839', 0.1), color: '#086839', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                                                    {order.customerName?.charAt(0)}
+                                                </Box>
+                                                <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap' }}>{order.customerName}</Typography>
+                                            </Box>
                                         </TableCell>
                                     )}
-                                    {visibleColumns.includes('branchName') && (
-                                        <TableCell>
-                                            <Chip label={order.branchName} size="small" sx={getBranchStyle(order.branchName)} />
-                                        </TableCell>
-                                    )}
-                                    {visibleColumns.includes('source') && (
-                                        <TableCell>
-                                            <Chip label={order.source} size="small" sx={getSourceStyle(order.source)} />
-                                        </TableCell>
-                                    )}
-                                    {visibleColumns.includes('revenue') && <TableCell sx={{ fontWeight: 700, color: '#0f172a' }}>{formatMoney(order.revenue)}</TableCell>}
-                                    {visibleColumns.includes('shippingFee') && <TableCell sx={{ color: '#64748b', fontWeight: 500 }}>{formatMoney(order.shippingFee)}</TableCell>}
-                                    {visibleColumns.includes('taxAmount') && <TableCell sx={{ color: '#ef4444', fontWeight: 500 }}>{formatMoney(order.taxAmount)}</TableCell>}
-                                    {visibleColumns.includes('grossProfit') && <TableCell sx={{ color: '#10b981', fontWeight: 700 }}>{formatMoney(order.grossProfit)}</TableCell>}
+                                    {visibleColumns.includes('customerPhone') && <TableCell sx={{ color: '#475569', fontSize: 13, whiteSpace: 'nowrap' }}>{order.customerPhone}</TableCell>}
+                                    {visibleColumns.includes('statusName') && <TableCell><Chip label={order.statusName} size="small" sx={getStatusStyle(order.statusName)} /></TableCell>}
+                                    {visibleColumns.includes('branchName') && <TableCell><Chip label={order.branchName} size="small" sx={getBranchStyle(order.branchName)} /></TableCell>}
+                                    {visibleColumns.includes('source') && <TableCell><Chip label={order.source} size="small" sx={getSourceStyle(order.source)} /></TableCell>}
+                                    {visibleColumns.includes('revenue') && <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap' }}>{formatMoney(order.revenue)}</TableCell>}
+                                    {visibleColumns.includes('shippingFee') && <TableCell sx={{ color: '#64748b', fontSize: 13, whiteSpace: 'nowrap' }}>{formatMoney(order.shippingFee)}</TableCell>}
+                                    {visibleColumns.includes('taxAmount') && <TableCell sx={{ color: '#ef4444', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>{formatMoney(order.taxAmount)}</TableCell>}
+                                    {visibleColumns.includes('grossProfit') && <TableCell sx={{ color: '#10b981', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>{formatMoney(order.grossProfit)}</TableCell>}
                                 </TableRow>
 
-                                {/* Row Detail Collapse */}
+                                {/* ── Expanded detail row ── */}
                                 <TableRow>
-                                    <TableCell sx={{ py: 0, px: 4, bgcolor: '#f8fafc' }} colSpan={visibleColumns.length + 1}>
+                                    <TableCell
+                                        sx={{ py: 0, bgcolor: '#f8faf9', borderBottom: openRow === order.id ? '1px solid #e2e8f0 !important' : '0 !important' }}
+                                        colSpan={visibleColumns.length + 1}
+                                    >
                                         <Collapse in={openRow === order.id} timeout="auto" unmountOnExit>
-                                            <Box sx={{ py: 2.5 }}>
-                                                <Typography variant="subtitle2" sx={{ mb: 1.5, color: '#086839', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.8rem', letterSpacing: '0.5px' }}>
-                                                    <Box sx={{ width: 4, height: 16, bgcolor: '#086839', borderRadius: 1 }} />
-                                                    CHI TIẾT SẢN PHẨM & DỊCH VỤ
-                                                </Typography>
-                                                <TableContainer component={Paper} sx={{ borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: 'none', overflow: 'hidden' }}>
-                                                    <Table size="small">
-                                                        <TableHead sx={{ bgcolor: '#f1f5f9' }}>
+                                            <Box sx={{ py: 3, px: { xs: 1, md: 2 } }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                                    <Box sx={{ width: 4, height: 18, bgcolor: '#086839', borderRadius: '2px' }} />
+                                                    <Typography sx={{ color: '#086839', fontWeight: 800, fontSize: 12, letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                                                        Chi tiết sản phẩm & dịch vụ
+                                                    </Typography>
+                                                    {order.items?.length > 0 && (
+                                                        <Chip label={`${order.items.length} sản phẩm`} size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }} />
+                                                    )}
+                                                </Box>
+
+                                                <TableContainer
+                                                    component={Paper}
+                                                    elevation={0}
+                                                    sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'hidden' }}
+                                                >
+                                                    <Table size="small" stickyHeader>
+                                                        <TableHead>
                                                             <TableRow>
-                                                                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Sản phẩm</TableCell>
-                                                                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>SKU</TableCell>
-                                                                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Phân loại</TableCell>
-                                                                <TableCell sx={{ fontWeight: 700, color: '#334155' }} >Đơn giá</TableCell>
-                                                                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Số lượng</TableCell>
-                                                                <TableCell sx={{ fontWeight: 700, color: '#334155' }} >ĐVT</TableCell>
-                                                                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Dịch vụ đi kèm</TableCell>
+                                                                {['Sản phẩm', 'SKU', 'Phân loại', 'Đơn giá', 'Số lượng', 'ĐVT', 'Dịch vụ đi kèm'].map((h) => (
+                                                                    <TableCell key={h} sx={{ fontWeight: 700, color: '#475569', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px', bgcolor: '#f8fafc', py: 1.5, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                                                        {h}
+                                                                    </TableCell>
+                                                                ))}
                                                             </TableRow>
                                                         </TableHead>
-                                                        <TableBody sx={{ bgcolor: 'white' }}>
+                                                        <TableBody>
                                                             {order.items?.map((item: any) => (
-                                                                <TableRow key={item.id} sx={{ '&:last-child td': { border: 0 } }}>
-                                                                    <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>{item.productName}</TableCell>
-                                                                    <TableCell><code style={{ color: '#ef4444', background: '#fef2f2', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontWeight: 600 }}>{item.sku}</code></TableCell>
-                                                                    <TableCell sx={{ color: '#475569' }}>{item.category}</TableCell>
-                                                                    <TableCell sx={{ fontWeight: 600 }}>{formatMoney(item.unitPrice)}</TableCell>
-                                                                    <TableCell sx={{ color: '#475569' }}>{item.quantity}</TableCell>
-                                                                    <TableCell sx={{ color: '#475569' }}>{item.unit}</TableCell>
-                                                                    <TableCell sx={{ color: '#086839', fontWeight: 500 }}>{item.serviceName || '—'}</TableCell>
+                                                                <TableRow key={item.id} sx={{ '&:last-child td': { border: 0 }, '&:hover': { bgcolor: '#f0fdf4' }, transition: 'background 0.12s' }}>
+                                                                    <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>{item.productName}</TableCell>
+                                                                    <TableCell>
+                                                                        <Typography sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#ef4444', bgcolor: '#fef2f2', px: 1, py: 0.3, borderRadius: '5px', display: 'inline-block', border: '1px solid #fecaca' }}>
+                                                                            {item.sku}
+                                                                        </Typography>
+                                                                    </TableCell>
+                                                                    <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.category}</TableCell>
+                                                                    <TableCell sx={{ fontWeight: 700, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap' }}>{formatMoney(item.unitPrice)}</TableCell>
+                                                                    <TableCell>
+                                                                        <Chip label={item.quantity} size="small" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 12, height: 22 }} />
+                                                                    </TableCell>
+                                                                    <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.unit}</TableCell>
+                                                                    <TableCell sx={{ color: '#086839', fontWeight: 600, fontSize: 13 }}>{item.serviceName || '—'}</TableCell>
                                                                 </TableRow>
                                                             ))}
                                                         </TableBody>
@@ -793,69 +599,79 @@ export default function OrdersPage() {
                                 </TableRow>
                             </React.Fragment>
                         ))}
+
+                        {/* Empty state */}
+                        {!orders.length && !loading && (
+                            <TableRow>
+                                <TableCell colSpan={visibleColumns.length + 1} align="center" sx={{ py: 8 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ width: 56, height: 56, borderRadius: '16px', bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>
+                                            🧾
+                                        </Box>
+                                        <Typography sx={{ fontWeight: 700, color: '#64748b', fontSize: 15 }}>Không tìm thấy đơn hàng nào</Typography>
+                                        <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Thử thay đổi bộ lọc hoặc từ khoá tìm kiếm</Typography>
+                                    </Box>
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>
 
-            {/* Pagination */}
-            <TablePagination
-                component="div"
-                count={total}
-                page={page}
-                rowsPerPage={pageSize}
-                onPageChange={(_, p) => setPage(p)}
-                onRowsPerPageChange={(e) => {
-                    setPageSize(parseInt(e.target.value, 10));
-                    setPage(0);
-                }}
-                labelRowsPerPage="Dòng trên trang"
-                sx={{ borderTop: '1px solid #e2e8f0', bgcolor: 'white', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}
-            />
+            {/* ── Pagination ── */}
+            <Box sx={{ bgcolor: '#fff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 20px 20px', overflow: 'hidden' }}>
+                <TablePagination
+                    component="div"
+                    count={total}
+                    page={page}
+                    rowsPerPage={pageSize}
+                    onPageChange={(_, p) => setPage(p)}
+                    onRowsPerPageChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setPage(0); }}
+                    labelRowsPerPage="Số dòng:"
+                    sx={{
+                        '& .MuiTablePagination-toolbar': { minHeight: 48 },
+                        '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 13, color: '#64748b' },
+                    }}
+                />
+            </Box>
 
-            {/* Column Visibility Menu */}
+            {/* ── Column Visibility Menu ── */}
             <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={() => setAnchorEl(null)}
-                slotProps={{ paper: { sx: { borderRadius: '12px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', p: 1 } } }}
+                slotProps={{
+                    paper: {
+                        sx: {
+                            borderRadius: '14px',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
+                            minWidth: 200,
+                        },
+                    },
+                }}
             >
-                <Box sx={{ px: 1, py: 0.5 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>Hiển thị cột</Typography>
+                <Box sx={{ px: 2, py: 1.5 }}>
+                    <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#086839', mb: 1 }}>Hiển thị cột</Typography>
                     <Divider sx={{ mb: 1 }} />
                     {columns.map((column) => (
                         <MenuItem
                             key={column.key}
-                            sx={{ p: 0, borderRadius: '6px', mb: 0.5 }}
-                            onClick={() => {
-                                setVisibleColumns(prev =>
-                                    prev.includes(column.key) ? prev.filter(k => k !== column.key) : [...prev, column.key]
-                                );
-                            }}
+                            sx={{ px: 0.5, borderRadius: '8px', '&:hover': { bgcolor: '#f0fdf4' } }}
+                            onClick={() => setVisibleColumns((prev) => prev.includes(column.key) ? prev.filter((k) => k !== column.key) : [...prev, column.key])}
                         >
-                            <Checkbox
-                                size="small"
-                                checked={visibleColumns.includes(column.key)}
-                                sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' } }}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={() => {
-                                    setVisibleColumns(prev =>
-                                        prev.includes(column.key) ? prev.filter(k => k !== column.key) : [...prev, column.key]
-                                    );
-                                }}
-                            />
-                            <Typography variant="body2" sx={{ fontWeight: 500, color: '#334155', pr: 2 }}>{column.label}</Typography>
+                            <Checkbox size="small" checked={visibleColumns.includes(column.key)} sx={{ color: '#cbd5e1', '&.Mui-checked': { color: '#086839' }, p: 0.5 }} />
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#334155', ml: 0.5 }}>{column.label}</Typography>
                         </MenuItem>
                     ))}
                 </Box>
             </Menu>
 
+            {/* ── Dialogs ── */}
             <OrderDetailDialog
                 open={orderDetailOpen}
                 orderId={selectedOrderId}
-                onClose={() => {
-                    setOrderDetailOpen(false);
-                    setSelectedOrderId(null);
-                }}
+                onClose={() => { setOrderDetailOpen(false); setSelectedOrderId(null); }}
             />
         </Box>
     );

@@ -27,6 +27,7 @@ public class OrderService : IOrderService
     public readonly MemBerContext _context;
     public readonly IOrderItemRepository _orderItemRepository;
     private readonly IHubContext<ImportHub> _hubContext;
+    private readonly IActivityService _auditLogService;
 
     public OrderService(
         ICustomerRepository customerRepository,
@@ -38,7 +39,8 @@ public class OrderService : IOrderService
         IBranchRepository branchRepository,
         MemBerContext context,
         IOrderItemRepository orderItemRepository,
-        IHubContext<ImportHub> hubContext
+        IHubContext<ImportHub> hubContext,
+        IActivityService auditLogService
     )
     {
         _customerRepository = customerRepository;
@@ -51,6 +53,7 @@ public class OrderService : IOrderService
         _context = context;
         _orderItemRepository = orderItemRepository;
         _hubContext = hubContext;
+        _auditLogService = auditLogService;
     }
 
     public async Task<ImportResultDTO> ImportExcelAsync(IFormFile file, int userId)
@@ -326,6 +329,18 @@ public class OrderService : IOrderService
                     ErrorDetails = JsonSerializer.Serialize(errors),
                     ImportDate = DateTime.Now,
                 }
+            );
+
+            var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == userId);
+
+            await _auditLogService.SaveLogAsync(
+                userId: author.Id,
+                staffCode: author.StaffCode,
+                action: "Import_Excel_Customer",
+                tableName: "imports_history",
+                recordId: null,
+                oldData: null,
+                newData: null
             );
 
             await _unitOfWork.SaveChangesAsync();

@@ -55,7 +55,15 @@ namespace WebAppAPI.Controllers
             UpdateCustomerDTO updateDTO
         )
         {
-            var result = await _customerService.UpdateCustomerAsync(id, updateDTO);
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+
+            var result = await _customerService.UpdateCustomerAsync(
+                int.Parse(userIdClaim.Value),
+                id,
+                updateDTO
+            );
             return new ResponseValue<string>(
                 result,
                 "Cập nhật thông tin khách hàng thành công",
@@ -66,7 +74,14 @@ namespace WebAppAPI.Controllers
         [HttpDelete("DeleteCustomerAsync/{id}")]
         public async Task<ResponseValue<string>> DeleteCustomerAsync(int id, DateTime updatedAt)
         {
-            var result = await _customerService.DeleteCustomerAsync(id, updatedAt);
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+            var result = await _customerService.DeleteCustomerAsync(
+                int.Parse(userIdClaim.Value),
+                id,
+                updatedAt
+            );
             return new ResponseValue<string>(
                 result,
                 "Xóa khách hàng thành công",

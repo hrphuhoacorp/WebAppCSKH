@@ -1,20 +1,31 @@
-// Đổi tên file thành: middleware.ts (nếu chưa đúng)
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-    const token = request.cookies.get('token')?.value; // Lấy .value để chính xác
+    const token = request.cookies.get('token')?.value;
+    const { pathname } = request.nextUrl;
 
-    const isDashboard = request.nextUrl.pathname.startsWith('/dashboard');
+    // Kiểm tra xem user đang ở nhóm route nào
+    const isDashboardRoute = pathname.startsWith('/dashboard');
+    const isLoginRoute = pathname === '/login';
 
-    if (!token && isDashboard) {
+    // 1. Nếu CHƯA ĐĂNG NHẬP mà cố tình vào Dashboard -> Đá về trang Login
+    if (!token && isDashboardRoute) {
         return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    // 2. Nếu ĐÃ ĐĂNG NHẬP mà cố tình vào lại trang Login -> Đá ngược lại về Dashboard
+    if (token && isLoginRoute) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     return NextResponse.next();
 }
 
-// Thêm config matcher để giới hạn middleware chỉ chạy qua các route cần thiết
+// Cập nhật lại matcher để Middleware quét qua cả trang login và dashboard
 export const config = {
-    matcher: ['/dashboard/:path*'],
+    matcher: [
+        '/login',
+        '/dashboard/:path*'
+    ],
 };

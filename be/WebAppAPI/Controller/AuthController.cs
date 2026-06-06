@@ -76,7 +76,17 @@ namespace WebAppAPI.Controllers
         [HttpPost("CreateAccount")]
         public async Task<ResponseValue<string>> CreateAccount(AuthCreateDTO createDTO)
         {
-            var result = await _authService.CreateAccount(createDTO);
+            var userIdClaim = httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+
+            if (userIdClaim == null)
+            {
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng");
+            }
+
+            int userId = int.Parse(userIdClaim.Value);
+            var result = await _authService.CreateAccount(userId, createDTO);
             return new ResponseValue<string>(
                 result,
                 "Tạo tài khoản thành công",

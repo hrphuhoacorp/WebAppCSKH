@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Transactions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ public interface IAuthService
 {
     Task<string> Login(AuthLoginDTO loginDTO);
     Task<UserDTO> GetProfile(int userId);
-    Task<string> CreateAccount(AuthCreateDTO createDTO);
+    Task<string> CreateAccount(int authorId, AuthCreateDTO createDTO);
     Task<string> ChangePassword(
         int userId,
         string currentPassword,
@@ -141,11 +142,13 @@ public class AuthService : IAuthService
         return profile;
     }
 
-    public async Task<string> CreateAccount(AuthCreateDTO createDTO)
+    public async Task<string> CreateAccount(int authorId, AuthCreateDTO createDTO)
     {
         using var transaction = await _unitOfWork.BeginTransactionAsync();
         try
         {
+            var author = _userRepository.GetAll().FirstOrDefault(u => u.Id == authorId);
+
             var branchExists = await _branchRepository
                 .GetAll()
                 .AnyAsync(b => b.Id == createDTO.BranchesId);
@@ -217,6 +220,16 @@ public class AuthService : IAuthService
 
             await _userRoleRepository.AddAsync(userRole);
 
+            await _auditLogService.SaveLogAsync(
+                userId: author.Id,
+                staffCode: author.StaffCode,
+                action: "Create_Account",
+                tableName: "users",
+                recordId: newUser.Id,
+                oldData: null,
+                newData: JsonSerializer.Serialize(newUser)
+            );
+
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -261,15 +274,16 @@ public class AuthService : IAuthService
 
             await _userRepository.Update(user);
 
-            // await _auditLogService.SaveLogAsync(
-            //     userId: user.Id,
-            //     staffCode: user.StaffCode,
-            //     action: "Chang_Password",
-            //     tableName: "users",
-            //     recordId: user.Id,
-            //     oldData: currentPassword,
-            //     newData: newPassword
-            // );
+            await _auditLogService.SaveLogAsync(
+                userId: user.Id,
+                staffCode: user.StaffCode,
+                action: "Chang_Password",
+                tableName: "users",
+                recordId: user.Id,
+                oldData: JsonSerializer.Serialize(new { Password = currentPassword }),
+                newData: JsonSerializer.Serialize(new { Password = newPassword })
+            );
+
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -299,10 +313,20 @@ public class AuthService : IAuthService
             user.UpdatedAt = DateTime.Now.AddHours(7);
             await _userRepository.Update(user);
 
+            await _auditLogService.SaveLogAsync(
+                userId: user.Id,
+                staffCode: user.StaffCode,
+                action: "Reset_Password",
+                tableName: "users",
+                recordId: user.Id,
+                oldData: null,
+                newData: JsonSerializer.Serialize(new { Password = user.Phone })
+            );
+
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return "Đặt lại mật khẩu thành công. Mật khẩu mới là số điện thoại của bạn.";
+            return "Đặt lại mật khẩu thành công.";
         }
         catch
         {
@@ -341,6 +365,16 @@ public class AuthService : IAuthService
             user.UpdatedAt = DateTime.Now;
 
             await _userRepository.Update(user);
+
+            await _auditLogService.SaveLogAsync(
+                userId: user.Id,
+                staffCode: user.StaffCode,
+                action: "Delete_Account",
+                tableName: "users",
+                recordId: user.Id,
+                oldData: null,
+                newData: null
+            );
 
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();

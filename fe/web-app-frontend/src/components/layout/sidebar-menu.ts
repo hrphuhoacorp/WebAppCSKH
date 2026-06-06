@@ -1,11 +1,26 @@
+import { Task } from '@mui/icons-material';
 import {
     LayoutDashboard,
     ShoppingCart,
-    User,
     Users,
+    User,
+    Link2,
 } from 'lucide-react';
+import React from 'react';
 
-export const sidebarMenu = [
+
+export interface SidebarSubItem {
+    title: string;
+    href: string;
+    icon: React.ComponentType<any>; 
+    isExternal?: boolean;
+}
+
+export interface SidebarGroup {
+    title: string;
+    children: SidebarSubItem[];
+}
+export const sidebarMenu: SidebarGroup[] = [
     {
         title: 'Chăm sóc khách hàng',
         children: [
@@ -42,10 +57,20 @@ export const sidebarMenu = [
             {
                 title: 'Thông tin cá nhân',
                 href: '/dashboard/profile',
-                icon: Users,
+                icon: User,
             },
         ],
-
+    },
+    {
+        title: 'PHF Stask',
+        children: [
+            {
+                title: 'Tổng hợp link',
+                href: 'https://script.google.com/macros/s/AKfycbwRHLO6YAMGpzVdItrypOV-GiVnVz-P8vK_b8VV77JDs2bviAdzdkK2iXugVbKXGdXCAQ/exec',
+                icon: Task,
+                isExternal: true,
+            }
+        ],
     },
     {
         title: 'Tổng hợp link',
@@ -53,8 +78,8 @@ export const sidebarMenu = [
             {
                 title: 'Tổng hợp link',
                 href: '/dashboard/links',
-                icon: Users
-            }
+                icon: Link2,
+            },
         ],
-    }
+    },
 ];

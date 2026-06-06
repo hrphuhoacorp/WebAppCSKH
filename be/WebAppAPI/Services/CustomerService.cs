@@ -6,8 +6,8 @@ public interface ICustomerService
 {
     Task<PagedResult<CustomerDTO>> GetCustomerAllAsync(CustomerFilterDTO filter);
     Task<CustomerDTO> GetCustomerByIdAsync(int id);
-    Task<string> UpdateCustomerAsync(int id, UpdateCustomerDTO updateDTO);
-    Task<string> DeleteCustomerAsync(int id, DateTime updatedAt);
+    Task<string> UpdateCustomerAsync(int authorId, int id, UpdateCustomerDTO updateDTO);
+    Task<string> DeleteCustomerAsync(int authorId, int id, DateTime updatedAt);
 }
 
 public class CustomerService : ICustomerService
@@ -16,18 +16,24 @@ public class CustomerService : ICustomerService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IOrderRepository _orderRepository;
     private readonly IOrderItemRepository _orderItemRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly IActivityService _auditLogService;
 
     public CustomerService(
         ICustomerRepository customerRepository,
         IUnitOfWork unitOfWork,
         IOrderRepository orderRepository,
-        IOrderItemRepository orderItemRepository
+        IOrderItemRepository orderItemRepository,
+        IUserRepository userRepository,
+        IActivityService auditLogService
     )
     {
         _customerRepository = customerRepository;
         _unitOfWork = unitOfWork;
         _orderRepository = orderRepository;
         _orderItemRepository = orderItemRepository;
+        _userRepository = userRepository;
+        _auditLogService = auditLogService;
     }
 
     public async Task<PagedResult<CustomerDTO>> GetCustomerAllAsync(CustomerFilterDTO filter)
@@ -163,11 +169,20 @@ public class CustomerService : ICustomerService
         };
     }
 
-    public async Task<string> UpdateCustomerAsync(int id, UpdateCustomerDTO updateDTO)
+    public async Task<string> UpdateCustomerAsync(int authorId, int id, UpdateCustomerDTO updateDTO)
     {
         using var transaction = await _unitOfWork.BeginTransactionAsync();
         try
         {
+            var author = await _userRepository
+                .GetAll()
+                .FirstOrDefaultAsync(u => u.Id == authorId && u.DeletedAt == null);
+
+            if (author == null)
+            {
+                throw new NotFoundException("Người dùng không tồn tại");
+            }
+
             var customer = await _customerRepository
                 .GetAll()
                 .FirstOrDefaultAsync(c => c.Id == id && c.DeletedAt == null);
@@ -213,6 +228,16 @@ public class CustomerService : ICustomerService
 
             await _customerRepository.Update(customer);
 
+            await _auditLogService.SaveLogAsync(
+                userId: author.Id,
+                staffCode: author.StaffCode,
+                action: "Update_Customer",
+                tableName: "customer",
+                recordId: customer.Id,
+                oldData: null,
+                newData: null
+            );
+
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
             return "Cập nhật thông tin khách hàng thành công";
@@ -228,11 +253,13 @@ public class CustomerService : ICustomerService
         }
     }
 
-    public async Task<string> DeleteCustomerAsync(int id, DateTime updatedAt)
+    public async Task<string> DeleteCustomerAsync(int authorId, int id, DateTime updatedAt)
     {
         using var transaction = await _unitOfWork.BeginTransactionAsync();
         try
         {
+            var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == authorId);
+
             var customer = await _customerRepository
                 .GetAll()
                 .FirstOrDefaultAsync(c => c.Id == id && c.DeletedAt == null);
@@ -251,6 +278,16 @@ public class CustomerService : ICustomerService
             customer.UpdatedAt = DateTime.Now;
             customer.DeletedAt = DateTime.Now;
             await _customerRepository.Update(customer);
+
+            await _auditLogService.SaveLogAsync(
+                userId: author.Id,
+                staffCode: author.StaffCode,
+                action: "Delete_Customer",
+                tableName: "customer",
+                recordId: customer.Id,
+                oldData: null,
+                newData: null
+            );
 
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();

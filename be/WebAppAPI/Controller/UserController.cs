@@ -17,11 +17,17 @@ namespace WebAppAPI.Controllers
     {
         private readonly IUserService _userService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IActivityService _activityService;
 
-        public UserController(IUserService userService, IHttpContextAccessor httpContextAccessor)
+        public UserController(
+            IUserService userService,
+            IHttpContextAccessor httpContextAccessor,
+            IActivityService activityService
+        )
         {
             _userService = userService;
             _httpContextAccessor = httpContextAccessor;
+            _activityService = activityService;
         }
 
         [Authorize(Roles = "Admin")]
@@ -74,6 +80,20 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<List<RoleDTO>>(
                 result,
                 "Lấy danh sách vai trò thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [HttpGet("GetAllActivityLogAsync")]
+        public async Task<ResponseValue<PagedResult<ActivityLogDTO>>> GetAllActivityLogAsync(
+            [FromQuery] ActivityFilter filter
+        )
+        {
+            var result = await _activityService.GetAllActivityLog(filter);
+
+            return new ResponseValue<PagedResult<ActivityLogDTO>>(
+                result,
+                "Lấy danh sách hoạt động thành công",
                 StatusReponse.Success
             );
         }

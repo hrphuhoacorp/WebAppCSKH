@@ -22,7 +22,7 @@ import {
     alpha,
     Tooltip,
 } from '@mui/material';
-import { Search, Edit, Delete, Visibility, PersonSearch, FilterList } from '@mui/icons-material';
+import { Search, Edit, Delete, Visibility, PersonSearch, FilterList, Settings, LockReset, AddCircleRounded } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { userApi } from '@/features/user/api/user.api';
@@ -30,6 +30,9 @@ import { ordersApi } from '@/features/orders/api/orders.api';
 import UserDetailDialog from '@/features/user/components/UserDetailDialog';
 import DeleteUserDialog from '@/features/user/components/DeleteUserDialog';
 import EditUserDialog from '@/features/user/components/EditUserDialog';
+import ActivityLogDialog from '@/features/staff/components/ActivityLogDialog';
+import ResetPasswordDialog from '@/features/staff/components/ResetPasswordDialog';
+import CreateUserDialog from '@/features/staff/components/CreateUserDialog';
 
 type UserRow = {
     id: number;
@@ -70,6 +73,11 @@ export default function UsersPage() {
     const [detailOpen, setDetailOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
+
+    const [activityLogOpen, setActivityLogOpen] = useState(false);
+    const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+
+    const [createOpen, setCreateOpen] = useState(false);
 
     const formatDate = (value?: string | null) => {
         if (!value) return '-';
@@ -173,32 +181,74 @@ export default function UsersPage() {
                     </Typography>
                 </Box>
 
-                {/* Total badge */}
-                <Box
-                    sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        bgcolor: '#fff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '12px',
-                        px: 2,
-                        py: 1,
-                        boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
-                    }}
-                >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddCircleRounded />}
+                        onClick={() => setCreateOpen(true)}
+                        sx={{
+                            bgcolor: '#086839',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            px: 2,
+                            boxShadow: '0 1px 6px rgba(8,104,57,0.18)',
+                            '&:hover': {
+                                bgcolor: '#0e4837',
+                            },
+                        }}
+                    >
+                        Thêm nhân sự
+                    </Button>
+                    <Tooltip title="Lịch sử thao tác hệ thống" arrow>
+                        <IconButton
+                            onClick={() => setActivityLogOpen(true)}
+                            sx={{
+                                width: 40,
+                                height: 40,
+                                bgcolor: '#fff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                color: '#086839',
+                                boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
+                                '&:hover': {
+                                    bgcolor: '#f0fdf4',
+                                    transform: 'rotate(20deg)',
+                                },
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            <Settings sx={{ fontSize: 20 }} />
+                        </IconButton>
+                    </Tooltip>
+
                     <Box
                         sx={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            bgcolor: '#22c55e',
-                            boxShadow: '0 0 0 3px rgba(34,197,94,0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            bgcolor: '#fff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '12px',
+                            px: 2,
+                            py: 1,
+                            boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
                         }}
-                    />
-                    <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
-                        {total.toLocaleString('vi-VN')} nhân sự
-                    </Typography>
+                    >
+                        <Box
+                            sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: '#22c55e',
+                                boxShadow: '0 0 0 3px rgba(34,197,94,0.2)',
+                            }}
+                        />
+
+                        <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
+                            {total.toLocaleString('vi-VN')} nhân sự
+                        </Typography>
+                    </Box>
                 </Box>
             </Box>
 
@@ -525,6 +575,31 @@ export default function UsersPage() {
                                                 <Delete sx={{ fontSize: 16 }} />
                                             </IconButton>
                                         </Tooltip>
+
+
+                                        <Tooltip title="Reset mật khẩu" arrow>
+                                            <IconButton
+                                                size="small"
+                                                className="action-btn"
+                                                sx={{
+                                                    color: '#94a3b8',
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: '8px',
+                                                    '&:hover': {
+                                                        color: '#f59e0b',
+                                                        bgcolor: alpha('#f59e0b', 0.1),
+                                                    },
+                                                    transition: 'all 0.15s',
+                                                }}
+                                                onClick={() => {
+                                                    setSelectedUser(user);
+                                                    setResetPasswordOpen(true);
+                                                }}
+                                            >
+                                                <LockReset sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                        </Tooltip>
                                     </Stack>
                                 </TableCell>
                             </TableRow>
@@ -606,6 +681,27 @@ export default function UsersPage() {
                 open={deleteOpen}
                 user={selectedUser}
                 onClose={() => { setDeleteOpen(false); setSelectedUser(null); }}
+                onSuccess={fetchUsers}
+            />
+            <ActivityLogDialog
+                open={activityLogOpen}
+                onClose={() => {
+                    setActivityLogOpen(false);
+                }}
+            />
+
+            <ResetPasswordDialog
+                open={resetPasswordOpen}
+                user={selectedUser}
+                onClose={() => {
+                    setResetPasswordOpen(false);
+                    setSelectedUser(null);
+                }}
+            />
+            <CreateUserDialog
+                open={createOpen}
+                branchOptions={branchOptions}
+                onClose={() => setCreateOpen(false)}
                 onSuccess={fetchUsers}
             />
         </Box>

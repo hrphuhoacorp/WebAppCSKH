@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Box,
     Button,
@@ -19,20 +19,60 @@ type Props = {
     onClose: () => void;
 };
 
+// Định nghĩa kiểu dữ liệu lỗi cho các trường mật khẩu
+type FormErrors = {
+    currentPassword?: string;
+    newPassword?: string;
+    confirmPassword?: string;
+};
+
 export default function ChangePasswordDialog({ open, onClose }: Props) {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [saving, setSaving] = useState(false);
 
-    const handleSubmit = async () => {
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            toast.error('Vui lòng nhập đầy đủ thông tin');
-            return;
+    // State quản lý lỗi cục bộ cho từng ô input
+    const [errors, setErrors] = useState<FormErrors>({});
+
+    // Reset dữ liệu và xóa lỗi cũ mỗi khi mở/đóng Dialog
+    useEffect(() => {
+        if (!open) return;
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setErrors({});
+    }, [open]);
+
+    // Hàm kiểm tra lỗi thủ công trước khi gửi API
+    const validateForm = (): boolean => {
+        const newErrors: FormErrors = {};
+
+        if (!currentPassword) {
+            newErrors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại';
         }
 
-        if (newPassword !== confirmPassword) {
-            toast.error('Mật khẩu xác nhận không khớp');
+        if (!newPassword) {
+            newErrors.newPassword = 'Vui lòng nhập mật khẩu mới';
+        } else if (newPassword.length < 6) {
+            // Thêm validate độ dài nếu cần, hoặc bỏ qua nếu backend tự xử lý
+            newErrors.newPassword = 'Mật khẩu mới phải từ 6 ký tự trở lên';
+        }
+
+        if (!confirmPassword) {
+            newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu mới';
+        } else if (newPassword !== confirmPassword) {
+            newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = async () => {
+        // Chạy validate form
+        if (!validateForm()) {
+            toast.error('Vui lòng kiểm tra lại thông tin nhập vào');
             return;
         }
 
@@ -40,7 +80,6 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
             setSaving(true);
 
             await authApi.changePassword({
-                
                 currentPassword,
                 newPassword,
                 confirmPassword,
@@ -60,6 +99,13 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
             );
         } finally {
             setSaving(false);
+        }
+    };
+
+    // Hàm xóa lỗi của ô input đó khi người dùng bắt đầu gõ lại dữ liệu
+    const handleClearError = (field: keyof FormErrors) => {
+        if (errors[field]) {
+            setErrors((prev) => ({ ...prev, [field]: undefined }));
         }
     };
 
@@ -88,7 +134,12 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
                         type="password"
                         size="small"
                         value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        onChange={(e) => {
+                            setCurrentPassword(e.target.value);
+                            handleClearError('currentPassword');
+                        }}
+                        error={!!errors.currentPassword}
+                        helperText={errors.currentPassword}
                         fullWidth
                     />
 
@@ -97,7 +148,14 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
                         type="password"
                         size="small"
                         value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
+                        onChange={(e) => {
+                            setNewPassword(e.target.value);
+                            handleClearError('newPassword');
+                            // Nếu người dùng sửa mật khẩu mới, kiểm tra lại lỗi của ô confirm luôn
+                            handleClearError('confirmPassword');
+                        }}
+                        error={!!errors.newPassword}
+                        helperText={errors.newPassword}
                         fullWidth
                     />
 
@@ -106,7 +164,12 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
                         type="password"
                         size="small"
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            handleClearError('confirmPassword');
+                        }}
+                        error={!!errors.confirmPassword}
+                        helperText={errors.confirmPassword}
                         fullWidth
                     />
 

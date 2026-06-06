@@ -1,6 +1,8 @@
 using System.Text.Json;
-using Npgsql;
 using Dapper;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
+
 public interface IActivityService
 {
     Task SaveLogAsync(
@@ -12,17 +14,24 @@ public interface IActivityService
         object? oldData = null,
         object? newData = null
     );
+    Task<PagedResult<ActivityLogDTO>> GetAllActivityLog(ActivityFilter filter);
 }
 
 public class ActivityService : IActivityService
 {
     private readonly string _connectionString;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IActivityLogRepository _activityLogRepository;
 
-    public ActivityService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+    public ActivityService(
+        IConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor,
+        IActivityLogRepository activityLogRepository
+    )
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")!;
         _httpContextAccessor = httpContextAccessor;
+        _activityLogRepository = activityLogRepository;
     }
 
     public async Task SaveLogAsync(
@@ -64,5 +73,70 @@ public class ActivityService : IActivityService
                 UserAgent = userAgent,
             }
         );
+    }
+
+    public async Task<PagedResult<ActivityLogDTO>> GetAllActivityLog(ActivityFilter filter)
+    {
+        var query = _activityLogRepository.GetAll().Include(al => al.User).AsNoTracking();
+
+        if (!string.IsNullOrEmpty(filter.Search))
+        {
+            query = query.Where(al =>
+                (
+                    al.User.Name != null && al.User.Name.ToLower().Contains(filter.Search.ToLower())
+                    || al.User.StaffCode != null
+                        && al.User.StaffCode.ToLower().Contains(filter.Search.ToLower())
+                    || al.Action != null && al.Action.ToLower().Contains(filter.Search.ToLower())
+                )
+            );
+        }
+
+        if (filter.FromDate.HasValue && filter.ToDate.HasValue)
+        {
+            if (filter.FromDate.Value > DateTime.Now || filter.ToDate.Value < DateTime.Now)
+            {
+                throw new BadRequestException("Ngày Không Hợp Lệ");
+            }
+            if (filter.FromDate.Value > filter.ToDate.Value)
+                throw new BadRequestException("Ngày Bắt Đầu phải nhỏ hơn Ngày Kết Thúc");
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(al => al.CreatedAt >= filter.FromDate.Value);
+        }
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(al => al.CreatedAt <= filter.ToDate.Value);
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var activityLogs = await query
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .Select(al => new ActivityLogDTO
+            {
+                Id = al.Id,
+                UserId = al.UserId,
+                StaffCode = al.StaffCode,
+                Action = al.Action,
+                TableName = al.TableName,
+                RecordId = al.RecordId,
+                OldData = al.OldData,
+                NewData = al.NewData,
+                IpAddress = al.IpAddress,
+                UserAgent = al.UserAgent,
+                CreatedAt = al.CreatedAt,
+                Name = al.User.Name,
+            })
+            .ToListAsync();
+        return new PagedResult<ActivityLogDTO>
+        {
+            Items = activityLogs,
+            TotalItems = totalItems,
+            Page = filter.Page,
+            PageSize = filter.PageSize,
+        };
     }
 }
