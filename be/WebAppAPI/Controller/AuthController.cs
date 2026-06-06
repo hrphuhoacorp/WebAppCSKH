@@ -35,8 +35,8 @@ namespace WebAppAPI.Controllers
                 new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = false,
-                    SameSite = SameSiteMode.Lax,
+                    Secure = true,
+                    SameSite = SameSiteMode.None,
                     Expires = DateTimeOffset.UtcNow.AddHours(1),
                     Path = "/",
                 }
