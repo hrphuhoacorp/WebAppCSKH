@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthProviders';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { profile, loading } = useAuth(); // Bây giờ bạn đã có thể lấy 'loading' ra dùng thoải mái
@@ -17,9 +18,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     // Trong lúc API đang chạy, giữ người dùng ở lại giao diện chờ để tránh bị đá văng nhầm
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center">
-                <p style={{ fontFamily: 'var(--font-inter)' }}>Đang xác thực tài khoản...</p>
-            </div>
+            <LoadingOverlay open={loading} text="Đang xác thực tài khoản" />
+
         );
     }
 
