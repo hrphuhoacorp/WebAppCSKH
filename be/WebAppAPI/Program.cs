@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using GymManagementProject_Api.Middlewares;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -107,6 +108,13 @@ builder.Services.AddSwaggerGen(options =>
         }
     );
 });
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 //cors
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -164,7 +172,13 @@ builder
         {
             OnMessageReceived = context =>
             {
-                context.Token = context.Request.Cookies["token"];
+                // 1. Kiểm tra xem Cookie tên "token" có tồn tại không
+                if (context.Request.Cookies.TryGetValue("token", out var cookieToken))
+                {
+                    context.Token = cookieToken;
+                }
+
+                // 2. Nếu cookie không có, hệ thống sẽ tự động giữ nguyên token lấy từ Header (Giúp Swagger/Postman chạy bình thường)
                 return Task.CompletedTask;
             },
         };
@@ -187,6 +201,7 @@ builder.Services.AddScoped<JwtAuthService>();
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 
 //xử lý lỗi toàn cục
 app.UseMiddleware<GlobalExceptionMiddleware>();
