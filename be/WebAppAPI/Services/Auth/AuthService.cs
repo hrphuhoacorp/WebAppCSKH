@@ -227,7 +227,7 @@ public class AuthService : IAuthService
                 tableName: "users",
                 recordId: newUser.Id,
                 oldData: null,
-                newData: JsonSerializer.Serialize(newUser)
+                newData: JsonSerializer.Serialize(newUser.Name)
             );
 
             await _unitOfWork.SaveChangesAsync();
