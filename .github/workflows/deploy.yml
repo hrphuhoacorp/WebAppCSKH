@@ -67,7 +67,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           # Nếu bạn dùng SSH Key thì mở dòng dưới và comment dòng password ở trên lại
-          # key: ${{ secrets.VPS_SSH_KEY }}
+          
           script: |
             # 1. Đăng nhập vào GitHub Registry ngay trên VPS để có quyền tải Image về
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
@@ -87,7 +87,6 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               -p ${{ env.PORT_HOST }}:${{ env.PORT_CONTAINER }} \
-              --network=host \
               --restart always \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
               
