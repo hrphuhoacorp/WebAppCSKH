@@ -8,4 +8,5 @@ public class MediaFolderDto
     public DateTime? CreatedAt { get; set; }
 
     public List<MediaFolderDto> Children { get; set; } = new();
+    public int Count { get; set; } = 0;
 }

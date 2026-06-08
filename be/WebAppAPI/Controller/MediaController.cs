@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,6 +23,17 @@ namespace WebAppAPI.Controllers
         {
             _mediaService = mediaService;
             _httpContextAccessor = httpContextAccessor;
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+
+            int userId = int.Parse(userIdClaim.Value);
+
+            return userId;
         }
 
         [HttpGet("GetFolder")]
@@ -57,6 +69,26 @@ namespace WebAppAPI.Controllers
                 "Tạo thư mục thành công",
                 StatusReponse.Success
             );
+        }
+
+        [HttpPut("RestoreFolder/{id}")]
+        public async Task<ResponseValue<bool>> RestoreFolderAsync(int id)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.RestoreFolderAsync(id, userId);
+            return new ResponseValue<bool>(
+                result,
+                "Khôi phục thư mục thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [HttpDelete("DeleteFolder/{id}")]
+        public async Task<ResponseValue<bool>> DeleteFolderAsync(int id)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.DeleteFolderAsync(id, userId);
+            return new ResponseValue<bool>(result, "Xóa thư mục thành công", StatusReponse.Success);
         }
 
         [HttpGet("GetFiles")]
@@ -99,7 +131,8 @@ namespace WebAppAPI.Controllers
             [FromBody] MoveFileRequest request
         )
         {
-            var result = await _mediaService.MoveFileAsync(id, request.FolderId);
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.MoveFileAsync(id, request.FolderId, userId);
             return new ResponseValue<bool>(
                 result,
                 "Di chuyển file thành công",
@@ -107,35 +140,35 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [HttpDelete("DeleteFile/{id}")]
-        public async Task<ResponseValue<bool>> DeleteFileAsync(int id)
+        [HttpPost("DeleteFiles")]
+        public async Task<ResponseValue<bool>> DeleteFiles([FromBody] List<int> ids)
         {
-            var result = await _mediaService.DeleteFileAsync(id);
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.DeleteFilesAsync(ids, userId);
             return new ResponseValue<bool>(result, "Xóa file thành công", StatusReponse.Success);
-        }
-
-        [HttpGet("RecycleBin")]
-        public async Task<ResponseValue<List<MediaFileDto>>> GetRecycleBin(
-            [FromQuery] int? folderId,
-            [FromQuery] string? search
-        )
-        {
-            var result = await _mediaService.GetRecycledFilesAsync(folderId, search);
-
-            return new ResponseValue<List<MediaFileDto>>(
-                result,
-                "Lấy danh sách file trong thùng rác thành công",
-                StatusReponse.Success
-            );
         }
 
         [HttpPut("RestoreFile/{id}")]
         public async Task<ResponseValue<bool>> RestoreFileAsync(int id)
         {
-            var result = await _mediaService.RestoreFileAsync(id);
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.RestoreFileAsync(id, userId);
             return new ResponseValue<bool>(
                 result,
                 "Khôi phục file thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [HttpGet("RecycleBin")]
+        public async Task<ResponseValue<List<RecycleItemDto>>> GetRecycleBin()
+        {
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.GetRecycleBinAsync(userId);
+
+            return new ResponseValue<List<RecycleItemDto>>(
+                result,
+                "Lấy danh sách thùng rác thành công",
                 StatusReponse.Success
             );
         }
