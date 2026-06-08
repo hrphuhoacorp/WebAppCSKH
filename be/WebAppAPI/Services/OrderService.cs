@@ -263,7 +263,7 @@ public class OrderService : IOrderService
                         ProductName = productName,
                         Sku = sku,
                         UnitPrice = unitPrice,
-                        Quantity = int.Parse(quantity),
+                        Quantity = decimal.Parse(quantity),
                         ServiceName = serviceName,
                         Unit = unit,
                         ImportHistoryId = currentImportId, // GÁN ĐỂ PHỤC VỤ LUỒNG ROLLBACK

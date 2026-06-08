@@ -25,7 +25,7 @@ public partial class OrderItem
 
     public DateTime? CreatedAt { get; set; }
 
-    public int? Quantity { get; set; }
+    public decimal? Quantity { get; set; }
 
     public virtual ImportsHistory? ImportHistory { get; set; }
 
