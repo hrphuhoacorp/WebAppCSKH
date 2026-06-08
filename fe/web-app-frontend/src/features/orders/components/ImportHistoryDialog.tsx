@@ -52,7 +52,7 @@ export default function ImportHistoryDialog({ open, onClose, historyData = [] }:
         <Dialog
             open={open}
             onClose={onClose}
-            maxWidth="md"
+            maxWidth="lg"
             fullWidth
             slotProps={{
                 paper: {
