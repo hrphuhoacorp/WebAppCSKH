@@ -211,20 +211,45 @@ builder.Services.AddScoped<JwtAuthService>();
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
-app.UseForwardedHeaders();
 
-//xử lý lỗi toàn cục
-app.UseMiddleware<GlobalExceptionMiddleware>();
-
-//
-
+// 1. CHỈ GỌI UseCors MỘT LẦN, đặt ở đầu pipeline
 app.UseCors("AllowAllOrigins");
 
-// app.UseHttpsRedirection();
+// 2. Middleware thêm CORS cho static files - ĐẶT SAU UseCors
+app.Use(
+    async (context, next) =>
+    {
+        // Thêm CORS headers cho tất cả static files
+        context.Response.OnStarting(() =>
+        {
+            if (context.Request.Path.StartsWithSegments("/media"))
+            {
+                context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+                context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, OPTIONS");
+                context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
+            }
+            return Task.CompletedTask;
+        });
+
+        await next();
+    }
+);
+
+// 3. Static files middleware
+app.UseStaticFiles();
+
+app.UseForwardedHeaders();
+
+// XÓA DÒNG NÀY - gọi trùng lặp
+// app.UseCors("AllowAllOrigins");
+
+// Middleware xử lý lỗi
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-//server media
+// 4. Serve media files với CORS headers
 var mediaRoot = builder.Configuration["MediaSettings:RootPath"];
 var mediaRequestPath = builder.Configuration["MediaSettings:RequestPath"] ?? "/media";
 
@@ -237,16 +262,20 @@ if (!string.IsNullOrWhiteSpace(mediaRoot))
         {
             FileProvider = new PhysicalFileProvider(mediaRoot),
             RequestPath = mediaRequestPath,
+            OnPrepareResponse = ctx =>
+            {
+                // Thêm CORS headers trực tiếp vào static files
+                ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+                ctx.Context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, OPTIONS");
+                ctx.Context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
+            },
         }
     );
 }
 
-//
 app.MapHub<ImportHub>("/hubs/import");
-
 app.MapControllers();
 
-//swagger
 app.UseSwagger();
 app.UseSwaggerUI();
 
