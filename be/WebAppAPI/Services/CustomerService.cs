@@ -277,7 +277,7 @@ public class CustomerService : ICustomerService
                     "Dữ liệu đã bị thay đổi, vui lòng tải lại trang và thử lại"
                 );
             }
-            customer.DeletedAt = DateTime.Now;
+            customer.DeletedAt = DateTime.Now.AddHours(7);
             await _customerRepository.Update(customer);
 
             await _auditLogService.SaveLogAsync(

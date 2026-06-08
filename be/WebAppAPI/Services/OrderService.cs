@@ -383,7 +383,7 @@ public class OrderService : IOrderService
         try
         {
             // Lấy thời gian hiện tại chuẩn Việt Nam từ DB hoặc ép múi giờ trong code
-            var crmNow = DateTime.Now;
+            var crmNow = DateTime.Now.AddHours(7);
 
             // BƯỚC 2: XÓA MỀM CÁC ĐƠN HÀNG THUỘC FILE IMPORT NÀY
             // Lấy ra tất cả các đơn hàng chưa bị xóa của đợt import này

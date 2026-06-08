@@ -353,7 +353,7 @@ public class AuthService : IAuthService
                 );
             }
 
-            user.DeletedAt = DateTime.Now;
+            user.DeletedAt = DateTime.Now.AddHours(7);
 
             await _userRepository.Update(user);
 
