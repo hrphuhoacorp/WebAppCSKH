@@ -176,43 +176,44 @@ export default function GiftGalleryPage() {
     };
 
     // ── 3. Chức năng chia sẻ hệ thống dành cho Điện thoại (Mobile Share) ──
+    // ── Chức năng chia sẻ hệ thống dành cho Điện thoại (Đã Fix lỗi Zalo Mobile) ──
     const handleShareSelectedImages = async () => {
         if (selectedImageIds.length === 0) return;
 
-        if (!navigator.share || !navigator.canShare) {
-            toast.error('Thiết bị hoặc trình duyệt này chưa hỗ trợ tính năng chia sẻ tệp tin trực tiếp.');
+        if (!navigator.share) {
+            toast.error('Trình duyệt trên điện thoại này chưa hỗ trợ tính năng chia sẻ tệp.');
             return;
         }
 
-        const toastId = toast.loading(`Đang chuẩn bị gửi ${selectedImageIds.length} tệp tin sang Zalo...`);
+        const toastId = toast.loading(`Đang xử lý ${selectedImageIds.length} ảnh sang Zalo...`);
         setProcessing(true);
 
         try {
             const imagesToShare = sampleImages.filter((img) => selectedImageIds.includes(img.id));
 
-            const fileObjectsPromises = imagesToShare.map(async (img) => {
-                const blob = await getImageBlob(img.fileUrl);
-                // Tạo ra một file vật lý có tên chuẩn định dạng của hệ điều hành
-                return new File([blob], img.fileName, { type: blob.type });
-            });
+            // Xử lý chuyển đổi mảng ảnh thành tệp tin nhị phân vật lý chuẩn định dạng hệ thống
+            const fileObjectsPromises = imagesToShare.map(mapImageToFileObject);
 
             const files = await Promise.all(fileObjectsPromises);
 
-            if (navigator.canShare({ files })) {
-                await navigator.share({
-                    files: files,
-                    title: 'Chia sẻ ảnh giỏ quà Phú Hòa Fresh',
-                    text: 'Gửi mẫu giỏ quà tư vấn cho khách hàng'
-                });
-                toast.success('Đã mở khay chia sẻ hệ thống thành công', { id: toastId });
+            // Cấu hình payload bọc gói an toàn theo tài liệu Web Share API
+            const shareData: ShareData = {
+                files: files,
+            };
+
+            // Kiểm tra nghiêm ngặt xem hệ điều hành có cho phép chia sẻ cụm tệp này không
+            if (navigator.canShare && navigator.canShare(shareData)) {
+                toast.dismiss(toastId);
+                await navigator.share(shareData);
                 setSelectedImageIds([]);
             } else {
-                toast.error('Hệ điều hành chặn định dạng file chia sẻ này.', { id: toastId });
+                toast.error('Hệ điều hành chặn chia sẻ mảng tệp tin này.', { id: toastId });
             }
         } catch (error: any) {
             console.error(error);
+            // Nếu người dùng chủ động bấm "Hủy" hoặc thoát khay chia sẻ thì ẩn toast đi
             if (error.name !== 'AbortError') {
-                toast.error('Thao tác chia sẻ tệp tin thất bại', { id: toastId });
+                toast.error('Zalo từ chối nhận mảng ảnh động, hãy thử gửi đơn lẻ.', { id: toastId });
             } else {
                 toast.dismiss(toastId);
             }
@@ -221,6 +222,19 @@ export default function GiftGalleryPage() {
         }
     };
 
+    // Hàm phụ trợ bọc chuyển đổi cấu trúc nhị phân sạch
+    const mapImageToFileObject = async (img: MediaFile): Promise<File> => {
+        const response = await fetch(img.fileUrl, { mode: 'cors' });
+        const blob = await response.blob();
+
+        // Buộc phải bọc đúng phần mở rộng extension tương thích để Zalo Mobile bốc tách được dữ liệu
+        const fileExtension = blob.type.split('/')[1] || 'png';
+        const customFileName = img.fileName.endsWith(`.${fileExtension}`)
+            ? img.fileName
+            : `${img.fileName}.${fileExtension}`;
+
+        return new File([blob], customFileName, { type: blob.type });
+    };
     const handleSelectAllVisible = () => {
         const visibleIds = filteredImages.map(img => img.id);
         const isAllSelected = visibleIds.every(id => selectedImageIds.includes(id));
