@@ -40,6 +40,7 @@ public class DashboardService : IDashboardService
                 .Include(o => o.Customer)
                 .Include(o => o.Status)
                 .Include(o => o.Branches)
+                .Where(o => o.DeletedAt == null && o.Customer.DeletedAt == null)
                 .AsNoTracking();
 
             if (filter.FromDate.HasValue)
@@ -80,7 +81,7 @@ public class DashboardService : IDashboardService
                 ordersQuery = ordersQuery.Where(o => o.BranchesId == filter.branchId.Value);
             }
             var totalOrders = await ordersQuery.CountAsync();
-            var totalRevenue = await ordersQuery.SumAsync(o => o.Revenue);
+            var totalRevenue = Math.Round(await ordersQuery.SumAsync(o => o.Revenue), 0);
             var averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
             var totalCustomers = await ordersQuery
@@ -103,13 +104,21 @@ public class DashboardService : IDashboardService
                 .ToListAsync();
 
             var revenueByMonth = await ordersQuery
-                .GroupBy(o => o.PurchaseDate.Month)
-                .Select(g => new MonthlyRevenueDTO
+                .GroupBy(o => new { o.PurchaseDate.Year, o.PurchaseDate.Month })
+                .Select(g => new
                 {
-                    Month = g.Key.ToString(),
-                    Revenue = g.Sum(x => x.Revenue),
+                    Year = g.Key.Year,
+                    Month = g.Key.Month,
+                    // Làm tròn tổng doanh thu của tháng về số nguyên (0 chữ số thập phân)
+                    Revenue = Math.Round(g.Sum(x => x.Revenue), 0),
                 })
-                .OrderBy(x => x.Month)
+                .OrderBy(x => x.Year)
+                .ThenBy(x => x.Month)
+                .Select(x => new MonthlyRevenueDTO
+                {
+                    Month = $"{(x.Month < 10 ? "0" + x.Month : x.Month)}/{x.Year}",
+                    Revenue = x.Revenue,
+                })
                 .ToListAsync();
 
             var topCustomersByRevenue = await ordersQuery

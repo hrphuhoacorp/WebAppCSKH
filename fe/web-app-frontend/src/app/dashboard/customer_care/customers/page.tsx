@@ -31,6 +31,10 @@ import {
     Search,
     ViewColumn,
     PersonSearch,
+    CalendarToday,
+    Update,
+    Badge,
+    ShoppingBag,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -72,8 +76,35 @@ const columns = [
     { key: 'totalOrders', label: 'Tổng đơn hàng' },
     { key: 'totalRevenue', label: 'Tổng doanh thu' },
     { key: 'lastOrderAt', label: 'Lần mua gần nhất' },
-    { key: 'createdBy', label: 'Tạo bởi' },
 ] as const;
+
+// Meta info cards với màu riêng biệt để dễ phân biệt
+const metaCardConfig = [
+    {
+        key: 'createdAt',
+        label: 'Ngày Import',
+        icon: CalendarToday,
+        accentColor: '#3b82f6',  // xanh dương
+        bgColor: '#eff6ff',
+        borderColor: '#bfdbfe',
+    },
+    {
+        key: 'updatedAt',
+        label: 'Cập nhật gần nhất',
+        icon: Update,
+        accentColor: '#f59e0b',  // vàng cam
+        bgColor: '#fffbeb',
+        borderColor: '#fde68a',
+    },
+    {
+        key: 'createdName',
+        label: 'Nhân viên tạo',
+        icon: Badge,
+        accentColor: '#8b5cf6',  // tím
+        bgColor: '#f5f3ff',
+        borderColor: '#ddd6fe',
+    },
+];
 
 export default function CustomerPage() {
     const [customers, setCustomers] = useState<CustomerSchema[]>([]);
@@ -88,7 +119,7 @@ export default function CustomerPage() {
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [visibleColumns, setVisibleColumns] = useState<string[]>(
-        columns.filter((c) => c.key !== 'createdBy').map((c) => c.key)
+        columns.map((c) => c.key)
     );
 
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
@@ -279,7 +310,6 @@ export default function CustomerPage() {
                 <Table stickyHeader size="medium">
                     <TableHead>
                         <TableRow>
-                            {/* Expand toggle col */}
                             <TableCell
                                 sx={{
                                     bgcolor: '#086839',
@@ -437,17 +467,44 @@ export default function CustomerPage() {
                                 {/* ── Expanded Detail Row ── */}
                                 <TableRow>
                                     <TableCell
-                                        sx={{ py: 0, bgcolor: '#f8faf9', borderBottom: openRow === customer.id ? '1px solid #e2e8f0 !important' : '0 !important' }}
+                                        sx={{
+                                            py: 0,
+                                            // Nền của expanded row dùng màu khác hẳn để tách biệt rõ ràng
+                                            bgcolor: '#f8fafc',
+                                            borderBottom: openRow === customer.id
+                                                ? '2px solid #086839 !important'
+                                                : '0 !important',
+                                            borderLeft: openRow === customer.id ? '3px solid #086839' : 'none',
+                                        }}
                                         colSpan={visibleColumns.length + 1}
                                     >
                                         <Collapse in={openRow === customer.id} timeout="auto" unmountOnExit>
-                                            <Box sx={{ py: 3, px: { xs: 1, md: 2 } }}>
+                                            <Box sx={{ py: 3, px: { xs: 1, md: 3 } }}>
 
-                                                {/* Detail header */}
+                                                {/* ── Section 1: Thông tin nền tảng ── */}
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Box sx={{ width: 4, height: 18, bgcolor: '#086839', borderRadius: '2px' }} />
-                                                        <Typography sx={{ color: '#086839', fontWeight: 800, fontSize: 12, letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                                                    {/* Section title - dùng màu slate thay vì xanh để không trùng với content */}
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                        <Box
+                                                            sx={{
+                                                                width: 28,
+                                                                height: 28,
+                                                                borderRadius: '8px',
+                                                                bgcolor: '#1e293b',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}
+                                                        >
+                                                            <Typography sx={{ color: '#fff', fontSize: 13 }}>📋</Typography>
+                                                        </Box>
+                                                        <Typography sx={{
+                                                            color: '#1e293b',
+                                                            fontWeight: 800,
+                                                            fontSize: 12,
+                                                            letterSpacing: '0.6px',
+                                                            textTransform: 'uppercase',
+                                                        }}>
                                                             Thông tin nền tảng khách hàng
                                                         </Typography>
                                                     </Box>
@@ -455,17 +512,15 @@ export default function CustomerPage() {
                                                         <IconButton
                                                             size="small"
                                                             sx={{
-                                                                color: '#086839',
-                                                                bgcolor: '#fff',
-                                                                border: '1px solid #e2e8f0',
+                                                                color: '#fff',
+                                                                bgcolor: '#086839',
                                                                 borderRadius: '8px',
                                                                 width: 30,
                                                                 height: 30,
                                                                 '&:hover': {
-                                                                    bgcolor: alpha('#086839', 0.06),
-                                                                    borderColor: alpha('#086839', 0.3),
+                                                                    bgcolor: '#065f2e',
                                                                     transform: 'translateY(-1px)',
-                                                                    boxShadow: '0 2px 8px rgba(8,104,57,0.15)',
+                                                                    boxShadow: '0 4px 12px rgba(8,104,57,0.3)',
                                                                 },
                                                                 transition: 'all 0.2s',
                                                             }}
@@ -480,61 +535,130 @@ export default function CustomerPage() {
                                                     </Tooltip>
                                                 </Box>
 
-                                                {/* Meta info card */}
-                                                <Paper
-                                                    variant="outlined"
+                                                {/* Meta info — 3 cards màu khác nhau, dễ phân biệt */}
+                                                <Box
                                                     sx={{
-                                                        p: 2,
-                                                        borderRadius: '14px',
-                                                        bgcolor: '#fff',
+                                                        display: 'grid',
+                                                        gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+                                                        gap: 2,
                                                         mb: 3,
-                                                        borderColor: '#e2e8f0',
-                                                        boxShadow: '0 1px 6px rgba(8,104,57,0.04)',
                                                     }}
                                                 >
-                                                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2.5 }}>
-                                                        {[
-                                                            {
-                                                                label: 'Ngày Import',
-                                                                value: customer.createdAt ? formatDate(customer.createdAt) : '—',
-                                                                color: '#1e293b',
-                                                            },
-                                                            {
-                                                                label: 'Cập nhật gần nhất',
-                                                                value: customer.updatedAt
-                                                                    ? formatDate(new Date(new Date(customer.updatedAt).getTime() + 7 * 60 * 60 * 1000).toISOString())
-                                                                    : '—',
-                                                                color: '#1e293b',
-                                                            },
-                                                            {
-                                                                label: 'Nhân viên tạo',
-                                                                value: customer.createdName || '—',
-                                                                color: '#086839',
-                                                            },
-                                                        ].map(({ label, value, color }) => (
-                                                            <Box key={label} sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
-                                                                <Typography sx={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                                                                    {label}
-                                                                </Typography>
-                                                                <Typography sx={{ fontSize: 13, fontWeight: 700, color }}>
-                                                                    {value}
-                                                                </Typography>
-                                                            </Box>
-                                                        ))}
-                                                    </Box>
-                                                </Paper>
+                                                    {metaCardConfig.map(({ key, label, icon: Icon, accentColor, bgColor, borderColor }) => {
+                                                        let value = '—';
+                                                        if (key === 'createdAt' && customer.createdAt) {
+                                                            value = formatDate(customer.createdAt);
+                                                        } else if (key === 'updatedAt' && customer.updatedAt) {
+                                                            value = formatDate(
+                                                                new Date(new Date(customer.updatedAt).getTime() + 7 * 60 * 60 * 1000).toISOString()
+                                                            );
+                                                        } else if (key === 'createdName') {
+                                                            value = customer.createdName || '—';
+                                                        }
 
-                                                {/* Order history section */}
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                                    <Box sx={{ width: 4, height: 18, bgcolor: '#086839', borderRadius: '2px' }} />
-                                                    <Typography sx={{ color: '#086839', fontWeight: 800, fontSize: 12, letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                                                        return (
+                                                            <Paper
+                                                                key={key}
+                                                                variant="outlined"
+                                                                sx={{
+                                                                    p: 2,
+                                                                    borderRadius: '14px',
+                                                                    bgcolor: bgColor,
+                                                                    borderColor,
+                                                                    borderWidth: '1.5px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'flex-start',
+                                                                    gap: 1.5,
+                                                                    boxShadow: `0 1px 6px ${alpha(accentColor, 0.08)}`,
+                                                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                                                    '&:hover': {
+                                                                        transform: 'translateY(-1px)',
+                                                                        boxShadow: `0 4px 16px ${alpha(accentColor, 0.15)}`,
+                                                                    },
+                                                                }}
+                                                            >
+                                                                {/* Icon badge */}
+                                                                <Box
+                                                                    sx={{
+                                                                        width: 36,
+                                                                        height: 36,
+                                                                        borderRadius: '10px',
+                                                                        bgcolor: alpha(accentColor, 0.12),
+                                                                        border: `1.5px solid ${alpha(accentColor, 0.25)}`,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                >
+                                                                    <Icon sx={{ fontSize: 17, color: accentColor }} />
+                                                                </Box>
+                                                                <Box sx={{ minWidth: 0 }}>
+                                                                    <Typography
+                                                                        sx={{
+                                                                            fontSize: 10,
+                                                                            color: alpha(accentColor, 0.8),
+                                                                            fontWeight: 700,
+                                                                            textTransform: 'uppercase',
+                                                                            letterSpacing: '0.5px',
+                                                                            mb: 0.4,
+                                                                        }}
+                                                                    >
+                                                                        {label}
+                                                                    </Typography>
+                                                                    <Typography
+                                                                        sx={{
+                                                                            fontSize: 14,
+                                                                            fontWeight: 800,
+                                                                            color: '#1e293b',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            whiteSpace: 'nowrap',
+                                                                        }}
+                                                                    >
+                                                                        {value}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Paper>
+                                                        );
+                                                    })}
+                                                </Box>
+
+                                                {/* ── Section 2: Lịch sử giao dịch ── */}
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                                    <Box
+                                                        sx={{
+                                                            width: 28,
+                                                            height: 28,
+                                                            borderRadius: '8px',
+                                                            bgcolor: '#086839',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                        }}
+                                                    >
+                                                        <ShoppingBag sx={{ fontSize: 15, color: '#fff' }} />
+                                                    </Box>
+                                                    <Typography sx={{
+                                                        color: '#1e293b',
+                                                        fontWeight: 800,
+                                                        fontSize: 12,
+                                                        letterSpacing: '0.6px',
+                                                        textTransform: 'uppercase',
+                                                    }}>
                                                         Lịch sử giao dịch đơn hàng
                                                     </Typography>
                                                     {customer.orders?.length > 0 && (
                                                         <Chip
                                                             label={`${customer.orders.length} đơn`}
                                                             size="small"
-                                                            sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }}
+                                                            sx={{
+                                                                bgcolor: '#086839',
+                                                                color: '#fff',
+                                                                fontWeight: 700,
+                                                                fontSize: 11,
+                                                                height: 20,
+                                                            }}
                                                         />
                                                     )}
                                                 </Box>
@@ -544,7 +668,7 @@ export default function CustomerPage() {
                                                     elevation={0}
                                                     sx={{
                                                         borderRadius: '14px',
-                                                        border: '1px solid #e2e8f0',
+                                                        border: '1.5px solid #e2e8f0',
                                                         overflow: 'hidden',
                                                         maxHeight: 300,
                                                         overflowY: 'auto',
@@ -555,32 +679,42 @@ export default function CustomerPage() {
                                                     <Table size="small" stickyHeader>
                                                         <TableHead>
                                                             <TableRow>
-                                                                {['Mã đơn hàng', 'Ngày mua', 'Nguồn mua', 'Doanh thu', 'Phí ship', 'Thuế'].map((h, i) => (
+                                                                {[
+                                                                    { label: 'Mã đơn hàng', align: 'left' as const },
+                                                                    { label: 'Ngày mua', align: 'left' as const },
+                                                                    { label: 'Nguồn mua', align: 'left' as const },
+                                                                    { label: 'Doanh thu', align: 'right' as const },
+                                                                    { label: 'Phí ship', align: 'right' as const },
+                                                                    { label: 'Thuế', align: 'right' as const },
+                                                                ].map(({ label, align }) => (
                                                                     <TableCell
-                                                                        key={h}
-                                                                        align={i >= 3 ? 'right' : 'left'}
+                                                                        key={label}
+                                                                        align={align}
                                                                         sx={{
                                                                             fontWeight: 700,
-                                                                            color: '#475569',
+                                                                            // Header bảng con dùng màu slate đậm để phân biệt với nền xanh của expanded row
+                                                                            color: '#fff',
                                                                             fontSize: 11,
                                                                             textTransform: 'uppercase',
                                                                             letterSpacing: '0.4px',
-                                                                            bgcolor: '#f8fafc',
+                                                                            bgcolor: '#334155',
                                                                             py: 1.5,
-                                                                            borderBottom: '2px solid #e2e8f0',
+                                                                            borderBottom: '2px solid #1e293b',
                                                                         }}
                                                                     >
-                                                                        {h}
+                                                                        {label}
                                                                     </TableCell>
                                                                 ))}
                                                             </TableRow>
                                                         </TableHead>
                                                         <TableBody>
                                                             {customer.orders?.length ? (
-                                                                customer.orders.map((item) => (
+                                                                customer.orders.map((item, orderIdx) => (
                                                                     <TableRow
                                                                         key={item.id}
                                                                         sx={{
+                                                                            // Xen kẽ màu rõ hơn trong bảng đơn hàng
+                                                                            bgcolor: orderIdx % 2 === 0 ? '#fff' : '#f8fafc',
                                                                             '&:last-child td': { border: 0 },
                                                                             '&:hover': { bgcolor: '#f0fdf4' },
                                                                             transition: 'background 0.12s',
@@ -621,7 +755,7 @@ export default function CustomerPage() {
                                                                 ))
                                                             ) : (
                                                                 <TableRow>
-                                                                    <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
+                                                                    <TableCell colSpan={6} align="center" sx={{ py: 5, bgcolor: '#fff' }}>
                                                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                                                                             <Box sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                                 <PersonSearch sx={{ fontSize: 22, color: '#94a3b8' }} />
