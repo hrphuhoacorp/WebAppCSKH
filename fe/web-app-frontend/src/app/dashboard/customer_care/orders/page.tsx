@@ -133,7 +133,7 @@ export default function OrdersPage() {
     const [orderDetailOpen, setOrderDetailOpen] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
-    const { profile } = useAuth();
+    const { profile, loadProfile } = useAuth();
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [visibleColumns, setVisibleColumns] = useState<string[]>(
@@ -220,6 +220,7 @@ export default function OrdersPage() {
                 </div>
             ), { duration: 4000 });
             await fetchOrders();
+            await loadProfile();
         } catch (error: any) {
             toast.error(error?.response?.data?.errorMessages?.join(', ') ?? error?.response?.data?.message ?? 'Có lỗi xảy ra');
         } finally {
@@ -709,7 +710,7 @@ export default function OrdersPage() {
                     importDate: item.importDate,
                     rollbackAt: item.rollbackAt ?? null,
                     rollbackBy: item.rollbackBy ?? null,
-                }))} 
+                }))}
             />
         </Box>
     );
