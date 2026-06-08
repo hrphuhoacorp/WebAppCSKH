@@ -6,9 +6,13 @@ export interface UserRole {
 export interface ImportHistory {
     id: number;
     fileName: string;
+    status: string;
+    importBy: string;
     successCount: number;
     errorCount: number;
     importDate: string;
+    rollbackAt?:string;
+    rollbackBy?:string;
 }
 
 export interface UserProfile {

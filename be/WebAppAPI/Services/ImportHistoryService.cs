@@ -54,6 +54,10 @@ public class ImportHistoryService : IImportHistoryService
         {
             query = query.Where(i => i.ImportDate <= filter.ToDate.Value);
         }
+        query = query
+            .OrderBy(i => i.Status == "Imported" ? 0 : 1)
+            .ThenByDescending(i => i.ImportDate);
+
         var totalItems = await query.CountAsync();
 
         var importHistories = await query

@@ -40,11 +40,14 @@ import {
     Search,
     Refresh,
     ExpandMore,
+    HistoryToggleOffRounded,
 } from '@mui/icons-material';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
+import { useAuth } from '@/providers/AuthProviders';
+import ImportHistoryDialog from '@/features/orders/components/ImportHistoryDialog';
 
 const branchColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
 
@@ -129,6 +132,8 @@ export default function OrdersPage() {
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
     const [orderDetailOpen, setOrderDetailOpen] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const { profile } = useAuth();
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [visibleColumns, setVisibleColumns] = useState<string[]>(
@@ -303,7 +308,25 @@ export default function OrdersPage() {
                     >
                         {importing ? 'Đang xử lý...' : 'Nhập Excel'}
                     </Button>
-
+                    <Tooltip title="Xem lịch sử các file Excel đã tải lên của bản thân" arrow>
+                        <Button
+                            variant="outlined"
+                            startIcon={<HistoryToggleOffRounded sx={{ fontSize: 18 }} />}
+                            onClick={() => setHistoryModalOpen(true)} // ĐỔI TỪ router.push THÀNH BẬT MODAL
+                            sx={{
+                                borderColor: '#475569',
+                                color: '#475569',
+                                borderWidth: '1.5px',
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                px: 2.5,
+                                textTransform: 'none',
+                                '&:hover': { borderWidth: '1.5px', borderColor: '#1e293b', bgcolor: '#f1f5f9' },
+                            }}
+                        >
+                            Lịch sử nhập File
+                        </Button>
+                    </Tooltip>
                     <Tooltip title="Xóa tất cả bộ lọc" arrow>
                         <Button
                             variant="contained"
@@ -672,6 +695,21 @@ export default function OrdersPage() {
                 open={orderDetailOpen}
                 orderId={selectedOrderId}
                 onClose={() => { setOrderDetailOpen(false); setSelectedOrderId(null); }}
+            />
+            <ImportHistoryDialog
+                open={historyModalOpen}
+                onClose={() => setHistoryModalOpen(false)}
+                historyData={(profile?.importHistories || []).map(item => ({
+                    id: item.id,
+                    fileName: item.fileName,
+                    importBy: item.importBy ?? null,
+                    status: item.status ?? null,
+                    successCount: item.successCount,
+                    errorCount: item.errorCount,
+                    importDate: item.importDate,
+                    rollbackAt: item.rollbackAt ?? null,
+                    rollbackBy: item.rollbackBy ?? null,
+                }))} 
             />
         </Box>
     );
