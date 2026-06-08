@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
@@ -119,6 +120,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
+//upload
+builder.Services.Configure<MediaSettings>(builder.Configuration.GetSection("MediaSettings"));
+
 //cors
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
@@ -130,6 +134,7 @@ builder.Services.AddCors(options =>
     );
 });
 
+//jwt
 var privateKey = builder.Configuration["JwtConfigs:SecretKey"];
 var Issuer = builder.Configuration["JwtConfigs:Issuer"];
 var Audience = builder.Configuration["JwtConfigs:Audience"];
@@ -196,6 +201,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddScoped<IImportHistoryService, ImportHistoryService>();
+builder.Services.AddScoped<IMediaService, MediaService>();
 
 //context
 builder.Services.AddHttpContextAccessor();
@@ -217,6 +223,23 @@ app.UseCors("AllowAllOrigins");
 // app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+
+//server media
+var mediaRoot = builder.Configuration["MediaSettings:RootPath"];
+var mediaRequestPath = builder.Configuration["MediaSettings:RequestPath"] ?? "/media";
+
+if (!string.IsNullOrWhiteSpace(mediaRoot))
+{
+    Directory.CreateDirectory(mediaRoot);
+
+    app.UseStaticFiles(
+        new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(mediaRoot),
+            RequestPath = mediaRequestPath,
+        }
+    );
+}
 
 //
 app.MapHub<ImportHub>("/hubs/import");

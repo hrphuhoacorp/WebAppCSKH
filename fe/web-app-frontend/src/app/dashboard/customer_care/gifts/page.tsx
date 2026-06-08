@@ -294,7 +294,7 @@ function ImageCard({
             cursor: 'default',
             '&:hover': {
                 boxShadow: '0 4px 18px rgba(8,104,57,0.14)',
-                transform: 'translateY(-1px)',
+                transform: { xs: 'none', md: 'translateY(-1px)' },
                 '& .img-actions': { opacity: 1 },
             },
         }}>
@@ -318,28 +318,30 @@ function ImageCard({
                 <Box
                     component="img" src={image.fileUrl} alt={image.fileName}
                     loading="lazy"
-                    sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.03)' } }}
+                    onClick={onPreview}
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer', transition: 'transform 0.2s', '&:hover': { transform: { xs: 'none', md: 'scale(1.03)' } } }}
                 />
 
                 {/* Hover overlay actions */}
                 <Box
                     className="img-actions"
                     sx={{
-                        position: 'absolute', inset: 0, opacity: 0,
-                        background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)',
+                        position: 'absolute', inset: 0, opacity: { xs: 1, md: 0 },
+                        pointerEvents: 'none',
+                        background: { xs: 'linear-gradient(to top, rgba(0,0,0,0.32) 0%, transparent 50%)', md: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)' },
                         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
                         p: 1, transition: 'opacity 0.15s',
                     }}
                 >
                     <Tooltip title="Xem to">
                         <IconButton size="small" onClick={onPreview}
-                            sx={{ bgcolor: 'rgba(255,255,255,0.92)', p: 0.6, '&:hover': { bgcolor: '#fff' } }}>
+                            sx={{ bgcolor: 'rgba(255,255,255,0.92)', p: 0.6, pointerEvents: 'auto', '&:hover': { bgcolor: '#fff' } }}>
                             <Visibility sx={{ fontSize: 14, color: '#334155' }} />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title={isStarred ? 'Bỏ yêu thích' : 'Yêu thích'}>
                         <IconButton size="small" onClick={onToggleStar}
-                            sx={{ bgcolor: 'rgba(255,255,255,0.92)', p: 0.6, '&:hover': { bgcolor: '#fff' } }}>
+                            sx={{ bgcolor: 'rgba(255,255,255,0.92)', p: 0.6, pointerEvents: 'auto', '&:hover': { bgcolor: '#fff' } }}>
                             {isStarred
                                 ? <StarRounded sx={{ fontSize: 14, color: '#f59e0b' }} />
                                 : <StarBorder sx={{ fontSize: 14, color: '#334155' }} />}
@@ -349,11 +351,11 @@ function ImageCard({
             </Box>
 
             {/* Info */}
-            <CardContent sx={{ p: '10px 12px 12px', '&:last-child': { pb: '12px' } }}>
-                <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', mb: 0.3, lineHeight: 1.3 }}>
+            <CardContent sx={{ p: { xs: '8px 9px 10px', md: '10px 12px 12px' }, '&:last-child': { pb: { xs: '10px', md: '12px' } } }}>
+                <Typography sx={{ fontWeight: 600, fontSize: { xs: 11.5, md: 12 }, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', mb: 0.3, lineHeight: 1.3 }}>
                     {image.fileName}
                 </Typography>
-                <Typography sx={{ color: '#94a3b8', fontSize: 10.5, mb: 0.9 }}>
+                <Typography sx={{ color: '#94a3b8', fontSize: { xs: 10, md: 10.5 }, mb: { xs: 0.5, md: 0.9 } }}>
                     {image.size} • {image.createdAt}
                 </Typography>
                 <Stack direction="row" spacing={0.4} sx={{ flexWrap: 'wrap', mb: 1, gap: 0.4 }}>
@@ -406,8 +408,8 @@ function ImageRow({
 }) {
     return (
         <Box sx={{
-            display: 'flex', alignItems: 'center', gap: 1.5,
-            px: 1.5, py: 1, borderRadius: '8px',
+            display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 },
+            px: { xs: 1, md: 1.5 }, py: 1, borderRadius: '8px',
             border: isChecked ? '1px solid #bbf7d0' : '1px solid transparent',
             bgcolor: isChecked ? '#f0fdf4' : 'transparent',
             '&:hover': { bgcolor: isChecked ? '#f0fdf4' : '#f8fafc' },
@@ -422,7 +424,7 @@ function ImageRow({
             <Box
                 component="img" src={image.fileUrl} alt={image.fileName}
                 onClick={onPreview}
-                sx={{ width: 48, height: 48, borderRadius: '6px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '1px solid #e2e8f0' }}
+                sx={{ width: { xs: 56, md: 48 }, height: { xs: 56, md: 48 }, borderRadius: '6px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '1px solid #e2e8f0' }}
             />
             <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 600, fontSize: 12.5, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -437,7 +439,7 @@ function ImageRow({
                     <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>{image.createdAt}</Typography>
                 </Stack>
             </Box>
-            <Stack direction="row" spacing={0.4} sx={{ flexWrap: 'nowrap' }}>
+            <Stack direction="row" spacing={0.4} sx={{ flexWrap: 'nowrap', display: { xs: 'none', md: 'flex' } }}>
                 {image.tags.map(tag => (
                     <Chip key={tag} label={tag} size="small"
                         sx={{ height: 17, fontSize: 10, bgcolor: '#f0fdf4', color: '#166534', fontWeight: 600, borderRadius: '4px' }} />
@@ -601,23 +603,24 @@ export default function GiftGalleryPage() {
         <Box sx={{
             height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
             bgcolor: '#f0f2f0',
+            pb: 'env(safe-area-inset-bottom)',
         }}>
             <LoadingOverlay open={processing} text="Đang xử lý hình ảnh..." />
 
             {/* ── Top Header ── */}
             <Box sx={{
-                px: { xs: 1.5, md: 2.5 }, py: 1,
-                display: 'flex', alignItems: 'center', gap: 2,
+                px: { xs: 1.2, sm: 1.5, md: 2.5 }, py: { xs: 0.8, md: 1 },
+                display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 },
                 borderBottom: '1px solid #c8c8c8',
                 background: 'linear-gradient(180deg, #f6f6f6 0%, #ebebeb 100%)',
                 flexShrink: 0,
                 boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.8, md: 1.2 }, minWidth: 0 }}>
                     <Typography sx={{ fontSize: { xs: 18, md: 22 } }}>🎁</Typography>
-                    <Box>
-                        <Typography sx={{ fontWeight: 800, color: '#1a3d1f', fontSize: { xs: 14, md: 16 }, lineHeight: 1.1 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 800, color: '#1a3d1f', fontSize: { xs: 13.5, sm: 14, md: 16 }, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             Kho Ảnh Giỏ Quà
                         </Typography>
                         {!isMobile && (
@@ -630,7 +633,7 @@ export default function GiftGalleryPage() {
 
                 <Box sx={{ flex: 1 }} />
 
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={{ xs: 0.6, md: 1 }} sx={{ flexShrink: 0 }}>
                     {!isMobile && (
                         <Button variant="outlined" size="small" startIcon={<DriveFolderUpload sx={{ fontSize: 15 }} />}
                             sx={{ borderColor: '#aaa', color: '#333', borderRadius: '6px', fontWeight: 600, textTransform: 'none', fontSize: 12.5, py: 0.5, '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: '#f0fdf4' } }}>
@@ -638,7 +641,7 @@ export default function GiftGalleryPage() {
                         </Button>
                     )}
                     <Button variant="contained" size="small" startIcon={<CloudUpload sx={{ fontSize: 15 }} />}
-                        sx={{ bgcolor: '#086839', borderRadius: '6px', fontWeight: 700, textTransform: 'none', fontSize: 12.5, py: 0.5, '&:hover': { bgcolor: '#065f2f' }, boxShadow: 'none' }}>
+                        sx={{ bgcolor: '#086839', borderRadius: '6px', fontWeight: 700, textTransform: 'none', fontSize: { xs: 11.5, md: 12.5 }, py: 0.5, px: { xs: 1, md: 1.5 }, minWidth: { xs: 72, md: 96 }, '&:hover': { bgcolor: '#065f2f' }, boxShadow: 'none' }}>
                         {isMobile ? 'Upload' : 'Upload ảnh'}
                     </Button>
                 </Stack>
@@ -663,7 +666,8 @@ export default function GiftGalleryPage() {
                     slotProps={{
                         paper: {
                             sx: {
-                                width: 240,
+                                width: { xs: '84vw', sm: 280 },
+                                maxWidth: 320,
                                 bgcolor: '#f8f9fa',
                             },
                         },
@@ -677,10 +681,10 @@ export default function GiftGalleryPage() {
 
                     {/* Toolbar bar (Windows Explorer–like) */}
                     <Box sx={{
-                        px: { xs: 1.5, md: 2 }, py: 1,
+                        px: { xs: 1, md: 2 }, py: { xs: 0.8, md: 1 },
                         borderBottom: '1px solid #e0e0e0',
                         background: 'linear-gradient(180deg, #fafafa 0%, #f2f2f2 100%)',
-                        display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
+                        display: 'flex', alignItems: 'center', gap: { xs: 0.8, md: 1.5 }, flexWrap: 'wrap',
                         flexShrink: 0,
                     }}>
                         {/* Breadcrumb — mobile: bấm để mở drawer chọn danh mục */}
@@ -688,13 +692,13 @@ export default function GiftGalleryPage() {
                             direction="row" spacing={0.5}
                             onClick={isMobile ? () => setDrawerOpen(true) : undefined}
                             sx={{
-                                flex: 1, minWidth: 0, alignItems: 'center',
+                                flex: { xs: '1 1 100%', sm: 1 }, minWidth: 0, alignItems: 'center',
                                 ...(isMobile && {
                                     cursor: 'pointer',
                                     bgcolor: '#fff',
                                     border: '1px solid #d0d0d0',
                                     borderRadius: '8px',
-                                    px: 1.2, py: 0.6,
+                                    px: 1.1, py: 0.7,
                                     '&:active': { bgcolor: '#e8f5e9' },
                                 }),
                             }}
@@ -725,7 +729,8 @@ export default function GiftGalleryPage() {
                                 }
                             }}
                             sx={{
-                                width: { xs: '100%', sm: 200 },
+                                flex: { xs: '1 1 calc(100% - 96px)', sm: '0 0 200px' },
+                                width: { xs: 'auto', sm: 200 },
                                 order: { xs: 3, sm: 0 },
                                 '& .MuiOutlinedInput-root': {
                                     borderRadius: '6px', fontSize: 12.5, height: 32,
@@ -780,7 +785,7 @@ export default function GiftGalleryPage() {
 
                     {/* Image area */}
                     <Box sx={{
-                        flex: 1, overflow: 'auto', p: { xs: 1.5, md: 2 },
+                        flex: 1, overflow: 'auto', p: { xs: 1, sm: 1.5, md: 2 }, pb: { xs: selectedIds.length > 0 ? 10 : 1.5, md: 2 },
                         '&::-webkit-scrollbar': { width: 6 },
                         '&::-webkit-scrollbar-thumb': { bgcolor: '#c0c0c0', borderRadius: 3 },
                         '&::-webkit-scrollbar-track': { bgcolor: '#f0f0f0' },
@@ -795,13 +800,13 @@ export default function GiftGalleryPage() {
                             <Box sx={{
                                 display: 'grid',
                                 gridTemplateColumns: {
-                                    xs: 'repeat(2, 1fr)',
+                                    xs: 'repeat(auto-fill, minmax(145px, 1fr))',
                                     sm: 'repeat(3, 1fr)',
                                     md: 'repeat(2, 1fr)',
                                     lg: 'repeat(3, 1fr)',
                                     xl: 'repeat(4, 1fr)',
                                 },
-                                gap: { xs: 1.2, md: 1.6 },
+                                gap: { xs: 1, md: 1.6 },
                             }}>
                                 {filteredImages.map(image => (
                                     <ImageCard key={image.id} {...sharedCardProps(image)} />
@@ -813,7 +818,7 @@ export default function GiftGalleryPage() {
                                 <Box sx={{ px: 1.5, py: 0.8, bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0', display: 'flex', gap: 1.5 }}>
                                     <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#666', flex: 1 }}>Tên file</Typography>
                                     <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#666', width: 120, display: { xs: 'none', sm: 'block' } }}>Tags</Typography>
-                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#666', width: 100 }}>Thao tác</Typography>
+                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#666', width: { xs: 52, md: 100 } }}>Thao tác</Typography>
                                 </Box>
                                 <Stack divider={<Box sx={{ height: '1px', bgcolor: '#f0f0f0' }} />}>
                                     {filteredImages.map(image => (
@@ -828,7 +833,7 @@ export default function GiftGalleryPage() {
                     <Box sx={{
                         px: 2, py: 0.6, borderTop: '1px solid #d0d0d0',
                         background: 'linear-gradient(180deg, #ececec 0%, #e4e4e4 100%)',
-                        display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0,
+                        display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 2, flexShrink: 0,
                     }}>
                         <Typography sx={{ fontSize: 11.5, color: '#555' }}>
                             {filteredImages.length} đối tượng
@@ -844,7 +849,7 @@ export default function GiftGalleryPage() {
                     variant="extended"
                     onClick={handleShareSelected}
                     sx={{
-                        position: 'fixed', bottom: 20, right: 16, zIndex: 1300,
+                        position: 'fixed', bottom: 'calc(16px + env(safe-area-inset-bottom))', right: 16, zIndex: 1300,
                         bgcolor: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13,
                         '&:hover': { bgcolor: '#1d4ed8' },
                         boxShadow: '0 6px 20px rgba(37,99,235,0.4)',
@@ -888,12 +893,12 @@ export default function GiftGalleryPage() {
                     </IconButton>
                 </DialogTitle>
 
-                <DialogContent sx={{ p: { xs: 1.5, md: 2.5 }, bgcolor: '#1a1a1a', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <DialogContent sx={{ p: { xs: 1, md: 2.5 }, bgcolor: '#1a1a1a', display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {previewImage && (
                         <>
                             <Box
                                 component="img" src={previewImage.fileUrl} alt={previewImage.fileName}
-                                sx={{ width: '100%', maxHeight: { xs: '65vh', md: 540 }, objectFit: 'contain', borderRadius: '8px' }}
+                                sx={{ width: '100%', maxHeight: { xs: 'calc(100dvh - 150px)', md: 540 }, objectFit: 'contain', borderRadius: '8px', flex: 1 }}
                             />
                             <Stack direction="row" spacing={1} sx={{
                                 justifyContent: 'flex-end'
