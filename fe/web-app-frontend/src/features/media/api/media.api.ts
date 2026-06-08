@@ -66,7 +66,7 @@ export const mediaApi = {
         fileId: number;
         folderId: number;
     }) => {
-        const response = await api.post(`/Media/MoveFile?id=${data.fileId}`, data);
+        const response = await api.put(`/Media/MoveFile?id=${data.fileId}`, data);
         return response.data;
     },
 
