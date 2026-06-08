@@ -10,42 +10,50 @@ import {
     Dialog,
     DialogContent,
     DialogTitle,
-    Divider,
     IconButton,
     InputAdornment,
     Paper,
     Stack,
     TextField,
-    Tooltip,
     Typography,
-    alpha,
     Checkbox,
     Collapse,
     List,
     ListItemButton,
-    ListItemIcon,
-    ListItemText
+    ListItemText,
+    useMediaQuery,
+    useTheme,
+    Drawer,
+    Fab,
+    Tooltip,
+    Badge,
 } from '@mui/material';
 import {
     CloudUpload,
     ContentCopy,
     DriveFolderUpload,
-    Folder,
-    FolderOpen,
-    ImageSearch,
-    MoreVert,
     Search,
     StarBorder,
+    StarRounded,
     Visibility,
     CheckCircleRounded,
     RadioButtonUncheckedRounded,
     ShareRounded,
     ExpandLess,
-    ExpandMore
+    ExpandMore,
+    Menu as MenuIcon,
+    Close as CloseIcon,
+    FolderRounded,
+    FolderOpenRounded,
+    ChevronRight,
+    InsertDriveFileRounded,
+    GridViewRounded,
+    ViewListRounded,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 type FolderItem = {
     id: number;
     name: string;
@@ -63,12 +71,12 @@ type MediaFile = {
     tags: string[];
 };
 
-// ── 1. Nâng cấp dữ liệu Thư mục có cấu trúc Cha - Con ──
+// ─── Static Data ──────────────────────────────────────────────────────────────
 const foldersData: FolderItem[] = [
     { id: 1, name: 'Tất cả giỏ quà', parentId: null, count: 24 },
     { id: 2, name: 'Giỏ quà Tết 2026', parentId: null, count: 8 },
-    { id: 6, name: 'Quà Tết Doanh Nghiệp', parentId: 2, count: 5 }, // Con của 2
-    { id: 7, name: 'Quà Tết Đại Chúng', parentId: 2, count: 3 },    // Con của 2
+    { id: 6, name: 'Quà Tết Doanh Nghiệp', parentId: 2, count: 5 },
+    { id: 7, name: 'Quà Tết Đại Chúng', parentId: 2, count: 3 },
     { id: 3, name: 'Giỏ sinh nhật', parentId: null, count: 6 },
     { id: 4, name: 'Giỏ khai trương', parentId: null, count: 5 },
     { id: 5, name: 'Giỏ thăm bệnh', parentId: null, count: 5 },
@@ -83,341 +91,830 @@ const sampleImages: MediaFile[] = [
     { id: 6, folderId: 3, fileName: 'set-qua-trai-cay-premium.jpg', fileUrl: 'https://images.unsplash.com/photo-1607083206968-13611e3d76db?q=80&w=900', size: '1.8 MB', createdAt: '2026-06-04', tags: ['Premium'] },
 ];
 
-export default function GiftGalleryPage() {
-    const [selectedFolderId, setSelectedFolderId] = useState(1);
-    const [search, setSearch] = useState('');
-    const [previewImage, setPreviewImage] = useState<MediaFile | null>(null);
-    const [selectedImageIds, setSelectedImageIds] = useState<number[]>([]);
-    const [processing, setProcessing] = useState(false);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const getAllSubFolderIds = (folderId: number): number[] => {
+    const ids = [folderId];
+    foldersData.filter(f => f.parentId === folderId).forEach(sub => ids.push(...getAllSubFolderIds(sub.id)));
+    return ids;
+};
 
-    // State lưu trữ các ID thư mục đang được mở rộng (nhánh con)
-    const [openFolders, setOpenFolders] = useState<number[]>([]);
+const getImageBlob = async (url: string): Promise<Blob> => {
+    const res = await fetch(url, { mode: 'cors' });
+    return res.blob();
+};
 
-    const currentFolder = foldersData.find((x) => x.id === selectedFolderId);
+const getImageBlobFromCanvas = async (url: string): Promise<Blob> => {
+    const res = await fetch(url, { mode: 'cors' });
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = objectUrl;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { URL.revokeObjectURL(objectUrl); reject(new Error('Canvas error')); return; }
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(b => { URL.revokeObjectURL(objectUrl); b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Load error')); };
+    });
+};
 
-    // Thuật toán lấy toàn bộ ID thư mục (bao gồm cả con) để lọc ảnh chính xác
-    const getAllSubFolderIds = (folderId: number): number[] => {
-        const ids = [folderId];
-        const subFolders = foldersData.filter(f => f.parentId === folderId);
-        subFolders.forEach(sub => {
-            ids.push(...getAllSubFolderIds(sub.id));
-        });
-        return ids;
+// ─── Windows Explorer–style Folder Tree ───────────────────────────────────────
+function FolderTree({
+    selectedFolderId,
+    onSelect,
+}: {
+    selectedFolderId: number;
+    onSelect: (id: number) => void;
+}) {
+    const [expanded, setExpanded] = useState<number[]>([]);
+
+    const toggleExpand = (id: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     };
 
-    const filteredImages = useMemo(() => {
-        const activeFolderIds = selectedFolderId === 1 ? [] : getAllSubFolderIds(selectedFolderId);
-
-        return sampleImages.filter((img) => {
-            const matchFolder = selectedFolderId === 1 || activeFolderIds.includes(img.folderId);
-            const keyword = search.trim().toLowerCase();
-            const matchSearch = !keyword ||
-                img.fileName.toLowerCase().includes(keyword) ||
-                img.tags.some((tag) => tag.toLowerCase().includes(keyword));
-            return matchFolder && matchSearch;
-        });
-    }, [selectedFolderId, search]);
-
-    const copyLink = async (url: string) => {
-        await navigator.clipboard.writeText(url);
-        toast.success('Đã copy link ảnh');
-    };
-
-    // Hàm lấy Blob từ mạng né CORS an toàn
-    const getImageBlob = async (url: string): Promise<Blob> => {
-        const response = await fetch(url, { mode: 'cors' });
-        return await response.blob();
-    };
-
-    // ── Hàm Copy 1 ảnh đơn lẻ gốc ──
-    const copyImage = async (url: string) => {
-        const toastId = toast.loading('Đang xử lý hình ảnh...');
-        try {
-            const blob = await getImageBlob(url);
-            await navigator.clipboard.write([
-                new ClipboardItem({ [blob.type]: blob })
-            ]);
-            toast.success('Đã copy file ảnh! Hãy qua Zalo nhấn Ctrl+V để dán.', { id: toastId });
-        } catch (error) {
-            console.error(error);
-            toast.error('Gặp lỗi bảo mật hệ thống khi sao chép file', { id: toastId });
-        }
-    };
-
-    // ── 2. Hàm xử lý Copy mảng nhiều file ảnh gốc tách rời cùng lúc ──
-    const handleCopySelectedImages = async () => {
-        if (selectedImageIds.length === 0) return;
-
-        const toastId = toast.loading(`Đang tải dữ liệu ${selectedImageIds.length} ảnh vào khay nhớ...`);
-        setProcessing(true);
-
-        try {
-            const imagesToCopy = sampleImages.filter((img) => selectedImageIds.includes(img.id));
-
-            // Xử lý song song bốc tệp nhị phân của từng file đơn lẻ
-            const clipboardItemsPromises = imagesToCopy.map(async (img) => {
-                const blob = await getImageBlob(img.fileUrl);
-                return new ClipboardItem({ [blob.type]: blob });
-            });
-
-            const clipboardItems = await Promise.all(clipboardItemsPromises);
-
-            // Đẩy trọn bộ mảng file vật lý vào Clipboard hệ thống không gộp ảnh
-            await navigator.clipboard.write(clipboardItems);
-
-            toast.success(`Đã copy thành công ${imagesToCopy.length} file ảnh riêng biệt! Hãy sang ô chat Zalo nhấn Ctrl+V để dán.`, { id: toastId, duration: 4500 });
-            setSelectedImageIds([]);
-        } catch (error) {
-            console.error(error);
-            toast.error('Trình duyệt hoặc ứng dụng nhận chưa hỗ trợ nhận khay nhớ mảng file. Hãy copy lẻ từng tấm.', { id: toastId });
-        } finally {
-            setProcessing(false);
-        }
-    };
-
-    // ── 3. Chức năng chia sẻ hệ thống dành cho Điện thoại (Mobile Share) ──
-    // ── Chức năng chia sẻ hệ thống dành cho Điện thoại (Đã Fix lỗi Zalo Mobile) ──
-    const handleShareSelectedImages = async () => {
-        if (selectedImageIds.length === 0) return;
-
-        if (!navigator.share) {
-            toast.error('Trình duyệt trên điện thoại này chưa hỗ trợ tính năng chia sẻ tệp.');
-            return;
-        }
-
-        const toastId = toast.loading(`Đang xử lý ${selectedImageIds.length} ảnh sang Zalo...`);
-        setProcessing(true);
-
-        try {
-            const imagesToShare = sampleImages.filter((img) => selectedImageIds.includes(img.id));
-
-            // Xử lý chuyển đổi mảng ảnh thành tệp tin nhị phân vật lý chuẩn định dạng hệ thống
-            const fileObjectsPromises = imagesToShare.map(mapImageToFileObject);
-
-            const files = await Promise.all(fileObjectsPromises);
-
-            // Cấu hình payload bọc gói an toàn theo tài liệu Web Share API
-            const shareData: ShareData = {
-                files: files,
-            };
-
-            // Kiểm tra nghiêm ngặt xem hệ điều hành có cho phép chia sẻ cụm tệp này không
-            if (navigator.canShare && navigator.canShare(shareData)) {
-                toast.dismiss(toastId);
-                await navigator.share(shareData);
-                setSelectedImageIds([]);
-            } else {
-                toast.error('Hệ điều hành chặn chia sẻ mảng tệp tin này.', { id: toastId });
-            }
-        } catch (error: any) {
-            console.error(error);
-            // Nếu người dùng chủ động bấm "Hủy" hoặc thoát khay chia sẻ thì ẩn toast đi
-            if (error.name !== 'AbortError') {
-                toast.error('Zalo từ chối nhận mảng ảnh động, hãy thử gửi đơn lẻ.', { id: toastId });
-            } else {
-                toast.dismiss(toastId);
-            }
-        } finally {
-            setProcessing(false);
-        }
-    };
-
-    // Hàm phụ trợ bọc chuyển đổi cấu trúc nhị phân sạch
-    const mapImageToFileObject = async (img: MediaFile): Promise<File> => {
-        const response = await fetch(img.fileUrl, { mode: 'cors' });
-        const blob = await response.blob();
-
-        // Buộc phải bọc đúng phần mở rộng extension tương thích để Zalo Mobile bốc tách được dữ liệu
-        const fileExtension = blob.type.split('/')[1] || 'png';
-        const customFileName = img.fileName.endsWith(`.${fileExtension}`)
-            ? img.fileName
-            : `${img.fileName}.${fileExtension}`;
-
-        return new File([blob], customFileName, { type: blob.type });
-    };
-    const handleSelectAllVisible = () => {
-        const visibleIds = filteredImages.map(img => img.id);
-        const isAllSelected = visibleIds.every(id => selectedImageIds.includes(id));
-        if (isAllSelected) {
-            setSelectedImageIds(prev => prev.filter(id => !visibleIds.includes(id)));
-        } else {
-            setSelectedImageIds(prev => Array.from(new Set([...prev, ...visibleIds])));
-        }
-    };
-
-    const isAllVisibleSelected = filteredImages.length > 0 && filteredImages.map(img => img.id).every(id => selectedImageIds.includes(id));
-
-    const toggleFolderExpand = (id: number, e: React.MouseEvent) => {
-        e.stopPropagation(); // Chặn hành động click chọn thư mục
-        setOpenFolders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-    };
-
-    // ── Render cây thư mục đệ quy cha con mượt mà ──
-    const renderFolderTree = (parentId: number | null = null, level = 0) => {
-        const currentLevelFolders = foldersData.filter(f => f.parentId === parentId);
+    const renderLevel = (parentId: number | null, depth: number): React.ReactNode => {
+        const nodes = foldersData.filter(f => f.parentId === parentId);
+        if (nodes.length === 0) return null;
 
         return (
-            <List component="div" disablePadding sx={{ pl: level * 1.5 }}>
-                {currentLevelFolders.map((folder) => {
-                    const hasChild = foldersData.some(f => f.parentId === folder.id);
-                    const isExpanded = openFolders.includes(folder.id);
+            <>
+                {nodes.map((folder, idx) => {
+                    const hasChildren = foldersData.some(f => f.parentId === folder.id);
+                    const isOpen = expanded.includes(folder.id);
                     const isActive = selectedFolderId === folder.id;
+                    const isLast = idx === nodes.length - 1;
 
                     return (
-                        <Box key={folder.id}>
+                        <Box key={folder.id} sx={{ position: 'relative' }}>
+                            {/* Tree lines */}
+                            {depth > 0 && (
+                                <>
+                                    {/* Vertical line from parent */}
+                                    <Box sx={{
+                                        position: 'absolute',
+                                        left: (depth - 1) * 20 + 9,
+                                        top: 0,
+                                        bottom: isLast ? '50%' : 0,
+                                        width: '1px',
+                                        bgcolor: '#d1d5db',
+                                        zIndex: 0,
+                                    }} />
+                                    {/* Horizontal line to item */}
+                                    <Box sx={{
+                                        position: 'absolute',
+                                        left: (depth - 1) * 20 + 9,
+                                        top: 16,
+                                        width: 12,
+                                        height: '1px',
+                                        bgcolor: '#d1d5db',
+                                        zIndex: 0,
+                                    }} />
+                                </>
+                            )}
+
                             <ListItemButton
-                                onClick={() => setSelectedFolderId(folder.id)}
+                                onClick={() => onSelect(folder.id)}
+                                dense
                                 sx={{
-                                    py: 1, px: 1.5, mb: 0.5, borderRadius: '12px',
-                                    bgcolor: isActive ? '#ecfdf5' : 'transparent',
-                                    border: isActive ? '1px solid #bbf7d0' : '1px solid transparent',
-                                    '&:hover': { bgcolor: '#f0fdf4' }
+                                    pl: depth * 20 / 8 + (depth > 0 ? 2.5 : 0.5),
+                                    pr: 1,
+                                    py: 0.45,
+                                    borderRadius: '4px',
+                                    mb: 0.15,
+                                    position: 'relative',
+                                    bgcolor: isActive ? '#cce8ff' : 'transparent',
+                                    border: isActive ? '1px solid #99d0ff' : '1px solid transparent',
+                                    '&:hover': { bgcolor: isActive ? '#cce8ff' : '#e8f4e8' },
+                                    '&:focus-visible': { outline: '2px solid #086839', outlineOffset: -2 },
+                                    userSelect: 'none',
                                 }}
                             >
-                                <ListItemIcon sx={{ minWidth: 32, color: isActive ? '#086839' : '#94a3b8' }}>
-                                    {isActive ? <FolderOpen fontSize="small" /> : <Folder fontSize="small" />}
-                                </ListItemIcon>
-                                <ListItemText
-                                    primary={
-                                        <Typography
-                                            sx={{
-                                                fontSize: 13.5,
-                                                fontWeight: isActive ? 800 : 600,
-                                                color: isActive ? '#086839' : '#334155'
-                                            }}
+                                {/* Expand/collapse toggle */}
+                                <Box sx={{ width: 16, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 0.3 }}>
+                                    {hasChildren ? (
+                                        <IconButton
+                                            size="small"
+                                            onClick={e => toggleExpand(folder.id, e)}
+                                            sx={{ p: 0, width: 14, height: 14, color: '#555', borderRadius: '2px', '&:hover': { bgcolor: '#c5ddc5' } }}
                                         >
-                                            {folder.name}
-                                        </Typography>
-                                    }
-                                />
-                                <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
-                                    <Chip label={folder.count} size="small" sx={{ height: 18, fontSize: 10, bgcolor: isActive ? '#bbf7d0' : '#f1f5f9', color: isActive ? '#086839' : '#64748b', fontWeight: 700 }} />
-                                    {hasChild && (
-                                        <IconButton size="small" onClick={(e) => toggleFolderExpand(folder.id, e)} sx={{ p: 0.2, color: '#086839' }}>
-                                            {isExpanded ? <ExpandLess fontSize="inherit" /> : <ExpandMore fontSize="inherit" />}
+                                            {isOpen
+                                                ? <ExpandLess sx={{ fontSize: 13 }} />
+                                                : <ChevronRight sx={{ fontSize: 13 }} />}
                                         </IconButton>
-                                    )}
-                                </Stack>
+                                    ) : null}
+                                </Box>
+
+                                {/* Folder icon */}
+                                <Box sx={{ mr: 0.8, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                                    {isOpen || isActive
+                                        ? <FolderOpenRounded sx={{ fontSize: 17, color: '#e6a817' }} />
+                                        : <FolderRounded sx={{ fontSize: 17, color: '#f0c040' }} />}
+                                </Box>
+
+                                {/* Name */}
+                                <ListItemText
+                                    primary={folder.name}
+                                    slotProps={{
+                                        primary: {
+                                            sx: {
+                                                fontSize: 12.5,
+                                                fontWeight: isActive ? 700 : 400,
+                                                color: isActive ? '#003a73' : '#1e293b',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                            }
+                                        }
+                                    }}
+                                />
+
+                                {/* Count badge */}
+                                <Typography sx={{ fontSize: 11, color: isActive ? '#1a5fa8' : '#94a3b8', fontWeight: 600, ml: 0.5, flexShrink: 0 }}>
+                                    {folder.count}
+                                </Typography>
                             </ListItemButton>
-                            {hasChild && (
-                                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                                    {renderFolderTree(folder.id, level + 1)}
+
+                            {/* Children */}
+                            {hasChildren && (
+                                <Collapse in={isOpen} timeout={150} unmountOnExit>
+                                    <Box sx={{ position: 'relative' }}>
+                                        {renderLevel(folder.id, depth + 1)}
+                                    </Box>
                                 </Collapse>
                             )}
                         </Box>
                     );
                 })}
-            </List>
+            </>
         );
     };
 
     return (
-        <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f0f7f3', p: { xs: 2, md: 4 }, overflow: 'hidden', backgroundImage: 'radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)' }}>
-            <LoadingOverlay open={processing} text="Hệ thống đang chuẩn bị tệp dữ liệu hình ảnh..." />
+        <List component="div" disablePadding sx={{ px: 0.5 }}>
+            {renderLevel(null, 0)}
+        </List>
+    );
+}
 
-            {/* ── Page Header ── */}
-            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-                <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 800, color: '#086839', display: 'flex', alignItems: 'center', gap: 1.5 }}><Box component="span" sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: '#66bb92', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎁</Box>
-                        Kho Ảnh Giỏ Quà
-                    </Typography>
-                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>Quản lý, tìm kiếm và copy ảnh giỏ quà cho sale sử dụng nhanh</Typography>
+// ─── Image Card – Grid view ───────────────────────────────────────────────────
+function ImageCard({
+    image,
+    isChecked,
+    isStarred,
+    isMobile,
+    onToggle,
+    onPreview,
+    onCopyImage,
+    onToggleStar,
+}: {
+    image: MediaFile;
+    isChecked: boolean;
+    isStarred: boolean;
+    isMobile: boolean;
+    onToggle: () => void;
+    onPreview: () => void;
+    onCopyImage: () => void;
+    onToggleStar: () => void;
+}) {
+    return (
+        <Card sx={{
+            borderRadius: '10px',
+            border: isChecked ? '2px solid #086839' : '1px solid #e2e8f0',
+            bgcolor: isChecked ? '#f0fdf4' : '#fff',
+            boxShadow: isChecked ? '0 2px 12px rgba(8,104,57,0.12)' : '0 1px 4px rgba(0,0,0,0.06)',
+            overflow: 'hidden',
+            position: 'relative',
+            transition: 'all 0.15s ease',
+            cursor: 'default',
+            '&:hover': {
+                boxShadow: '0 4px 18px rgba(8,104,57,0.14)',
+                transform: 'translateY(-1px)',
+                '& .img-actions': { opacity: 1 },
+            },
+        }}>
+            {/* Checkbox */}
+            <Checkbox
+                size="small" checked={isChecked}
+                checkedIcon={<CheckCircleRounded />} icon={<RadioButtonUncheckedRounded />}
+                onChange={onToggle}
+                sx={{
+                    position: 'absolute', top: 5, left: 5, zIndex: 10, p: 0.3,
+                    color: 'rgba(255,255,255,0.9)',
+                    bgcolor: isChecked ? 'rgba(8,104,57,0.9)' : 'rgba(0,0,0,0.28)',
+                    backdropFilter: 'blur(6px)', borderRadius: '50%',
+                    '&.Mui-checked': { color: '#fff', bgcolor: '#086839' },
+                    '&:hover': { bgcolor: isChecked ? '#086839' : 'rgba(0,0,0,0.45)' },
+                }}
+            />
+
+            {/* Thumbnail */}
+            <Box sx={{ aspectRatio: '4/3', position: 'relative', bgcolor: '#f1f5f9', overflow: 'hidden' }}>
+                <Box
+                    component="img" src={image.fileUrl} alt={image.fileName}
+                    loading="lazy"
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.03)' } }}
+                />
+
+                {/* Hover overlay actions */}
+                <Box
+                    className="img-actions"
+                    sx={{
+                        position: 'absolute', inset: 0, opacity: 0,
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)',
+                        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+                        p: 1, transition: 'opacity 0.15s',
+                    }}
+                >
+                    <Tooltip title="Xem to">
+                        <IconButton size="small" onClick={onPreview}
+                            sx={{ bgcolor: 'rgba(255,255,255,0.92)', p: 0.6, '&:hover': { bgcolor: '#fff' } }}>
+                            <Visibility sx={{ fontSize: 14, color: '#334155' }} />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title={isStarred ? 'Bỏ yêu thích' : 'Yêu thích'}>
+                        <IconButton size="small" onClick={onToggleStar}
+                            sx={{ bgcolor: 'rgba(255,255,255,0.92)', p: 0.6, '&:hover': { bgcolor: '#fff' } }}>
+                            {isStarred
+                                ? <StarRounded sx={{ fontSize: 14, color: '#f59e0b' }} />
+                                : <StarBorder sx={{ fontSize: 14, color: '#334155' }} />}
+                        </IconButton>
+                    </Tooltip>
                 </Box>
+            </Box>
+
+            {/* Info */}
+            <CardContent sx={{ p: '10px 12px 12px', '&:last-child': { pb: '12px' } }}>
+                <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', mb: 0.3, lineHeight: 1.3 }}>
+                    {image.fileName}
+                </Typography>
+                <Typography sx={{ color: '#94a3b8', fontSize: 10.5, mb: 0.9 }}>
+                    {image.size} • {image.createdAt}
+                </Typography>
+                <Stack direction="row" spacing={0.4} sx={{ flexWrap: 'wrap', mb: 1, gap: 0.4 }}>
+                    {image.tags.map(tag => (
+                        <Chip key={tag} label={tag} size="small"
+                            sx={{ height: 17, fontSize: 10, bgcolor: '#f0fdf4', color: '#166534', fontWeight: 600, borderRadius: '4px' }} />
+                    ))}
+                </Stack>
+
+                {/* Action button — context-aware */}
+                {!isMobile && (
+                    <Button
+                        fullWidth size="small" variant="contained"
+                        startIcon={<ContentCopy sx={{ fontSize: 13 }} />}
+                        onClick={onCopyImage}
+                        sx={{
+                            bgcolor: '#086839', borderRadius: '6px', textTransform: 'none',
+                            fontWeight: 700, fontSize: 12, py: 0.6,
+                            '&:hover': { bgcolor: '#065f2f' },
+                            boxShadow: 'none',
+                        }}
+                    >
+                        Copy ảnh
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// ─── Image Row – List view ────────────────────────────────────────────────────
+function ImageRow({
+    image,
+    isChecked,
+    isStarred,
+    isMobile,
+    onToggle,
+    onPreview,
+    onCopyImage,
+    onToggleStar,
+}: {
+    image: MediaFile;
+    isChecked: boolean;
+    isStarred: boolean;
+    isMobile: boolean;
+    onToggle: () => void;
+    onPreview: () => void;
+    onCopyImage: () => void;
+    onToggleStar: () => void;
+}) {
+    return (
+        <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1.5,
+            px: 1.5, py: 1, borderRadius: '8px',
+            border: isChecked ? '1px solid #bbf7d0' : '1px solid transparent',
+            bgcolor: isChecked ? '#f0fdf4' : 'transparent',
+            '&:hover': { bgcolor: isChecked ? '#f0fdf4' : '#f8fafc' },
+            transition: 'all 0.12s',
+        }}>
+            <Checkbox
+                size="small" checked={isChecked}
+                checkedIcon={<CheckCircleRounded />} icon={<RadioButtonUncheckedRounded />}
+                onChange={onToggle}
+                sx={{ p: 0.3, color: '#cbd5e1', '&.Mui-checked': { color: '#086839' } }}
+            />
+            <Box
+                component="img" src={image.fileUrl} alt={image.fileName}
+                onClick={onPreview}
+                sx={{ width: 48, height: 48, borderRadius: '6px', objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: '1px solid #e2e8f0' }}
+            />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: 12.5, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {image.fileName}
+                </Typography>
+                <Stack direction="row" spacing={0.5} sx={{
+                    alignItems: 'center'
+                }}>
+                    <InsertDriveFileRounded sx={{ fontSize: 11, color: '#94a3b8' }} />
+                    <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>{image.size}</Typography>
+                    <Typography sx={{ color: '#cbd5e1', fontSize: 11 }}>•</Typography>
+                    <Typography sx={{ color: '#94a3b8', fontSize: 11 }}>{image.createdAt}</Typography>
+                </Stack>
+            </Box>
+            <Stack direction="row" spacing={0.4} sx={{ flexWrap: 'nowrap' }}>
+                {image.tags.map(tag => (
+                    <Chip key={tag} label={tag} size="small"
+                        sx={{ height: 17, fontSize: 10, bgcolor: '#f0fdf4', color: '#166534', fontWeight: 600, borderRadius: '4px' }} />
+                ))}
+            </Stack>
+            <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
+                <Tooltip title={isStarred ? 'Bỏ yêu thích' : 'Yêu thích'}>
+                    <IconButton size="small" onClick={onToggleStar} sx={{ p: 0.5, color: isStarred ? '#f59e0b' : '#cbd5e1', '&:hover': { color: '#f59e0b' } }}>
+                        {isStarred ? <StarRounded sx={{ fontSize: 16 }} /> : <StarBorder sx={{ fontSize: 16 }} />}
+                    </IconButton>
+                </Tooltip>
+                {!isMobile && (
+                    <Button size="small" variant="outlined"
+                        startIcon={<ContentCopy sx={{ fontSize: 12 }} />}
+                        onClick={onCopyImage}
+                        sx={{ borderColor: '#e2e8f0', color: '#334155', borderRadius: '6px', textTransform: 'none', fontWeight: 600, fontSize: 11.5, py: 0.4, px: 1, '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: '#f0fdf4' } }}>
+                        Copy
+                    </Button>
+                )}
+                <IconButton size="small" onClick={onPreview} sx={{ p: 0.5, color: '#94a3b8', '&:hover': { color: '#086839' } }}>
+                    <Visibility sx={{ fontSize: 16 }} />
+                </IconButton>
+            </Stack>
+        </Box>
+    );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function GiftGalleryPage() {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+    const [selectedFolderId, setSelectedFolderId] = useState(1);
+    const [search, setSearch] = useState('');
+    const [previewImage, setPreviewImage] = useState<MediaFile | null>(null);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [starredIds, setStarredIds] = useState<number[]>([]);
+    const [processing, setProcessing] = useState(false);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+    const currentFolder = foldersData.find(x => x.id === selectedFolderId);
+
+    const filteredImages = useMemo(() => {
+        const folderIds = selectedFolderId === 1 ? [] : getAllSubFolderIds(selectedFolderId);
+        return sampleImages.filter(img => {
+            const inFolder = selectedFolderId === 1 || folderIds.includes(img.folderId);
+            const kw = search.trim().toLowerCase();
+            return inFolder && (!kw || img.fileName.toLowerCase().includes(kw) || img.tags.some(t => t.toLowerCase().includes(kw)));
+        });
+    }, [selectedFolderId, search]);
+
+    const isAllSelected = filteredImages.length > 0 && filteredImages.every(img => selectedIds.includes(img.id));
+    const isIndeterminate = selectedIds.length > 0 && !isAllSelected;
+
+    const toggleSelectAll = () => {
+        const ids = filteredImages.map(img => img.id);
+        if (isAllSelected) setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+        else setSelectedIds(prev => Array.from(new Set([...prev, ...ids])));
+    };
+
+    const toggleOne = (id: number) =>
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+    const toggleStar = (id: number) =>
+        setStarredIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+    // Copy image (PC)
+    const copyImage = async (url: string) => {
+        const tid = toast.loading('Đang xử lý ảnh...');
+        try {
+            const blob = await getImageBlobFromCanvas(url);
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+            toast.success('Đã copy! Nhấn Ctrl+V vào Zalo PC.', { id: tid });
+        } catch {
+            toast.error('Lỗi copy ảnh – thử lại hoặc dùng trình duyệt khác', { id: tid });
+        }
+    };
+
+    // Share via Web Share API (mobile)
+    const shareImages = async (images: MediaFile[]) => {
+        if (!navigator.share) { toast.error('Thiết bị chưa hỗ trợ Share API'); return; }
+        const tid = toast.loading(`Đang xử lý ${images.length} ảnh...`);
+        setProcessing(true);
+        try {
+            const files = await Promise.all(
+                images.map(async img => {
+                    const blob = await getImageBlob(img.fileUrl);
+                    return new File([blob], img.fileName, { type: blob.type });
+                })
+            );
+            const shareData: ShareData = { files };
+            if (navigator.canShare?.(shareData)) {
+                toast.dismiss(tid);
+                await navigator.share(shareData);
+                setSelectedIds([]);
+            } else {
+                toast.error('Hệ điều hành từ chối định dạng file', { id: tid });
+            }
+        } catch (err: any) {
+            if (err.name !== 'AbortError') toast.error('Lỗi chia sẻ', { id: tid });
+            else toast.dismiss(tid);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleShareSelected = () => {
+        const imgs = sampleImages.filter(img => selectedIds.includes(img.id));
+        if (!imgs.length) { toast.error('Chưa chọn ảnh nào'); return; }
+        shareImages(imgs);
+    };
+
+    const handleFolderSelect = (id: number) => {
+        setSelectedFolderId(id);
+        setSelectedIds([]);
+        if (isMobile) setDrawerOpen(false);
+    };
+
+    // ── Sidebar ──
+    const sidebarContent = (
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#f8f9fa' }}>
+            {/* Sidebar header */}
+            <Box sx={{
+                px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                borderBottom: '1px solid #e0e0e0', bgcolor: '#f0f0f0',
+                background: 'linear-gradient(180deg, #f0f0f0 0%, #e8e8e8 100%)',
+            }}>
+                <Typography sx={{ fontWeight: 700, color: '#2d5016', fontSize: 12.5, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+                    Danh mục
+                </Typography>
+                {isMobile && (
+                    <IconButton size="small" onClick={() => setDrawerOpen(false)} sx={{ color: '#666', p: 0.4 }}>
+                        <CloseIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                )}
+            </Box>
+            {/* Tree */}
+            <Box sx={{
+                flex: 1, overflow: 'auto', pt: 0.5,
+                '&::-webkit-scrollbar': { width: 4 },
+                '&::-webkit-scrollbar-thumb': { bgcolor: '#c0c0c0', borderRadius: 2 },
+            }}>
+                <FolderTree selectedFolderId={selectedFolderId} onSelect={handleFolderSelect} />
+            </Box>
+        </Box>
+    );
+
+    const sharedCardProps = (image: MediaFile) => ({
+        image,
+        isChecked: selectedIds.includes(image.id),
+        isStarred: starredIds.includes(image.id),
+        isMobile,
+        onToggle: () => toggleOne(image.id),
+        onPreview: () => setPreviewImage(image),
+        onCopyImage: () => copyImage(image.fileUrl),
+        onToggleStar: () => toggleStar(image.id),
+    });
+
+    return (
+        <Box sx={{
+            height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            bgcolor: '#f0f2f0',
+        }}>
+            <LoadingOverlay open={processing} text="Đang xử lý hình ảnh..." />
+
+            {/* ── Top Header ── */}
+            <Box sx={{
+                px: { xs: 1.5, md: 2.5 }, py: 1,
+                display: 'flex', alignItems: 'center', gap: 2,
+                borderBottom: '1px solid #c8c8c8',
+                background: 'linear-gradient(180deg, #f6f6f6 0%, #ebebeb 100%)',
+                flexShrink: 0,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            }}>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                    <Typography sx={{ fontSize: { xs: 18, md: 22 } }}>🎁</Typography>
+                    <Box>
+                        <Typography sx={{ fontWeight: 800, color: '#1a3d1f', fontSize: { xs: 14, md: 16 }, lineHeight: 1.1 }}>
+                            Kho Ảnh Giỏ Quà
+                        </Typography>
+                        {!isMobile && (
+                            <Typography sx={{ color: '#6b7280', fontSize: 11.5 }}>
+                                Quản lý & copy ảnh cho sale
+                            </Typography>
+                        )}
+                    </Box>
+                </Box>
+
+                <Box sx={{ flex: 1 }} />
+
                 <Stack direction="row" spacing={1}>
-                    <Button variant="outlined" startIcon={<DriveFolderUpload />} sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', fontWeight: 700, textTransform: 'none' }}>Tạo thư mục</Button>
-                    <Button variant="contained" startIcon={<CloudUpload />} sx={{ bgcolor: '#086839', borderRadius: '12px', fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: '#0e4837' } }}>Upload ảnh</Button>
+                    {!isMobile && (
+                        <Button variant="outlined" size="small" startIcon={<DriveFolderUpload sx={{ fontSize: 15 }} />}
+                            sx={{ borderColor: '#aaa', color: '#333', borderRadius: '6px', fontWeight: 600, textTransform: 'none', fontSize: 12.5, py: 0.5, '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: '#f0fdf4' } }}>
+                            Tạo thư mục
+                        </Button>
+                    )}
+                    <Button variant="contained" size="small" startIcon={<CloudUpload sx={{ fontSize: 15 }} />}
+                        sx={{ bgcolor: '#086839', borderRadius: '6px', fontWeight: 700, textTransform: 'none', fontSize: 12.5, py: 0.5, '&:hover': { bgcolor: '#065f2f' }, boxShadow: 'none' }}>
+                        {isMobile ? 'Upload' : 'Upload ảnh'}
+                    </Button>
                 </Stack>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '300px 1fr' }, gap: 2.5, flex: 1, minHeight: 0 }}>
-                {/* ── Khung bên trái: Cây Thư mục Đa cấp Cấu trúc Cha con ── */}
-                <Paper elevation={0} sx={{ borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'auto', p: 1.5, bgcolor: '#fff', display: 'flex', flexDirection: 'column' }}>
-                    <Box sx={{ px: 1, py: 1.5, borderBottom: '1px solid #f1f5f9', mb: 1 }}>
-                        <Typography sx={{ fontWeight: 800, color: '#086839' }}>Danh Mục Hệ Thống</Typography>
+            {/* ── Main body ── */}
+            <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+                {/* Sidebar – desktop */}
+                {!isMobile && (
+                    <Box sx={{
+                        width: 230, flexShrink: 0, borderRight: '1px solid #c8c8c8',
+                        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                    }}>
+                        {sidebarContent}
                     </Box>
-                    {renderFolderTree(null, 0)}
-                </Paper>
+                )}
 
-                {/* ── Khung bên phải: Grid ảnh hiển thị ── */}
-                <Paper elevation={0} sx={{ borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', bgcolor: '#fff', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <Box sx={{ p: 2.5, borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Checkbox size="small" checked={isAllVisibleSelected} indeterminate={selectedImageIds.length > 0 && !isAllVisibleSelected} onChange={handleSelectAllVisible} checkedIcon={<CheckCircleRounded />} icon={<RadioButtonUncheckedRounded />} sx={{ color: '#086839', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#086839' } }} />
-                            <Box>
-                                <Typography sx={{ fontWeight: 800, color: '#086839', fontSize: 16 }}>{currentFolder?.name}</Typography>
-                                <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>{filteredImages.length} ảnh đang hiển thị</Typography>
+                {/* Sidebar – mobile drawer */}
+                <Drawer
+                    anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}
+                    slotProps={{
+                        paper: {
+                            sx: {
+                                width: 240,
+                                bgcolor: '#f8f9fa',
+                            },
+                        },
+                    }}
+                >
+                    {sidebarContent}
+                </Drawer>
+
+                {/* ── Content area ── */}
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+
+                    {/* Toolbar bar (Windows Explorer–like) */}
+                    <Box sx={{
+                        px: { xs: 1.5, md: 2 }, py: 1,
+                        borderBottom: '1px solid #e0e0e0',
+                        background: 'linear-gradient(180deg, #fafafa 0%, #f2f2f2 100%)',
+                        display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
+                        flexShrink: 0,
+                    }}>
+                        {/* Breadcrumb — mobile: bấm để mở drawer chọn danh mục */}
+                        <Stack
+                            direction="row" spacing={0.5}
+                            onClick={isMobile ? () => setDrawerOpen(true) : undefined}
+                            sx={{
+                                flex: 1, minWidth: 0, alignItems: 'center',
+                                ...(isMobile && {
+                                    cursor: 'pointer',
+                                    bgcolor: '#fff',
+                                    border: '1px solid #d0d0d0',
+                                    borderRadius: '8px',
+                                    px: 1.2, py: 0.6,
+                                    '&:active': { bgcolor: '#e8f5e9' },
+                                }),
+                            }}
+                        >
+                            <FolderOpenRounded sx={{ fontSize: 15, color: '#e6a817', flexShrink: 0 }} />
+                            <Typography sx={{ fontWeight: 700, color: '#1a3d1f', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                                {currentFolder?.name}
+                            </Typography>
+                            {isMobile
+                                ? <ExpandMore sx={{ fontSize: 16, color: '#94a3b8', flexShrink: 0 }} />
+                                : <Typography sx={{ color: '#94a3b8', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                    ({filteredImages.length} ảnh{selectedIds.length > 0 ? `, đã chọn ${selectedIds.length}` : ''})
+                                </Typography>
+                            }
+                        </Stack>
+
+                        {/* Search */}
+                        <TextField
+                            size="small" placeholder="Tìm ảnh..." value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Search sx={{ color: '#94a3b8', fontSize: 16 }} />
+                                        </InputAdornment>
+                                    ),
+                                }
+                            }}
+                            sx={{
+                                width: { xs: '100%', sm: 200 },
+                                order: { xs: 3, sm: 0 },
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: '6px', fontSize: 12.5, height: 32,
+                                    bgcolor: '#fff',
+                                    '& fieldset': { borderColor: '#ccc' },
+                                    '&:hover fieldset': { borderColor: '#086839' },
+                                    '&.Mui-focused fieldset': { borderColor: '#086839' },
+                                },
+                            }}
+                        />
+
+                        {/* View toggle */}
+                        <Stack direction="row" sx={{ border: '1px solid #ccc', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                            <IconButton size="small" onClick={() => setViewMode('grid')}
+                                sx={{ borderRadius: 0, p: 0.6, bgcolor: viewMode === 'grid' ? '#d4edda' : 'transparent', color: viewMode === 'grid' ? '#086839' : '#666', '&:hover': { bgcolor: '#e8f5e9' } }}>
+                                <GridViewRounded sx={{ fontSize: 16 }} />
+                            </IconButton>
+                            <Box sx={{ width: '1px', bgcolor: '#ccc' }} />
+                            <IconButton size="small" onClick={() => setViewMode('list')}
+                                sx={{ borderRadius: 0, p: 0.6, bgcolor: viewMode === 'list' ? '#d4edda' : 'transparent', color: viewMode === 'list' ? '#086839' : '#666', '&:hover': { bgcolor: '#e8f5e9' } }}>
+                                <ViewListRounded sx={{ fontSize: 16 }} />
+                            </IconButton>
+                        </Stack>
+
+                        {/* Select all */}
+                        <Tooltip title={isAllSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}>
+                            <Checkbox
+                                size="small" checked={isAllSelected} indeterminate={isIndeterminate}
+                                onChange={toggleSelectAll}
+                                checkedIcon={<CheckCircleRounded />} icon={<RadioButtonUncheckedRounded />}
+                                sx={{ p: 0.3, color: '#aaa', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#086839' } }}
+                            />
+                        </Tooltip>
+                    </Box>
+
+                    {/* Status bar (selected count) */}
+                    {selectedIds.length > 0 && (
+                        <Box sx={{
+                            px: 2, py: 0.6, borderBottom: '1px solid #e0e0e0',
+                            bgcolor: '#e8f5e9', display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0,
+                        }}>
+                            <Typography sx={{ fontSize: 12, color: '#166534', fontWeight: 600 }}>
+                                Đã chọn {selectedIds.length} ảnh
+                            </Typography>
+                            <Button size="small" variant="text"
+                                onClick={() => setSelectedIds([])}
+                                sx={{ fontSize: 11.5, color: '#555', textTransform: 'none', py: 0, minWidth: 0, '&:hover': { color: '#dc2626' } }}>
+                                Bỏ chọn
+                            </Button>
+                        </Box>
+                    )}
+
+                    {/* Image area */}
+                    <Box sx={{
+                        flex: 1, overflow: 'auto', p: { xs: 1.5, md: 2 },
+                        '&::-webkit-scrollbar': { width: 6 },
+                        '&::-webkit-scrollbar-thumb': { bgcolor: '#c0c0c0', borderRadius: 3 },
+                        '&::-webkit-scrollbar-track': { bgcolor: '#f0f0f0' },
+                    }}>
+                        {filteredImages.length === 0 ? (
+                            <Box sx={{ textAlign: 'center', py: 10, color: '#94a3b8' }}>
+                                <Typography sx={{ fontSize: 44, mb: 1.5 }}>🔍</Typography>
+                                <Typography sx={{ fontWeight: 700, fontSize: 15 }}>Không tìm thấy ảnh</Typography>
+                                <Typography sx={{ fontSize: 13, mt: 0.5 }}>Thử từ khóa khác hoặc chọn danh mục khác</Typography>
                             </Box>
-
-                            {/* HAI NÚT THAO TÁC HÀNG LOẠT KHÔNG GHÉP ẢNH */}
-                            {selectedImageIds.length > 0 && (
-                                <Stack direction="row" spacing={1} sx={{ ml: 2 }}>
-                                    {/* Nút dành cho Máy tính */}
-                                    <Button variant="contained" size="small" startIcon={<ContentCopy />} onClick={handleCopySelectedImages} sx={{ bgcolor: '#086839', borderRadius: '10px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#0b522f' } }}>
-                                        Copy {selectedImageIds.length} ảnh gốc (Zalo PC)
-                                    </Button>
-                                    {/* Nút dành cho Điện thoại */}
-                                    <Button variant="contained" size="small" color="secondary" startIcon={<ShareRounded />} onClick={handleShareSelectedImages} sx={{ bgcolor: '#2563eb', borderRadius: '10px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#1d4ed8' } }}>
-                                        Chia sẻ qua Zalo Mobile
-                                    </Button>
+                        ) : viewMode === 'grid' ? (
+                            <Box sx={{
+                                display: 'grid',
+                                gridTemplateColumns: {
+                                    xs: 'repeat(2, 1fr)',
+                                    sm: 'repeat(3, 1fr)',
+                                    md: 'repeat(2, 1fr)',
+                                    lg: 'repeat(3, 1fr)',
+                                    xl: 'repeat(4, 1fr)',
+                                },
+                                gap: { xs: 1.2, md: 1.6 },
+                            }}>
+                                {filteredImages.map(image => (
+                                    <ImageCard key={image.id} {...sharedCardProps(image)} />
+                                ))}
+                            </Box>
+                        ) : (
+                            <Paper elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: '8px', overflow: 'hidden' }}>
+                                {/* List header */}
+                                <Box sx={{ px: 1.5, py: 0.8, bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0', display: 'flex', gap: 1.5 }}>
+                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#666', flex: 1 }}>Tên file</Typography>
+                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#666', width: 120, display: { xs: 'none', sm: 'block' } }}>Tags</Typography>
+                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#666', width: 100 }}>Thao tác</Typography>
+                                </Box>
+                                <Stack divider={<Box sx={{ height: '1px', bgcolor: '#f0f0f0' }} />}>
+                                    {filteredImages.map(image => (
+                                        <ImageRow key={image.id} {...sharedCardProps(image)} />
+                                    ))}
                                 </Stack>
-                            )}
-                        </Box>
-                        <TextField size="small" placeholder="Tìm ảnh, tag, tên file..." value={search} onChange={(e) => setSearch(e.target.value)} slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ color: '#94a3b8', fontSize: 20 }} /></InputAdornment> } }} sx={{ minWidth: { xs: '100%', sm: 320 }, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }} />
-                    </Box>
-
-                    {/* Vùng Grid danh sách ảnh */}
-                    <Box sx={{ p: 2.5, overflow: 'auto', flex: 1, '&::-webkit-scrollbar': { width: 6, height: 6 }, '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3 } }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(1, 1fr)', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)', xl: 'repeat(4, 1fr)' }, gap: 2 }}>
-                            {filteredImages.map((image) => {
-                                const isChecked = selectedImageIds.includes(image.id);
-                                return (
-                                    <Card key={image.id} sx={{ borderRadius: '16px', border: isChecked ? '1px solid #086839' : '1px solid #e2e8f0', bgcolor: isChecked ? alpha('#086839', 0.01) : '#fff', boxShadow: isChecked ? '0 4px 20px rgba(8,104,57,0.08)' : '0 2px 10px rgba(8,104,57,0.04)', overflow: 'hidden', position: 'relative', '&:hover': { boxShadow: '0 8px 28px rgba(8,104,57,0.12)', transform: 'translateY(-2px)' }, transition: 'all 0.2s' }}>
-                                        <Checkbox size="small" checked={isChecked} checkedIcon={<CheckCircleRounded />} icon={<RadioButtonUncheckedRounded />} onChange={() => { setSelectedImageIds(prev => prev.includes(image.id) ? prev.filter(id => id !== image.id) : [...prev, image.id]); }} sx={{ position: 'absolute', top: 8, left: 8, zIndex: 10, color: 'rgba(0,0,0,0.4)', bgcolor: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)', p: 0.4, borderRadius: '50%', '&.Mui-checked': { color: '#086839', bgcolor: '#fff' } }} />
-                                        <Box sx={{ height: 170, position: 'relative', bgcolor: '#f8fafc', overflow: 'hidden' }}>
-                                            <Box component="img" src={image.fileUrl} alt={image.fileName} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                            <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 0.5 }}>
-                                                <IconButton size="small" onClick={() => setPreviewImage(image)} sx={{ bgcolor: 'rgba(255,255,255,0.9)' }}><Visibility sx={{ fontSize: 16 }} /></IconButton>
-                                                <IconButton size="small" sx={{ bgcolor: 'rgba(255,255,255,0.9)' }}><StarBorder sx={{ fontSize: 16 }} /></IconButton>
-                                            </Box>
-                                        </Box>
-                                        <CardContent sx={{ p: 1.75 }}>
-                                            <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', mb: 0.5 }}>{image.fileName}</Typography>
-                                            <Typography sx={{ color: '#94a3b8', fontSize: 12, mb: 1 }}>{image.size} • {image.createdAt}</Typography>
-                                            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', mb: 1.5 }}>
-                                                {image.tags.map((tag) => (<Chip key={tag} label={tag} size="small" sx={{ height: 20, fontSize: 11, bgcolor: '#f0fdf4', color: '#086839', fontWeight: 700 }} />))}
-                                            </Stack>
-                                            <Stack direction="row" spacing={1}>
-                                                <Button size="small" variant="contained" startIcon={<ContentCopy />} onClick={() => copyImage(image.fileUrl)} sx={{ flex: 1, bgcolor: '#086839', borderRadius: '10px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#0e4837' } }}>Copy ảnh</Button>
-                                                <IconButton size="small" onClick={() => copyLink(image.fileUrl)} sx={{ border: '1px solid #e2e8f0', borderRadius: '10px', color: '#086839' }}><ContentCopy sx={{ fontSize: 16 }} /></IconButton>
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })}
-                        </Box>
-
-                        {!filteredImages.length && (
-                            <Box sx={{ py: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, color: '#94a3b8' }}>
-                                <ImageSearch sx={{ fontSize: 54 }} />
-                                <Typography sx={{ fontWeight: 700 }}>Không tìm thấy ảnh phù hợp</Typography>
-                            </Box>
+                            </Paper>
                         )}
                     </Box>
-                </Paper>
+
+                    {/* Bottom status bar */}
+                    <Box sx={{
+                        px: 2, py: 0.6, borderTop: '1px solid #d0d0d0',
+                        background: 'linear-gradient(180deg, #ececec 0%, #e4e4e4 100%)',
+                        display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0,
+                    }}>
+                        <Typography sx={{ fontSize: 11.5, color: '#555' }}>
+                            {filteredImages.length} đối tượng
+                            {selectedIds.length > 0 && ` • ${selectedIds.length} đã chọn`}
+                        </Typography>
+                    </Box>
+                </Box>
             </Box>
 
-            {/* Hộp thoại xem trước ảnh đơn lẻ */}
-            <Dialog open={!!previewImage} onClose={() => setPreviewImage(null)} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ fontWeight: 800, color: '#086839', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>{previewImage?.fileName}<IconButton onClick={() => setPreviewImage(null)}><MoreVert /></IconButton></DialogTitle>
-                <DialogContent>
+            {/* ── Mobile FAB – Share selected (duy nhất 1 nơi) ── */}
+            {isMobile && selectedIds.length > 0 && (
+                <Fab
+                    variant="extended"
+                    onClick={handleShareSelected}
+                    sx={{
+                        position: 'fixed', bottom: 20, right: 16, zIndex: 1300,
+                        bgcolor: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13,
+                        '&:hover': { bgcolor: '#1d4ed8' },
+                        boxShadow: '0 6px 20px rgba(37,99,235,0.4)',
+                        borderRadius: '28px', px: 2.5,
+                    }}
+                >
+                    <ShareRounded sx={{ mr: 1, fontSize: 18 }} />
+                    Gửi Zalo ({selectedIds.length})
+                </Fab>
+            )}
+
+            {/* ── Preview Dialog ── */}
+            <Dialog
+                open={!!previewImage} onClose={() => setPreviewImage(null)}
+                maxWidth="md" fullWidth fullScreen={isMobile}
+                slotProps={{
+                    paper: {
+                        sx: {
+                            borderRadius: isMobile ? 0 : '12px',
+                            overflow: 'hidden',
+                        },
+                    },
+                }}
+            >
+                <DialogTitle sx={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    py: 1.2, px: 2, borderBottom: '1px solid #e0e0e0',
+                    background: 'linear-gradient(180deg, #f6f6f6 0%, #ebebeb 100%)',
+                }}>
+                    <Stack direction="row" spacing={1} sx={{
+                        alignItems: 'center',
+                        minWidth: 0
+                    }}>
+                        <InsertDriveFileRounded sx={{ fontSize: 16, color: '#086839', flexShrink: 0 }} />
+                        <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#1a3d1f', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {previewImage?.fileName}
+                        </Typography>
+                    </Stack>
+                    <IconButton onClick={() => setPreviewImage(null)} size="small" sx={{ color: '#666', ml: 1 }}>
+                        <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </DialogTitle>
+
+                <DialogContent sx={{ p: { xs: 1.5, md: 2.5 }, bgcolor: '#1a1a1a', display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {previewImage && (
-                        <Box>
-                            <Box component="img" src={previewImage.fileUrl} alt={previewImage.fileName} sx={{ width: '100%', maxHeight: 560, objectFit: 'contain', bgcolor: '#f8fafc', borderRadius: '16px', mb: 2 }} />
-                            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
-                                <Button variant="outlined" startIcon={<ContentCopy />} onClick={() => copyLink(previewImage.fileUrl)} sx={{ borderColor: '#086839', color: '#086839' }}>Copy link</Button>
-                                <Button variant="contained" startIcon={<ContentCopy />} onClick={() => copyImage(previewImage.fileUrl)} sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#0e4837' } }}>Copy ảnh</Button>
+                        <>
+                            <Box
+                                component="img" src={previewImage.fileUrl} alt={previewImage.fileName}
+                                sx={{ width: '100%', maxHeight: { xs: '65vh', md: 540 }, objectFit: 'contain', borderRadius: '8px' }}
+                            />
+                            <Stack direction="row" spacing={1} sx={{
+                                justifyContent: 'flex-end'
+                            }}>
+                                {isMobile ? (
+                                    <Button fullWidth variant="contained"
+                                        startIcon={<ShareRounded />}
+                                        onClick={() => previewImage && shareImages([previewImage])}
+                                        sx={{ bgcolor: '#2563eb', borderRadius: '8px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#1d4ed8' }, boxShadow: 'none' }}>
+                                        Chia sẻ qua Zalo
+                                    </Button>
+                                ) : (
+                                    <Button variant="contained"
+                                        startIcon={<ContentCopy />}
+                                        onClick={() => previewImage && copyImage(previewImage.fileUrl)}
+                                        sx={{ bgcolor: '#086839', borderRadius: '8px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#065f2f' }, boxShadow: 'none' }}>
+                                        Copy ảnh
+                                    </Button>
+                                )}
                             </Stack>
-                        </Box>
+                        </>
                     )}
                 </DialogContent>
             </Dialog>
