@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.SignalR;
@@ -124,7 +125,15 @@ public class OrderService : IOrderService
 
                     // Đọc dữ liệu thô
                     var dateCell = row.Cell(1).GetString().Trim();
-                    if (!DateTime.TryParse(dateCell, out var orderDate))
+                    if (
+                        !DateTime.TryParseExact(
+                            dateCell,
+                            "dd/MM/yyyy",
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.None,
+                            out var orderDate
+                        )
+                    )
                     {
                         throw new BadRequestException("Ngày mua không hợp lệ");
                     }
