@@ -41,6 +41,7 @@ import {
     Refresh,
     ExpandMore,
     HistoryToggleOffRounded,
+    Inventory2,
 } from '@mui/icons-material';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import toast from 'react-hot-toast';
@@ -106,6 +107,17 @@ const filterFieldSx = {
     '& .MuiOutlinedInput-root': { borderRadius: '12px', '&.Mui-focused fieldset': { borderColor: '#086839' } },
     '& label.Mui-focused': { color: '#086839' },
 };
+
+// Cấu hình màu cho từng cột trong bảng order items
+const itemColumnConfig = [
+    { label: 'Sản phẩm', align: 'left' as const, color: '#fff' },
+    { label: 'SKU', align: 'left' as const, color: '#fff' },
+    { label: 'Phân loại', align: 'left' as const, color: '#fff' },
+    { label: 'Đơn giá', align: 'right' as const, color: '#fff' },
+    { label: 'Số lượng', align: 'center' as const, color: '#fff' },
+    { label: 'ĐVT', align: 'left' as const, color: '#fff' },
+    { label: 'Dịch vụ đi kèm', align: 'left' as const, color: '#fff' },
+];
 
 export default function OrdersPage() {
     const [orders, setOrders] = useState<any[]>([]);
@@ -267,16 +279,7 @@ export default function OrdersPage() {
                     </Typography>
                 </Box>
 
-                <Box
-                    sx={{
-                        display: 'flex',
-                        flexDirection: 'row',
-                        gap: 1.5,
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                    }}
-                >
-                    {/* Import progress bar */}
+                <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
                     {importing && progress.total > 0 && (
                         <Box sx={{ minWidth: 200, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
                             <Typography sx={{ fontSize: 12, color: '#64748b', mb: 0.5 }}>
@@ -297,13 +300,8 @@ export default function OrdersPage() {
                         disabled={importing}
                         onClick={() => fileInputRef.current?.click()}
                         sx={{
-                            borderColor: '#086839',
-                            color: '#086839',
-                            borderWidth: '1.5px',
-                            fontWeight: 700,
-                            borderRadius: '12px',
-                            px: 2.5,
-                            textTransform: 'none',
+                            borderColor: '#086839', color: '#086839', borderWidth: '1.5px',
+                            fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
                             '&:hover': { borderWidth: '1.5px', borderColor: '#064e2b', bgcolor: alpha('#086839', 0.06) },
                         }}
                     >
@@ -313,15 +311,10 @@ export default function OrdersPage() {
                         <Button
                             variant="outlined"
                             startIcon={<HistoryToggleOffRounded sx={{ fontSize: 18 }} />}
-                            onClick={() => setHistoryModalOpen(true)} // ĐỔI TỪ router.push THÀNH BẬT MODAL
+                            onClick={() => setHistoryModalOpen(true)}
                             sx={{
-                                borderColor: '#475569',
-                                color: '#475569',
-                                borderWidth: '1.5px',
-                                fontWeight: 700,
-                                borderRadius: '12px',
-                                px: 2.5,
-                                textTransform: 'none',
+                                borderColor: '#475569', color: '#475569', borderWidth: '1.5px',
+                                fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
                                 '&:hover': { borderWidth: '1.5px', borderColor: '#1e293b', bgcolor: '#f1f5f9' },
                             }}
                         >
@@ -334,12 +327,8 @@ export default function OrdersPage() {
                             startIcon={<Refresh sx={{ fontSize: 18 }} />}
                             onClick={handleResetFilter}
                             sx={{
-                                bgcolor: '#086839',
-                                color: '#fff',
-                                fontWeight: 700,
-                                borderRadius: '12px',
-                                px: 2.5,
-                                textTransform: 'none',
+                                bgcolor: '#086839', color: '#fff', fontWeight: 700,
+                                borderRadius: '12px', px: 2.5, textTransform: 'none',
                                 boxShadow: '0 4px 12px rgba(8,104,57,0.2)',
                                 '&:hover': { bgcolor: '#064e2b', boxShadow: '0 6px 16px rgba(8,104,57,0.3)' },
                             }}
@@ -355,7 +344,6 @@ export default function OrdersPage() {
                 elevation={0}
                 sx={{ p: 2.5, borderRadius: '20px', mb: 2.5, border: '1px solid #e2e8f0', bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}
             >
-                {/* Filter toggle header */}
                 <Box
                     onClick={() => setFilterOpen(!filterOpen)}
                     sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
@@ -372,7 +360,6 @@ export default function OrdersPage() {
                     </IconButton>
                 </Box>
 
-                {/* Always-visible: search + date range */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '2fr 1fr 1fr' }, gap: 2, mt: 2 }}>
                     <TextField
                         size="small"
@@ -387,7 +374,6 @@ export default function OrdersPage() {
                     <TextField size="small" type="date" label="Đến ngày" value={toDate} onChange={(e) => setToDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth sx={filterFieldSx} />
                 </Box>
 
-                {/* Collapsible: status / branch / source / sort / column */}
                 <Collapse in={filterOpen} timeout="auto" unmountOnExit>
                     <Divider sx={{ my: 2, borderStyle: 'dashed', borderColor: '#f1f5f9' }} />
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3,1fr)' }, gap: 2, mb: 2 }}>
@@ -566,39 +552,110 @@ export default function OrdersPage() {
                                 {/* ── Expanded detail row ── */}
                                 <TableRow>
                                     <TableCell
-                                        sx={{ py: 0, bgcolor: '#f8faf9', borderBottom: openRow === order.id ? '1px solid #e2e8f0 !important' : '0 !important' }}
+                                        sx={{
+                                            py: 0,
+                                            // Nền khác biệt hẳn với row thường để phân vùng rõ ràng
+                                            bgcolor: '#f8fafc',
+                                            borderBottom: openRow === order.id
+                                                ? '2px solid #334155 !important'
+                                                : '0 !important',
+                                            // Đường kẻ trái màu slate để phân biệt với xanh lá của nội dung
+                                            borderLeft: openRow === order.id ? '3px solid #475569' : 'none',
+                                        }}
                                         colSpan={visibleColumns.length + 1}
                                     >
                                         <Collapse in={openRow === order.id} timeout="auto" unmountOnExit>
-                                            <Box sx={{ py: 3, px: { xs: 1, md: 2 } }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                                    <Box sx={{ width: 4, height: 18, bgcolor: '#086839', borderRadius: '2px' }} />
-                                                    <Typography sx={{ color: '#086839', fontWeight: 800, fontSize: 12, letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                                            <Box sx={{ py: 3, px: { xs: 1, md: 3 } }}>
+
+                                                {/* Section title — dùng slate đậm, KHÔNG dùng xanh lá */}
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+                                                    <Box
+                                                        sx={{
+                                                            width: 28,
+                                                            height: 28,
+                                                            borderRadius: '8px',
+                                                            bgcolor: '#334155',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            flexShrink: 0,
+                                                        }}
+                                                    >
+                                                        <Inventory2 sx={{ fontSize: 15, color: '#fff' }} />
+                                                    </Box>
+                                                    <Typography sx={{
+                                                        color: '#1e293b',
+                                                        fontWeight: 800,
+                                                        fontSize: 12,
+                                                        letterSpacing: '0.6px',
+                                                        textTransform: 'uppercase',
+                                                    }}>
                                                         Chi tiết sản phẩm & dịch vụ
                                                     </Typography>
                                                     {order.items?.length > 0 && (
-                                                        <Chip label={`${order.items.length} sản phẩm`} size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }} />
+                                                        // Chip dùng màu slate thay vì xanh lá để không trùng với chip ở các cột
+                                                        <Chip
+                                                            label={`${order.items.length} sản phẩm`}
+                                                            size="small"
+                                                            sx={{
+                                                                bgcolor: '#334155',
+                                                                color: '#fff',
+                                                                fontWeight: 700,
+                                                                fontSize: 11,
+                                                                height: 20,
+                                                            }}
+                                                        />
                                                     )}
                                                 </Box>
 
                                                 <TableContainer
                                                     component={Paper}
                                                     elevation={0}
-                                                    sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', overflow: 'hidden' }}
+                                                    sx={{
+                                                        borderRadius: '14px',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        overflow: 'hidden',
+                                                        '&::-webkit-scrollbar': { height: 5 },
+                                                        '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3 },
+                                                    }}
                                                 >
                                                     <Table size="small" stickyHeader>
                                                         <TableHead>
                                                             <TableRow>
-                                                                {['Sản phẩm', 'SKU', 'Phân loại', 'Đơn giá', 'Số lượng', 'ĐVT', 'Dịch vụ đi kèm'].map((h) => (
-                                                                    <TableCell key={h} sx={{ fontWeight: 700, color: '#475569', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.4px', bgcolor: '#f8fafc', py: 1.5, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>
-                                                                        {h}
+                                                                {itemColumnConfig.map(({ label, align }) => (
+                                                                    <TableCell
+                                                                        key={label}
+                                                                        align={align}
+                                                                        sx={{
+                                                                            fontWeight: 700,
+                                                                            // Header tối màu slate để tương phản rõ với nền #f8fafc của expanded row
+                                                                            color: '#fff',
+                                                                            fontSize: 11,
+                                                                            textTransform: 'uppercase',
+                                                                            letterSpacing: '0.4px',
+                                                                            bgcolor: '#334155',
+                                                                            py: 1.5,
+                                                                            borderBottom: '2px solid #1e293b',
+                                                                            whiteSpace: 'nowrap',
+                                                                        }}
+                                                                    >
+                                                                        {label}
                                                                     </TableCell>
                                                                 ))}
                                                             </TableRow>
                                                         </TableHead>
                                                         <TableBody>
-                                                            {order.items?.map((item: any) => (
-                                                                <TableRow key={item.id} sx={{ '&:last-child td': { border: 0 }, '&:hover': { bgcolor: '#f0fdf4' }, transition: 'background 0.12s' }}>
+                                                            {order.items?.map((item: any, itemIdx: number) => (
+                                                                <TableRow
+                                                                    key={item.id}
+                                                                    sx={{
+                                                                        // Xen kẽ trắng / xám nhạt trong bảng con
+                                                                        bgcolor: itemIdx % 2 === 0 ? '#fff' : '#f8fafc',
+                                                                        '&:last-child td': { border: 0 },
+                                                                        '&:hover': { bgcolor: '#f0fdf4' },
+                                                                        transition: 'background 0.12s',
+                                                                    }}
+                                                                >
                                                                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13 }}>{item.productName}</TableCell>
                                                                     <TableCell>
                                                                         <Typography sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#ef4444', bgcolor: '#fef2f2', px: 1, py: 0.3, borderRadius: '5px', display: 'inline-block', border: '1px solid #fecaca' }}>
@@ -606,9 +663,9 @@ export default function OrdersPage() {
                                                                         </Typography>
                                                                     </TableCell>
                                                                     <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.category}</TableCell>
-                                                                    <TableCell sx={{ fontWeight: 700, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap' }}>{formatMoney(item.unitPrice)}</TableCell>
-                                                                    <TableCell>
-                                                                        <Chip label={item.quantity} size="small" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 12, height: 22 }} />
+                                                                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap' }}>{formatMoney(item.unitPrice)}</TableCell>
+                                                                    <TableCell align="center">
+                                                                        <Chip label={item.quantity} size="small" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 12, height: 22, border: '1px solid #e2e8f0' }} />
                                                                     </TableCell>
                                                                     <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.unit}</TableCell>
                                                                     <TableCell sx={{ color: '#086839', fontWeight: 600, fontSize: 13 }}>{item.serviceName || '—'}</TableCell>

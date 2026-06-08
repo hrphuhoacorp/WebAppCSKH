@@ -1,4 +1,4 @@
-import { Task } from '@mui/icons-material';
+import { Checklist } from '@mui/icons-material';
 import {
     LayoutDashboard,
     ShoppingCart,
@@ -6,6 +6,7 @@ import {
     User,
     Link2,
     History,
+    GiftIcon,
 } from 'lucide-react';
 import React from 'react';
 
@@ -40,6 +41,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/customer_care/customers',
                 icon: Users,
             },
+            {
+                title:'Kho Ảnh Giỏ Quà',
+                href:'/dashboard/customer_care/gifts',
+                icon: GiftIcon,
+            }
         ],
     },
     {
@@ -73,7 +79,7 @@ export const sidebarMenu: SidebarGroup[] = [
             {
                 title: 'Tổng hợp link',
                 href: 'https://script.google.com/macros/s/AKfycbwRHLO6YAMGpzVdItrypOV-GiVnVz-P8vK_b8VV77JDs2bviAdzdkK2iXugVbKXGdXCAQ/exec',
-                icon: Task,
+                icon: Checklist,
                 isExternal: true,
             }
         ],
