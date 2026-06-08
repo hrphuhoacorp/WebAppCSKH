@@ -23,7 +23,7 @@ namespace WebAppAPI.Controllers
         }
 
         [HttpPost("ImportExcel")]
-        public async Task<ResponseValue<ImportResultDTO>> ImportExcelAsync( IFormFile file)
+        public async Task<ResponseValue<ImportResultDTO>> ImportExcelAsync(IFormFile file)
         {
             var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
                 c.Type == "Id"
@@ -34,6 +34,44 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<ImportResultDTO>(
                 result,
                 "Nhập khẩu dữ liệu thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [HttpPost("RollbackImportAsync/{importHistoryId}")]
+        public async Task<ResponseValue<bool>> RollbackImportAsync(int importHistoryId)
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+
+            var result = await _orderService.RollbackImportAsync(
+                importHistoryId,
+                int.Parse(userIdClaim.Value)
+            );
+
+            return new ResponseValue<bool>(
+                result,
+                "Hoàn tác nhập khẩu thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [HttpPost("RestoreImportAsync/{importHistoryId}")]
+        public async Task<ResponseValue<bool>> RestoreImportAsync(int importHistoryId)
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+
+            var result = await _orderService.RestoreImportAsync(
+                importHistoryId,
+                int.Parse(userIdClaim.Value)
+            );
+
+            return new ResponseValue<bool>(
+                result,
+                "Khôi phục nhập khẩu thành công",
                 StatusReponse.Success
             );
         }

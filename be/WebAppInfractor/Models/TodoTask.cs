@@ -22,8 +22,4 @@ public partial class TodoTask
     public DateTime? UpdatedAt { get; set; }
 
     public DateTime? DeletedAt { get; set; }
-
-    public virtual User? Assignee { get; set; }
-
-    public virtual Customer? Customer { get; set; }
 }

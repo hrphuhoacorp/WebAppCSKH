@@ -17,6 +17,7 @@ public interface IAuthService
     );
     Task<string> ResetPassword(int userId);
     Task<string> DeleteAccount(int userId, DateTime updatedAt, int currentId);
+    Task<string> RestoreAccount(int userId, int currentId);
 }
 
 public class AuthService : IAuthService
@@ -94,8 +95,7 @@ public class AuthService : IAuthService
         var user = await _userRepository
             .GetAll()
             .Include(u => u.Branches)
-            .Include(u => u.ImportsHistories)
-            .Include(u => u.TodoTasks)
+            .Include(u => u.ImportsHistoryUsers)
             .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
 
         if (user == null)
@@ -108,7 +108,7 @@ public class AuthService : IAuthService
             .Where(ur => ur.UserId == userId)
             .Select(ur => new RoleDTO { Id = ur.Role.Id, Name = ur.Role.Name })
             .ToListAsync();
-        var importHistories = user.ImportsHistories.Select(ih => ih.ImportDate).ToList();
+        var importHistories = user.ImportsHistoryUsers.Select(ih => ih.ImportDate).ToList();
 
         var profile = new UserDTO
         {
@@ -123,7 +123,7 @@ public class AuthService : IAuthService
             Roles = roles,
 
             ImportHistories = user
-                .ImportsHistories.OrderByDescending(ih => ih.ImportDate)
+                .ImportsHistoryUsers.OrderByDescending(ih => ih.ImportDate)
                 .Select(ih => new ImportHistoryDTO
                 {
                     Id = ih.Id,
@@ -184,12 +184,12 @@ public class AuthService : IAuthService
             {
                 var dob = createDTO.DayOfBirth.Value;
 
-                if (dob > DateTime.Now)
+                if (dob > DateOnly.FromDateTime(DateTime.Now))
                 {
                     throw new BadRequestException("Ngày sinh không hợp lệ");
                 }
 
-                if (dob > DateTime.Today.AddYears(-18))
+                if (dob > DateOnly.FromDateTime(DateTime.Today.AddYears(-18)))
                 {
                     throw new BadRequestException("Người dùng phải đủ 18 tuổi");
                 }
@@ -204,19 +204,12 @@ public class AuthService : IAuthService
                 DayOfBirth = createDTO.DayOfBirth,
                 StaffCode = createDTO.StaffCode,
                 Password = PasswordHelper.HashPassword(createDTO.Phone), // Mật khẩu mặc định, nên yêu cầu người dùng đổi sau khi đăng nhập
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now,
                 DeletedAt = null,
             };
 
             await _userRepository.AddAsync(newUser);
             await _unitOfWork.SaveChangesAsync();
-            var userRole = new UserRole
-            {
-                UserId = newUser.Id,
-                RoleId = role.Id,
-                CreatedAt = DateTime.Now,
-            };
+            var userRole = new UserRole { UserId = newUser.Id, RoleId = role.Id };
 
             await _userRoleRepository.AddAsync(userRole);
 
@@ -270,7 +263,6 @@ public class AuthService : IAuthService
             }
 
             user.Password = PasswordHelper.HashPassword(newPassword);
-            user.UpdatedAt = DateTime.Now;
 
             await _userRepository.Update(user);
 
@@ -310,7 +302,7 @@ public class AuthService : IAuthService
             }
 
             user.Password = PasswordHelper.HashPassword(user.Phone); // Đặt lại mật khẩu về số điện thoại
-            user.UpdatedAt = DateTime.Now.AddHours(7);
+
             await _userRepository.Update(user);
 
             await _auditLogService.SaveLogAsync(
@@ -362,7 +354,6 @@ public class AuthService : IAuthService
             }
 
             user.DeletedAt = DateTime.Now;
-            user.UpdatedAt = DateTime.Now;
 
             await _userRepository.Update(user);
 
@@ -382,6 +373,48 @@ public class AuthService : IAuthService
             return "Xóa tài khoản thành công";
         }
         catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<string> RestoreAccount(int userId, int currentId)
+    {
+        using var transaction = await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            var user = await _userRepository
+                .GetAll()
+                .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt != null);
+
+            if (user == null)
+            {
+                throw new NotFoundException("Không tìm thấy tài khoản này trong danh sách đã xóa.");
+            }
+
+            user.DeletedAt = null;
+            await _userRepository.Update(user);
+
+            var currentUser = await _userRepository
+                .GetAll()
+                .FirstOrDefaultAsync(u => u.Id == currentId);
+            await _auditLogService.SaveLogAsync(
+                userId: currentId,
+                staffCode: currentUser?.StaffCode,
+                action: "Restore_Account",
+                tableName: "users",
+                recordId: userId,
+                oldData: null,
+                newData: null
+            );
+
+            await _unitOfWork.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return "Khôi phục tài khoản thành công";
+        }
+        catch (Exception)
         {
             await transaction.RollbackAsync();
             throw;

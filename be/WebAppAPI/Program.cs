@@ -34,6 +34,9 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserRoleRepository, UserRoleRepository>();
 builder.Services.AddScoped<IOrderItemRepository, OrderItemRepository>();
 builder.Services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
+builder.Services.AddScoped<IMediaFolderRepository, MediaFolderRepository>();
+builder.Services.AddScoped<IMediaFileRepository, MediaFileRepository>();
+builder.Services.AddScoped<IInternalNewsRepository, InternalNewsRepository>();
 
 //Cache
 builder.Services.AddMemoryCache();
@@ -192,6 +195,7 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
+builder.Services.AddScoped<IImportHistoryService, ImportHistoryService>();
 
 //context
 builder.Services.AddHttpContextAccessor();

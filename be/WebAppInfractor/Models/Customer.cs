@@ -19,6 +19,8 @@ public partial class Customer
 
     public DateTime? LastOrderAt { get; set; }
 
+    public int? ImportHistoryId { get; set; }
+
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
@@ -27,11 +29,11 @@ public partial class Customer
 
     public int? CreatedBy { get; set; }
 
-    public DateTime? DayOfBirth { get; set; }
+    public DateOnly? DayOfBirth { get; set; }
 
     public virtual User? CreatedByNavigation { get; set; }
 
-    public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
+    public virtual ImportsHistory? ImportHistory { get; set; }
 
-    public virtual ICollection<TodoTask> TodoTasks { get; set; } = new List<TodoTask>();
+    public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 }

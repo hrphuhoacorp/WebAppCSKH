@@ -208,14 +208,17 @@ public class CustomerService : ICustomerService
                 throw new ConflictException("Số điện thoại đã tồn tại");
             }
 
-            if (updateDTO.DayOfBirth.HasValue && updateDTO.DayOfBirth.Value > DateTime.Now)
+            if (
+                updateDTO.DayOfBirth.HasValue
+                && updateDTO.DayOfBirth.Value > DateOnly.FromDateTime(DateTime.Now)
+            )
             {
                 throw new BadRequestException("Ngày sinh không hợp lệ");
             }
 
             if (
                 updateDTO.DayOfBirth.HasValue
-                && updateDTO.DayOfBirth.Value > DateTime.Today.AddYears(-18)
+                && updateDTO.DayOfBirth.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-18))
             )
             {
                 throw new BadRequestException("Người dùng phải đủ 18 tuổi");
@@ -224,7 +227,6 @@ public class CustomerService : ICustomerService
             customer.Name = updateDTO.Name;
             customer.Phone = updateDTO.Phone;
             customer.DayOfBirth = updateDTO.DayOfBirth;
-            customer.UpdatedAt = DateTime.Now;
 
             await _customerRepository.Update(customer);
 
@@ -275,7 +277,6 @@ public class CustomerService : ICustomerService
                     "Dữ liệu đã bị thay đổi, vui lòng tải lại trang và thử lại"
                 );
             }
-            customer.UpdatedAt = DateTime.Now;
             customer.DeletedAt = DateTime.Now;
             await _customerRepository.Update(customer);
 

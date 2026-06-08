@@ -9,6 +9,8 @@ public partial class User
 
     public int? BranchesId { get; set; }
 
+    public string? StaffCode { get; set; }
+
     public string Name { get; set; } = null!;
 
     public string Email { get; set; } = null!;
@@ -23,9 +25,7 @@ public partial class User
 
     public DateTime? DeletedAt { get; set; }
 
-    public DateTime? DayOfBirth { get; set; }
-
-    public string? StaffCode { get; set; }
+    public DateOnly? DayOfBirth { get; set; }
 
     public virtual ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
 
@@ -33,11 +33,17 @@ public partial class User
 
     public virtual ICollection<Customer> Customers { get; set; } = new List<Customer>();
 
-    public virtual ICollection<ImportsHistory> ImportsHistories { get; set; } = new List<ImportsHistory>();
+    public virtual ICollection<ImportsHistory> ImportsHistoryRollbackByNavigations { get; set; } = new List<ImportsHistory>();
+
+    public virtual ICollection<ImportsHistory> ImportsHistoryUsers { get; set; } = new List<ImportsHistory>();
+
+    public virtual ICollection<InternalNews> InternalNews { get; set; } = new List<InternalNews>();
+
+    public virtual ICollection<MediaFile> MediaFiles { get; set; } = new List<MediaFile>();
+
+    public virtual ICollection<MediaFolder> MediaFolders { get; set; } = new List<MediaFolder>();
 
     public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
-
-    public virtual ICollection<TodoTask> TodoTasks { get; set; } = new List<TodoTask>();
 
     public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }

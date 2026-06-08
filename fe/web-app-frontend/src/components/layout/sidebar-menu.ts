@@ -5,6 +5,7 @@ import {
     Users,
     User,
     Link2,
+    History,
 } from 'lucide-react';
 import React from 'react';
 
@@ -12,7 +13,7 @@ import React from 'react';
 export interface SidebarSubItem {
     title: string;
     href: string;
-    icon: React.ComponentType<any>; 
+    icon: React.ComponentType<any>;
     isExternal?: boolean;
 }
 
@@ -49,6 +50,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/staff/staff_list',
                 icon: Users,
             },
+            {
+                title: 'Lịch Sử Thao Tác',
+                href: '/dashboard/staff/history',
+                icon: History
+            }
         ],
     },
     {

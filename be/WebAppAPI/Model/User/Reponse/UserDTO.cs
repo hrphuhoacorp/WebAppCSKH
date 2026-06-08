@@ -8,7 +8,7 @@ public class UserGetAllDTO
     public string Email { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string BranchesName { get; set; }
-    public DateTime? DayOfBirth { get; set; }
+    public DateOnly? DayOfBirth { get; set; }
     public List<string> Roles { get; set; } = new List<string>();
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -39,7 +39,7 @@ public class UserDTO
     public string? Phone { get; set; }
     public int? BranchesId { get; set; }
     public string? BranchesName { get; set; }
-    public DateTime? DayOfBirth { get; set; }
+    public DateOnly? DayOfBirth { get; set; }
     public List<RoleDTO> Roles { get; set; } = new();
 
     public List<ImportHistoryDTO> ImportHistories { get; set; } = new();
@@ -55,9 +55,13 @@ public class ImportHistoryDTO
 {
     public int Id { get; set; }
     public string? FileName { get; set; }
+    public string? ImportBy { get; set; }
+    public string? Status { get; set; }
     public int SuccessCount { get; set; }
     public int ErrorCount { get; set; }
     public DateTime? ImportDate { get; set; }
+    public DateTime? RollbackAt { get; set; }
+    public string? RollbackBy { get; set; }
 }
 
 // public class TodoTaskDTO

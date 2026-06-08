@@ -160,5 +160,25 @@ namespace WebAppAPI.Controllers
                 StatusReponse.Success
             );
         }
+
+        [HttpPost("RestoreAccount/{userId}")]
+        public async Task<ResponseValue<string>> RestoreAccount(int userId)
+        {
+            var userIdClaim = httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                c.Type == "Id"
+            );
+
+            if (userIdClaim == null)
+            {
+                throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng");
+            }
+
+            var result = await _authService.RestoreAccount(userId, int.Parse(userIdClaim.Value));
+            return new ResponseValue<string>(
+                result,
+                "Khôi phục tài khoản thành công",
+                StatusReponse.Success
+            );
+        }
     }
 }

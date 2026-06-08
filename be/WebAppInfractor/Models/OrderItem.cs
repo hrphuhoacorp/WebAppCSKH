@@ -21,9 +21,13 @@ public partial class OrderItem
 
     public string? Unit { get; set; }
 
+    public int? ImportHistoryId { get; set; }
+
     public DateTime? CreatedAt { get; set; }
 
-    public short? Quantity { get; set; }
+    public int? Quantity { get; set; }
+
+    public virtual ImportsHistory? ImportHistory { get; set; }
 
     public virtual Order Order { get; set; } = null!;
 }

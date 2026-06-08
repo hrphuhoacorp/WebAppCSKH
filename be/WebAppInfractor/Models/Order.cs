@@ -29,6 +29,8 @@ public partial class Order
 
     public decimal TaxAmount { get; set; }
 
+    public int? ImportHistoryId { get; set; }
+
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
@@ -42,6 +44,8 @@ public partial class Order
     public virtual User? CreatedByNavigation { get; set; }
 
     public virtual Customer? Customer { get; set; }
+
+    public virtual ImportsHistory? ImportHistory { get; set; }
 
     public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 

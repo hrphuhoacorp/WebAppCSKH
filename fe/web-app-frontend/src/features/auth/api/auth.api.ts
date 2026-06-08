@@ -32,19 +32,7 @@ export const authApi = {
         return response.data;
     },
 
-    getActivityLogs: async (params: {
-        page: number;
-        pageSize: number;
-        search?: string;
-        fromDate?: string;
-        toDate?: string;
-    }) => {
-        const response = await api.get('/User/GetAllActivityLogAsync', {
-            params,
-        });
-
-        return response.data;
-    },
+    
 
     resetPassword: async (userId: number) => {
         const response = await api.post('/Auth/ResetPassword', null, {
@@ -67,4 +55,5 @@ export const authApi = {
         return response.data;
     },
 
+ 
 };

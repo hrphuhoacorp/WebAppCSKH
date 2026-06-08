@@ -10,7 +10,8 @@ public interface IUserService
         string? role,
         int? branchId,
         int page,
-        int pageSize
+        int pageSize,
+        List<string>? currentUserRoles
     );
 
     Task<UserDTO> GetByIdAsync(int id);
@@ -48,13 +49,17 @@ public class UserService : IUserService
         string? role,
         int? branchId,
         int page,
-        int pageSize
+        int pageSize,
+        List<string>? currentUserRoles
     )
     {
         if (page <= 0)
             page = 1;
         if (pageSize <= 0)
             pageSize = 10;
+
+        bool isAdmin =
+            currentUserRoles != null && currentUserRoles.Any(r => r.Trim().ToLower() == "admin");
 
         var query = _userRepository
             .GetAll()
@@ -67,8 +72,12 @@ public class UserService : IUserService
                     .Where(ur => ur.UserId == u.Id)
                     .Select(ur => ur.Role.Name)
                     .ToList(),
-            })
-            .Where(u => u.User.DeletedAt == null);
+            });
+
+        if (!isAdmin)
+        {
+            query = query.Where(u => u.User.DeletedAt == null);
+        }
 
         if (!string.IsNullOrEmpty(branchId.ToString()))
         {
@@ -123,8 +132,7 @@ public class UserService : IUserService
         var user = await _userRepository
             .GetAll()
             .Include(u => u.Branches)
-            .Include(u => u.ImportsHistories)
-            .Include(u => u.TodoTasks)
+            .Include(u => u.ImportsHistoryUsers)
             .FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null);
 
         if (user == null)
@@ -137,7 +145,7 @@ public class UserService : IUserService
             .Where(ur => ur.UserId == id)
             .Select(ur => new RoleDTO { Id = ur.Role.Id, Name = ur.Role.Name })
             .ToListAsync();
-        var importHistories = user.ImportsHistories.Select(ih => ih.ImportDate).ToList();
+        var importHistories = user.ImportsHistoryUsers.Select(ih => ih.ImportDate).ToList();
 
         return new UserDTO
         {
@@ -152,7 +160,7 @@ public class UserService : IUserService
             Roles = roles,
 
             ImportHistories = user
-                .ImportsHistories.OrderByDescending(ih => ih.ImportDate)
+                .ImportsHistoryUsers.OrderByDescending(ih => ih.ImportDate)
                 .Select(ih => new ImportHistoryDTO
                 {
                     Id = ih.Id,
@@ -180,8 +188,7 @@ public class UserService : IUserService
                 .Include(u => u.Branches)
                 .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
-                .Include(u => u.ImportsHistories)
-                .Include(u => u.TodoTasks)
+                .Include(u => u.ImportsHistoryUsers)
                 .FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null);
 
             if (user == null)
@@ -199,12 +206,12 @@ public class UserService : IUserService
             {
                 var dob = dto.DayOfBirth.Value;
 
-                if (dob > DateTime.Now)
+                if (dob > DateOnly.FromDateTime(DateTime.Now))
                 {
                     throw new BadRequestException("Ngày sinh không hợp lệ");
                 }
 
-                if (dob > DateTime.Today.AddYears(-18))
+                if (dob > DateOnly.FromDateTime(DateTime.Today.AddYears(-18)))
                 {
                     throw new BadRequestException("Người dùng phải đủ 18 tuổi");
                 }
@@ -254,7 +261,6 @@ public class UserService : IUserService
             user.Phone = dto.Phone;
             user.BranchesId = dto.BranchesId;
             user.DayOfBirth = dto.DayOfBirth;
-            user.UpdatedAt = DateTime.Now;
             //đổi role
             var currentRoles = await _userRoleRepository
                 .GetAll()
@@ -267,12 +273,7 @@ public class UserService : IUserService
 
             var rolesToAdd = dto
                 .RoleIds.Where(roleId => !existingRoleIds.Contains(roleId))
-                .Select(roleId => new UserRole
-                {
-                    UserId = id,
-                    RoleId = roleId,
-                    CreatedAt = DateTime.Now,
-                })
+                .Select(roleId => new UserRole { UserId = id, RoleId = roleId })
                 .ToList();
 
             _userRoleRepository.RemoveRange(rolesToRemove);
@@ -296,7 +297,7 @@ public class UserService : IUserService
                 BranchesName = user.Branches.Name,
                 // TodoTasks = user.TodoTasks.ToList(),
                 ImportHistories = user
-                    .ImportsHistories.Select(ih => new ImportHistoryDTO
+                    .ImportsHistoryUsers.Select(ih => new ImportHistoryDTO
                     {
                         Id = ih.Id,
                         FileName = ih.FileName,
@@ -307,7 +308,6 @@ public class UserService : IUserService
                     .ToList(),
 
                 CreatedAt = user.CreatedAt,
-                UpdatedAt = DateTime.Now,
             };
         }
         catch

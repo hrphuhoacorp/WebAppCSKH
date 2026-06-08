@@ -31,10 +31,55 @@ export const userApi = {
         return response.data;
     },
 
+    restoreAccount: async (userId: number) => {
+        const response = await api.post(`/Auth/RestoreAccount/${userId}`);
+        return response.data;
+    },
+
     getRoles: async () => {
         const response = await api.get('/User/GetAllRolesAsync');
         return response.data;
     },
+
+    getActivityLogs: async (params: {
+        page: number;
+        pageSize: number;
+        search?: string;
+        fromDate?: string;
+        toDate?: string;
+    }) => {
+        const response = await api.get('/User/GetAllActivityLogAsync', {
+            params,
+        });
+
+        return response.data;
+    },
+
+    getImportHistory: async (params: {
+        page: number;
+        pageSize: number;
+        search?: string;
+        status?: string;
+        fromDate?: string;
+        toDate?: string;
+    }) => {
+        const response = await api.get('/ImportHistory/GetAllImportHistoryAsync', {
+            params,
+        });
+
+        return response.data;
+    },
+
+    rollbackImportExcel: async (id: number) => {
+        const response = await api.post(`/Order/RollbackImportAsync/${id}`);
+        return response.data;
+    },
+
+    restoreImportExcel: async (id: number) => {
+        const response = await api.post(`/Order/RestoreImportAsync/${id}`);
+        return response.data;
+    },
+
 
 
 }

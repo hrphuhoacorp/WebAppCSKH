@@ -12,6 +12,6 @@ public class CustomerDTO
     public DateTime? DeletedAt { get; set; }
     public int? CreatedBy { get; set; }
     public string? CreatedName { get; set; }
-    public DateTime? DayOfBirth { get; set; }
+    public DateOnly? DayOfBirth { get; set; }
     public List<OrderDTO> Orders { get; set; }
 }

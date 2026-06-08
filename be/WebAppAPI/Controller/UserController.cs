@@ -40,7 +40,21 @@ namespace WebAppAPI.Controllers
             [FromQuery] int pageSize = 10
         )
         {
-            var result = await _userService.GetAllAsync(search, role, branchId, page, pageSize);
+            var userRolesClaim = _httpContextAccessor
+                .HttpContext?.User.Claims.Where(c =>
+                    c.Type == "role" || c.Type == System.Security.Claims.ClaimTypes.Role
+                )
+                .Select(c => c.Value)
+                .ToList();
+
+            var result = await _userService.GetAllAsync(
+                search,
+                role,
+                branchId,
+                page,
+                pageSize,
+                userRolesClaim
+            );
             return new ResponseValue<PagedResult<UserGetAllDTO>>(
                 result,
                 "Lấy danh sách người dùng thành công",

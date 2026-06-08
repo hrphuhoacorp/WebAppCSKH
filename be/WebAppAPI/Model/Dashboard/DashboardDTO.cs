@@ -39,5 +39,5 @@ public class BirthdayCustomerDTO
     public int CustomerId { get; set; }
     public string CustomerName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
-    public DateTime? DayOfBirth { get; set; }
+    public DateOnly? DayOfBirth { get; set; }
 }

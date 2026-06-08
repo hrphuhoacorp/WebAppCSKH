@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Box,
     Button,
@@ -15,14 +16,25 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TablePagination,
     TableRow,
     TextField,
     Typography,
     alpha,
     Tooltip,
+    TablePagination,
 } from '@mui/material';
-import { Search, Edit, Delete, Visibility, PersonSearch, FilterList, Settings, LockReset, AddCircleRounded } from '@mui/icons-material';
+import {
+    Search,
+    Edit,
+    Delete,
+    Visibility,
+    PersonSearch,
+    FilterList,
+    Settings,
+    LockReset,
+    AddCircleRounded,
+    RestorePageRounded
+} from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { userApi } from '@/features/user/api/user.api';
@@ -30,9 +42,9 @@ import { ordersApi } from '@/features/orders/api/orders.api';
 import UserDetailDialog from '@/features/user/components/UserDetailDialog';
 import DeleteUserDialog from '@/features/user/components/DeleteUserDialog';
 import EditUserDialog from '@/features/user/components/EditUserDialog';
-import ActivityLogDialog from '@/features/staff/components/ActivityLogDialog';
 import ResetPasswordDialog from '@/features/staff/components/ResetPasswordDialog';
 import CreateUserDialog from '@/features/staff/components/CreateUserDialog';
+import RestoreUserDialog from '@/features/staff/components/RestoreUserDialog';
 
 type UserRow = {
     id: number;
@@ -47,6 +59,7 @@ type UserRow = {
     roleIds: number[];
     createdAt: string;
     updatedAt: string;
+    deletedAt: string | null;
 };
 
 const roleOptions = ['Admin', 'Manager', 'Staff'];
@@ -58,6 +71,7 @@ const ROLE_COLOR: Record<string, { bg: string; color: string; border: string }> 
 };
 
 export default function UsersPage() {
+    const router = useRouter();
     const [users, setUsers] = useState<UserRow[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -73,10 +87,8 @@ export default function UsersPage() {
     const [detailOpen, setDetailOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
-
-    const [activityLogOpen, setActivityLogOpen] = useState(false);
+    const [restoreOpen, setRestoreOpen] = useState(false);
     const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
-
     const [createOpen, setCreateOpen] = useState(false);
 
     const formatDate = (value?: string | null) => {
@@ -200,27 +212,7 @@ export default function UsersPage() {
                     >
                         Thêm nhân sự
                     </Button>
-                    <Tooltip title="Lịch sử thao tác hệ thống" arrow>
-                        <IconButton
-                            onClick={() => setActivityLogOpen(true)}
-                            sx={{
-                                width: 40,
-                                height: 40,
-                                bgcolor: '#fff',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '12px',
-                                color: '#086839',
-                                boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
-                                '&:hover': {
-                                    bgcolor: '#f0fdf4',
-                                    transform: 'rotate(20deg)',
-                                },
-                                transition: 'all 0.2s',
-                            }}
-                        >
-                            <Settings sx={{ fontSize: 20 }} />
-                        </IconButton>
-                    </Tooltip>
+                   
 
                     <Box
                         sx={{
@@ -408,202 +400,236 @@ export default function UsersPage() {
                     </TableHead>
 
                     <TableBody>
-                        {users.map((user, index) => (
-                            <TableRow
-                                key={user.id}
-                                sx={{
-                                    bgcolor: index % 2 === 0 ? '#fff' : '#fafcfb',
-                                    '&:hover': {
-                                        bgcolor: '#f0fdf4 !important',
-                                        '& .action-btn': { opacity: 1 },
-                                    },
-                                    transition: 'background-color 0.15s',
-                                }}
-                            >
-                                {/* Mã nhân viên */}
-                                <TableCell>
-                                    <Typography
-                                        sx={{
-                                            fontWeight: 700,
-                                            fontSize: 13,
-                                            color: '#475569',
-                                            fontFamily: 'monospace',
-                                            bgcolor: '#f1f5f9',
-                                            px: 1,
-                                            py: 0.4,
-                                            borderRadius: '6px',
-                                            display: 'inline-block',
-                                        }}
-                                    >
-                                        {user.staffCode}
-                                    </Typography>
-                                </TableCell>
-
-                                {/* Tên */}
-                                <TableCell>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <Box
+                        {users.map((user, index) => {
+                            const isDeleted = user.deletedAt !== null;
+                            return (
+                                <TableRow
+                                    key={user.id}
+                                    sx={{
+                                        bgcolor: index % 2 === 0 ? '#fff' : '#fafcfb',
+                                        opacity: isDeleted ? 0.55 : 1,
+                                        '&:hover': {
+                                            bgcolor: '#f0fdf4 !important',
+                                            '& .action-btn': { opacity: 1 },
+                                        },
+                                        transition: 'all 0.15s',
+                                    }}
+                                >
+                                    {/* Mã nhân viên */}
+                                    <TableCell>
+                                        <Typography
                                             sx={{
-                                                width: 32,
-                                                height: 32,
-                                                borderRadius: '10px',
-                                                bgcolor: alpha('#086839', 0.1),
-                                                color: '#086839',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontWeight: 800,
+                                                fontWeight: 700,
                                                 fontSize: 13,
-                                                flexShrink: 0,
+                                                color: '#475569',
+                                                fontFamily: 'monospace',
+                                                bgcolor: '#f1f5f9',
+                                                px: 1,
+                                                py: 0.4,
+                                                borderRadius: '6px',
+                                                display: 'inline-block',
                                             }}
                                         >
-                                            {user.name?.charAt(0)}
-                                        </Box>
-                                        <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 14, whiteSpace: 'nowrap' }}>
-                                            {user.name}
+                                            {user.staffCode}
                                         </Typography>
-                                    </Box>
-                                </TableCell>
+                                    </TableCell>
 
-                                <TableCell sx={{ color: '#475569', fontSize: 13 }}>{user.email || '-'}</TableCell>
-                                <TableCell sx={{ color: '#475569', fontSize: 13, whiteSpace: 'nowrap' }}>{user.phone || '-'}</TableCell>
-                                <TableCell sx={{ color: '#64748b', fontSize: 13, whiteSpace: 'nowrap' }}>{formatDate(user.dayOfBirth)}</TableCell>
-
-                                {/* Vai trò */}
-                                <TableCell>
-                                    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                                        {user.roles?.length
-                                            ? user.roles.map((r) => {
-                                                const c = ROLE_COLOR[r] ?? { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
-                                                return (
+                                    {/* Tên */}
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Box
+                                                sx={{
+                                                    width: 32,
+                                                    height: 32,
+                                                    borderRadius: '10px',
+                                                    bgcolor: alpha('#086839', 0.1),
+                                                    color: '#086839',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontWeight: 800,
+                                                    fontSize: 13,
+                                                    flexShrink: 0,
+                                                }}
+                                            >
+                                                {user.name?.charAt(0)}
+                                            </Box>
+                                            <Stack spacing={0.3}>
+                                                <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 14, whiteSpace: 'nowrap' }}>
+                                                    {user.name}
+                                                </Typography>
+                                                {isDeleted && (
                                                     <Chip
-                                                        key={r}
-                                                        label={r}
+                                                        label="Đã xóa mềm"
                                                         size="small"
-                                                        sx={{
-                                                            bgcolor: c.bg,
-                                                            color: c.color,
-                                                            fontWeight: 700,
-                                                            fontSize: 11,
-                                                            border: `1px solid ${c.border}`,
-                                                            borderRadius: '6px',
-                                                            height: 22,
-                                                        }}
+                                                        sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 800, fontSize: 10, height: 16, borderRadius: '4px', width: 'fit-content' }}
                                                     />
-                                                );
-                                            })
-                                            : <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>-</Typography>
-                                        }
-                                    </Stack>
-                                </TableCell>
+                                                )}
+                                            </Stack>
+                                        </Box>
+                                    </TableCell>
 
-                                {/* Chi nhánh */}
-                                <TableCell>
-                                    <Chip
-                                        label={user.branchesName || '-'}
-                                        size="small"
-                                        sx={{
-                                            bgcolor: alpha('#2563eb', 0.06),
-                                            color: '#2563eb',
-                                            fontWeight: 600,
-                                            fontSize: 11,
-                                            border: `1px solid ${alpha('#2563eb', 0.15)}`,
-                                            borderRadius: '6px',
-                                            height: 22,
-                                            whiteSpace: 'nowrap',
-                                        }}
-                                    />
-                                </TableCell>
+                                    <TableCell sx={{ color: '#475569', fontSize: 13 }}>{user.email || '-'}</TableCell>
+                                    <TableCell sx={{ color: '#475569', fontSize: 13, whiteSpace: 'nowrap' }}>{user.phone || '-'}</TableCell>
+                                    <TableCell sx={{ color: '#64748b', fontSize: 13, whiteSpace: 'nowrap' }}>{formatDate(user.dayOfBirth)}</TableCell>
 
-                                <TableCell sx={{ color: '#94a3b8', fontSize: 13, whiteSpace: 'nowrap' }}>
-                                    {formatDate(user.createdAt)}
-                                </TableCell>
+                                    {/* Vai trò */}
+                                    <TableCell>
+                                        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                                            {user.roles?.length
+                                                ? user.roles.map((r) => {
+                                                    const c = ROLE_COLOR[r] ?? { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
+                                                    return (
+                                                        <Chip
+                                                            key={r}
+                                                            label={r}
+                                                            size="small"
+                                                            sx={{
+                                                                bgcolor: c.bg,
+                                                                color: c.color,
+                                                                fontWeight: 700,
+                                                                fontSize: 11,
+                                                                border: `1px solid ${c.border}`,
+                                                                borderRadius: '6px',
+                                                                height: 22,
+                                                            }}
+                                                        />
+                                                    );
+                                                })
+                                                : <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>-</Typography>
+                                            }
+                                        </Stack>
+                                    </TableCell>
 
-                                {/* Thao tác */}
-                                <TableCell>
-                                    <Stack direction="row" spacing={0.5}>
-                                        <Tooltip title="Xem chi tiết" arrow>
-                                            <IconButton
-                                                size="small"
-                                                className="action-btn"
-                                                sx={{
-                                                    color: '#94a3b8',
-                                                    width: 30,
-                                                    height: 30,
-                                                    borderRadius: '8px',
-                                                    '&:hover': { color: '#086839', bgcolor: alpha('#086839', 0.08) },
-                                                    transition: 'all 0.15s',
-                                                }}
-                                                onClick={() => { setSelectedUser(user); setDetailOpen(true); }}
-                                            >
-                                                <Visibility sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+                                    {/* Chi nhánh */}
+                                    <TableCell>
+                                        <Chip
+                                            label={user.branchesName || '-'}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: alpha('#2563eb', 0.06),
+                                                color: '#2563eb',
+                                                fontWeight: 600,
+                                                fontSize: 11,
+                                                border: `1px solid ${alpha('#2563eb', 0.15)}`,
+                                                borderRadius: '6px',
+                                                height: 22,
+                                                whiteSpace: 'nowrap',
+                                            }}
+                                        />
+                                    </TableCell>
 
-                                        <Tooltip title="Chỉnh sửa" arrow>
-                                            <IconButton
-                                                size="small"
-                                                className="action-btn"
-                                                sx={{
-                                                    color: '#94a3b8',
-                                                    width: 30,
-                                                    height: 30,
-                                                    borderRadius: '8px',
-                                                    '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) },
-                                                    transition: 'all 0.15s',
-                                                }}
-                                                onClick={() => { setSelectedUser(user); setEditOpen(true); }}
-                                            >
-                                                <Edit sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+                                    <TableCell sx={{ color: '#94a3b8', fontSize: 13, whiteSpace: 'nowrap' }}>
+                                        {formatDate(user.createdAt)}
+                                    </TableCell>
 
-                                        <Tooltip title="Xóa" arrow>
-                                            <IconButton
-                                                size="small"
-                                                className="action-btn"
-                                                sx={{
-                                                    color: '#94a3b8',
-                                                    width: 30,
-                                                    height: 30,
-                                                    borderRadius: '8px',
-                                                    '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) },
-                                                    transition: 'all 0.15s',
-                                                }}
-                                                onClick={() => { setSelectedUser(user); setDeleteOpen(true); }}
-                                            >
-                                                <Delete sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+                                    {/* Thao tác */}
+                                    <TableCell>
+                                        <Stack direction="row" spacing={0.5}>
+                                            <Tooltip title="Xem chi tiết" arrow>
+                                                <IconButton
+                                                    size="small"
+                                                    className="action-btn"
+                                                    sx={{
+                                                        color: '#94a3b8',
+                                                        width: 30,
+                                                        height: 30,
+                                                        borderRadius: '8px',
+                                                        '&:hover': { color: '#086839', bgcolor: alpha('#086839', 0.08) },
+                                                        transition: 'all 0.15s',
+                                                    }}
+                                                    onClick={() => { setSelectedUser(user); setDetailOpen(true); }}
+                                                >
+                                                    <Visibility sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
 
+                                            <Tooltip title="Chỉnh sửa" arrow>
+                                                <IconButton
+                                                    size="small"
+                                                    className="action-btn"
+                                                    disabled={isDeleted}
+                                                    sx={{
+                                                        color: '#94a3b8',
+                                                        width: 30,
+                                                        height: 30,
+                                                        borderRadius: '8px',
+                                                        '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) },
+                                                        transition: 'all 0.15s',
+                                                    }}
+                                                    onClick={() => { setSelectedUser(user); setEditOpen(true); }}
+                                                >
+                                                    <Edit sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
 
-                                        <Tooltip title="Reset mật khẩu" arrow>
-                                            <IconButton
-                                                size="small"
-                                                className="action-btn"
-                                                sx={{
-                                                    color: '#94a3b8',
-                                                    width: 30,
-                                                    height: 30,
-                                                    borderRadius: '8px',
-                                                    '&:hover': {
-                                                        color: '#f59e0b',
-                                                        bgcolor: alpha('#f59e0b', 0.1),
-                                                    },
-                                                    transition: 'all 0.15s',
-                                                }}
-                                                onClick={() => {
-                                                    setSelectedUser(user);
-                                                    setResetPasswordOpen(true);
-                                                }}
-                                            >
-                                                <LockReset sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </Stack>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                            {isDeleted ? (
+                                                <Tooltip title="Khôi phục tài khoản" arrow>
+                                                    <IconButton
+                                                        size="small"
+                                                        className="action-btn"
+                                                        sx={{
+                                                            color: '#2563eb',
+                                                            width: 30,
+                                                            height: 30,
+                                                            borderRadius: '8px',
+                                                            bgcolor: alpha('#2563eb', 0.06),
+                                                            '&:hover': { color: '#1d4ed8', bgcolor: alpha('#2563eb', 0.15) },
+                                                        }}
+                                                        onClick={() => { setSelectedUser(user); setRestoreOpen(true); }}
+                                                    >
+                                                        <RestorePageRounded sx={{ fontSize: 18 }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            ) : (
+                                                <Tooltip title="Xóa" arrow>
+                                                    <IconButton
+                                                        size="small"
+                                                        className="action-btn"
+                                                        sx={{
+                                                            color: '#94a3b8',
+                                                            width: 30,
+                                                            height: 30,
+                                                            borderRadius: '8px',
+                                                            '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) },
+                                                            transition: 'all 0.15s',
+                                                        }}
+                                                        onClick={() => { setSelectedUser(user); setDeleteOpen(true); }}
+                                                    >
+                                                        <Delete sx={{ fontSize: 16 }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+
+                                            <Tooltip title="Reset mật khẩu" arrow>
+                                                <IconButton
+                                                    size="small"
+                                                    className="action-btn"
+                                                    disabled={isDeleted}
+                                                    sx={{
+                                                        color: '#94a3b8',
+                                                        width: 30,
+                                                        height: 30,
+                                                        borderRadius: '8px',
+                                                        '&:hover': {
+                                                            color: '#f59e0b',
+                                                            bgcolor: alpha('#f59e0b', 0.1),
+                                                        },
+                                                        transition: 'all 0.15s',
+                                                    }}
+                                                    onClick={() => {
+                                                        setSelectedUser(user);
+                                                        setResetPasswordOpen(true);
+                                                    }}
+                                                >
+                                                    <LockReset sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
 
                         {!users.length && !loading && (
                             <TableRow>
@@ -683,13 +709,12 @@ export default function UsersPage() {
                 onClose={() => { setDeleteOpen(false); setSelectedUser(null); }}
                 onSuccess={fetchUsers}
             />
-            <ActivityLogDialog
-                open={activityLogOpen}
-                onClose={() => {
-                    setActivityLogOpen(false);
-                }}
+            <RestoreUserDialog
+                open={restoreOpen}
+                user={selectedUser}
+                onClose={() => { setRestoreOpen(false); setSelectedUser(null); }}
+                onSuccess={fetchUsers}
             />
-
             <ResetPasswordDialog
                 open={resetPasswordOpen}
                 user={selectedUser}

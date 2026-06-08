@@ -24,6 +24,12 @@ public partial class MemBerContext : DbContext
 
     public virtual DbSet<ImportsHistory> ImportsHistories { get; set; }
 
+    public virtual DbSet<InternalNews> InternalNews { get; set; }
+
+    public virtual DbSet<MediaFile> MediaFiles { get; set; }
+
+    public virtual DbSet<MediaFolder> MediaFolders { get; set; }
+
     public virtual DbSet<Order> Orders { get; set; }
 
     public virtual DbSet<OrderItem> OrderItems { get; set; }
@@ -79,7 +85,7 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("action");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.IpAddress)
@@ -118,7 +124,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Address).HasColumnName("address");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.DeletedAt)
@@ -131,7 +137,7 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(20)
                 .HasColumnName("phone");
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
         });
@@ -148,23 +154,24 @@ public partial class MemBerContext : DbContext
 
             entity.HasIndex(e => e.DeletedAt, "idx_customers_deleted_at");
 
+            entity.HasIndex(e => e.ImportHistoryId, "idx_customers_import_history_id");
+
             entity.HasIndex(e => e.Phone, "idx_customers_phone");
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CustomerCode)
                 .HasMaxLength(50)
                 .HasColumnName("customer_code");
-            entity.Property(e => e.DayOfBirth)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("day_of_birth");
+            entity.Property(e => e.DayOfBirth).HasColumnName("day_of_birth");
             entity.Property(e => e.DeletedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("deleted_at");
+            entity.Property(e => e.ImportHistoryId).HasColumnName("import_history_id");
             entity.Property(e => e.LastOrderAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("last_order_at");
@@ -181,7 +188,7 @@ public partial class MemBerContext : DbContext
                 .HasPrecision(18, 2)
                 .HasColumnName("total_revenue");
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
 
@@ -189,6 +196,11 @@ public partial class MemBerContext : DbContext
                 .HasForeignKey(d => d.CreatedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("customers_created_by_fkey");
+
+            entity.HasOne(d => d.ImportHistory).WithMany(p => p.Customers)
+                .HasForeignKey(d => d.ImportHistoryId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("customers_import_history_id_fkey");
         });
 
         modelBuilder.Entity<ImportsHistory>(entity =>
@@ -212,18 +224,165 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("file_name");
             entity.Property(e => e.ImportDate)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("import_date");
+            entity.Property(e => e.RollbackAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("rollback_at");
+            entity.Property(e => e.RollbackBy).HasColumnName("rollback_by");
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasDefaultValueSql("'Imported'::character varying")
+                .HasColumnName("status");
             entity.Property(e => e.SuccessCount)
                 .HasDefaultValue(0)
                 .HasColumnName("success_count");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
-            entity.HasOne(d => d.User).WithMany(p => p.ImportsHistories)
+            entity.HasOne(d => d.RollbackByNavigation).WithMany(p => p.ImportsHistoryRollbackByNavigations)
+                .HasForeignKey(d => d.RollbackBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_imports_rollback_by");
+
+            entity.HasOne(d => d.User).WithMany(p => p.ImportsHistoryUsers)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("imports_history_user_id_fkey");
+                .HasConstraintName("fk_imports_user");
+        });
+
+        modelBuilder.Entity<InternalNews>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("internal_news_pkey");
+
+            entity.ToTable("internal_news");
+
+            entity.HasIndex(e => e.CreatedAt, "idx_internal_news_created_at");
+
+            entity.HasIndex(e => e.DeletedAt, "idx_internal_news_deleted_at");
+
+            entity.HasIndex(e => e.IsPinned, "idx_internal_news_is_pinned");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.DeletedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("deleted_at");
+            entity.Property(e => e.IsPinned)
+                .HasDefaultValue(false)
+                .HasColumnName("is_pinned");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .HasDefaultValueSql("'draft'::character varying")
+                .HasColumnName("status");
+            entity.Property(e => e.ThumbnailUrl).HasColumnName("thumbnail_url");
+            entity.Property(e => e.Title)
+                .HasMaxLength(255)
+                .HasColumnName("title");
+            entity.Property(e => e.Type)
+                .HasMaxLength(50)
+                .HasDefaultValueSql("'announcement'::character varying")
+                .HasColumnName("type");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+            entity.Property(e => e.ViewCount)
+                .HasDefaultValue(0)
+                .HasColumnName("view_count");
+
+            entity.HasOne(d => d.CreatedByNavigation).WithMany(p => p.InternalNews)
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("internal_news_created_by_fkey");
+        });
+
+        modelBuilder.Entity<MediaFile>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("media_files_pkey");
+
+            entity.ToTable("media_files");
+
+            entity.HasIndex(e => e.CreatedAt, "idx_media_files_created_at");
+
+            entity.HasIndex(e => e.FolderId, "idx_media_files_folder_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.DeletedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("deleted_at");
+            entity.Property(e => e.FileName)
+                .HasMaxLength(255)
+                .HasColumnName("file_name");
+            entity.Property(e => e.FileSize).HasColumnName("file_size");
+            entity.Property(e => e.FileUrl).HasColumnName("file_url");
+            entity.Property(e => e.FolderId).HasColumnName("folder_id");
+            entity.Property(e => e.MimeType)
+                .HasMaxLength(100)
+                .HasColumnName("mime_type");
+            entity.Property(e => e.OriginalName)
+                .HasMaxLength(255)
+                .HasColumnName("original_name");
+
+            entity.HasOne(d => d.CreatedByNavigation).WithMany(p => p.MediaFiles)
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("media_files_created_by_fkey");
+
+            entity.HasOne(d => d.Folder).WithMany(p => p.MediaFiles)
+                .HasForeignKey(d => d.FolderId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("media_files_folder_id_fkey");
+        });
+
+        modelBuilder.Entity<MediaFolder>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("media_folders_pkey");
+
+            entity.ToTable("media_folders");
+
+            entity.HasIndex(e => e.ParentId, "idx_media_folders_parent_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.DeletedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("deleted_at");
+            entity.Property(e => e.IsPublic)
+                .HasDefaultValue(true)
+                .HasColumnName("is_public");
+            entity.Property(e => e.Name)
+                .HasMaxLength(255)
+                .HasColumnName("name");
+            entity.Property(e => e.ParentId).HasColumnName("parent_id");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.CreatedByNavigation).WithMany(p => p.MediaFolders)
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("media_folders_created_by_fkey");
+
+            entity.HasOne(d => d.Parent).WithMany(p => p.InverseParent)
+                .HasForeignKey(d => d.ParentId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("media_folders_parent_id_fkey");
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -237,6 +396,8 @@ public partial class MemBerContext : DbContext
             entity.HasIndex(e => e.CustomerId, "idx_orders_customer_id");
 
             entity.HasIndex(e => e.DeletedAt, "idx_orders_deleted_at");
+
+            entity.HasIndex(e => e.ImportHistoryId, "idx_orders_import_history_id");
 
             entity.HasIndex(e => e.OrderCode, "idx_orders_order_code");
 
@@ -252,7 +413,7 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("channel");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
@@ -263,11 +424,12 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.GrossProfit)
                 .HasPrecision(18, 2)
                 .HasColumnName("gross_profit");
+            entity.Property(e => e.ImportHistoryId).HasColumnName("import_history_id");
             entity.Property(e => e.OrderCode)
                 .HasMaxLength(50)
                 .HasColumnName("order_code");
             entity.Property(e => e.PurchaseDate)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("purchase_date");
             entity.Property(e => e.Revenue)
@@ -284,7 +446,7 @@ public partial class MemBerContext : DbContext
                 .HasPrecision(18, 2)
                 .HasColumnName("tax_amount");
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
 
@@ -303,6 +465,11 @@ public partial class MemBerContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("orders_customer_id_fkey");
 
+            entity.HasOne(d => d.ImportHistory).WithMany(p => p.Orders)
+                .HasForeignKey(d => d.ImportHistoryId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("orders_import_history_id_fkey");
+
             entity.HasOne(d => d.Status).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.StatusId)
                 .OnDelete(DeleteBehavior.SetNull)
@@ -317,6 +484,8 @@ public partial class MemBerContext : DbContext
 
             entity.HasIndex(e => e.Category, "idx_order_items_category");
 
+            entity.HasIndex(e => e.ImportHistoryId, "idx_order_items_import_history_id");
+
             entity.HasIndex(e => e.OrderId, "idx_order_items_order_id");
 
             entity.HasIndex(e => e.Sku, "idx_order_items_sku");
@@ -326,9 +495,10 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("category");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+            entity.Property(e => e.ImportHistoryId).HasColumnName("import_history_id");
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.ProductName)
                 .HasMaxLength(255)
@@ -346,6 +516,11 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.UnitPrice)
                 .HasPrecision(18, 2)
                 .HasColumnName("unit_price");
+
+            entity.HasOne(d => d.ImportHistory).WithMany(p => p.OrderItems)
+                .HasForeignKey(d => d.ImportHistoryId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("order_items_import_history_id_fkey");
 
             entity.HasOne(d => d.Order).WithMany(p => p.OrderItems)
                 .HasForeignKey(d => d.OrderId)
@@ -378,7 +553,7 @@ public partial class MemBerContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.DeletedAt)
@@ -389,7 +564,7 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("name");
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
         });
@@ -432,16 +607,6 @@ public partial class MemBerContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
-
-            entity.HasOne(d => d.Assignee).WithMany(p => p.TodoTasks)
-                .HasForeignKey(d => d.AssigneeId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("todo_tasks_assignee_id_fkey");
-
-            entity.HasOne(d => d.Customer).WithMany(p => p.TodoTasks)
-                .HasForeignKey(d => d.CustomerId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("todo_tasks_customer_id_fkey");
         });
 
         modelBuilder.Entity<User>(entity =>
@@ -463,12 +628,10 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.BranchesId).HasColumnName("branches_id");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
-            entity.Property(e => e.DayOfBirth)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("day_of_birth");
+            entity.Property(e => e.DayOfBirth).HasColumnName("day_of_birth");
             entity.Property(e => e.DeletedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("deleted_at");
@@ -488,7 +651,7 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("staff_code");
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
 
@@ -512,7 +675,7 @@ public partial class MemBerContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.RoleId).HasColumnName("role_id");

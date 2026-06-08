@@ -13,6 +13,8 @@ public interface IOrderService
     Task<OrderDTO> GetOrderByIdAsync(int id);
     Task<StatusDTO[]> GetAllStatusesAsync();
     Task<BranchDTO[]> GetAllBranchesAsync();
+    Task<bool> RollbackImportAsync(int importHistoryId, int userId);
+    Task<bool> RestoreImportAsync(int importHistoryId, int userId);
 }
 
 public class OrderService : IOrderService
@@ -74,26 +76,37 @@ public class OrderService : IOrderService
             using var stream = file.OpenReadStream();
             using var workbook = new XLWorkbook(stream);
             var worksheet = workbook.Worksheet(1);
-
             var rows = worksheet.RangeUsed().RowsUsed().Skip(1).ToList(); // Bỏ qua header
-
             var totalRows = rows.Count();
 
+            // BƯỚC 1: TẠO TRƯỚC IMPORT HISTORY ĐỂ LẤY ID THẬT TỪ DATABASE
+
+            var importHistory = new ImportsHistory
+            {
+                FileName = file.FileName,
+                UserId = userId,
+                SuccessCount = 0, // Sẽ cập nhật lại sau khi chạy xong
+                ErrorCount = 0,
+                Status = "Imported",
+                ErrorDetails = "{}",
+            };
+            await _importsHistoryRepository.AddAsync(importHistory);
+            await _unitOfWork.SaveChangesAsync(); // Ép Database sinh ra ID thật cho importHistory
+            var currentImportId = importHistory.Id; // Khóa ngoại dùng xuyên suốt luồng dưới
+
+            // Tải cache ban đầu
             var statuses = await _orderStatusRepository
                 .GetAll()
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.TrangThai.Trim());
-
             var branches = await _branchRepository
                 .GetAll()
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.Name.Trim());
-
             var orderCache = await _orderRepository
                 .GetAll()
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.OrderCode);
-
             var customerCache = await _customerRepository
                 .GetAll()
                 .AsNoTracking()
@@ -109,15 +122,14 @@ public class OrderService : IOrderService
                 {
                     Console.WriteLine($"Đang xử lý dòng {row.RowNumber()} / {totalRows}");
 
-                    //dọc dữ liệu
+                    // Đọc dữ liệu thô
                     var dateCell = row.Cell(1).GetString().Trim();
-
                     if (!DateTime.TryParse(dateCell, out var orderDate))
                     {
                         throw new BadRequestException("Ngày mua không hợp lệ");
                     }
-                    var blockSourch = row.Cell(14).GetString().Trim().ToLower();
-                    if (blockSourch.Contains("pos") || blockSourch.Contains("khác"))
+                    var blockSource = row.Cell(14).GetString().Trim().ToLower();
+                    if (blockSource.Contains("pos") || blockSource.Contains("khác"))
                     {
                         continue;
                     }
@@ -126,20 +138,18 @@ public class OrderService : IOrderService
                     var customerPhone = row.Cell(3).GetString().Trim();
                     var customerCode = row.Cell(4).GetString().Trim();
 
-                    var category = row.Cell(5).GetString().Trim(); // Cột E
-                    var productName = row.Cell(6).GetString().Trim(); // Cột F
-                    var sku = row.Cell(7).GetString().Trim(); // Cột G
-                    var unitPrice = GetDecimal(row.Cell(8)); // Cột H
-                    var serviceName = row.Cell(9).GetString().Trim(); // Cột I
-                    var unit = row.Cell(10).GetString().Trim(); // Cột J
+                    var category = row.Cell(5).GetString().Trim();
+                    var productName = row.Cell(6).GetString().Trim();
+                    var sku = row.Cell(7).GetString().Trim();
+                    var unitPrice = GetDecimal(row.Cell(8));
+                    var serviceName = row.Cell(9).GetString().Trim();
+                    var unit = row.Cell(10).GetString().Trim();
 
                     var orderCode = row.Cell(11).GetString().Trim();
-
                     var statusName = row.Cell(12).GetString().Trim();
                     var branchName = row.Cell(13).GetString().Trim();
                     var source = row.Cell(14).GetString().Trim();
                     var channel = row.Cell(15).GetString().Trim();
-
                     var quantity = row.Cell(18).GetString().Trim();
 
                     var revenue = GetDecimal(row.Cell(24));
@@ -147,25 +157,27 @@ public class OrderService : IOrderService
                     var shippingFee = GetDecimal(row.Cell(23));
                     var taxAmount = GetDecimal(row.Cell(22));
 
-                    // validate dữ liệu
-
+                    // Validate dữ liệu bắt buộc
                     if (string.IsNullOrWhiteSpace(customerCode))
                         throw new BadRequestException("Mã khách hàng không được để trống");
-
                     if (string.IsNullOrWhiteSpace(orderCode))
                         throw new BadRequestException("Mã đơn hàng không được để trống");
+                    if (!statuses.TryGetValue(statusName, out var status))
+                        throw new BadRequestException($"Trạng thái '{statusName}' không tồn tại");
+                    if (!branches.TryGetValue(branchName, out var branch))
+                        throw new BadRequestException($"Chi nhánh '{branchName}' không tồn tại");
 
-                    // =========================
-                    // CUSTOMER
+                    //  XỬ LÝ CUSTOMER (Gán ImportHistoryId cho khách hàng mới)
+
                     Customer customer;
                     int customerId;
                     if (customerCache.TryGetValue(customerCode, out customer))
                     {
-                        customerId = customer.Id; // đã có Id thật từ DB
+                        customerId = customer.Id;
                     }
                     else if (pendingCustomers.TryGetValue(customerCode, out customer))
                     {
-                        customerId = 0; // chưa có Id, dùng navigation property
+                        customerId = 0;
                     }
                     else
                     {
@@ -174,8 +186,8 @@ public class OrderService : IOrderService
                             Name = customerName,
                             Phone = customerPhone,
                             CustomerCode = customerCode,
-                            CreatedAt = DateTime.Now,
                             CreatedBy = userId,
+                            ImportHistoryId = currentImportId, // GÁN ĐỂ BIẾT KHÁCH NÀY TẠO TỪ FILE NÀO
                         };
 
                         await _customerRepository.AddAsync(customer);
@@ -183,29 +195,9 @@ public class OrderService : IOrderService
                         customerId = 0;
                     }
 
-                    // =========================
-                    // STATUS
-                    // =========================
+                    //XỬ LÝ ORDER (Gán ImportHistoryId cho đơn hàng mới)
 
-                    if (!statuses.TryGetValue(statusName, out var status))
-                    {
-                        throw new BadRequestException($"Trạng thái '{statusName}' không tồn tại");
-                    }
-
-                    // =========================
-                    // BRANCH
-                    // =========================
-
-                    if (!branches.TryGetValue(branchName, out var branch))
-                    {
-                        throw new BadRequestException($"Chi nhánh '{branchName}' không tồn tại");
-                    }
-
-                    // =========================
-                    // ORDER
-                    // =========================
                     Order orderEntity;
-
                     if (orderCache.TryGetValue(orderCode, out var existingOrder))
                     {
                         existingOrder.Revenue += revenue;
@@ -219,12 +211,10 @@ public class OrderService : IOrderService
                             _context.Entry(existingOrder).State = EntityState.Modified;
                             pendingOrders[orderCode] = existingOrder;
                         }
-
                         orderEntity = existingOrder;
                     }
                     else if (pendingOrders.TryGetValue(orderCode, out orderEntity))
                     {
-                        // Order mới tạo trong batch này → chỉ cộng dồn, không Attach lại
                         orderEntity.Revenue += revenue;
                         orderEntity.GrossProfit += grossProfit;
                         orderEntity.ShippingFee += shippingFee;
@@ -238,26 +228,24 @@ public class OrderService : IOrderService
                             CustomerId = customerId > 0 ? customerId : null,
                             Customer = customerId > 0 ? null : customer,
                             PurchaseDate = orderDate,
-
                             Revenue = revenue,
                             GrossProfit = grossProfit,
                             ShippingFee = shippingFee,
                             TaxAmount = taxAmount,
-
                             Source = source,
                             Channel = channel,
-
                             StatusId = status.Id,
                             BranchesId = branch.Id,
-
-                            CreatedAt = DateTime.Now,
                             CreatedBy = userId,
+                            ImportHistoryId = currentImportId, // GÁN ĐỂ PHỤC VỤ LUỒNG ROLLBACK
                         };
 
                         await _orderRepository.AddAsync(orderEntity);
-
                         pendingOrders[orderCode] = orderEntity;
                     }
+
+                    // XỬ LÝ ORDER ITEM (Gán ImportHistoryId)
+
                     var orderItem = new OrderItem
                     {
                         OrderId = orderEntity.Id > 0 ? orderEntity.Id : 0,
@@ -266,25 +254,26 @@ public class OrderService : IOrderService
                         ProductName = productName,
                         Sku = sku,
                         UnitPrice = unitPrice,
-                        Quantity = short.Parse(quantity),
+                        Quantity = int.Parse(quantity),
                         ServiceName = serviceName,
                         Unit = unit,
-                        CreatedAt = DateTime.Now,
+                        ImportHistoryId = currentImportId, // GÁN ĐỂ PHỤC VỤ LUỒNG ROLLBACK
                     };
                     await _orderItemRepository.AddAsync(orderItem);
 
                     successCount++;
 
+                    // Xử lý cơ chế giải phóng bộ nhớ (Batch 500 dòng)
                     if (processedRows % 500 == 0)
                     {
                         await _unitOfWork.SaveChangesAsync();
-
                         _context.ChangeTracker.Clear();
+
+                        // Tải lại Cache sạch từ DB
                         orderCache = await _orderRepository
                             .GetAll()
                             .AsNoTracking()
                             .ToDictionaryAsync(x => x.OrderCode);
-
                         customerCache = await _customerRepository
                             .GetAll()
                             .AsNoTracking()
@@ -295,14 +284,9 @@ public class OrderService : IOrderService
                         Console.WriteLine($"Đã save batch: {processedRows}/{totalRows}");
                     }
 
+                    // Bắn thông báo qua SignalR tiến độ
                     if (processedRows % 10 == 0)
                     {
-                        // await _hubContext
-                        //     .Clients.User(userId.ToString())
-                        //     .SendAsync(
-                        //         "ImportProgress",
-                        //         new { Current = processedRows, Total = totalRows }
-                        //     );
                         await _hubContext.Clients.All.SendAsync(
                             "ImportProgress",
                             new { Current = processedRows, Total = totalRows }
@@ -315,30 +299,31 @@ public class OrderService : IOrderService
                     errors.Add(new { Row = row.RowNumber(), Error = ex.Message });
                 }
             }
-            // save remaining
+
+            // Lưu toàn bộ dữ liệu dòng dư còn lại
             await _unitOfWork.SaveChangesAsync();
 
-            // import history
-            await _importsHistoryRepository.AddAsync(
-                new ImportsHistory
-                {
-                    FileName = file.FileName,
-                    UserId = userId,
-                    SuccessCount = successCount,
-                    ErrorCount = errorCount,
-                    ErrorDetails = JsonSerializer.Serialize(errors),
-                    ImportDate = DateTime.Now,
-                }
-            );
+            //CẬP NHẬT LẠI KẾT QUẢ CHO IMPORT HISTORY BAN ĐẦU
 
+            var finalHistory = await _importsHistoryRepository
+                .GetAll()
+                .FirstOrDefaultAsync(h => h.Id == currentImportId);
+            if (finalHistory != null)
+            {
+                finalHistory.SuccessCount = successCount;
+                finalHistory.ErrorCount = errorCount;
+                finalHistory.ErrorDetails = JsonSerializer.Serialize(errors);
+                _context.Entry(finalHistory).State = EntityState.Modified;
+            }
+
+            // Tạo log hệ thống
             var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == userId);
-
             await _auditLogService.SaveLogAsync(
                 userId: author.Id,
                 staffCode: author.StaffCode,
                 action: "Import_Excel_Customer",
                 tableName: "imports_history",
-                recordId: null,
+                recordId: currentImportId, // Truyền trực tiếp ID của file excel vừa import vào đây
                 oldData: null,
                 newData: null
             );
@@ -364,7 +349,177 @@ public class OrderService : IOrderService
             {
                 await transaction.RollbackAsync();
             }
+            throw;
+        }
+    }
 
+    public async Task<bool> RollbackImportAsync(int importHistoryId, int userId)
+    {
+        // 1. Kiểm tra xem đợt import này có tồn tại không và đã rollback chưa
+        var importHistory = await _importsHistoryRepository
+            .GetAll()
+            .FirstOrDefaultAsync(h => h.Id == importHistoryId);
+
+        if (importHistory == null)
+        {
+            throw new NotFoundException("Không tìm thấy lịch sử import này.");
+        }
+
+        if (importHistory.Status == "Rollbacked")
+        {
+            throw new BadRequestException("File Excel này đã được hoàn tác trước đó rồi.");
+        }
+
+        using var transaction = await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            // Lấy thời gian hiện tại chuẩn Việt Nam từ DB hoặc ép múi giờ trong code
+            var crmNow = DateTime.Now;
+
+            // BƯỚC 2: XÓA MỀM CÁC ĐƠN HÀNG THUỘC FILE IMPORT NÀY
+            // Lấy ra tất cả các đơn hàng chưa bị xóa của đợt import này
+            var ordersToRollback = await _orderRepository
+                .GetAll()
+                .Where(o => o.ImportHistoryId == importHistoryId && o.DeletedAt == null)
+                .ToListAsync();
+
+            foreach (var order in ordersToRollback)
+            {
+                order.DeletedAt = crmNow; // Đánh dấu xóa mềm
+
+                // Lệnh này kích hoạt Trigger trg_orders_sync_customer_stats dưới DB
+                // Trigger sẽ tự động trừ tiền và giảm số đơn của khách hàng tương ứng.
+                _context.Entry(order).State = EntityState.Modified;
+            }
+
+            // BƯỚC 3: XÓA MỀM KHÁCH HÀNG MỚI (NẾU CÓ)
+            var customersToRollback = await _customerRepository
+                .GetAll()
+                .Where(c => c.ImportHistoryId == importHistoryId && c.DeletedAt == null)
+                .ToListAsync();
+
+            foreach (var customer in customersToRollback)
+            {
+                customer.DeletedAt = crmNow;
+                _context.Entry(customer).State = EntityState.Modified;
+            }
+
+            // BƯỚC 4: CẬP NHẬT TRẠNG THÁI BẢNG LỊCH SỬ IMPORT
+            importHistory.Status = "Rollbacked";
+            importHistory.RollbackAt = crmNow;
+            importHistory.RollbackBy = userId;
+            _context.Entry(importHistory).State = EntityState.Modified;
+
+            // BƯỚC 5: GHI LOG AUDIT (ACTIVITY LOG)
+            var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == userId);
+            await _auditLogService.SaveLogAsync(
+                userId: author.Id,
+                staffCode: author.StaffCode,
+                action: "Rollback_Excel_Import",
+                tableName: "imports_history",
+                recordId: importHistoryId,
+                oldData: JsonSerializer.Serialize(
+                    new { Message = $"Rollback thành công {ordersToRollback.Count} đơn hàng." }
+                ),
+                newData: null
+            );
+
+            // Lưu tất cả thay đổi xuống DB và commit transaction
+            await _unitOfWork.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return true;
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<bool> RestoreImportAsync(int importHistoryId, int userId)
+    {
+        var importHistory = await _importsHistoryRepository
+            .GetAll()
+            .FirstOrDefaultAsync(h => h.Id == importHistoryId);
+
+        if (importHistory == null)
+        {
+            throw new NotFoundException("Không tìm thấy lịch sử import này.");
+        }
+
+        if (importHistory.Status != "Rollbacked")
+        {
+            throw new BadRequestException(
+                "File Excel này hiện không ở trạng thái bị hoàn tác, không thể khôi phục."
+            );
+        }
+
+        using var transaction = await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            // BƯỚC 2: KHÔI PHỤC CÁC ĐƠN HÀNG THUỘC FILE NÀY (HỦY XÓA MỀM)
+
+            // Tìm tất cả các đơn hàng thuộc file này đang bị xóa mềm (DeletedAt có giá trị)
+            var ordersToRestore = await _orderRepository
+                .GetAll()
+                .Where(o => o.ImportHistoryId == importHistoryId && o.DeletedAt != null)
+                .ToListAsync();
+
+            foreach (var order in ordersToRestore)
+            {
+                order.DeletedAt = null;
+
+                // Lệnh này kích hoạt Trigger dưới DB tự động CỘNG LẠI TIỀN cho khách hàng
+                await _orderRepository.Update(order);
+            }
+
+            // BƯỚC 3: KHÔI PHỤC KHÁCH HÀNG MỚI (NẾU CÓ)
+            var customersToRestore = await _customerRepository
+                .GetAll()
+                .Where(c => c.ImportHistoryId == importHistoryId && c.DeletedAt != null)
+                .ToListAsync();
+
+            foreach (var customer in customersToRestore)
+            {
+                customer.DeletedAt = null;
+                await _customerRepository.Update(customer);
+            }
+
+            // BƯỚC 4: ĐƯA TRẠNG THÁI FILE EXCEL QUAY LẠI BAN ĐẦU
+            importHistory.Status = "Imported";
+            importHistory.RollbackAt = null; // Xóa dấu vết thời gian rollback cũ
+            importHistory.RollbackBy = null; // Xóa người rollback cũ
+            await _importsHistoryRepository.Update(importHistory);
+
+            // ============================================================
+            // BƯỚC 5: GHI LOG AUDIT SYSTEM
+            // ============================================================
+            var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == userId);
+            await _auditLogService.SaveLogAsync(
+                userId: author.Id,
+                staffCode: author.StaffCode,
+                action: "Restore_Excel_Import",
+                tableName: "imports_history",
+                recordId: importHistoryId,
+                oldData: JsonSerializer.Serialize(
+                    new
+                    {
+                        Message = $"Khôi phục thành công {ordersToRestore.Count} đơn hàng từ file bị hủy.",
+                    }
+                ),
+                newData: null
+            );
+
+            // Lưu tất cả thay đổi xuống DB và kết thúc transaction
+            await _unitOfWork.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return true;
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
             throw;
         }
     }
