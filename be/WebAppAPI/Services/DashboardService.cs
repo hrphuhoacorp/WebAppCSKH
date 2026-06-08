@@ -40,7 +40,9 @@ public class DashboardService : IDashboardService
                 .Include(o => o.Customer)
                 .Include(o => o.Status)
                 .Include(o => o.Branches)
-                .Where(o => o.DeletedAt == null && o.Customer.DeletedAt == null)
+                .Where(o =>
+                    o.DeletedAt == null && (o.Customer == null || o.Customer.DeletedAt == null)
+                )
                 .AsNoTracking();
 
             if (filter.FromDate.HasValue)

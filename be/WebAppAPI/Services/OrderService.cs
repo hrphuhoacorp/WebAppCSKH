@@ -110,6 +110,7 @@ public class OrderService : IOrderService
                 .ToDictionaryAsync(x => x.OrderCode);
             var customerCache = await _customerRepository
                 .GetAll()
+                .Where(c => c.DeletedAt == null)
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.CustomerCode);
 
@@ -285,6 +286,7 @@ public class OrderService : IOrderService
                             .ToDictionaryAsync(x => x.OrderCode);
                         customerCache = await _customerRepository
                             .GetAll()
+                            .Where(c => c.DeletedAt == null)
                             .AsNoTracking()
                             .ToDictionaryAsync(x => x.CustomerCode);
                         pendingOrders.Clear();
@@ -491,8 +493,21 @@ public class OrderService : IOrderService
 
             foreach (var customer in customersToRestore)
             {
-                customer.DeletedAt = null;
-                await _customerRepository.Update(customer);
+                // Kiểm tra xem có khách hàng active khác cùng mã không (do file mới tạo)
+                var duplicateExists = await _customerRepository
+                    .GetAll()
+                    .AnyAsync(c =>
+                        c.CustomerCode == customer.CustomerCode
+                        && c.DeletedAt == null
+                        && c.Id != customer.Id
+                    );
+
+                if (!duplicateExists)
+                {
+                    customer.DeletedAt = null;
+                    await _customerRepository.Update(customer);
+                }
+                // Nếu đã có bản ghi active khác → bỏ qua, không khôi phục bản cũ
             }
 
             // BƯỚC 4: ĐƯA TRẠNG THÁI FILE EXCEL QUAY LẠI BAN ĐẦU
@@ -603,7 +618,9 @@ public class OrderService : IOrderService
             query = query.Where(o => o.Source.ToLower() == source);
         }
         // sort delete
-        query = query.Where(o => o.DeletedAt == null);
+        query = query.Where(o =>
+            o.DeletedAt == null && (o.Customer == null || o.Customer.DeletedAt == null)
+        );
         // sort
         query = (filter.SortBy, filter.SortDir) switch
         {
