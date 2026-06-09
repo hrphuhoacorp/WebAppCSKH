@@ -115,6 +115,7 @@ public class ActivityService : IActivityService
         var activityLogs = await query
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
+            .OrderByDescending(al => al.CreatedAt)
             .Select(al => new ActivityLogDTO
             {
                 Id = al.Id,
