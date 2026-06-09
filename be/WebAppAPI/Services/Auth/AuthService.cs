@@ -158,6 +158,14 @@ public class AuthService : IAuthService
                 throw new NotFoundException("Chi nhánh không tồn tại");
             }
 
+            var existingStaffCode = await _userRepository.SingleOrDefaultAsync(u =>
+                u.StaffCode == createDTO.StaffCode && u.DeletedAt == null
+            );
+            if (existingStaffCode != null)
+            {
+                throw new ConflictException("Mã nhân viên đã tồn tại");
+            }
+
             var existingEmail = await _userRepository.SingleOrDefaultAsync(u =>
                 u.Email == createDTO.Email && u.DeletedAt == null
             );

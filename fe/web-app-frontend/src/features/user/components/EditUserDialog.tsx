@@ -115,7 +115,9 @@ export default function EditUserDialog({
     // 3. Xử lý khi click vào Checkbox để chọn/bỏ chọn Role
     const handleRoleChange = (roleId: number, checked: boolean) => {
         if (checked) {
-            setSelectedRoleIds((prev) => [...prev, roleId]);
+            setSelectedRoleIds((prev) =>
+                prev.includes(roleId) ? prev : [...prev, roleId]
+            );
         } else {
             setSelectedRoleIds((prev) => prev.filter((id) => id !== roleId));
         }

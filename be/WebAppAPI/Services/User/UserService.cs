@@ -216,11 +216,16 @@ public class UserService : IUserService
                     throw new BadRequestException("Người dùng phải đủ 18 tuổi");
                 }
             }
-            var roleExists = await _userRoleRepository
-                .GetAll()
-                .AnyAsync(ur => ur.UserId == id && dto.RoleIds.Contains(ur.RoleId));
+            if (dto.RoleIds == null || !dto.RoleIds.Any())
+            {
+                throw new BadRequestException("Vui lòng chọn ít nhất 1 vai trò");
+            }
 
-            if (!roleExists)
+            var validRoleCount = await _roleRepository
+                .GetAll()
+                .CountAsync(r => dto.RoleIds.Contains(r.Id));
+
+            if (validRoleCount != dto.RoleIds.Distinct().Count())
             {
                 throw new NotFoundException("Vai trò không tồn tại");
             }

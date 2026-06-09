@@ -25,13 +25,15 @@ public class MediaService : IMediaService
     private readonly IMediaFileRepository _mediaFileRepository;
     private readonly MediaSettings _mediaSettings;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IActivityService _auditLogService;
 
     public MediaService(
         IUnitOfWork unitOfWork,
         IMediaFolderRepository mediaFolderRepository,
         IMediaFileRepository mediaFileRepository,
         IOptions<MediaSettings> mediaOptions,
-        IHttpContextAccessor httpContextAccessor
+        IHttpContextAccessor httpContextAccessor,
+        IActivityService auditLogService
     )
     {
         _unitOfWork = unitOfWork;
@@ -39,6 +41,7 @@ public class MediaService : IMediaService
         _mediaFileRepository = mediaFileRepository;
         _mediaSettings = mediaOptions.Value;
         _httpContextAccessor = httpContextAccessor;
+        _auditLogService = auditLogService;
     }
 
     private bool IsAdmin()
@@ -135,6 +138,7 @@ public class MediaService : IMediaService
                 );
             }
             await transaction.CommitAsync();
+
             return result;
         }
         catch
