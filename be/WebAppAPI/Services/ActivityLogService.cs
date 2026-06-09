@@ -113,9 +113,9 @@ public class ActivityService : IActivityService
         var totalItems = await query.CountAsync();
 
         var activityLogs = await query
+            .OrderByDescending(al => al.CreatedAt)
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
-            .OrderByDescending(al => al.CreatedAt)
             .Select(al => new ActivityLogDTO
             {
                 Id = al.Id,
