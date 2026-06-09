@@ -120,7 +120,7 @@ public class ActivityService : IActivityService
             {
                 Id = al.Id,
                 UserId = al.UserId,
-                StaffCode = al.StaffCode,
+                StaffCode = al.User.StaffCode,
                 Action = al.Action,
                 TableName = al.TableName,
                 RecordId = al.RecordId,
