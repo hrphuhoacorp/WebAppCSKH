@@ -33,7 +33,7 @@ export default function RenameFolderDialog({ open, folder, onClose, onSuccess }:
 
         try {
             setLoading(true);
-            await mediaApi.renameFolder(folder.id, { name: name.trim() });
+            await mediaApi.renameFolder(folder.id, { newName: name.trim() });
             toast.success('Đổi tên thư mục thành công');
             onSuccess();
             onClose();

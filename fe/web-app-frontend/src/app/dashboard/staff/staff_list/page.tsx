@@ -62,13 +62,25 @@ type UserRow = {
     deletedAt: string | null;
 };
 
-const roleOptions = ['Admin', 'Manager', 'Staff'];
 
-const ROLE_COLOR: Record<string, { bg: string; color: string; border: string }> = {
-    Admin: { bg: '#fef3c7', color: '#b45309', border: '#fde68a' },
-    Manager: { bg: '#ede9fe', color: '#7c3aed', border: '#ddd6fe' },
-    Staff: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
-};
+
+const ROLE_COLORS = [
+    { bg: '#fef3c7', color: '#b45309', border: '#fde68a' }, // vàng
+    { bg: '#ede9fe', color: '#7c3aed', border: '#ddd6fe' }, // tím
+    { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }, // xanh lá
+    { bg: '#dbeafe', color: '#2563eb', border: '#bfdbfe' }, // xanh dương
+    { bg: '#fee2e2', color: '#dc2626', border: '#fecaca' }, // đỏ
+    { bg: '#fce7f3', color: '#db2777', border: '#fbcfe8' }, // hồng
+    { bg: '#e0f2fe', color: '#0284c7', border: '#bae6fd' }, // sky
+    { bg: '#ecfccb', color: '#65a30d', border: '#d9f99d' }, // lime
+    { bg: '#ffedd5', color: '#ea580c', border: '#fed7aa' }, // cam
+    { bg: '#e0e7ff', color: '#4338ca', border: '#c7d2fe' }, // indigo
+    { bg: '#f3e8ff', color: '#9333ea', border: '#e9d5ff' }, // violet
+    { bg: '#ccfbf1', color: '#0f766e', border: '#99f6e4' }, // teal
+    { bg: '#fae8ff', color: '#a21caf', border: '#f5d0fe' }, // fuchsia
+    { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' }, // rose red
+    { bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' }, // slate
+];
 
 export default function UsersPage() {
     const router = useRouter();
@@ -83,7 +95,7 @@ export default function UsersPage() {
     const [branchId, setBranchId] = useState<number | ''>('');
     const [branchOptions, setBranchOptions] = useState<{ id: number; name: string }[]>([]);
     const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
-
+    const [roleOptions, setRoleOptions] = useState<string[]>([]);
     const [detailOpen, setDetailOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -135,8 +147,25 @@ export default function UsersPage() {
             toast.error('Không tải được danh sách chi nhánh');
         }
     };
+    const fetchAllRole = async () => {
+        try {
+            const response = await userApi.getRoles();
+            setRoleOptions(response.content);
+        } catch {
+            toast.error('Không tải được danh sách vai trò');
+        }
+    }
+    const getRoleColor = (role: string) => {
+        let hash = 0;
 
-    useEffect(() => { fetchBranches(); }, []);
+        for (let i = 0; i < role.length; i++) {
+            hash = role.charCodeAt(i) + ((hash << 5) - hash);
+        }
+
+        return ROLE_COLORS[Math.abs(hash) % ROLE_COLORS.length];
+    };
+
+    useEffect(() => { fetchBranches(); fetchAllRole(); }, []);
     useEffect(() => { fetchUsers(); }, [page, pageSize, debouncedSearch, role, branchId]);
 
     const hasActiveFilter = !!debouncedSearch || !!role || !!branchId;
@@ -212,7 +241,7 @@ export default function UsersPage() {
                     >
                         Thêm nhân sự
                     </Button>
-                   
+
 
                     <Box
                         sx={{
@@ -478,7 +507,7 @@ export default function UsersPage() {
                                         <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5 }}>
                                             {user.roles?.length
                                                 ? user.roles.map((r) => {
-                                                    const c = ROLE_COLOR[r] ?? { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
+                                                    const c = getRoleColor(r) ?? { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
                                                     return (
                                                         <Chip
                                                             key={r}

@@ -192,10 +192,15 @@ namespace WebAppAPI.Controllers
 
         [Authorize(Roles = "Super_Admin,Admin_Media")]
         [HttpPut("RenameFolder/{id}")]
-        public async Task<ResponseValue<bool>> RenameFolderAsync(int id, [FromBody] string newName)
+        public async Task<ResponseValue<bool>> RenameFolderAsync(
+            int id,
+            [FromBody] RenameFolderRequest request
+        )
         {
+            if (string.IsNullOrWhiteSpace(request.NewName))
+                throw new BadRequestException("Tên thư mục không được để trống");
             var userId = GetCurrentUserId();
-            var result = await _mediaService.RenameFolderAsync(id, newName, userId);
+            var result = await _mediaService.RenameFolderAsync(id, request.NewName, userId);
             return new ResponseValue<bool>(
                 result,
                 "Đổi tên thư mục thành công",
@@ -203,4 +208,9 @@ namespace WebAppAPI.Controllers
             );
         }
     }
+}
+
+public class RenameFolderRequest
+{
+    public string NewName { get; set; } = string.Empty;
 }

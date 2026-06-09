@@ -27,7 +27,7 @@ export const mediaApi = {
     },
 
     renameFolder: async (id: number, data: {
-        name: string;
+        newName: string;
     }) => {
         const response = await api.put(`/Media/RenameFolder/${id}`, data);
         return response.data;

@@ -18,9 +18,10 @@ import {
     FolderOpenRounded,
     ChevronRight,
     DeleteOutlined,
+    EditRounded,
+    DeleteOutlineRounded,
 } from '@mui/icons-material';
 import { MediaFolderDto } from '../schemas/media_folder.schemas';
-import { DeleteIcon, EditIcon } from 'lucide-react';
 
 interface FolderTreeProps {
     folders: MediaFolderDto[];
@@ -81,7 +82,17 @@ export default function FolderTree({
                     )}
 
                     <ListItemButton
-                        onClick={() => onSelect(folder.id)}
+                        onClick={() => {
+                            onSelect(folder.id);
+
+                            if (hasChildren) {
+                                setExpanded(prev => {
+                                    const next = new Set(prev);
+                                    next.add(folder.id);
+                                    return next;
+                                });
+                            }
+                        }}
                         dense
                         sx={{
                             pl: depth * 2.5 + 0.5,
@@ -159,7 +170,7 @@ export default function FolderTree({
                                             '&:hover': { color: '#1976d2', bgcolor: '#e3f2fd' },
                                         }}
                                     >
-                                        <EditIcon />
+                                        <EditRounded sx={{ fontSize: 17 }} />
                                     </IconButton>
                                 </Tooltip>
                             )}
@@ -177,7 +188,7 @@ export default function FolderTree({
                                             '&:hover': { color: '#ef5350', bgcolor: '#ffebee' },
                                         }}
                                     >
-                                        <DeleteIcon />
+                                        <DeleteOutlineRounded sx={{ fontSize: 17 }} />
                                     </IconButton>
                                 </Tooltip>
                             )}

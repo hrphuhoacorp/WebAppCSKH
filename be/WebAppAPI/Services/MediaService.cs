@@ -663,8 +663,8 @@ public class MediaService : IMediaService
                 action: "RENAME_FOLDER",
                 tableName: "media_folders",
                 recordId: id,
-                oldData: oldData,
-                newData: newName
+                oldData: new { Name = oldData },
+                newData: new { Name = newName }
             );
             await transaction.CommitAsync();
             return true;
