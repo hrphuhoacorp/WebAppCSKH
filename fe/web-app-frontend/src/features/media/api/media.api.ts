@@ -10,7 +10,7 @@ export const mediaApi = {
 
     createFolder: async (data: {
         name: string;
-        parentId?: number|null;
+        parentId?: number | null;
     }) => {
         const response = await api.post('/Media/CreateFolder', data);
         return response.data;
@@ -21,10 +21,18 @@ export const mediaApi = {
         return response.data;
     },
 
-    restoreFolder: async (id:number) => {
+    restoreFolder: async (id: number) => {
         const response = await api.put(`/Media/RestoreFolder/${id}`);
         return response.data;
     },
+
+    renameFolder: async (id: number, data: {
+        name: string;
+    }) => {
+        const response = await api.put(`/Media/RenameFolder/${id}`, data);
+        return response.data;
+    },
+
 
     getFiles: async (params: {
         forderId?: number;
@@ -79,6 +87,8 @@ export const mediaApi = {
         const response = await api.put(`/Media/RestoreFile/${id}`);
         return response.data;
     },
+
+
 
 
 }

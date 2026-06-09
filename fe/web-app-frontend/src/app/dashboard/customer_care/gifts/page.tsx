@@ -56,6 +56,7 @@ import PreviewDialog from '@/features/media/components/PreviewDialog';
 import RecycleBinDialog from '@/features/media/components/RecycleBinDialog';
 import { MediaFolderDto } from '@/features/media/schemas/media_folder.schemas';
 import { MediaFileDto } from '@/features/media/schemas/media_file.schemas';
+import RenameFolderDialog from '@/features/media/components/RenameFolderDialog';
 
 export default function MediaGalleryPage() {
     const theme = useTheme();
@@ -88,6 +89,9 @@ export default function MediaGalleryPage() {
     const [previewIsDeleted, setPreviewIsDeleted] = useState(false);
 
     const [searchInput, setSearchInput] = useState(''); // Giá trị hiển thị trong input
+
+    const [renameFolderOpen, setRenameFolderOpen] = useState(false);
+    const [renameFolderTarget, setRenameFolderTarget] = useState<{ id: number; name: string } | null>(null);
 
     // Load starred from localStorage
     useEffect(() => {
@@ -218,6 +222,10 @@ export default function MediaGalleryPage() {
         if (isMobile) setDrawerOpen(false);
     };
 
+    const handleRenameFolder = (folder: MediaFolderDto) => {
+        setRenameFolderTarget({ id: folder.id, name: folder.name });
+        setRenameFolderOpen(true);
+    };
     // Xóa nhiều file
     const handleDelete = async () => {
         if (!deleteTarget) return;
@@ -279,6 +287,7 @@ export default function MediaGalleryPage() {
                     selectedFolderId={selectedFolderId}
                     onSelect={handleFolderSelect}
                     onDeleteFolder={handleDeleteFolder}
+                    onRenameFolder={handleRenameFolder}
                 />
             </Box>
             <Box sx={{ p: 1.5, borderTop: '1px solid #e0e0e0' }}>
@@ -864,6 +873,18 @@ export default function MediaGalleryPage() {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <RenameFolderDialog
+                open={renameFolderOpen}
+                folder={renameFolderTarget}
+                onClose={() => {
+                    setRenameFolderOpen(false);
+                    setRenameFolderTarget(null);
+                }}
+                onSuccess={() => {
+                    fetchFolders();
+                }}
+            />
         </Box>
     );
 }

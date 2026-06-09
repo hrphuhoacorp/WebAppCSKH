@@ -54,7 +54,12 @@ public class GlobalExceptionMiddleware
             // 403
             case ForbiddenException:
                 context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                error = Build(context, ex, "Forbidden");
+                error = new ErrorResponse
+                {
+                    StatusCode = context.Response.StatusCode,
+                    Message = "Bạn không có quyền truy cập tính năng này",
+                    Error = "Forbidden",
+                };
                 break;
 
             // 404

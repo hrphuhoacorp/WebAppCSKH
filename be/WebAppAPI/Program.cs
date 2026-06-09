@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using GymManagementProject_Api.Middlewares;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -188,6 +189,20 @@ builder
 
                 // 2. Nếu cookie không có, hệ thống sẽ tự động giữ nguyên token lấy từ Header (Giúp Swagger/Postman chạy bình thường)
                 return Task.CompletedTask;
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+
+                var response = new ErrorResponse
+                {
+                    StatusCode = 403,
+                    Message = "Bạn không có quyền truy cập tính năng này",
+                    Error = "Forbidden",
+                };
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(response));
             },
         };
     });

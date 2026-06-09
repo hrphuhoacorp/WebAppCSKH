@@ -36,6 +36,7 @@ namespace WebAppAPI.Controllers
             return userId;
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [HttpGet("GetFolder")]
         public async Task<ResponseValue<List<MediaFolderDto>>> GetFolderAsync()
         {
@@ -47,30 +48,39 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media")]
         [HttpPost("CreateFolder")]
         public async Task<ResponseValue<MediaFolderDto>> CreateFolder(
             [FromBody] CreateFolderRequest request
         )
         {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
-                c.Type == "Id"
-            );
+            try
+            {
+                var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
+                    c.Type == "Id"
+                );
 
-            int userId = int.Parse(userIdClaim.Value);
+                int userId = int.Parse(userIdClaim.Value);
 
-            var result = await _mediaService.CreateFolderAsync(
-                request.Name,
-                request.ParentId,
-                userId
-            );
+                var result = await _mediaService.CreateFolderAsync(
+                    request.Name,
+                    request.ParentId,
+                    userId
+                );
 
-            return new ResponseValue<MediaFolderDto>(
-                result,
-                "Tạo thư mục thành công",
-                StatusReponse.Success
-            );
+                return new ResponseValue<MediaFolderDto>(
+                    result,
+                    "Tạo thư mục thành công",
+                    StatusReponse.Success
+                );
+            }
+            catch
+            {
+                throw new ForbiddenException("Bạn không có quyền tạo thư mục");
+            }
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media")]
         [HttpPut("RestoreFolder/{id}")]
         public async Task<ResponseValue<bool>> RestoreFolderAsync(int id)
         {
@@ -83,6 +93,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media")]
         [HttpDelete("DeleteFolder/{id}")]
         public async Task<ResponseValue<bool>> DeleteFolderAsync(int id)
         {
@@ -91,6 +102,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<bool>(result, "Xóa thư mục thành công", StatusReponse.Success);
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [HttpGet("GetFiles")]
         public async Task<ResponseValue<List<MediaFileDto>>> GetFiles(
             [FromQuery] int? folderId,
@@ -105,6 +117,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [HttpPost("Upload")]
         public async Task<ResponseValue<List<MediaUploadResultDto>>> UploadAsync(
             [FromForm] int folderId,
@@ -125,6 +138,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [HttpPut("MoveFile")]
         public async Task<ResponseValue<bool>> MoveFileAsync(
             int id,
@@ -140,6 +154,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [HttpPost("DeleteFiles")]
         public async Task<ResponseValue<bool>> DeleteFiles([FromBody] List<int> ids)
         {
@@ -148,6 +163,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<bool>(result, "Xóa file thành công", StatusReponse.Success);
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [HttpPut("RestoreFile/{id}")]
         public async Task<ResponseValue<bool>> RestoreFileAsync(int id)
         {
@@ -160,6 +176,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [HttpGet("RecycleBin")]
         public async Task<ResponseValue<List<RecycleItemDto>>> GetRecycleBin()
         {
@@ -169,6 +186,19 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<List<RecycleItemDto>>(
                 result,
                 "Lấy danh sách thùng rác thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [HttpPut("RenameFolder/{id}")]
+        public async Task<ResponseValue<bool>> RenameFolderAsync(int id, [FromBody] string newName)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.RenameFolderAsync(id, newName, userId);
+            return new ResponseValue<bool>(
+                result,
+                "Đổi tên thư mục thành công",
                 StatusReponse.Success
             );
         }

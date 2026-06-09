@@ -16,6 +16,7 @@ public interface IMediaService
     Task<bool> DeleteFilesAsync(List<int> ids, int userId);
     Task<bool> RestoreFileAsync(int id, int userId);
     Task<bool> MoveFileAsync(int id, int folderId, int userId);
+    Task<bool> RenameFolderAsync(int id, string newName, int userId);
 }
 
 public class MediaService : IMediaService
@@ -42,25 +43,6 @@ public class MediaService : IMediaService
         _mediaSettings = mediaOptions.Value;
         _httpContextAccessor = httpContextAccessor;
         _auditLogService = auditLogService;
-    }
-
-    private bool IsAdmin()
-    {
-        var user = _httpContextAccessor.HttpContext?.User;
-        if (user == null)
-            return false;
-        return user.IsInRole("Admin_Media");
-    }
-
-    private bool HasPermission(int? createdByUserId, int? currentUserId)
-    {
-        if (IsAdmin())
-            return true; // Admin có toàn quyền
-        Console.WriteLine($@"");
-        Console.WriteLine($"createdByUserId = {createdByUserId}");
-        Console.WriteLine($"currentUserId = {currentUserId}");
-        Console.WriteLine($@"");
-        return createdByUserId == currentUserId; // User thường chỉ thao tác với file của mình
     }
 
     public async Task<List<MediaUploadResultDto>> UploadAsync(
@@ -123,6 +105,22 @@ public class MediaService : IMediaService
 
                 await _mediaFileRepository.AddAsync(mediaFile);
                 await _unitOfWork.SaveChangesAsync();
+
+                await _auditLogService.SaveLogAsync(
+                    userId: userId,
+                    staffCode: null,
+                    action: "UPLOAD_FILE",
+                    tableName: "MediaFiles",
+                    recordId: mediaFile.Id,
+                    oldData: null,
+                    newData: new
+                    {
+                        FileName = mediaFile.FileName,
+                        OriginalName = mediaFile.OriginalName,
+                        FolderId = mediaFile.FolderId,
+                        FileSize = mediaFile.FileSize,
+                    }
+                );
 
                 result.Add(
                     new MediaUploadResultDto
@@ -228,14 +226,6 @@ public class MediaService : IMediaService
 
         var fileQuery = _mediaFileRepository.GetAll().Where(x => x.DeletedAt != null);
 
-        // Nếu không phải Admin, chỉ thấy file/thư mục của mình
-        if (!IsAdmin())
-        {
-            folderQuery = folderQuery.Where(x => x.CreatedBy == userId);
-            fileQuery = fileQuery.Where(x => x.CreatedBy == userId);
-        }
-        // Admin thấy tất cả
-
         var folders = await folderQuery
             .Select(x => new RecycleItemDto
             {
@@ -273,10 +263,6 @@ public class MediaService : IMediaService
             if (file == null)
                 throw new NotFoundException("Không tìm thấy file trong thùng rác");
 
-            // Kiểm tra quyền
-            if (!HasPermission(file.CreatedBy, userId))
-                throw new UnauthorizedAccessException("Bạn không có quyền khôi phục file này");
-
             // Kiểm tra và khôi phục folder cha nếu cần (CHỈ khôi phục folder, không đụng file)
             if (file.FolderId.HasValue)
             {
@@ -288,6 +274,17 @@ public class MediaService : IMediaService
             await _mediaFileRepository.Update(file);
 
             await _unitOfWork.SaveChangesAsync();
+
+            await _auditLogService.SaveLogAsync(
+                userId: userId,
+                staffCode: null,
+                action: "RESTORE_FILE",
+                tableName: "MediaFiles",
+                recordId: file.Id,
+                oldData: null,
+                newData: new { RestoredAt = DateTime.Now.AddHours(7), RestoredBy = userId }
+            );
+
             await transaction.CommitAsync();
             return true;
         }
@@ -333,12 +330,19 @@ public class MediaService : IMediaService
             if (folder == null)
                 throw new NotFoundException("Không tìm thấy thư mục");
 
-            // Kiểm tra quyền
-            if (!HasPermission(folder.CreatedBy, userId))
-                throw new UnauthorizedAccessException("Bạn không có quyền khôi phục thư mục này");
-
             await RestoreFolderRecursive(id);
             await _unitOfWork.SaveChangesAsync();
+
+            await _auditLogService.SaveLogAsync(
+                userId: userId,
+                staffCode: null,
+                action: "RESTORE_FOLDER",
+                tableName: "MediaFolders",
+                recordId: folder.Id,
+                oldData: null,
+                newData: new { RestoredAt = DateTime.Now.AddHours(7), RestoredBy = userId }
+            );
+
             await transaction.CommitAsync();
             return true;
         }
@@ -405,7 +409,20 @@ public class MediaService : IMediaService
 
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
-
+            await _auditLogService.SaveLogAsync(
+                userId: userId,
+                staffCode: null,
+                action: "CREATE_FOLDER",
+                tableName: "MediaFolders",
+                recordId: folder.Id,
+                oldData: null,
+                newData: new
+                {
+                    Name = folder.Name,
+                    ParentId = folder.ParentId,
+                    IsPublic = folder.IsPublic,
+                }
+            );
             return new MediaFolderDto
             {
                 Id = folder.Id,
@@ -439,12 +456,26 @@ public class MediaService : IMediaService
             if (folder == null)
                 throw new NotFoundException("Không tìm thấy thư mục");
 
-            // Kiểm tra quyền
-            if (!HasPermission(folder.CreatedBy, userId))
-                throw new UnauthorizedAccessException("Bạn không có quyền xóa thư mục này");
+            var folderInfo = new
+            {
+                folder.Name,
+                folder.ParentId,
+                folder.CreatedBy,
+            };
 
             await SoftDeleteFolderRecursive(id, userId);
             await _unitOfWork.SaveChangesAsync();
+
+            await _auditLogService.SaveLogAsync(
+                userId: userId,
+                staffCode: null,
+                action: "DELETE_FOLDER",
+                tableName: "MediaFolders",
+                recordId: folder.Id,
+                oldData: folderInfo,
+                newData: new { DeletedAt = DateTime.Now.AddHours(7), DeletedBy = userId }
+            );
+
             await transaction.CommitAsync();
             return true;
         }
@@ -473,11 +504,6 @@ public class MediaService : IMediaService
             .GetAll()
             .Where(x => x.FolderId == folderId && x.DeletedAt == null);
 
-        if (!IsAdmin())
-        {
-            // User thường chỉ xóa file của mình
-            fileQuery = fileQuery.Where(x => x.CreatedBy == userId);
-        }
         // Chỉ xóa các file do chính user tạo
         var files = await _mediaFileRepository
             .GetAll()
@@ -515,22 +541,39 @@ public class MediaService : IMediaService
             if (!files.Any())
                 throw new NotFoundException("Không tìm thấy file nào");
 
-            // Kiểm tra quyền
-            foreach (var file in files)
-            {
-                if (!HasPermission(file.CreatedBy, userId))
-                    throw new UnauthorizedAccessException(
-                        $"Bạn không có quyền xóa file {file.OriginalName ?? file.FileName}"
-                    );
-            }
+            var deletedFilesInfo = new List<object>();
 
             foreach (var file in files)
             {
                 file.DeletedAt = DateTime.Now.AddHours(7);
                 await _mediaFileRepository.Update(file);
+
+                deletedFilesInfo.Add(
+                    new
+                    {
+                        file.Id,
+                        file.OriginalName,
+                        file.FileName,
+                        file.FolderId,
+                    }
+                );
             }
 
             await _unitOfWork.SaveChangesAsync();
+
+            foreach (var fileInfo in deletedFilesInfo)
+            {
+                await _auditLogService.SaveLogAsync(
+                    userId: userId,
+                    staffCode: null,
+                    action: "DELETE_FILE",
+                    tableName: "MediaFiles",
+                    recordId: ((dynamic)fileInfo).Id,
+                    oldData: fileInfo,
+                    newData: new { DeletedAt = DateTime.Now.AddHours(7), DeletedBy = userId }
+                );
+            }
+
             await transaction.CommitAsync();
             return true;
         }
@@ -554,10 +597,6 @@ public class MediaService : IMediaService
             if (file == null)
                 throw new NotFoundException("Không tìm thấy file");
 
-            // Kiểm tra quyền
-            if (!HasPermission(file.CreatedBy, userId))
-                throw new UnauthorizedAccessException("Bạn không có quyền di chuyển file này");
-
             var folderExists = await _mediaFolderRepository
                 .GetAll()
                 .AnyAsync(x => x.Id == folderId && x.DeletedAt == null);
@@ -565,13 +604,72 @@ public class MediaService : IMediaService
             if (!folderExists)
                 throw new Exception("Thư mục đích không tồn tại");
 
+            var oldData = new { file.FolderId };
+            var oldFolderId = file.FolderId;
+
             file.FolderId = folderId;
             await _mediaFileRepository.Update(file);
             await _unitOfWork.SaveChangesAsync();
+
+            await _auditLogService.SaveLogAsync(
+                userId: userId,
+                staffCode: null,
+                action: "MOVE_FILE",
+                tableName: "MediaFiles",
+                recordId: file.Id,
+                oldData: new { FolderId = oldFolderId },
+                newData: new
+                {
+                    FolderId = folderId,
+                    MovedBy = userId,
+                    MovedAt = DateTime.Now.AddHours(7),
+                }
+            );
+
             await transaction.CommitAsync();
             return true;
         }
         catch
+        {
+            if (transaction.GetDbTransaction().Connection != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<bool> RenameFolderAsync(int id, string newName, int userId)
+    {
+        using var transaction = await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            var folder = await _mediaFolderRepository
+                .GetAll()
+                .FirstOrDefaultAsync(f => f.Id == id && f.DeletedAt == null);
+
+            if (folder == null)
+            {
+                throw new NotFoundException("Không tìm thấy thư mục");
+            }
+
+            var oldData = folder.Name;
+            folder.Name = newName;
+
+            await _mediaFolderRepository.Update(folder);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _auditLogService.SaveLogAsync(
+                userId: userId,
+                staffCode: null,
+                action: "RENAME_FOLDER",
+                tableName: "media_folders",
+                recordId: id,
+                oldData: oldData,
+                newData: newName
+            );
+            await transaction.CommitAsync();
+            return true;
+        }
+        catch (Exception ex)
         {
             if (transaction.GetDbTransaction().Connection != null)
                 await transaction.RollbackAsync();

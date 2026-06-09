@@ -20,19 +20,22 @@ import {
     DeleteOutlined,
 } from '@mui/icons-material';
 import { MediaFolderDto } from '../schemas/media_folder.schemas';
+import { DeleteIcon, EditIcon } from 'lucide-react';
 
 interface FolderTreeProps {
     folders: MediaFolderDto[];
     selectedFolderId: number | null;
     onSelect: (id: number | null) => void;
-    onDeleteFolder?: (folder: MediaFolderDto) => void; // Thêm prop mới
+    onDeleteFolder?: (folder: MediaFolderDto) => void; 
+    onRenameFolder?: (folder: MediaFolderDto) => void;
 }
 
 export default function FolderTree({
     folders,
     selectedFolderId,
     onSelect,
-    onDeleteFolder
+    onDeleteFolder,
+    onRenameFolder
 }: FolderTreeProps) {
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -141,31 +144,44 @@ export default function FolderTree({
                             {folder.count ?? 0}
                         </Typography>
 
-                        {/* Nút xóa thư mục */}
-                        {onDeleteFolder && (
-                            <Tooltip title="Xóa thư mục" arrow>
-                                <IconButton
-                                    className="delete-folder-btn"
-                                    size="small"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteFolder(folder);
-                                    }}
-                                    sx={{
-                                        opacity: 0,
-                                        p: 0.3,
-                                        color: '#ef5350',
-                                        '&:hover': {
-                                            bgcolor: '#ffebee',
-                                            color: '#f44336'
-                                        },
-                                        transition: 'all 0.15s',
-                                    }}
-                                >
-                                    <DeleteOutlined sx={{ fontSize: 15 }} />
-                                </IconButton>
-                            </Tooltip>
-                        )}
+                        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                            {onRenameFolder && (
+                                <Tooltip title="Đổi tên">
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRenameFolder(folder);
+                                        }}
+                                        sx={{
+                                            p: 0.5,
+                                            color: '#78909c',
+                                            '&:hover': { color: '#1976d2', bgcolor: '#e3f2fd' },
+                                        }}
+                                    >
+                                        <EditIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                            {onDeleteFolder && (
+                                <Tooltip title="Xóa">
+                                    <IconButton
+                                        size="small"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteFolder(folder);
+                                        }}
+                                        sx={{
+                                            p: 0.5,
+                                            color: '#78909c',
+                                            '&:hover': { color: '#ef5350', bgcolor: '#ffebee' },
+                                        }}
+                                    >
+                                        <DeleteIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                        </Box>
                     </ListItemButton>
 
                     {hasChildren && (
