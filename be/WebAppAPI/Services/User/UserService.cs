@@ -59,7 +59,7 @@ public class UserService : IUserService
             pageSize = 10;
 
         bool isAdmin =
-            currentUserRoles != null && currentUserRoles.Any(r => r.Trim().ToLower() == "admin");
+            currentUserRoles != null && currentUserRoles.Any(r => r.Trim().ToLower() == "Super_Admin");
 
         var query = _userRepository
             .GetAll()

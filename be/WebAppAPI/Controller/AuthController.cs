@@ -72,7 +72,7 @@ namespace WebAppAPI.Controllers
             return Ok(new { Status = "Success", Message = "Đăng xuất thành công" });
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Super_Admin")]
         [HttpPost("CreateAccount")]
         public async Task<ResponseValue<string>> CreateAccount(AuthCreateDTO createDTO)
         {

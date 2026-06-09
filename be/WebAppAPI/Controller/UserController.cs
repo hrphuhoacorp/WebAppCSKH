@@ -30,7 +30,7 @@ namespace WebAppAPI.Controllers
             _activityService = activityService;
         }
 
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Super_Admin")]
         [HttpGet("GetAllUsersAsync")]
         public async Task<ResponseValue<PagedResult<UserGetAllDTO>>> GetAllUsersAsync(
             [FromQuery] string? search,
