@@ -699,12 +699,13 @@ export default function MediaGalleryPage() {
                         ) : viewMode === 'grid' ? (
                             <Box sx={{
                                 display: 'grid',
-                                gridTemplateColumns: {
-                                    xs: 'repeat(auto-fill, minmax(150px, 1fr))',
-                                    sm: 'repeat(auto-fill, minmax(180px, 1fr))',
-                                    md: 'repeat(auto-fill, minmax(200px, 1fr))',
-                                    lg: 'repeat(auto-fill, minmax(220px, 1fr))',
-                                },
+                                        gridTemplateColumns: {
+                                            xs: 'repeat(2, 1fr)',
+                                            sm: 'repeat(3, 1fr)',
+                                            md: 'repeat(3, 1fr)',
+                                            lg: 'repeat(3, 1fr)',
+                                            xl: 'repeat(4, 1fr)',
+                                        },
                                 gap: { xs: 1, md: 1.5 },
                             }}>
                                 {files.map(file => (

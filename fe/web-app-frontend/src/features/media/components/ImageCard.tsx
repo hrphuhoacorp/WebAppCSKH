@@ -116,52 +116,7 @@ function ImageCard({
                 />
 
                 {/* Hover overlay actions */}
-                <Box
-                    className="img-actions"
-                    sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        opacity: { xs: 1, md: 0 },
-                        pointerEvents: 'none',
-                        background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)',
-                        display: 'flex',
-                        alignItems: 'flex-end',
-                        justifyContent: 'space-between',
-                        p: 1.2,
-                        transition: 'opacity 0.2s',
-                    }}
-                >
-                    <Tooltip title="Xem ảnh" arrow>
-                        <IconButton
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); onPreview(); }}
-                            sx={{
-                                bgcolor: 'rgba(255,255,255,0.95)',
-                                p: 0.8,
-                                pointerEvents: 'auto',
-                                '&:hover': { bgcolor: '#fff' },
-                            }}
-                        >
-                            <Visibility sx={{ fontSize: 16, color: '#455a64' }} />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title={isStarred ? 'Bỏ yêu thích' : 'Yêu thích'} arrow>
-                        <IconButton
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); onToggleStar(); }}
-                            sx={{
-                                bgcolor: 'rgba(255,255,255,0.95)',
-                                p: 0.8,
-                                pointerEvents: 'auto',
-                                '&:hover': { bgcolor: '#fff' },
-                            }}
-                        >
-                            {isStarred
-                                ? <StarRounded sx={{ fontSize: 16, color: '#f59e0b' }} />
-                                : <StarBorder sx={{ fontSize: 16, color: '#455a64' }} />}
-                        </IconButton>
-                    </Tooltip>
-                </Box>
+              
             </Box>
 
             {/* Info */}

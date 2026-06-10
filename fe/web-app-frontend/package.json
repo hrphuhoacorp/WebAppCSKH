@@ -17,6 +17,7 @@
     "@mui/material": "^9.0.1",
     "@mui/material-nextjs": "^9.0.1",
     "@mui/x-charts": "^9.3.0",
+    "@tanstack/react-virtual": "^3.14.2",
     "axios": "^1.16.1",
     "lucide-react": "^1.17.0",
     "next": "^16.2.7",
