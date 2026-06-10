@@ -37,7 +37,7 @@ export default function LoginForm() {
 
             toast.success(response.message);
 
-            window.location.href = '/dashboard';
+            window.location.href = '/home';
 
         } catch (error: any) {
             toast.error(

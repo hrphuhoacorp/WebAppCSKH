@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { sidebarMenu } from './sidebar-menu';
 import { Box, Collapse, List, ListItemButton, ListItemText, Typography, Drawer, IconButton } from '@mui/material';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import { ChevronDown, LogOut, Menu as MenuIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { authApi } from '@/features/auth/api/auth.api';
@@ -270,8 +271,31 @@ export default function Sidebar() {
                 })}
             </Box>
 
-            {/* Footer / Logout */}
+            {/* Footer */}
             <Box sx={{ pt: 2, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <ListItemButton
+                    component={Link}
+                    href="/home"
+                    onClick={() => setMobileOpen(false)}
+                    sx={{
+                        borderRadius: 2.2,
+                        py: '9px',
+                        px: 1.5,
+                        mb: 0.5,
+                        color: 'rgba(255,255,255,0.7)',
+                        transition: 'all 0.18s ease',
+                        '&:hover': {
+                            background: 'rgba(34,197,94,0.12)',
+                            color: '#4ade80',
+                        },
+                    }}
+                >
+                    <HomeRoundedIcon sx={{ fontSize: 18, flexShrink: 0, mr: '10px', opacity: 0.7 }} />
+                    <ListItemText
+                        primary="Trang chủ"
+                        slotProps={{ primary: { style: { fontSize: 13, fontWeight: 500 } } }}
+                    />
+                </ListItemButton>
                 <ListItemButton
                     onClick={handleLogout}
                     sx={{

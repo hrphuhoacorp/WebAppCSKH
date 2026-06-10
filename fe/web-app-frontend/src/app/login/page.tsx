@@ -10,7 +10,7 @@ export default function LoginPage() {
         const token = localStorage.getItem('token');
 
         if (token) {
-            router.replace('/dashboard');
+            router.replace('/home');
         }
     }, [router]);
     return (

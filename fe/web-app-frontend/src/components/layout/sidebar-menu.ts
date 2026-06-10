@@ -1,4 +1,4 @@
-import { Checklist } from '@mui/icons-material';
+import { Checklist, CampaignRounded } from '@mui/icons-material';
 import {
     LayoutDashboard,
     ShoppingCart,
@@ -71,6 +71,17 @@ export const sidebarMenu: SidebarGroup[] = [
                 roles: ['Super_Admin'],
             }
         ],
+    },
+    {
+        title: 'Nội Bộ',
+        children: [
+            {
+                title: 'Quản lý tin nội bộ',
+                href: '/dashboard/news',
+                icon: CampaignRounded,
+                roles: ['Super_Admin', 'Admin_Media'],
+            }
+        ]
     },
 
     {

@@ -217,6 +217,7 @@ builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddScoped<IImportHistoryService, ImportHistoryService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<IInternalNewsService, InternalNewsService>();
 
 //context
 builder.Services.AddHttpContextAccessor();
