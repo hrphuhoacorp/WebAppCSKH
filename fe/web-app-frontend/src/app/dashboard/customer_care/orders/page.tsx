@@ -46,6 +46,8 @@ import {
 import { ordersApi } from '@/features/orders/api/orders.api';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import PageHeader from '@/components/common/PageHeader';
+import { ReceiptLongRounded } from '@mui/icons-material';
 import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
 import { useAuth } from '@/providers/AuthProviders';
 import ImportHistoryDialog from '@/features/orders/components/ImportHistoryDialog';
@@ -262,24 +264,13 @@ export default function OrdersPage() {
         >
             <LoadingOverlay open={loading} text="Đang tải đơn hàng..." />
 
-            {/* ── Header ── */}
-            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                <Box>
-                    <Typography
-                        variant="h4"
-                        sx={{ fontWeight: 800, color: '#086839', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: 1.5 }}
-                    >
-                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: '10px', bgcolor: '#086839', color: '#fff', fontSize: 20, flexShrink: 0 }}>
-                            🧾
-                        </Box>
-                        Danh Sách Đơn Hàng
-                    </Typography>
-                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
-                        Theo dõi, quản lý doanh thu và trạng thái đơn hàng thời gian thực
-                    </Typography>
-                </Box>
-
-                <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <PageHeader
+                title="Danh Sách Đơn Hàng"
+                subtitle="Theo dõi, quản lý doanh thu và trạng thái đơn hàng thời gian thực"
+                icon={<ReceiptLongRounded />}
+                gradient="linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)"
+                shadowColor="rgba(124,58,237,0.28)"
+                actions={<Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
                     {importing && progress.total > 0 && (
                         <Box sx={{ minWidth: 200, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
                             <Typography sx={{ fontSize: 12, color: '#64748b', mb: 0.5 }}>
@@ -336,8 +327,8 @@ export default function OrdersPage() {
                             Xóa lọc
                         </Button>
                     </Tooltip>
-                </Box>
-            </Box>
+                </Box>}
+            />
 
             {/* ── Filter Bar ── */}
             <Paper

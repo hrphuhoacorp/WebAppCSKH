@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import PageHeader from '@/components/common/PageHeader';
 import { userApi } from '@/features/user/api/user.api';
 import ConfirmRollbackDialog from '@/features/staff/components/ConfirmRollbackDialog';
 
@@ -209,28 +210,23 @@ export default function SystemHistoryPage() {
         <Box
             sx={{
                 p: { xs: 2, md: 4 },
-                height: '100vh',
+                height: { xs: 'calc(100vh - 56px)', lg: '100vh' },
                 display: 'flex',
                 flexDirection: 'column',
                 bgcolor: '#f0f7f3',
                 backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
-                overflow: 'hidden'
+                overflow: 'hidden',
             }}
         >
             <LoadingOverlay open={loading} text="Đang xử lý dữ liệu..." />
 
-            {/* ── Page Header ── */}
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="h4" sx={{ fontWeight: 800, color: '#086839', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: '10px', bgcolor: '#66bb92', color: '#fff', fontSize: 20 }}>
-                        📜
-                    </Box>
-                    Nhật Ký & Lịch Sử Hệ Thống
-                </Typography>
-                <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
-                    Tra cứu vết hoạt động của nhân viên và quản lý trạng thái hoàn tác tệp Excel dữ liệu kinh doanh
-                </Typography>
-            </Box>
+            <PageHeader
+                title="Nhật Ký & Lịch Sử Hệ Thống"
+                subtitle="Tra cứu vết hoạt động của nhân viên và quản lý trạng thái hoàn tác tệp Excel"
+                icon={<HistoryRounded />}
+                gradient="linear-gradient(135deg, #b45309 0%, #f59e0b 100%)"
+                shadowColor="rgba(180,83,9,0.28)"
+            />
 
             {/* ── Tabs Chuyển Bảng ── */}
             <Tabs

@@ -21,6 +21,8 @@ import {
 import { BarChart, PieChart } from '@mui/x-charts';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import PageHeader from '@/components/common/PageHeader';
+import { InsightsRounded } from '@mui/icons-material';
 import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -41,6 +43,8 @@ export default function DashboardPage() {
     const [branchId, setBranchId] = useState('');
     const [branches, setBranches] = useState<any[]>([]);
     const [dashboard, setDashboard] = useState<any>(null);
+    const [revenueGroupBy, setRevenueGroupBy] = useState<'day' | 'week' | 'month'>('month');
+
 
     const formatMoney = (value: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value ?? 0);
@@ -64,6 +68,7 @@ export default function DashboardPage() {
                 year: year ? Number(year) : undefined,
                 source: source || undefined,
                 branchId: branchId ? Number(branchId) : undefined,
+                revenueGroupBy: revenueGroupBy
             });
             setDashboard(response.content);
         } catch (error: any) {
@@ -74,9 +79,9 @@ export default function DashboardPage() {
     };
 
     useEffect(() => { fetchBranches(); }, []);
-    useEffect(() => { fetchDashboard(); }, [fromDate, toDate, month, year, source, branchId]);
+    useEffect(() => { fetchDashboard(); }, [fromDate, toDate, month, year, source, branchId, revenueGroupBy]);
 
-    const hasFilter = fromDate || toDate || month || year || source || branchId;
+    const hasFilter = fromDate || toDate || month || year || source || branchId || revenueGroupBy;
 
     return (
         <Box
@@ -89,44 +94,13 @@ export default function DashboardPage() {
         >
             <LoadingOverlay open={loading} fullScreen text="Đang tải dashboard..." />
 
-            {/* ── Header ── */}
-            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                <Box>
-                    <Typography
-                        variant="h4"
-                        sx={{
-                            fontWeight: 800,
-                            color: '#086839',
-                            letterSpacing: '-0.5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1.5,
-                        }}
-                    >
-                        <Box
-                            component="span"
-                            sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 38,
-                                height: 38,
-                                borderRadius: '10px',
-                                bgcolor: '#086839',
-                                color: '#fff',
-                                fontSize: 20,
-                                flexShrink: 0,
-                            }}
-                        >
-                            📊
-                        </Box>
-                        Dashboard
-                    </Typography>
-                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
-                        Báo cáo kinh doanh tổng quan theo thời gian thực
-                    </Typography>
-                </Box>
-            </Box>
+            <PageHeader
+                title="Dashboard"
+                subtitle="Báo cáo kinh doanh tổng quan theo thời gian thực"
+                icon={<InsightsRounded />}
+                gradient="linear-gradient(135deg, #086839 0%, #16a34a 100%)"
+                shadowColor="rgba(8,104,57,0.28)"
+            />
 
             {/* ── Filter Bar ── */}
             <Paper
@@ -152,7 +126,7 @@ export default function DashboardPage() {
                     )}
                 </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(6,1fr)' }, gap: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(7,1fr)' }, gap: 2 }}>
                     {[
                         { label: 'Từ ngày', type: 'date', value: fromDate, onChange: setFromDate },
                         { label: 'Đến ngày', type: 'date', value: toDate, onChange: setToDate },
@@ -169,7 +143,19 @@ export default function DashboardPage() {
                             sx={filterFieldSx}
                         />
                     ))}
-
+                    <TextField
+                        select
+                        size="small"
+                        label="Biểu đồ doanh thu"
+                        value={revenueGroupBy}
+                        onChange={(e) => setRevenueGroupBy(e.target.value as 'day' | 'week' | 'month')}
+                        fullWidth
+                        sx={filterFieldSx}
+                    >
+                        <MenuItem value="day">Theo ngày</MenuItem>
+                        <MenuItem value="week">Theo tuần</MenuItem>
+                        <MenuItem value="month">Theo tháng</MenuItem>
+                    </TextField>
                     <TextField select size="small" label="Tháng" value={month} onChange={(e) => setMonth(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả tháng</MenuItem>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
@@ -238,14 +224,15 @@ export default function DashboardPage() {
 
                     {/* ── Revenue Bar Chart + Order Status Pie ── */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3, mb: 3 }}>
-                        <ChartCard title="Doanh thu theo tháng" icon="📈">
+                        <ChartCard title={revenueGroupBy === 'day' ? 'Doanh thu theo ngày' : revenueGroupBy === 'week' ? 'Doanh thu theo tuần' : 'Doanh thu theo tháng'} icon="📈">
                             <BarChart
                                 height={300}
+                                width={undefined}
                                 colors={['#086839']}
                                 borderRadius={8}
                                 xAxis={[{
                                     scaleType: 'band',
-                                    data: dashboard.revenueByMonth.map((x: any) => `T${x.month}`),
+                                    data: dashboard.revenueByMonth.map((x: any) => x.period),
                                     tickLabelStyle: { fontSize: 12, fill: '#64748b' },
                                 }]}
                                 yAxis={[{
@@ -364,6 +351,7 @@ export default function DashboardPage() {
                                 </Box>
                             </Box>
 
+                            <Box sx={{ overflowX: 'auto' }}>
                             <Table size="small">
                                 <TableHead>
                                     <TableRow>
@@ -426,6 +414,7 @@ export default function DashboardPage() {
                                     ))}
                                 </TableBody>
                             </Table>
+                            </Box>
                         </Paper>
 
                         {/* Birthday Customers */}

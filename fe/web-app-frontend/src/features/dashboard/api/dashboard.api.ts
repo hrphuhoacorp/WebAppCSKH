@@ -8,6 +8,7 @@ export const dashboardApi = {
         year?: number;
         source?: string;
         branchId?: number;
+        revenueGroupBy?: string
     }) => {
         const response = await api.get("Dashboard/GetDashboardAsync", { params: data });
         return response.data;

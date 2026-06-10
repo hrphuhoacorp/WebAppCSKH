@@ -38,6 +38,8 @@ import {
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import PageHeader from '@/components/common/PageHeader';
+import { PeopleAltRounded } from '@mui/icons-material';
 import { customerApi } from '@/features/customer/api/customer.api';
 import { LucideEdit } from 'lucide-react';
 import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
@@ -171,64 +173,21 @@ export default function CustomerPage() {
         >
             <LoadingOverlay open={loading} text="Đang tải dữ liệu khách hàng..." />
 
-            {/* ── Header ── */}
-            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                <Box>
-                    <Typography
-                        variant="h4"
-                        sx={{
-                            fontWeight: 800,
-                            color: '#086839',
-                            letterSpacing: '-0.5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1.5,
-                        }}
-                    >
-                        <Box
-                            component="span"
-                            sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 38,
-                                height: 38,
-                                borderRadius: '10px',
-                                bgcolor: '#086839',
-                                color: '#fff',
-                                fontSize: 20,
-                                flexShrink: 0,
-                            }}
-                        >
-                            🧑‍🤝‍🧑
-                        </Box>
-                        Danh Sách Khách Hàng
-                    </Typography>
-                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
-                        Theo dõi, phân tích và quản lý thông tin khách hàng toàn diện
-                    </Typography>
-                </Box>
-
-                {/* Total badge */}
-                <Box
-                    sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        bgcolor: '#fff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '12px',
-                        px: 2,
-                        py: 1,
-                        boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
-                    }}
-                >
-                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)' }} />
-                    <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
-                        {total.toLocaleString('vi-VN')} khách hàng
-                    </Typography>
-                </Box>
-            </Box>
+            <PageHeader
+                title="Danh Sách Khách Hàng"
+                subtitle="Theo dõi, phân tích và quản lý thông tin khách hàng toàn diện"
+                icon={<PeopleAltRounded />}
+                gradient="linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%)"
+                shadowColor="rgba(3,105,161,0.28)"
+                actions={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', px: 2, py: 1, boxShadow: '0 1px 6px rgba(8,104,57,0.06)' }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)' }} />
+                        <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
+                            {total.toLocaleString('vi-VN')} khách hàng
+                        </Typography>
+                    </Box>
+                }
+            />
 
             {/* ── Filter Bar ── */}
             <Paper

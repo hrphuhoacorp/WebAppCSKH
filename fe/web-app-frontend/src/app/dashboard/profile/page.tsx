@@ -18,6 +18,8 @@ import {
     Typography,
 } from '@mui/material';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import PageHeader from '@/components/common/PageHeader';
+import { AccountCircleRounded } from '@mui/icons-material';
 import { authApi } from '@/features/auth/api/auth.api';
 import toast from 'react-hot-toast';
 import ChangePasswordDialog from '@/features/user/components/ChangePasswordDialog';
@@ -61,7 +63,8 @@ export default function ProfilePage() {
             sx={{
                 p: { xs: 2, md: 4 },
                 bgcolor: '#f0f7f3',
-                minHeight: '100vh',
+                height: { xs: 'calc(100vh - 56px)', lg: '100vh' },
+                overflow: 'auto',
                 backgroundImage: `
                     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(8,104,57,0.08) 0%, transparent 70%)
                 `,
@@ -69,41 +72,13 @@ export default function ProfilePage() {
         >
             <LoadingOverlay open={loading} fullScreen text="Đang tải thông tin cá nhân..." />
 
-            {/* Page Header */}
-            <Box sx={{ mb: 4 }}>
-                <Typography
-                    variant="h4"
-                    sx={{
-                        fontWeight: 800,
-                        color: '#086839',
-                        letterSpacing: '-0.5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                    }}
-                >
-                    <Box
-                        component="span"
-                        sx={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 38,
-                            height: 38,
-                            borderRadius: '10px',
-                            bgcolor: '#66bb92',
-                            color: '#fff',
-                            fontSize: 20,
-                        }}
-                    >
-                        👤
-                    </Box>
-                    Thông Tin Cá Nhân
-                </Typography>
-                <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
-                    Xem và quản lý thông tin tài khoản của bạn
-                </Typography>
-            </Box>
+            <PageHeader
+                title="Thông Tin Cá Nhân"
+                subtitle="Xem và quản lý thông tin tài khoản của bạn"
+                icon={<AccountCircleRounded />}
+                gradient="linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)"
+                shadowColor="rgba(15,118,110,0.28)"
+            />
 
             {/* Hero Card */}
             <Card

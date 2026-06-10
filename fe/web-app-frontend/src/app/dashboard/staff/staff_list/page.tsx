@@ -37,6 +37,8 @@ import {
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import PageHeader from '@/components/common/PageHeader';
+import { BadgeRounded } from '@mui/icons-material';
 import { userApi } from '@/features/user/api/user.api';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import UserDetailDialog from '@/features/user/components/UserDetailDialog';
@@ -174,7 +176,7 @@ export default function UsersPage() {
         <Box
             sx={{
                 p: { xs: 2, md: 4 },
-                height: '100vh',
+                height: { xs: 'calc(100vh - 56px)', lg: '100vh' },
                 display: 'flex',
                 flexDirection: 'column',
                 bgcolor: '#f0f7f3',
@@ -184,45 +186,13 @@ export default function UsersPage() {
         >
             <LoadingOverlay open={loading} text="Đang tải danh sách nhân sự..." />
 
-            {/* ── Page Header ── */}
-            <Box sx={{ mb: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                <Box>
-                    <Typography
-                        variant="h4"
-                        sx={{
-                            fontWeight: 800,
-                            color: '#086839',
-                            letterSpacing: '-0.5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1.5,
-                        }}
-                    >
-                        <Box
-                            component="span"
-                            sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 38,
-                                height: 38,
-                                borderRadius: '10px',
-                                bgcolor: '#66bb92',
-                                color: '#fff',
-                                fontSize: 20,
-                                flexShrink: 0,
-                            }}
-                        >
-                            👥
-                        </Box>
-                        Danh Sách Nhân Sự
-                    </Typography>
-                    <Typography sx={{ color: '#6b7280', mt: 0.5, ml: '52px', fontSize: 14 }}>
-                        Theo dõi thông tin nhân sự, phân quyền và chi nhánh trong hệ thống
-                    </Typography>
-                </Box>
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PageHeader
+                title="Danh Sách Nhân Sự"
+                subtitle="Theo dõi thông tin nhân sự, phân quyền và chi nhánh trong hệ thống"
+                icon={<BadgeRounded />}
+                gradient="linear-gradient(135deg, #086839 0%, #059669 100%)"
+                shadowColor="rgba(8,104,57,0.28)"
+                actions={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Button
                         variant="contained"
                         startIcon={<AddCircleRounded />}
@@ -270,8 +240,8 @@ export default function UsersPage() {
                             {total.toLocaleString('vi-VN')} nhân sự
                         </Typography>
                     </Box>
-                </Box>
-            </Box>
+                </Box>}
+            />
 
             {/* ── Filter Bar ── */}
             <Paper

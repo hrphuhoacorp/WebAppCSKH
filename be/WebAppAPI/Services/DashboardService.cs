@@ -105,23 +105,67 @@ public class DashboardService : IDashboardService
                 })
                 .ToListAsync();
 
-            var revenueByMonth = await ordersQuery
-                .GroupBy(o => new { o.PurchaseDate.Year, o.PurchaseDate.Month })
-                .Select(g => new
-                {
-                    Year = g.Key.Year,
-                    Month = g.Key.Month,
-                    // Làm tròn tổng doanh thu của tháng về số nguyên (0 chữ số thập phân)
-                    Revenue = Math.Round(g.Sum(x => x.Revenue), 0),
-                })
-                .OrderBy(x => x.Year)
-                .ThenBy(x => x.Month)
-                .Select(x => new MonthlyRevenueDTO
-                {
-                    Month = $"{(x.Month < 10 ? "0" + x.Month : x.Month)}/{x.Year}",
-                    Revenue = x.Revenue,
-                })
-                .ToListAsync();
+            var revenueGroupBy = filter.RevenueGroupBy?.Trim().ToLower() ?? "month";
+
+            List<MonthlyRevenueDTO> revenueByPeriod;
+
+            if (revenueGroupBy == "day")
+            {
+                revenueByPeriod = await ordersQuery
+                    .GroupBy(o => o.PurchaseDate.Date)
+                    .Select(g => new
+                    {
+                        Date = g.Key,
+                        Revenue = Math.Round(g.Sum(x => x.Revenue), 0),
+                    })
+                    .OrderBy(x => x.Date)
+                    .Select(x => new MonthlyRevenueDTO
+                    {
+                        Period = x.Date.ToString("dd/MM/yyyy"),
+                        Revenue = x.Revenue,
+                    })
+                    .ToListAsync();
+            }
+            else if (revenueGroupBy == "week")
+            {
+                var revenueByPeriodRaw = await ordersQuery
+                    .Select(o => new { o.PurchaseDate, o.Revenue })
+                    .ToListAsync();
+
+                revenueByPeriod = revenueByPeriodRaw
+                    .GroupBy(x => new
+                    {
+                        x.PurchaseDate.Year,
+                        Week = ((x.PurchaseDate.DayOfYear - 1) / 7) + 1,
+                    })
+                    .OrderBy(g => g.Key.Year)
+                    .ThenBy(g => g.Key.Week)
+                    .Select(g => new MonthlyRevenueDTO
+                    {
+                        Period = $"Tuần {g.Key.Week}/{g.Key.Year}",
+                        Revenue = Math.Round(g.Sum(x => x.Revenue), 0),
+                    })
+                    .ToList();
+            }
+            else
+            {
+                revenueByPeriod = await ordersQuery
+                    .GroupBy(o => new { o.PurchaseDate.Year, o.PurchaseDate.Month })
+                    .Select(g => new
+                    {
+                        Year = g.Key.Year,
+                        Month = g.Key.Month,
+                        Revenue = Math.Round(g.Sum(x => x.Revenue), 0),
+                    })
+                    .OrderBy(x => x.Year)
+                    .ThenBy(x => x.Month)
+                    .Select(x => new MonthlyRevenueDTO
+                    {
+                        Period = $"{x.Month:00}/{x.Year}",
+                        Revenue = x.Revenue,
+                    })
+                    .ToListAsync();
+            }
 
             var topCustomersByRevenue = await ordersQuery
                 .GroupBy(o => new
@@ -179,7 +223,7 @@ public class DashboardService : IDashboardService
                 AverageOrderValue = averageOrderValue,
                 OrdersByStatus = ordersByStatus,
                 CustomersBySource = customersBySource,
-                RevenueByMonth = revenueByMonth,
+                RevenueByMonth = revenueByPeriod,
                 TopCustomersByRevenue = topCustomersByRevenue,
                 RevenueByBranch = revenueByBranch,
                 BirthdayCustomersThisMonth = birthdayCustomersThisMonth,

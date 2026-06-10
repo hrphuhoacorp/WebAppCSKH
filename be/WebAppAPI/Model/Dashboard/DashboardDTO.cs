@@ -21,7 +21,7 @@ public class ChartItemDTO
 
 public class MonthlyRevenueDTO
 {
-    public string Month { get; set; }
+    public string Period { get; set; }
     public decimal Revenue { get; set; }
 }
 
