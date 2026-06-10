@@ -182,7 +182,7 @@ export function SiteFooter() {
                         Liên hệ
                     </Typography>
                     {[
-                        { icon: '🏢', text: 'Phòng Nhân Sự' },
+                        { icon: '🏢', text: 'Phòng Quản Trị Tổng Hợp' },
                         { icon: '✉️', text: 'hr.phuhoacorp@gmail.com' },
                         { icon: '📍', text: '342 Phú Lợi, Phường Phú Lợi, TP Hồ Chí Minh' },
                     ].map(({ icon, text }) => (
