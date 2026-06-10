@@ -93,6 +93,20 @@ export default function MediaGalleryPage() {
     const [renameFolderOpen, setRenameFolderOpen] = useState(false);
     const [renameFolderTarget, setRenameFolderTarget] = useState<{ id: number; name: string } | null>(null);
 
+
+    const handlePreview = useCallback((image: MediaFileDto) => {
+        setPreviewFile(image);
+        setPreviewIsDeleted(false);
+    }, []);
+
+    const handleCopy = useCallback((url: string) => {
+        copyImage(url);
+    }, []);
+
+    const handleToggleOne = useCallback((id: number) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    }, []);
+
     // Load starred from localStorage
     useEffect(() => {
         const stored = localStorage.getItem('media_starred');
@@ -694,7 +708,17 @@ export default function MediaGalleryPage() {
                                 gap: { xs: 1, md: 1.5 },
                             }}>
                                 {files.map(file => (
-                                    <ImageCard key={file.id} {...sharedCardProps(file)} />
+                                    <ImageCard
+                                        key={file.id}
+                                        image={file}
+                                        isChecked={selectedIds.includes(file.id)}
+                                        isStarred={starredIds.includes(file.id)}
+                                        isMobile={isMobile}
+                                        onToggle={() => handleToggleOne(file.id)}
+                                        onPreview={() => handlePreview(file)}
+                                        onCopyImage={() => handleCopy(file.fileUrl)}
+                                        onToggleStar={() => toggleStar(file.id)}
+                                    />
                                 ))}
                             </Box>
                         ) : (

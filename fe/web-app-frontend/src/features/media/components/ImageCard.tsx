@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import { formatFileSize, getFullImageUrl } from '@/features/media/utils/media.utils';
 import { MediaFileDto } from '../schemas/media_file.schemas';
+import { memo } from 'react';
 
 interface ImageCardProps {
     image: MediaFileDto;
@@ -35,7 +36,7 @@ interface ImageCardProps {
     onToggleStar: () => void;
 }
 
-export default function ImageCard({
+function ImageCard({
     image,
     isChecked,
     isStarred,
@@ -54,10 +55,11 @@ export default function ImageCard({
                 boxShadow: isChecked ? '0 4px 12px rgba(25,118,210,0.15)' : '0 1px 3px rgba(0,0,0,0.08)',
                 overflow: 'hidden',
                 position: 'relative',
-                transition: 'all 0.2s ease',
+                // transition: 'all 0.2s ease',
                 '&:hover': {
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
-                    transform: { xs: 'none', md: 'translateY(-2px)' },
+                    boxShadow: { xs: 'none', md: '0 2px 8px rgba(0,0,0,0.08)' },
+
+                    transform: 'none',
                     '& .img-actions': { opacity: 1 },
                 },
             }}
@@ -105,8 +107,8 @@ export default function ImageCard({
                         height: '100%',
                         objectFit: 'cover',
                         display: 'block',
-                        transition: 'transform 0.3s',
-                        '&:hover': { transform: { xs: 'none', md: 'scale(1.05)' } },
+                        transition: 'none',
+                        // '&:hover': { transform: { xs: 'none', md: 'scale(1.05)' } },
                     }}
                 />
 
@@ -216,3 +218,4 @@ export default function ImageCard({
         </Card>
     );
 }
+export default memo(ImageCard);
