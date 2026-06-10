@@ -1,6 +1,8 @@
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import AppProviders from '@/providers/AppProviders';
 import { Inter } from 'next/font/google';
+import { Suspense } from 'react';
+import ProgressBar from '@/components/common/ProgressBar';
 
 const inter = Inter({
   subsets: ['latin', 'vietnamese'],
@@ -17,7 +19,10 @@ export default function RootLayout({
     <html lang="vi">
       <body className={inter.variable}>
         <AppRouterCacheProvider>
-          <AppProviders>{children}</AppProviders>
+          <AppProviders>
+            <Suspense fallback={null}>
+              <ProgressBar />
+            </Suspense>{children}</AppProviders>
         </AppRouterCacheProvider>
       </body>
     </html>

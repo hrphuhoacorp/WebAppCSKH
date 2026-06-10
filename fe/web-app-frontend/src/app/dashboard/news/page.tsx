@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
     Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-    DialogTitle, IconButton, MenuItem, Paper, Stack,
-    Switch, TextField, Tooltip, Typography, alpha,
+    DialogTitle, IconButton, MenuItem, Pagination, Paper, Stack,
+    Switch, TablePagination, TextField, Tooltip, Typography, alpha,
 } from '@mui/material';
 import {
     AddRounded, EditRounded, DeleteRounded,
@@ -53,6 +53,8 @@ export default function NewsManagePage() {
     const [uploadingThumb, setUploadingThumb] = useState(false);
     const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
+    const [page, setPage] = useState(0);
+    const pageSize = 5;
     // Dialog state
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -72,7 +74,8 @@ export default function NewsManagePage() {
                 search: search || undefined,
                 status: filterStatus || undefined,
                 type: filterType || undefined,
-                pageSize: 50,
+                pageSize,
+                page: page+1
             });
             setNewsList(res.content.items);
             setTotal(res.content.totalItems);
@@ -83,7 +86,10 @@ export default function NewsManagePage() {
         }
     };
 
-    useEffect(() => { fetchNews(); }, [search, filterStatus, filterType]);
+    useEffect(() => { setPage(0); }, [search, filterStatus, filterType]);
+
+    // Fetch khi page hoặc filter thay đổi
+    useEffect(() => { fetchNews(); }, [search, filterStatus, filterType, page]);
 
     const openCreate = () => {
         setEditingId(null);
@@ -278,10 +284,34 @@ export default function NewsManagePage() {
                                     </IconButton>
                                 </Tooltip>
                             </Stack>
+                           
                         </Box>
                     </Paper>
                 ))}
-
+                <Box sx={{
+                    bgcolor: '#fff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    mt: 2,
+                    overflow: 'hidden',
+                }}>
+                    <TablePagination
+                        component="div"
+                        count={total}
+                        page={page}
+                        rowsPerPage={pageSize}
+                        onPageChange={(_, newPage) => setPage(newPage)}
+                        rowsPerPageOptions={[]} // ẩn dropdown đổi số dòng nếu không cần
+                        labelRowsPerPage="Số dòng:"
+                        sx={{
+                            '& .MuiTablePagination-toolbar': { minHeight: 48 },
+                            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                                fontSize: 13,
+                                color: '#64748b',
+                            },
+                        }}
+                    />
+                </Box>
                 {!newsList.length && !loading && (
                     <Box sx={{ textAlign: 'center', py: 10, color: '#94a3b8' }}>
                         <Typography sx={{ fontSize: 48, mb: 1 }}>📭</Typography>

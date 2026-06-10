@@ -8,6 +8,11 @@
   --foreground: #171717;
 }
 
+#nprogress .bar {
+  background: #086839 !important;
+  height: 3px !important;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
