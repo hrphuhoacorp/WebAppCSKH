@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   Box, Typography, Divider, CircularProgress, IconButton, InputBase,
+  Pagination,
 } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { newsApi } from '@/features/news/api/news.api';
@@ -18,16 +19,25 @@ export default function HomePage() {
   const [search, setSearch] = useState('');
   const searchParams = useSearchParams();
   const [category, setCategory] = useState(searchParams.get('category') ?? 'all');
+
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(5);
+  const [totalItems, setTotalItems] = useState(0);
+  const totalPages = Math.ceil(totalItems / pageSize);
+
   useEffect(() => {
     const cat = searchParams.get('category');
     if (cat) setCategory(cat);
   }, [searchParams]);
   useEffect(() => {
-    newsApi.getPaged({ status: 'published', pageSize: 50 })
-      .then(res => setNews(res.content.items))
+    newsApi.getPaged({ status: 'published', pageSize, page })
+      .then(res => {
+        setNews(res.content.items);
+        setTotalItems(res.content.totalItems);
+      })
       .catch(() => { })
       .finally(() => setLoading(false));
-  }, []);
+  }, [page,pageSize]);
 
   const openDetail = (item: NewsItem) => router.push(`/home/${item.id}`);
 
@@ -306,6 +316,22 @@ export default function HomePage() {
               {feed.map(item => (
                 <FeedRow key={item.id} item={item} onClick={() => openDetail(item)} />
               ))}
+              {totalPages > 1 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                  <Pagination
+                    count={totalPages}
+                    page={page}
+                    onChange={(_, value) => setPage(value)}
+                    shape="rounded"
+                    sx={{
+                      '& .Mui-selected': {
+                        bgcolor: '#086839 !important',
+                        color: '#fff',
+                      },
+                    }}
+                  />
+                </Box>
+              )}
             </Box>
           )}
         </>
