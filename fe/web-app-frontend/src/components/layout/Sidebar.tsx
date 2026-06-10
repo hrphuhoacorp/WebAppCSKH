@@ -12,7 +12,7 @@ import Image from 'next/image';
 import { useAuth } from '@/providers/AuthProviders';
 
 export default function Sidebar() {
-    const pathname = usePathname();
+    const pathname = usePathname();                                                                                                             
     const router = useRouter();
     const { profile } = useAuth();
 
@@ -47,6 +47,17 @@ export default function Sidebar() {
             toast.error('Đăng xuất thất bại');
         }
     };
+
+    const userRoles = profile?.roles.map(role => role.name) ?? [];
+
+    const filteredSidebarMenu = sidebarMenu.map((group) => ({
+        ...group,
+        children: group.children.filter((item) => {
+            if (!item.roles || item.roles.length === 0) return true;
+            return item.roles.some(role => userRoles.includes(role));
+        }),
+
+    })).filter((group) => group.children.length > 0);
 
     // Nội dung Sidebar được bóc tách riêng để tái sử dụng cho cả giao diện Desktop và Mobile
     const renderSidebarContent = () => (
@@ -100,7 +111,7 @@ export default function Sidebar() {
 
             {/* Menu List */}
             <Box sx={{ flex: 1 }}>
-                {sidebarMenu.map((group) => {
+                {filteredSidebarMenu.map((group) => {
                     const isOpen = !!openGroups[group.title];
                     const isSingleChild = group.children.length === 1;
 
@@ -152,7 +163,7 @@ export default function Sidebar() {
                             >
                                 <Icon size={16} style={{ flexShrink: 0, marginRight: 10, opacity: selected ? 1 : 0.6 }} />
                                 <ListItemText
-                                    primary={group.title}
+                                    primary={singleItem.title}
                                     slotProps={{ primary: { style: { fontSize: 13, fontWeight: 500 } } }}
                                 />
                             </ListItemButton>

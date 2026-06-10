@@ -7,3 +7,18 @@ export const api = axios.create({
     withCredentials: true,
 
 })
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        const status = error.response?.status;
+
+        if (status === 401) {
+            window.location.href = '/login';
+        }
+
+      
+
+        return Promise.reject(error);
+    }
+);

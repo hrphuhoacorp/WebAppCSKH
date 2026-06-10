@@ -13,7 +13,7 @@ import {
 type AuthContextType = {
     profile: UserProfile | null;
     setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
-    loading: boolean; // THÊM DÒNG NÀY
+    loading: boolean; 
     loadProfile: () => Promise<void>;
 };
 
