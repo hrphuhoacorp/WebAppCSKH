@@ -12,7 +12,6 @@ public static class RepositoryServiceRegistration
         services.AddScoped<IImportsHistoryRepository, ImportsHistoryRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IOrderStatusRepository, OrderStatusRepository>();
-        services.AddScoped<ITodoTaskRepository, TodoTaskRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
         return services;

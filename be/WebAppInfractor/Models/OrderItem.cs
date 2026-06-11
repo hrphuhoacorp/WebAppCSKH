@@ -27,6 +27,14 @@ public partial class OrderItem
 
     public decimal? Quantity { get; set; }
 
+    public decimal Revenue { get; set; }
+
+    public decimal GrossProfit { get; set; }
+
+    public decimal ShippingFee { get; set; }
+
+    public decimal TaxAmount { get; set; }
+
     public virtual ImportsHistory? ImportHistory { get; set; }
 
     public virtual Order Order { get; set; } = null!;

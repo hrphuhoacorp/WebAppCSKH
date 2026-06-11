@@ -166,10 +166,20 @@ export default function OrdersPage() {
         const connection = new signalR.HubConnectionBuilder()
             .withUrl(`${process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN}/hubs/import`, { withCredentials: true })
             .withAutomaticReconnect()
+            .configureLogging({
+                log(level: signalR.LogLevel, msg: string) {
+                    if (msg.includes('stopped during negotiation')) return;
+                    if (level >= signalR.LogLevel.Error) console.error('[SignalR]', msg);
+                    else if (level >= signalR.LogLevel.Warning) console.warn('[SignalR]', msg);
+                },
+            })
             .build();
         connection.on('ImportProgress', (data) => setProgress({ current: data.current, total: data.total }));
-        connection.start().catch((e) => console.error('SignalR error:', e));
-        return () => { connection.stop(); };
+        connection.start().catch((e) => {
+            if (e?.message?.includes('stopped during negotiation')) return;
+            console.error('SignalR error:', e);
+        });
+        return () => { connection.stop().catch(() => {}); };
     }, []);
 
     useEffect(() => {

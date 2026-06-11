@@ -6,3 +6,22 @@ Npgsql.EntityFrameworkCore.PostgreSQL `
 --context MemBerContext `
 --schema public
 
+
+
+
+cách sử dụng Codefirst
+
+1. thay đổi model
+2. khai báo cột đó trong db context 
+Vd: // be/WebAppInfractor/Data/MemBerContext.cs
+entity.Property(e => e.Notes)
+    .HasColumnName("notes")
+    .HasMaxLength(500);
+
+
+    3. tạo migration
+cd be/WebAppAPI
+dotnet ef migrations add AddNotesToOrders --project ../WebAppInfractor --startup-project .
+
+4. update lên db
+dotnet ef database update --project ../WebAppInfractor --startup-project .                                                                  

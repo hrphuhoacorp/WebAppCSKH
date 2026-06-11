@@ -110,7 +110,6 @@ public class OrderService : IOrderService
                 .ToDictionaryAsync(x => x.OrderCode);
             var customerCache = await _customerRepository
                 .GetAll()
-                .Where(c => c.DeletedAt == null)
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.CustomerCode);
 
@@ -184,6 +183,16 @@ public class OrderService : IOrderService
                     if (customerCache.TryGetValue(customerCode, out customer))
                     {
                         customerId = customer.Id;
+                        // Restore soft-deleted customer (e.g. sau rollback) tránh unique constraint
+                        if (customer.DeletedAt != null && !pendingCustomers.ContainsKey(customerCode))
+                        {
+                            customer.DeletedAt = null;
+                            customer.Name = customerName;
+                            customer.Phone = customerPhone;
+                            _context.Attach(customer);
+                            _context.Entry(customer).State = EntityState.Modified;
+                            pendingCustomers[customerCode] = customer;
+                        }
                     }
                     else if (pendingCustomers.TryGetValue(customerCode, out customer))
                     {
@@ -217,6 +226,9 @@ public class OrderService : IOrderService
 
                         if (!pendingOrders.ContainsKey(orderCode))
                         {
+                            // Restore soft-deleted order (e.g. sau rollback)
+                            if (existingOrder.DeletedAt != null)
+                                existingOrder.DeletedAt = null;
                             _context.Attach(existingOrder);
                             _context.Entry(existingOrder).State = EntityState.Modified;
                             pendingOrders[orderCode] = existingOrder;
@@ -267,6 +279,10 @@ public class OrderService : IOrderService
                         Quantity = decimal.Parse(quantity),
                         ServiceName = serviceName,
                         Unit = unit,
+                        Revenue = revenue,
+                        GrossProfit = grossProfit,
+                        ShippingFee = shippingFee,
+                        TaxAmount = taxAmount,
                         ImportHistoryId = currentImportId, // GÁN ĐỂ PHỤC VỤ LUỒNG ROLLBACK
                     };
                     await _orderItemRepository.AddAsync(orderItem);
@@ -286,7 +302,6 @@ public class OrderService : IOrderService
                             .ToDictionaryAsync(x => x.OrderCode);
                         customerCache = await _customerRepository
                             .GetAll()
-                            .Where(c => c.DeletedAt == null)
                             .AsNoTracking()
                             .ToDictionaryAsync(x => x.CustomerCode);
                         pendingOrders.Clear();
@@ -387,7 +402,50 @@ public class OrderService : IOrderService
             // Lấy thời gian hiện tại chuẩn Việt Nam từ DB hoặc ép múi giờ trong code
             var crmNow = DateTime.Now.AddHours(7);
 
-            // BƯỚC 2: XÓA MỀM CÁC ĐƠN HÀNG THUỘC FILE IMPORT NÀY
+            // BƯỚC 2a: XÓA CỨNG ORDER ITEMS (không có soft-delete)
+            var itemsToDelete = await _context.Set<OrderItem>()
+                .Where(oi => oi.ImportHistoryId == importHistoryId)
+                .ToListAsync();
+
+            // BƯỚC 2a-ext: HOÀN TRẢ REVENUE CHO CÁC ORDER CŨ (không phải order mới tạo bởi file này)
+            // Orders cũ có items từ file này sẽ không bị soft-delete, cần trừ revenue thủ công.
+            var newOrderIds = await _orderRepository
+                .GetAll()
+                .Where(o => o.ImportHistoryId == importHistoryId)
+                .Select(o => o.Id)
+                .ToHashSetAsync();
+
+            var revenueByExistingOrder = itemsToDelete
+                .Where(i => !newOrderIds.Contains(i.OrderId))
+                .GroupBy(i => i.OrderId)
+                .Select(g => new
+                {
+                    OrderId = g.Key,
+                    Revenue = g.Sum(i => i.Revenue),
+                    GrossProfit = g.Sum(i => i.GrossProfit),
+                    ShippingFee = g.Sum(i => i.ShippingFee),
+                    TaxAmount = g.Sum(i => i.TaxAmount),
+                })
+                .ToList();
+
+            foreach (var delta in revenueByExistingOrder)
+            {
+                var existingOrder = await _orderRepository
+                    .GetAll()
+                    .FirstOrDefaultAsync(o => o.Id == delta.OrderId && o.DeletedAt == null);
+                if (existingOrder != null)
+                {
+                    existingOrder.Revenue -= delta.Revenue;
+                    existingOrder.GrossProfit -= delta.GrossProfit;
+                    existingOrder.ShippingFee -= delta.ShippingFee;
+                    existingOrder.TaxAmount -= delta.TaxAmount;
+                    _context.Entry(existingOrder).State = EntityState.Modified;
+                }
+            }
+
+            _context.Set<OrderItem>().RemoveRange(itemsToDelete);
+
+            // BƯỚC 2b: XÓA MỀM CÁC ĐƠN HÀNG THUỘC FILE IMPORT NÀY
             // Lấy ra tất cả các đơn hàng chưa bị xóa của đợt import này
             var ordersToRollback = await _orderRepository
                 .GetAll()
@@ -470,6 +528,7 @@ public class OrderService : IOrderService
         try
         {
             // BƯỚC 2: KHÔI PHỤC CÁC ĐƠN HÀNG THUỘC FILE NÀY (HỦY XÓA MỀM)
+            // Lưu ý: order_items đã bị hard-delete khi rollback, cần re-import để có lại chi tiết item.
 
             // Tìm tất cả các đơn hàng thuộc file này đang bị xóa mềm (DeletedAt có giá trị)
             var ordersToRestore = await _orderRepository
