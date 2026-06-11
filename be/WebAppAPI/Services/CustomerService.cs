@@ -210,7 +210,7 @@ public class CustomerService : ICustomerService
 
             if (
                 updateDTO.DayOfBirth.HasValue
-                && updateDTO.DayOfBirth.Value > DateOnly.FromDateTime(DateTime.Now)
+                && updateDTO.DayOfBirth.Value > DateOnly.FromDateTime(DateTime.UtcNow)
             )
             {
                 throw new BadRequestException("Ngày sinh không hợp lệ");
@@ -277,7 +277,7 @@ public class CustomerService : ICustomerService
                     "Dữ liệu đã bị thay đổi, vui lòng tải lại trang và thử lại"
                 );
             }
-            customer.DeletedAt = DateTime.Now.AddHours(7);
+            customer.DeletedAt = DateTime.UtcNow.AddHours(7);
             await _customerRepository.Update(customer);
 
             await _auditLogService.SaveLogAsync(

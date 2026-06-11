@@ -178,7 +178,7 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy tin tức");
 
-        news.DeletedAt = DateTime.Now.AddHours(7);
+        news.DeletedAt = DateTime.UtcNow.AddHours(7);
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
     }
@@ -240,20 +240,21 @@ public class InternalNewsService : IInternalNewsService
         return MapToDTO(news);
     }
 
-    private static InternalNewsDTO MapToDTO(InternalNews news) => new InternalNewsDTO
-    {
-        Id = news.Id,
-        Title = news.Title,
-        Content = news.Content,
-        ThumbnailUrl = news.ThumbnailUrl,
-        Type = news.Type,
-        Status = news.Status,
-        ViewCount = news.ViewCount ?? 0,
-        IsPinned = news.IsPinned ?? false,
-        CreatedByName = news.CreatedByNavigation?.Name,
-        CreatedAt = news.CreatedAt,
-        UpdatedAt = news.UpdatedAt,
-    };
+    private static InternalNewsDTO MapToDTO(InternalNews news) =>
+        new InternalNewsDTO
+        {
+            Id = news.Id,
+            Title = news.Title,
+            Content = news.Content,
+            ThumbnailUrl = news.ThumbnailUrl,
+            Type = news.Type,
+            Status = news.Status,
+            ViewCount = news.ViewCount ?? 0,
+            IsPinned = news.IsPinned ?? false,
+            CreatedByName = news.CreatedByNavigation?.Name,
+            CreatedAt = news.CreatedAt,
+            UpdatedAt = news.UpdatedAt,
+        };
 
     public async Task<string> UploadImageAsync(IFormFile file)
     {

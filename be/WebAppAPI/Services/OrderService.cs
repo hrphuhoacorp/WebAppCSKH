@@ -184,7 +184,10 @@ public class OrderService : IOrderService
                     {
                         customerId = customer.Id;
                         // Restore soft-deleted customer (e.g. sau rollback) tránh unique constraint
-                        if (customer.DeletedAt != null && !pendingCustomers.ContainsKey(customerCode))
+                        if (
+                            customer.DeletedAt != null
+                            && !pendingCustomers.ContainsKey(customerCode)
+                        )
                         {
                             customer.DeletedAt = null;
                             customer.Name = customerName;
@@ -400,10 +403,11 @@ public class OrderService : IOrderService
         try
         {
             // Lấy thời gian hiện tại chuẩn Việt Nam từ DB hoặc ép múi giờ trong code
-            var crmNow = DateTime.Now.AddHours(7);
+            var crmNow = DateTime.UtcNow.AddHours(7);
 
             // BƯỚC 2a: XÓA CỨNG ORDER ITEMS (không có soft-delete)
-            var itemsToDelete = await _context.Set<OrderItem>()
+            var itemsToDelete = await _context
+                .Set<OrderItem>()
                 .Where(oi => oi.ImportHistoryId == importHistoryId)
                 .ToListAsync();
 

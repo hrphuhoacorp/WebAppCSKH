@@ -51,6 +51,12 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/customer_care/gifts',
                 icon: GiftIcon,
                 roles: ['Super_Admin', 'Admin_Media', 'Online', 'Staff'],
+            },
+            {
+                title: 'Quản lý giỏ quà',
+                href: '/dashboard/customer_care/gift_baskets',
+                icon: GiftIcon,
+                roles: ['Super_Admin', 'Admin_Media', 'Online', 'Staff'],
             }
         ],
     },

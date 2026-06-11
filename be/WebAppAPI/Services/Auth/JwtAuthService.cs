@@ -41,7 +41,7 @@ public class JwtAuthService
             new Claim("phone", userLogin.Phone),
             new Claim(JwtRegisteredClaimNames.Sub, userLogin.Name), // Subject của token
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()), // Unique ID của token
-            new Claim(JwtRegisteredClaimNames.Iat, DateTime.Now.ToString()), // Thời gian tạo token
+            new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.ToString()), // Thời gian tạo token
         };
 
         var permissions = new HashSet<string>();
@@ -64,7 +64,7 @@ public class JwtAuthService
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.Now.AddMinutes(_accessTokenExpiryMinutes),
+            Expires = DateTime.UtcNow.AddMinutes(_accessTokenExpiryMinutes),
             SigningCredentials = credentials,
             Issuer = _issuer, // Thêm Issuer vào token
             Audience = _audience,

@@ -3,6 +3,8 @@ public class ResponseValue<T>
     public T? Content { get; set; }
     public string? Status { get; set; }
     public string? Message { get; set; }
+    public int StatusCode { get; set; }
+    public T? Data { get => Content; set => Content = value; }
 
     public ResponseValue()
     {

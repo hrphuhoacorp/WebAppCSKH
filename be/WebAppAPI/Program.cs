@@ -14,6 +14,8 @@ using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
 using WebAppInfractor.Data;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString =
@@ -38,12 +40,15 @@ builder.Services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
 builder.Services.AddScoped<IMediaFolderRepository, MediaFolderRepository>();
 builder.Services.AddScoped<IMediaFileRepository, MediaFileRepository>();
 builder.Services.AddScoped<IInternalNewsRepository, InternalNewsRepository>();
-
+builder.Services.AddScoped<IGiftBasketRepository, GiftBasketRepository>();
+builder.Services.AddScoped<IGiftCodeMappingRepository, GiftCodeMappingRepository>();
+builder.Services.AddScoped<ISapoSaleRepository, SapoSaleRepository>();
+builder.Services.AddScoped<ISapoImportRepository, SapoImportRepository>();
+builder.Services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
 //Cache
 builder.Services.AddMemoryCache();
 
 //signalR
-
 
 //cotroller
 builder
@@ -223,6 +228,7 @@ builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddScoped<IImportHistoryService, ImportHistoryService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IInternalNewsService, InternalNewsService>();
+builder.Services.AddScoped<IGiftBasketService, GiftBasketService>();
 
 //context
 builder.Services.AddHttpContextAccessor();

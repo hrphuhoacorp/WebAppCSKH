@@ -192,7 +192,7 @@ public class AuthService : IAuthService
             {
                 var dob = createDTO.DayOfBirth.Value;
 
-                if (dob > DateOnly.FromDateTime(DateTime.Now))
+                if (dob > DateOnly.FromDateTime(DateTime.UtcNow))
                 {
                     throw new BadRequestException("Ngày sinh không hợp lệ");
                 }
@@ -361,7 +361,7 @@ public class AuthService : IAuthService
                 );
             }
 
-            user.DeletedAt = DateTime.Now.AddHours(7);
+            user.DeletedAt = DateTime.UtcNow.AddHours(7);
 
             await _userRepository.Update(user);
 

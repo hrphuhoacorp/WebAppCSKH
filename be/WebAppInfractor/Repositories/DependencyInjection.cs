@@ -14,6 +14,11 @@ public static class RepositoryServiceRegistration
         services.AddScoped<IOrderStatusRepository, OrderStatusRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
+        services.AddScoped<IGiftBasketRepository, GiftBasketRepository>();
+        services.AddScoped<IGiftCodeMappingRepository, GiftCodeMappingRepository>();
+        services.AddScoped<ISapoSaleRepository, SapoSaleRepository>();
+        services.AddScoped<ISapoImportRepository, SapoImportRepository>();
+        services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
         return services;
     }
 }

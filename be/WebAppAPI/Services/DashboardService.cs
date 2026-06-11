@@ -196,7 +196,7 @@ public class DashboardService : IDashboardService
                 .OrderByDescending(x => x.Value)
                 .ToListAsync();
 
-            var currentMonth = DateTime.Now.Month;
+            var currentMonth = DateTime.UtcNow.Month;
 
             var birthdayCustomersThisMonth = await _customerRepository
                 .GetAll()

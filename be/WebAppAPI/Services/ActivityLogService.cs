@@ -93,7 +93,7 @@ public class ActivityService : IActivityService
 
         if (filter.FromDate.HasValue && filter.ToDate.HasValue)
         {
-            if (filter.FromDate.Value > DateTime.Now || filter.ToDate.Value < DateTime.Now)
+            if (filter.FromDate.Value > DateTime.UtcNow || filter.ToDate.Value < DateTime.UtcNow)
             {
                 throw new BadRequestException("Ngày Không Hợp Lệ");
             }

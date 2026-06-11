@@ -59,7 +59,8 @@ public class UserService : IUserService
             pageSize = 10;
 
         bool isAdmin =
-            currentUserRoles != null && currentUserRoles.Any(r => r.Trim().ToLower() == "Super_Admin");
+            currentUserRoles != null
+            && currentUserRoles.Any(r => r.Trim().ToLower() == "Super_Admin");
 
         var query = _userRepository
             .GetAll()
@@ -206,7 +207,7 @@ public class UserService : IUserService
             {
                 var dob = dto.DayOfBirth.Value;
 
-                if (dob > DateOnly.FromDateTime(DateTime.Now))
+                if (dob > DateOnly.FromDateTime(DateTime.UtcNow))
                 {
                     throw new BadRequestException("Ngày sinh không hợp lệ");
                 }
