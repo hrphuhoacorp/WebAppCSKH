@@ -8,6 +8,10 @@ import {
     History,
     GiftIcon,
     MailCheck,
+    BarChart2,
+    ArrowLeftRight,
+    Table2,
+    Library,
 } from 'lucide-react';
 import React from 'react';
 
@@ -52,12 +56,31 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: GiftIcon,
                 roles: ['Super_Admin', 'Admin_Media', 'Online', 'Staff'],
             },
+        ],
+    },
+    {
+        title: 'Giỏ Quà',
+        children: [
             {
-                title: 'Quản lý giỏ quà',
-                href: '/dashboard/customer_care/gift_baskets',
-                icon: GiftIcon,
-                roles: ['Super_Admin', 'Admin_Media', 'Online', 'Staff'],
-            }
+                title: 'Thư viện giỏ',
+                href: '/dashboard/gift_basket/baskets',
+                icon: Library,
+            },
+            {
+                title: 'Dashboard Sapo',
+                href: '/dashboard/gift_basket/sapo',
+                icon: BarChart2,
+            },
+            {
+                title: 'Yêu cầu đổi mã',
+                href: '/dashboard/gift_basket/change_requests',
+                icon: ArrowLeftRight,
+            },
+            {
+                title: 'Bảng quy đổi mã',
+                href: '/dashboard/gift_basket/code_mappings',
+                icon: Table2,
+            },
         ],
     },
     {

@@ -211,8 +211,6 @@ export default function NewsManagePage() {
                 title="Quản Lý Tin Nội Bộ"
                 subtitle="Soạn thảo và quản lý thông báo, tin tức nội bộ"
                 icon={<CampaignRounded />}
-                gradient="linear-gradient(135deg, #086839 0%, #16a34a 100%)"
-                shadowColor="rgba(8,104,57,0.28)"
                 actions={
                     <Button
                         variant="contained"
