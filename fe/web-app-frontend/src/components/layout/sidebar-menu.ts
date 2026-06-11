@@ -72,17 +72,7 @@ export const sidebarMenu: SidebarGroup[] = [
             }
         ],
     },
-    {
-        title: 'Nội Bộ',
-        children: [
-            {
-                title: 'Quản lý tin nội bộ',
-                href: '/dashboard/news',
-                icon: CampaignRounded,
-                roles: ['Super_Admin', 'Admin_Media'],
-            }
-        ]
-    },
+ 
 
     {
         title: 'Tiện Ích',
@@ -106,6 +96,17 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: Link2,
             },
         ],
+    },
+    {
+        title: 'Nội Bộ',
+        children: [
+            {
+                title: 'Quản lý tin nội bộ',
+                href: '/dashboard/news',
+                icon: CampaignRounded,
+                roles: ['Super_Admin', 'Admin_Media'],
+            }
+        ]
     },
     {
         title: 'Thông tin cá nhân',

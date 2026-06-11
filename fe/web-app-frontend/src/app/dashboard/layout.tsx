@@ -1,5 +1,6 @@
 import Sidebar from '@/components/layout/Sidebar';
 import ProtectedRoute from '@/providers/ProtectedRoute';
+import RouteGuard from '@/providers/RouteGuard';
 import Box from '@mui/material/Box';
 
 export default function DashboardLayout({
@@ -9,21 +10,23 @@ export default function DashboardLayout({
 }) {
     return (
         <ProtectedRoute>
-            <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-                <Sidebar />
+            <RouteGuard>
+                <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+                    <Sidebar />
 
-                <Box
-                    component="main"
-                    sx={{
-                        flex: 1,
-                        minWidth: 0,
-                        overflowX: 'hidden',
-                        pt: { xs: '56px', lg: 0 },
-                    }}
-                >
-                    {children}
+                    <Box
+                        component="main"
+                        sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            overflowX: 'hidden',
+                            pt: { xs: '56px', lg: 0 },
+                        }}
+                    >
+                        {children}
+                    </Box>
                 </Box>
-            </Box>
+            </RouteGuard>
         </ProtectedRoute>
     );
 }
