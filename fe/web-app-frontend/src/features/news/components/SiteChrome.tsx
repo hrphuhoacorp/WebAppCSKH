@@ -243,7 +243,6 @@ export function SiteFooter() {
                         {[
                             { label: 'Trang chủ', href: '/home' },
                             { label: 'Dashboard', href: '/dashboard' },
-                            { label: 'Quản lý tin', href: '/dashboard/news' },
                             { label: 'Hồ sơ cá nhân', href: '/dashboard/profile' },
                         ].map(({ label, href }) => (
                             <Box key={href} onClick={() => router.push(href)}

@@ -135,7 +135,7 @@ public class InternalNewsService : IInternalNewsService
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return await GetByIdAsync(news.Id);
+            return MapToDTO(news);
         }
         catch
         {
@@ -149,6 +149,7 @@ public class InternalNewsService : IInternalNewsService
     {
         var news = await _internalNewsRepository
             .GetAll()
+            .Include(x => x.CreatedByNavigation)
             .FirstOrDefaultAsync(x => x.Id == id && x.DeletedAt == null);
 
         if (news == null)
@@ -160,11 +161,12 @@ public class InternalNewsService : IInternalNewsService
         news.Type = dto.Type;
         news.Status = dto.Status;
         news.IsPinned = dto.IsPinned;
+        news.UpdatedAt = DateTime.UtcNow;
 
         await _internalNewsRepository.Update(news);
-
         await _unitOfWork.SaveChangesAsync();
-        return await GetByIdAsync(id);
+
+        return MapToDTO(news);
     }
 
     public async Task DeleteAsync(int id)
@@ -178,7 +180,6 @@ public class InternalNewsService : IInternalNewsService
 
         news.DeletedAt = DateTime.Now.AddHours(7);
         await _internalNewsRepository.Update(news);
-
         await _unitOfWork.SaveChangesAsync();
     }
 
@@ -186,23 +187,26 @@ public class InternalNewsService : IInternalNewsService
     {
         var news = await _internalNewsRepository
             .GetAll()
+            .Include(x => x.CreatedByNavigation)
             .FirstOrDefaultAsync(x => x.Id == id && x.DeletedAt == null);
 
         if (news == null)
             throw new NotFoundException("Không tìm thấy tin tức");
 
         news.IsPinned = !(news.IsPinned ?? false);
+        news.UpdatedAt = DateTime.UtcNow;
 
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
 
-        return await GetByIdAsync(id);
+        return MapToDTO(news);
     }
 
     public async Task<InternalNewsDTO> PublishAsync(int id)
     {
         var news = await _internalNewsRepository
             .GetAll()
+            .Include(x => x.CreatedByNavigation)
             .FirstOrDefaultAsync(x => x.Id == id && x.DeletedAt == null);
 
         if (news == null)
@@ -210,16 +214,18 @@ public class InternalNewsService : IInternalNewsService
 
         news.Status = "published";
         news.UpdatedAt = DateTime.UtcNow;
+
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
 
-        return await GetByIdAsync(id);
+        return MapToDTO(news);
     }
 
     public async Task<InternalNewsDTO> UnpublishAsync(int id)
     {
         var news = await _internalNewsRepository
             .GetAll()
+            .Include(x => x.CreatedByNavigation)
             .FirstOrDefaultAsync(x => x.Id == id && x.DeletedAt == null);
 
         if (news == null)
@@ -227,11 +233,27 @@ public class InternalNewsService : IInternalNewsService
 
         news.Status = "draft";
         news.UpdatedAt = DateTime.UtcNow;
+
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
 
-        return await GetByIdAsync(id);
+        return MapToDTO(news);
     }
+
+    private static InternalNewsDTO MapToDTO(InternalNews news) => new InternalNewsDTO
+    {
+        Id = news.Id,
+        Title = news.Title,
+        Content = news.Content,
+        ThumbnailUrl = news.ThumbnailUrl,
+        Type = news.Type,
+        Status = news.Status,
+        ViewCount = news.ViewCount ?? 0,
+        IsPinned = news.IsPinned ?? false,
+        CreatedByName = news.CreatedByNavigation?.Name,
+        CreatedAt = news.CreatedAt,
+        UpdatedAt = news.UpdatedAt,
+    };
 
     public async Task<string> UploadImageAsync(IFormFile file)
     {

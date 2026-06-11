@@ -2,45 +2,63 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-    Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-    DialogTitle, IconButton, MenuItem, Pagination, Paper, Stack,
-    Switch, TablePagination, TextField, Tooltip, Typography, alpha,
+    Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
+    DialogTitle, IconButton, MenuItem, Paper, TablePagination,
+    TextField, Tooltip, Typography, Switch,
 } from '@mui/material';
 import {
-    AddRounded, EditRounded, DeleteRounded,
-    PushPinRounded, VisibilityRounded, SendRounded, UnpublishedRounded,
-    CloudUploadRounded, CloseRounded,
+    AddRounded, EditRounded, DeleteRounded, PushPinRounded,
+    SendRounded, UnpublishedRounded, CloudUploadRounded, CloseRounded,
+    ArticleRounded, CheckCircleRounded, DraftsRounded, BookmarkRounded,
+    VisibilityRounded, AccessTimeRounded,
 } from '@mui/icons-material';
+import { CampaignRounded } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import PageHeader from '@/components/common/PageHeader';
-import { CampaignRounded } from '@mui/icons-material';
 import { newsApi } from '@/features/news/api/news.api';
 import NewsEditor from '@/features/news/components/NewsEditor';
+import { TYPE_LABEL, TYPE_OPTIONS, NewsItem } from '@/features/news/news.shared';
 
-type NewsItem = {
-    id: number;
-    title: string;
-    content: string;
-    thumbnailUrl?: string;
-    type?: string;
-    status?: string;
-    viewCount: number;
-    isPinned: boolean;
-    createdByName?: string;
-    createdAt?: string;
-    updatedAt?: string;
-};
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-const TYPE_OPTIONS = [
-    { value: 'announcement', label: 'Thông báo' },
-    { value: 'event', label: 'Sự kiện' },
-    { value: 'info', label: 'Thông tin' },
-    { value: 'policy', label: 'Chính sách' },
-    { value: 'hr', label: 'Nhân sự' },
-    { value: 'training', label: 'Đào tạo' },
-    { value: 'achievement', label: 'Vinh danh' },
-];
+function TypeBadge({ type }: { type?: string }) {
+    const info = type ? TYPE_LABEL[type] : null;
+    if (!info) return null;
+    return (
+        <Box sx={{
+            display: 'inline-flex', alignItems: 'center',
+            px: 1.2, py: 0.25,
+            borderRadius: '5px',
+            bgcolor: info.color + '18',
+            color: info.color,
+            fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
+            border: `1px solid ${info.color}30`,
+            whiteSpace: 'nowrap',
+        }}>
+            {info.label}
+        </Box>
+    );
+}
+
+function StatusBadge({ status }: { status?: string }) {
+    const published = status === 'published';
+    return (
+        <Box sx={{
+            display: 'inline-flex', alignItems: 'center', gap: 0.4,
+            px: 1.2, py: 0.25,
+            borderRadius: '5px',
+            bgcolor: published ? '#dcfce7' : '#fef3c7',
+            color: published ? '#15803d' : '#92400e',
+            fontSize: 11, fontWeight: 700,
+        }}>
+            <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'currentColor' }} />
+            {published ? 'Đã đăng' : 'Nháp'}
+        </Box>
+    );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NewsManagePage() {
     const [loading, setLoading] = useState(false);
@@ -49,23 +67,22 @@ export default function NewsManagePage() {
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterType, setFilterType] = useState('');
-
     const [uploadingThumb, setUploadingThumb] = useState(false);
     const thumbnailInputRef = useRef<HTMLInputElement>(null);
-
     const [page, setPage] = useState(0);
-    const pageSize = 5;
-    // Dialog state
+    const pageSize = 8;
+
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [form, setForm] = useState({
-        title: '',
-        content: '',
-        thumbnailUrl: '',
-        type: 'announcement',
-        status: 'draft',
-        isPinned: false,
+        title: '', content: '', thumbnailUrl: '',
+        type: 'announcement', status: 'draft', isPinned: false,
     });
+
+    // stats derived from list (approximation — real stats need dedicated API)
+    const publishedCount = newsList.filter(n => n.status === 'published').length;
+    const draftCount = newsList.filter(n => n.status !== 'published').length;
+    const pinnedCount = newsList.filter(n => n.isPinned).length;
 
     const fetchNews = async () => {
         try {
@@ -75,7 +92,7 @@ export default function NewsManagePage() {
                 status: filterStatus || undefined,
                 type: filterType || undefined,
                 pageSize,
-                page: page+1
+                page: page + 1,
             });
             setNewsList(res.content.items);
             setTotal(res.content.totalItems);
@@ -87,8 +104,6 @@ export default function NewsManagePage() {
     };
 
     useEffect(() => { setPage(0); }, [search, filterStatus, filterType]);
-
-    // Fetch khi page hoặc filter thay đổi
     useEffect(() => { fetchNews(); }, [search, filterStatus, filterType, page]);
 
     const openCreate = () => {
@@ -125,7 +140,7 @@ export default function NewsManagePage() {
             setDialogOpen(false);
             fetchNews();
         } catch (e: any) {
-            toast.error(e?.response?.data?.message ?? 'Có lỗi xảy ra');
+            toast.error(e?.response?.data?.Message ?? 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -137,17 +152,14 @@ export default function NewsManagePage() {
             await newsApi.delete(id);
             toast.success('Đã xóa bài viết');
             fetchNews();
-        } catch {
-            toast.error('Xóa thất bại');
-        }
+        } catch { toast.error('Xóa thất bại'); }
     };
 
     const handleTogglePin = async (id: number) => {
-        try {
-            await newsApi.togglePin(id);
-            fetchNews();
-        } catch {
-            toast.error('Thao tác thất bại');
+        try { await newsApi.togglePin(id); fetchNews(); }
+        catch (e: any) {
+            if (e?.response?.status === 409) { fetchNews(); return; }
+            toast.error(e?.response?.data?.Message ?? e?.response?.data?.message ?? 'Ghim thất bại');
         }
     };
 
@@ -161,10 +173,18 @@ export default function NewsManagePage() {
                 toast.success('Đã đăng bài');
             }
             fetchNews();
-        } catch {
-            toast.error('Thao tác thất bại');
+        } catch (e: any) {
+            if (e?.response?.status === 409) {
+                // State mismatch — sync lại từ server
+                toast('Trạng thái bài đã thay đổi, đang cập nhật...', { icon: '🔄' });
+                fetchNews();
+                return;
+            }
+            const msg = e?.response?.data?.Message ?? e?.response?.data?.message;
+            toast.error(msg ?? 'Thao tác thất bại');
         }
     };
+
     const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -181,8 +201,10 @@ export default function NewsManagePage() {
         }
     };
 
+    const typeColor = TYPE_LABEL[form.type]?.color ?? '#086839';
+
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: '#f0f7f3', backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)` }}>
+        <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: '#f8fafc' }}>
             <LoadingOverlay open={loading} text="Đang xử lý..." />
 
             <PageHeader
@@ -196,211 +218,423 @@ export default function NewsManagePage() {
                         variant="contained"
                         startIcon={<AddRounded />}
                         onClick={openCreate}
-                        sx={{ bgcolor: '#086839', borderRadius: '12px', fontWeight: 700, textTransform: 'none', boxShadow: '0 1px 6px rgba(8,104,57,0.18)', '&:hover': { bgcolor: '#064e2b' } }}
+                        sx={{
+                            bgcolor: '#086839', borderRadius: '10px', fontWeight: 700,
+                            textTransform: 'none', boxShadow: 'none',
+                            '&:hover': { bgcolor: '#064e2b', boxShadow: 'none' },
+                        }}
                     >
                         Soạn bài mới
                     </Button>
                 }
             />
 
-            {/* Filter */}
-            <Paper elevation={0} sx={{ p: 2, borderRadius: '16px', mb: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr' }, gap: 2 }}>
-                    <TextField size="small" label="Tìm kiếm" value={search} onChange={e => setSearch(e.target.value)}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }} />
-                    <TextField select size="small" label="Loại" value={filterType} onChange={e => setFilterType(e.target.value)}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}>
-                        <MenuItem value="">Tất cả</MenuItem>
-                        {TYPE_OPTIONS.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
-                    </TextField>
-                    <TextField select size="small" label="Trạng thái" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}>
-                        <MenuItem value="">Tất cả</MenuItem>
-                        <MenuItem value="draft">Nháp</MenuItem>
-                        <MenuItem value="published">Đã đăng</MenuItem>
-                    </TextField>
+            {/* ── Stats row ── */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
+                {[
+                    { label: 'Tổng bài viết', value: total, icon: <ArticleRounded sx={{ fontSize: 20 }} />, color: '#0369a1', bg: '#e0f2fe' },
+                    { label: 'Đã đăng', value: publishedCount, icon: <CheckCircleRounded sx={{ fontSize: 20 }} />, color: '#15803d', bg: '#dcfce7' },
+                    { label: 'Bản nháp', value: draftCount, icon: <DraftsRounded sx={{ fontSize: 20 }} />, color: '#b45309', bg: '#fef3c7' },
+                    { label: 'Đang ghim', value: pinnedCount, icon: <BookmarkRounded sx={{ fontSize: 20 }} />, color: '#7c3aed', bg: '#ede9fe' },
+                ].map(stat => (
+                    <Paper key={stat.label} elevation={0} sx={{
+                        p: 2, borderRadius: '14px', border: '1px solid #e2e8f0', bgcolor: '#fff',
+                        display: 'flex', alignItems: 'center', gap: 1.5,
+                    }}>
+                        <Box sx={{ p: 1, borderRadius: '10px', bgcolor: stat.bg, color: stat.color, display: 'flex' }}>
+                            {stat.icon}
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontSize: 22, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+                                {stat.value}
+                            </Typography>
+                            <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.2 }}>{stat.label}</Typography>
+                        </Box>
+                    </Paper>
+                ))}
+            </Box>
+
+            {/* ── Filter bar ── */}
+            <Paper elevation={0} sx={{ borderRadius: '14px', mb: 3, border: '1px solid #e2e8f0', bgcolor: '#fff', overflow: 'hidden' }}>
+                {/* Row 1: Search */}
+                <Box sx={{ px: 2.5, pt: 2.5, pb: 2, display: 'flex', gap: 1.5 }}>
+                    <TextField
+                        size="small"
+                        placeholder="Tìm theo tiêu đề bài viết..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && fetchNews()}
+                        sx={{ flex: 1, '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 13.5, bgcolor: '#f8fafc' } }}
+                        slotProps={{
+                            input: {
+                                endAdornment: search ? (
+                                    <IconButton size="small" onClick={() => setSearch('')} sx={{ mr: -0.5 }}>
+                                        <CloseRounded sx={{ fontSize: 14 }} />
+                                    </IconButton>
+                                ) : null,
+                            },
+                        }}
+                    />
+                    <Button
+                        variant="contained"
+                        onClick={fetchNews}
+                        sx={{
+                            bgcolor: '#086839', borderRadius: '10px', fontWeight: 600,
+                            textTransform: 'none', px: 2.5, boxShadow: 'none', flexShrink: 0,
+                            '&:hover': { bgcolor: '#064e2b', boxShadow: 'none' },
+                        }}
+                    >
+                        Tìm kiếm
+                    </Button>
+                </Box>
+
+                {/* Row 2: Filters */}
+                <Box sx={{
+                    px: 2.5, py: 1.5,
+                    borderTop: '1px solid #f1f5f9',
+                    display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center',
+                }}>
+                    {/* Status label */}
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, textTransform: 'uppercase', mr: 0.5 }}>
+                        Trạng thái
+                    </Typography>
+                    {[
+                        { value: '', label: 'Tất cả', color: '#475569', bg: '#f1f5f9' },
+                        { value: 'published', label: 'Đã đăng', color: '#15803d', bg: '#dcfce7' },
+                        { value: 'draft', label: 'Nháp', color: '#92400e', bg: '#fef3c7' },
+                    ].map(s => (
+                        <Box key={s.value} onClick={() => setFilterStatus(s.value)} sx={{
+                            px: 1.4, py: 0.45, borderRadius: '7px', fontSize: 12.5, fontWeight: 600,
+                            cursor: 'pointer', transition: 'all 0.15s',
+                            bgcolor: filterStatus === s.value ? s.bg : 'transparent',
+                            color: filterStatus === s.value ? s.color : '#94a3b8',
+                            border: `1.5px solid ${filterStatus === s.value ? s.bg : 'transparent'}`,
+                            '&:hover': { bgcolor: s.bg, color: s.color },
+                        }}>
+                            {s.label}
+                        </Box>
+                    ))}
+
+                    <Box sx={{ width: 1, height: 18, bgcolor: '#e2e8f0', mx: 0.5 }} />
+
+                    {/* Type label */}
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#94a3b8', letterSpacing: 0.5, textTransform: 'uppercase', mr: 0.5 }}>
+                        Danh mục
+                    </Typography>
+                    <Box onClick={() => setFilterType('')} sx={{
+                        px: 1.4, py: 0.45, borderRadius: '7px', fontSize: 12.5, fontWeight: 600,
+                        cursor: 'pointer', transition: 'all 0.15s',
+                        bgcolor: filterType === '' ? '#f1f5f9' : 'transparent',
+                        color: filterType === '' ? '#475569' : '#94a3b8',
+                        '&:hover': { bgcolor: '#f1f5f9', color: '#475569' },
+                    }}>
+                        Tất cả
+                    </Box>
+                    {Object.entries(TYPE_LABEL).map(([key, info]) => (
+                        <Box key={key} onClick={() => setFilterType(filterType === key ? '' : key)} sx={{
+                            px: 1.4, py: 0.45, borderRadius: '7px', fontSize: 12.5, fontWeight: 600,
+                            cursor: 'pointer', transition: 'all 0.15s',
+                            bgcolor: filterType === key ? info.color + '18' : 'transparent',
+                            color: filterType === key ? info.color : '#94a3b8',
+                            border: `1.5px solid ${filterType === key ? info.color + '40' : 'transparent'}`,
+                            '&:hover': { bgcolor: info.color + '14', color: info.color },
+                        }}>
+                            {info.label}
+                        </Box>
+                    ))}
                 </Box>
             </Paper>
 
-            {/* Danh sách bài */}
-            <Stack spacing={2}>
-                {newsList.map(item => (
-                    <Paper key={item.id} elevation={0} sx={{
-                        p: 2.5, borderRadius: '16px', border: '1px solid #e2e8f0', bgcolor: '#fff',
-                        borderLeft: item.isPinned ? '4px solid #086839' : '4px solid transparent',
-                        '&:hover': { boxShadow: '0 4px 20px rgba(8,104,57,0.08)' }, transition: 'all 0.2s',
-                    }}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                <Stack direction="row" spacing={1} sx={{ mb: 0.8, flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-                                    {item.isPinned && <Chip label="📌 Ghim" size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20 }} />}
-                                    <Chip
-                                        label={TYPE_OPTIONS.find(t => t.value === item.type)?.label ?? item.type}
-                                        size="small"
-                                        sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 600, fontSize: 11, height: 20 }}
-                                    />
-                                    <Chip
-                                        label={item.status === 'published' ? 'Đã đăng' : 'Nháp'}
-                                        size="small"
-                                        sx={{
-                                            bgcolor: item.status === 'published' ? '#dcfce7' : '#fef3c7',
-                                            color: item.status === 'published' ? '#15803d' : '#b45309',
-                                            fontWeight: 700, fontSize: 11, height: 20,
-                                        }}
-                                    />
-                                </Stack>
-                                <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#0f172a', mb: 0.5 }}>
-                                    {item.title}
-                                </Typography>
-                                <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>
-                                    {item.createdByName} • {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : ''} • 👁 {item.viewCount}
-                                </Typography>
+            {/* ── Article list ── */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {newsList.length === 0 && !loading && (
+                    <Box sx={{ textAlign: 'center', py: 14, color: '#94a3b8', bgcolor: '#fff', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                        <ArticleRounded sx={{ fontSize: 48, mb: 1, opacity: 0.25 }} />
+                        <Typography sx={{ fontWeight: 700, fontSize: 15, color: '#64748b' }}>Chưa có bài viết nào</Typography>
+                        <Typography sx={{ fontSize: 13, mt: 0.5 }}>Nhấn "Soạn bài mới" để bắt đầu</Typography>
+                    </Box>
+                )}
+
+                {newsList.map(item => {
+                    const typeInfo = item.type ? TYPE_LABEL[item.type] : null;
+                    const accentColor = typeInfo?.color ?? '#086839';
+
+                    return (
+                        <Paper key={item.id} elevation={0} sx={{
+                            borderRadius: '14px',
+                            border: '1px solid #e2e8f0',
+                            bgcolor: '#fff',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            transition: 'box-shadow 0.2s, border-color 0.2s',
+                            '&:hover': {
+                                boxShadow: `0 4px 20px ${accentColor}14`,
+                                borderColor: accentColor + '40',
+                            },
+                        }}>
+                            {/* Left color accent */}
+                            <Box sx={{ width: 4, flexShrink: 0, bgcolor: accentColor, opacity: item.status === 'published' ? 1 : 0.35 }} />
+
+                            {/* Main content */}
+                            <Box sx={{ flex: 1, minWidth: 0, p: 2.5, display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    {/* Badges row */}
+                                    <Box sx={{ display: 'flex', gap: 0.8, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                                        {item.isPinned && (
+                                            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 1.2, py: 0.25, borderRadius: '5px', bgcolor: '#ede9fe', color: '#7c3aed', fontSize: 11, fontWeight: 700 }}>
+                                                <PushPinRounded sx={{ fontSize: 11 }} /> Đang ghim
+                                            </Box>
+                                        )}
+                                        <TypeBadge type={item.type} />
+                                        <StatusBadge status={item.status} />
+                                    </Box>
+
+                                    {/* Title */}
+                                    <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: '#0f172a', mb: 0.8, lineHeight: 1.4 }}>
+                                        {item.title}
+                                    </Typography>
+
+                                    {/* Meta */}
+                                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 12, color: '#94a3b8' }}>
+                                            <AccessTimeRounded sx={{ fontSize: 13 }} />
+                                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '—'}
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 12, color: '#94a3b8' }}>
+                                            <VisibilityRounded sx={{ fontSize: 13 }} />
+                                            {item.viewCount.toLocaleString()} lượt xem
+                                        </Box>
+                                        {item.createdByName && (
+                                            <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>
+                                                bởi <Box component="span" sx={{ color: '#64748b', fontWeight: 600 }}>{item.createdByName}</Box>
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Box>
+
+                                {/* Thumbnail */}
+                                {item.thumbnailUrl && (
+                                    <Box sx={{
+                                        width: 80, height: 60, flexShrink: 0,
+                                        borderRadius: '8px', overflow: 'hidden',
+                                        border: '1px solid #f1f5f9',
+                                        display: { xs: 'none', sm: 'block' },
+                                    }}>
+                                        <Box component="img" src={item.thumbnailUrl} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                    </Box>
+                                )}
                             </Box>
 
-                            {/* Actions */}
-                            <Stack direction="row" spacing={0.5}>
+                            {/* Action buttons */}
+                            <Box sx={{
+                                display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                                gap: 0.5, px: 1.5, borderLeft: '1px solid #f1f5f9',
+                                flexShrink: 0,
+                            }}>
                                 <Tooltip title={item.isPinned ? 'Bỏ ghim' : 'Ghim bài'}>
                                     <IconButton size="small" onClick={() => handleTogglePin(item.id)}
-                                        sx={{ color: item.isPinned ? '#086839' : '#94a3b8', '&:hover': { bgcolor: alpha('#086839', 0.08) } }}>
-                                        <PushPinRounded sx={{ fontSize: 18 }} />
+                                        sx={{ color: item.isPinned ? '#7c3aed' : '#cbd5e1', '&:hover': { bgcolor: '#ede9fe', color: '#7c3aed' } }}>
+                                        <PushPinRounded sx={{ fontSize: 17 }} />
                                     </IconButton>
                                 </Tooltip>
                                 <Tooltip title={item.status === 'published' ? 'Hủy đăng' : 'Đăng bài'}>
                                     <IconButton size="small" onClick={() => handlePublish(item.id, item.status ?? '')}
-                                        sx={{ color: item.status === 'published' ? '#f59e0b' : '#086839', '&:hover': { bgcolor: alpha('#086839', 0.08) } }}>
-                                        {item.status === 'published' ? <UnpublishedRounded sx={{ fontSize: 18 }} /> : <SendRounded sx={{ fontSize: 18 }} />}
+                                        sx={{
+                                            color: item.status === 'published' ? '#f59e0b' : '#15803d',
+                                            '&:hover': { bgcolor: item.status === 'published' ? '#fef3c7' : '#dcfce7' },
+                                        }}>
+                                        {item.status === 'published'
+                                            ? <UnpublishedRounded sx={{ fontSize: 17 }} />
+                                            : <SendRounded sx={{ fontSize: 17 }} />}
                                     </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Chỉnh sửa">
                                     <IconButton size="small" onClick={() => openEdit(item)}
-                                        sx={{ color: '#2563eb', '&:hover': { bgcolor: alpha('#2563eb', 0.08) } }}>
-                                        <EditRounded sx={{ fontSize: 18 }} />
+                                        sx={{ color: '#93c5fd', '&:hover': { bgcolor: '#dbeafe', color: '#2563eb' } }}>
+                                        <EditRounded sx={{ fontSize: 17 }} />
                                     </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Xóa">
                                     <IconButton size="small" onClick={() => handleDelete(item.id)}
-                                        sx={{ color: '#ef4444', '&:hover': { bgcolor: alpha('#ef4444', 0.08) } }}>
-                                        <DeleteRounded sx={{ fontSize: 18 }} />
+                                        sx={{ color: '#fca5a5', '&:hover': { bgcolor: '#fee2e2', color: '#ef4444' } }}>
+                                        <DeleteRounded sx={{ fontSize: 17 }} />
                                     </IconButton>
                                 </Tooltip>
-                            </Stack>
-                           
-                        </Box>
-                    </Paper>
-                ))}
-                <Box sx={{
-                    bgcolor: '#fff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '16px',
-                    mt: 2,
-                    overflow: 'hidden',
-                }}>
+                            </Box>
+                        </Paper>
+                    );
+                })}
+            </Box>
+
+            {/* ── Pagination ── */}
+            {total > pageSize && (
+                <Paper elevation={0} sx={{ borderRadius: '14px', border: '1px solid #e2e8f0', bgcolor: '#fff', mt: 2, overflow: 'hidden' }}>
                     <TablePagination
                         component="div"
                         count={total}
                         page={page}
                         rowsPerPage={pageSize}
                         onPageChange={(_, newPage) => setPage(newPage)}
-                        rowsPerPageOptions={[]} // ẩn dropdown đổi số dòng nếu không cần
-                        labelRowsPerPage="Số dòng:"
+                        rowsPerPageOptions={[]}
+                        labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count} bài`}
                         sx={{
                             '& .MuiTablePagination-toolbar': { minHeight: 48 },
-                            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                                fontSize: 13,
-                                color: '#64748b',
-                            },
+                            '& .MuiTablePagination-displayedRows': { fontSize: 13, color: '#64748b' },
                         }}
                     />
-                </Box>
-                {!newsList.length && !loading && (
-                    <Box sx={{ textAlign: 'center', py: 10, color: '#94a3b8' }}>
-                        <Typography sx={{ fontSize: 48, mb: 1 }}>📭</Typography>
-                        <Typography sx={{ fontWeight: 700, fontSize: 15 }}>Chưa có bài viết nào</Typography>
-                    </Box>
-                )}
-            </Stack>
+                </Paper>
+            )}
 
-            {/* Dialog soạn bài */}
+            {/* ── Dialog soạn / sửa bài ── */}
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="lg" fullWidth
-                slotProps={{ paper: { sx: { borderRadius: '20px', maxHeight: '90vh' } } }}>
-                <DialogTitle sx={{ fontWeight: 800, color: '#0f172a', borderBottom: '1px solid #f1f5f9', pb: 2 }}>
-                    {editingId ? 'Chỉnh sửa bài viết' : 'Soạn bài mới'}
+                slotProps={{ paper: { sx: { borderRadius: '20px', maxHeight: '92vh' } } }}>
+
+                {/* Header với accent color theo type */}
+                <DialogTitle sx={{ p: 0 }}>
+                    <Box sx={{
+                        px: 3, py: 2.5,
+                        borderBottom: '1px solid #f1f5f9',
+                        display: 'flex', alignItems: 'center', gap: 2,
+                    }}>
+                        <Box sx={{
+                            width: 36, height: 36, borderRadius: '10px',
+                            bgcolor: typeColor + '18', color: typeColor,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <CampaignRounded sx={{ fontSize: 20 }} />
+                        </Box>
+                        <Box>
+                            <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>
+                                {editingId ? 'Chỉnh sửa bài viết' : 'Soạn bài mới'}
+                            </Typography>
+                            {form.type && (
+                                <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.2 }}>
+                                    Danh mục: <Box component="span" sx={{ color: typeColor, fontWeight: 600 }}>{TYPE_LABEL[form.type]?.label}</Box>
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
                 </DialogTitle>
-                <DialogContent sx={{ pt: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+
+                <DialogContent sx={{ pt: '20px !important', pb: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                    {/* Title */}
                     <TextField
-                        label="Tiêu đề" fullWidth size="small"
-                        value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px', fontSize: 16, fontWeight: 700 } }}
+                        label="Tiêu đề bài viết" fullWidth size="small"
+                        value={form.title}
+                        onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 15, fontWeight: 700 } }}
                     />
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
-                        <TextField select size="small" label="Loại" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}>
-                            {TYPE_OPTIONS.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+
+                    {/* Meta row */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
+                        {/* Type selector with color preview */}
+                        <TextField select size="small" label="Danh mục"
+                            value={form.type}
+                            onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                        >
+                            {Object.entries(TYPE_LABEL).map(([key, info]) => (
+                                <MenuItem key={key} value={key}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: info.color, flexShrink: 0 }} />
+                                        {info.label}
+                                    </Box>
+                                </MenuItem>
+                            ))}
                         </TextField>
-                        <TextField select size="small" label="Trạng thái" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}>
-                            <MenuItem value="draft">Lưu nháp</MenuItem>
-                            <MenuItem value="published">Đăng luôn</MenuItem>
+
+                        {/* Status */}
+                        <TextField select size="small" label="Trạng thái"
+                            value={form.status}
+                            onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                        >
+                            <MenuItem value="draft">
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+                                    Lưu nháp
+                                </Box>
+                            </MenuItem>
+                            <MenuItem value="published">
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#22c55e' }} />
+                                    Đăng luôn
+                                </Box>
+                            </MenuItem>
                         </TextField>
+
+                        {/* Thumbnail upload */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <input
-                                ref={thumbnailInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                hidden
-                                onChange={handleThumbnailUpload}
-                            />
+                            <input ref={thumbnailInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handleThumbnailUpload} />
                             <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={uploadingThumb ? <CircularProgress size={16} /> : <CloudUploadRounded />}
+                                variant="outlined" size="small" fullWidth
+                                startIcon={uploadingThumb ? <CircularProgress size={14} /> : <CloudUploadRounded />}
                                 disabled={uploadingThumb}
                                 onClick={() => thumbnailInputRef.current?.click()}
                                 sx={{
-                                    borderRadius: '12px',
-                                    textTransform: 'none',
-                                    fontWeight: 600,
-                                    borderColor: '#e2e8f0',
-                                    color: '#475569',
-                                    height: 40,
-                                    flex: 1,
-                                    '&:hover': { borderColor: '#086839', color: '#086839' },
+                                    borderRadius: '10px', textTransform: 'none', fontWeight: 600, height: 40,
+                                    borderColor: '#e2e8f0', color: '#475569',
+                                    '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: '#f0fdf4' },
                                 }}
                             >
                                 {form.thumbnailUrl ? 'Đổi ảnh bìa' : 'Tải ảnh bìa'}
                             </Button>
                             {form.thumbnailUrl && (
-                                <IconButton
-                                    size="small"
-                                    onClick={() => setForm(f => ({ ...f, thumbnailUrl: '' }))}
-                                    sx={{ color: '#ef4444' }}
-                                >
-                                    <CloseRounded sx={{ fontSize: 18 }} />
+                                <IconButton size="small" onClick={() => setForm(f => ({ ...f, thumbnailUrl: '' }))}
+                                    sx={{ color: '#fca5a5', '&:hover': { color: '#ef4444', bgcolor: '#fee2e2' } }}>
+                                    <CloseRounded sx={{ fontSize: 16 }} />
                                 </IconButton>
                             )}
                         </Box>
                     </Box>
+
+                    {/* Thumbnail preview */}
                     {form.thumbnailUrl && (
-                        <Box sx={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', maxWidth: 300 }}>
-                            <Box
-                                component="img"
-                                src={form.thumbnailUrl}
-                                alt="Thumbnail preview"
-                                sx={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }}
-                            />
+                        <Box sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #e2e8f0', maxWidth: 280 }}>
+                            <Box component="img" src={form.thumbnailUrl} alt="Thumbnail" sx={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
                         </Box>
                     )}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Switch checked={form.isPinned} onChange={e => setForm(f => ({ ...f, isPinned: e.target.checked }))}
-                            sx={{ '& .MuiSwitch-thumb': { bgcolor: form.isPinned ? '#086839' : undefined } }} />
-                        <Typography sx={{ fontSize: 13, color: '#475569' }}>Ghim bài viết lên đầu</Typography>
+
+                    {/* Pin toggle */}
+                    <Box sx={{
+                        display: 'flex', alignItems: 'center', gap: 1.5,
+                        px: 2, py: 1.2, borderRadius: '10px',
+                        bgcolor: form.isPinned ? '#f5f3ff' : '#f8fafc',
+                        border: '1px solid', borderColor: form.isPinned ? '#ddd6fe' : '#e2e8f0',
+                        transition: 'all 0.2s', width: 'fit-content',
+                    }}>
+                        <Switch
+                            checked={form.isPinned}
+                            onChange={e => setForm(f => ({ ...f, isPinned: e.target.checked }))}
+                            size="small"
+                            sx={{
+                                '& .MuiSwitch-switchBase.Mui-checked': { color: '#7c3aed' },
+                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#7c3aed' },
+                            }}
+                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                            <PushPinRounded sx={{ fontSize: 15, color: form.isPinned ? '#7c3aed' : '#94a3b8' }} />
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: form.isPinned ? '#7c3aed' : '#64748b' }}>
+                                {form.isPinned ? 'Đang ghim bài viết' : 'Ghim lên đầu'}
+                            </Typography>
+                        </Box>
                     </Box>
+
+                    {/* Editor */}
                     <NewsEditor value={form.content} onChange={v => setForm(f => ({ ...f, content: v }))} />
                 </DialogContent>
-                <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #f1f5f9' }}>
-                    <Button onClick={() => setDialogOpen(false)} sx={{ textTransform: 'none', color: '#64748b' }}>Hủy</Button>
+
+                <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #f1f5f9', gap: 1 }}>
+                    <Button onClick={() => setDialogOpen(false)}
+                        sx={{ textTransform: 'none', color: '#64748b', borderRadius: '10px' }}>
+                        Hủy
+                    </Button>
                     <Button variant="contained" onClick={handleSave} disabled={loading}
-                        sx={{ bgcolor: '#086839', borderRadius: '10px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#064e2b' } }}>
+                        sx={{
+                            bgcolor: typeColor, borderRadius: '10px', textTransform: 'none',
+                            fontWeight: 700, boxShadow: 'none',
+                            '&:hover': { bgcolor: typeColor, filter: 'brightness(0.88)', boxShadow: 'none' },
+                        }}>
                         {editingId ? 'Cập nhật' : 'Lưu bài'}
                     </Button>
                 </DialogActions>
