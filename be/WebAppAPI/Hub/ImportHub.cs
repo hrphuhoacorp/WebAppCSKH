@@ -1,6 +1,3 @@
 using Microsoft.AspNetCore.SignalR;
 
-public class ImportHub : Hub
-{
-    
-}
+public class ImportHub : Hub { }

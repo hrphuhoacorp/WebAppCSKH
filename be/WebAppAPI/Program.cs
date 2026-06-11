@@ -44,7 +44,7 @@ builder.Services.AddScoped<IInternalNewsRepository, InternalNewsRepository>();
 builder.Services.AddMemoryCache();
 
 //signalR
-builder.Services.AddSignalR();
+
 
 //cotroller
 builder
@@ -133,6 +133,12 @@ builder.Services.AddCors(options =>
         builder =>
             builder.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()
     );
+});
+
+//signalR
+builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = 32 * 1024 * 1024; // 32MB
 });
 
 //jwt
