@@ -21,7 +21,7 @@ public class JwtAuthService
         _issuer = Configuration["JwtConfigs:Issuer"];
         _audience = Configuration["JwtConfigs:Audience"];
         _accessTokenExpiryMinutes = int.Parse(
-            Configuration["JwtConfigs:AccessTokenExpiryMinutes"] ?? "60"
+            Configuration["JwtConfigs:AccessTokenExpiryMinutes"] ?? "3600"
         );
         _context = db;
     }
