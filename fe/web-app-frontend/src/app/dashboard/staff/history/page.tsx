@@ -21,6 +21,12 @@ import {
     InputAdornment,
     MenuItem,
     Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Divider,
+    IconButton,
 } from '@mui/material';
 import {
     HistoryRounded,
@@ -28,7 +34,9 @@ import {
     SettingsBackupRestoreRounded,
     Search,
     FilterList,
-    CalendarMonth
+    CalendarMonth,
+    InfoOutlined,
+    Close,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -82,6 +90,10 @@ export default function SystemHistoryPage() {
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const [status, setStatus] = useState(''); // Chỉ dùng cho Tab Import Excel
+
+    // States phục vụ xem chi tiết thao tác
+    const [detailOpen, setDetailOpen] = useState(false);
+    const [detailLog, setDetailLog] = useState<LogRow | null>(null);
 
     // States phục vụ cho Hộp thoại xác nhận rời (ConfirmRollbackDialog)
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -349,7 +361,7 @@ export default function SystemHistoryPage() {
                     <TableHead>
                         <TableRow>
                             {currentTab === 0 ? (
-                                ['Thời gian tạo', 'Mã NV', 'Họ Tên', 'Hành động', 'Bảng tác động', 'ID Bản ghi', 'Địa chỉ IP', 'Thiết bị (User Agent)'].map(label => (
+                                ['Thời gian tạo', 'Mã NV', 'Họ Tên', 'Hành động', 'Bảng tác động', 'ID Bản ghi', 'Địa chỉ IP', 'Thiết bị (User Agent)', 'Chi tiết'].map(label => (
                                     <TableCell key={label} sx={{ bgcolor: '#f8fafc', color: '#475569', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.6px', py: 1.75, borderBottom: '2px solid #e2e8f0' }}>{label}</TableCell>
                                 ))
                             ) : (
@@ -381,6 +393,17 @@ export default function SystemHistoryPage() {
                                         <Tooltip title={log.userAgent} placement="top" arrow>
                                             <span>{log.userAgent}</span>
                                         </Tooltip>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<InfoOutlined />}
+                                            onClick={() => { setDetailLog(log); setDetailOpen(true); }}
+                                            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', borderColor: '#086839', color: '#086839', '&:hover': { bgcolor: alpha('#086839', 0.06) } }}
+                                        >
+                                            Xem thao tác
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -436,7 +459,7 @@ export default function SystemHistoryPage() {
                         {/* Không tìm thấy dữ liệu */}
                         {((currentTab === 0 && !logs.length) || (currentTab === 1 && !imports.length)) && !loading && (
                             <TableRow>
-                                <TableCell colSpan={currentTab === 0 ? 8 : 9} align="center" sx={{ py: 8 }}>
+                                <TableCell colSpan={currentTab === 0 ? 9 : 9} align="center" sx={{ py: 8 }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
                                         <Box sx={{ width: 56, height: 56, borderRadius: '16px', bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <CalendarMonth sx={{ fontSize: 28, color: '#94a3b8' }} />
@@ -477,6 +500,105 @@ export default function SystemHistoryPage() {
                 onClose={closeConfirmDialog}
                 onConfirm={handleConfirmAction}
             />
+
+            {/* ── Dialog Xem Chi Tiết Thao Tác ── */}
+            <Dialog
+                open={detailOpen}
+                onClose={() => setDetailOpen(false)}
+                maxWidth="md"
+                fullWidth
+                slotProps={{ paper: { sx: { borderRadius: '20px', overflow: 'hidden' } } }}
+            >
+                <DialogTitle sx={{ bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', py: 2, px: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <InfoOutlined sx={{ color: '#086839', fontSize: 22 }} />
+                        <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>Chi tiết thao tác</Typography>
+                        {detailLog && (
+                            <Chip label={detailLog.action} size="small" sx={{ bgcolor: alpha('#086839', 0.1), color: '#086839', fontWeight: 700, fontSize: 11, borderRadius: '6px' }} />
+                        )}
+                    </Box>
+                    <IconButton size="small" onClick={() => setDetailOpen(false)} sx={{ color: '#94a3b8', '&:hover': { color: '#475569' } }}>
+                        <Close fontSize="small" />
+                    </IconButton>
+                </DialogTitle>
+
+                <DialogContent sx={{ p: 3 }}>
+                    {detailLog && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                            {/* Thông tin cơ bản */}
+                            <Box>
+                                <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569', mb: 1.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Thông tin chung</Typography>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                                    {[
+                                        { label: 'Thời gian', value: formatDateTime(detailLog.createdAt) },
+                                        { label: 'Mã nhân viên', value: detailLog.staffCode || '-', mono: true },
+                                        { label: 'Họ tên', value: detailLog.name || '-' },
+                                        { label: 'Hành động', value: detailLog.action, chip: true },
+                                        { label: 'Bảng tác động', value: detailLog.tableName || '-', mono: true },
+                                        { label: 'ID bản ghi', value: detailLog.recordId?.toString() ?? '-', mono: true },
+                                        { label: 'Địa chỉ IP', value: detailLog.ipAddress || '-', mono: true },
+                                    ].map(({ label, value, mono, chip }) => (
+                                        <Box key={label} sx={{ bgcolor: '#f8fafc', borderRadius: '10px', p: 1.5, border: '1px solid #f1f5f9' }}>
+                                            <Typography sx={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.5 }}>{label}</Typography>
+                                            {chip ? (
+                                                <Chip label={value} size="small" sx={{ bgcolor: alpha('#086839', 0.1), color: '#086839', fontWeight: 700, fontSize: 12, borderRadius: '6px' }} />
+                                            ) : (
+                                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1e293b', fontFamily: mono ? 'monospace' : 'inherit' }}>{value}</Typography>
+                                            )}
+                                        </Box>
+                                    ))}
+                                    <Box sx={{ bgcolor: '#f8fafc', borderRadius: '10px', p: 1.5, border: '1px solid #f1f5f9', gridColumn: '1 / -1' }}>
+                                        <Typography sx={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', mb: 0.5 }}>Thiết bị (User Agent)</Typography>
+                                        <Typography sx={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace', wordBreak: 'break-all' }}>{detailLog.userAgent || '-'}</Typography>
+                                    </Box>
+                                </Box>
+                            </Box>
+
+                            {/* Old Data */}
+                            {detailLog.oldData && (
+                                <>
+                                    <Divider />
+                                    <Box>
+                                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#b45309', mb: 1.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dữ liệu cũ (Old Data)</Typography>
+                                        <Box sx={{ bgcolor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', p: 2, maxHeight: 280, overflow: 'auto' }}>
+                                            <pre style={{ margin: 0, fontSize: 12, color: '#92400e', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                {(() => { try { return JSON.stringify(JSON.parse(detailLog.oldData!), null, 2); } catch { return detailLog.oldData; } })()}
+                                            </pre>
+                                        </Box>
+                                    </Box>
+                                </>
+                            )}
+
+                            {/* New Data */}
+                            {detailLog.newData && (
+                                <>
+                                    <Divider />
+                                    <Box>
+                                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#15803d', mb: 1.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dữ liệu mới (New Data)</Typography>
+                                        <Box sx={{ bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', p: 2, maxHeight: 280, overflow: 'auto' }}>
+                                            <pre style={{ margin: 0, fontSize: 12, color: '#14532d', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                {(() => { try { return JSON.stringify(JSON.parse(detailLog.newData!), null, 2); } catch { return detailLog.newData; } })()}
+                                            </pre>
+                                        </Box>
+                                    </Box>
+                                </>
+                            )}
+
+                            {!detailLog.oldData && !detailLog.newData && (
+                                <Box sx={{ textAlign: 'center', py: 3, color: '#94a3b8' }}>
+                                    <Typography sx={{ fontSize: 13 }}>Không có dữ liệu old/new được ghi lại cho thao tác này.</Typography>
+                                </Box>
+                            )}
+                        </Box>
+                    )}
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
+                    <Button onClick={() => setDetailOpen(false)} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#086839', '&:hover': { bgcolor: '#065a30' } }}>
+                        Đóng
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebAppInfractor.Data;
@@ -11,9 +12,11 @@ using WebAppInfractor.Data;
 namespace WebAppInfractor.Migrations
 {
     [DbContext(typeof(MemBerContext))]
-    partial class MemBerContextModelSnapshot : ModelSnapshot
+    [Migration("20260611133817_AddCcrNewFields")]
+    partial class AddCcrNewFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1070,6 +1073,163 @@ namespace WebAppInfractor.Migrations
                         .IsUnique();
 
                     b.ToTable("roles", (string)null);
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.SapoImport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ImportBatchId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("import_batch_id");
+
+                    b.Property<decimal>("NetRevenue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("net_revenue");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<int>("Orders")
+                        .HasColumnType("integer")
+                        .HasColumnName("orders");
+
+                    b.Property<decimal>("Qty")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("qty");
+
+                    b.Property<string>("ReportDate")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("report_date");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("row_count");
+
+                    b.Property<DateTime?>("UploadedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<int?>("UploadedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id")
+                        .HasName("sapo_imports_pkey");
+
+                    b.ToTable("sapo_imports", (string)null);
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.SapoSale", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BasketCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("basket_code");
+
+                    b.Property<string>("Branch")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("branch");
+
+                    b.Property<string>("ImportBatchId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("import_batch_id");
+
+                    b.Property<DateTime?>("ImportedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("imported_at");
+
+                    b.Property<decimal>("NetRevenue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("net_revenue");
+
+                    b.Property<int>("Orders")
+                        .HasColumnType("integer")
+                        .HasColumnName("orders");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("price");
+
+                    b.Property<string>("ProductName")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("product_name");
+
+                    b.Property<string>("ProductType")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("product_type");
+
+                    b.Property<decimal>("Qty")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("qty");
+
+                    b.Property<string>("ReportCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("report_code");
+
+                    b.Property<string>("ReportDate")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("report_date");
+
+                    b.Property<string>("ReportName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("report_name");
+
+                    b.Property<decimal>("Revenue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("revenue");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("sku");
+
+                    b.Property<DateTime?>("UploadedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("uploaded_at");
+
+                    b.Property<int?>("UploadedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("uploaded_by");
+
+                    b.HasKey("Id")
+                        .HasName("sapo_sales_pkey");
+
+                    b.HasIndex(new[] { "ImportBatchId" }, "idx_sapo_sales_import_batch_id");
+
+                    b.HasIndex(new[] { "ReportDate" }, "idx_sapo_sales_report_date");
+
+                    b.ToTable("sapo_sales", (string)null);
                 });
 
             modelBuilder.Entity("WebAppInfractor.Models.User", b =>

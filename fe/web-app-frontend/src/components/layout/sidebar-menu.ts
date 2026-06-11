@@ -8,9 +8,7 @@ import {
     History,
     GiftIcon,
     MailCheck,
-    BarChart2,
     ArrowLeftRight,
-    Table2,
     Library,
 } from 'lucide-react';
 import React from 'react';
@@ -62,14 +60,9 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Giỏ Quà',
         children: [
             {
-                title: 'Thư viện giỏ',
+                title: 'Thư viện mã',
                 href: '/dashboard/gift_basket/baskets',
                 icon: Library,
-            },
-            {
-                title: 'Dashboard Sapo',
-                href: '/dashboard/gift_basket/sapo',
-                icon: BarChart2,
             },
             {
                 title: 'Yêu cầu đổi mã',
@@ -77,9 +70,9 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: ArrowLeftRight,
             },
             {
-                title: 'Bảng quy đổi mã',
+                title: 'Duyệt mã cần đổi',
                 href: '/dashboard/gift_basket/code_mappings',
-                icon: Table2,
+                icon: Checklist,
             },
         ],
     },

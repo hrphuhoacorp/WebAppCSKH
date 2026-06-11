@@ -42,8 +42,6 @@ builder.Services.AddScoped<IMediaFileRepository, MediaFileRepository>();
 builder.Services.AddScoped<IInternalNewsRepository, InternalNewsRepository>();
 builder.Services.AddScoped<IGiftBasketRepository, GiftBasketRepository>();
 builder.Services.AddScoped<IGiftCodeMappingRepository, GiftCodeMappingRepository>();
-builder.Services.AddScoped<ISapoSaleRepository, SapoSaleRepository>();
-builder.Services.AddScoped<ISapoImportRepository, SapoImportRepository>();
 builder.Services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
 //Cache
 builder.Services.AddMemoryCache();

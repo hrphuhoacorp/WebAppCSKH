@@ -40,8 +40,6 @@ public partial class MemBerContext : DbContext
 
     public virtual DbSet<GiftBasket> GiftBaskets { get; set; }
     public virtual DbSet<GiftCodeMapping> GiftCodeMappings { get; set; }
-    public virtual DbSet<SapoSale> SapoSales { get; set; }
-    public virtual DbSet<SapoImport> SapoImports { get; set; }
     public virtual DbSet<GiftCodeChangeRequest> GiftCodeChangeRequests { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -697,51 +695,6 @@ public partial class MemBerContext : DbContext
                 .HasForeignKey(d => d.BasketId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("gift_code_mappings_basket_id_fkey");
-        });
-
-        modelBuilder.Entity<SapoSale>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("sapo_sales_pkey");
-            entity.ToTable("sapo_sales");
-
-            entity.HasIndex(e => e.ReportDate, "idx_sapo_sales_report_date");
-            entity.HasIndex(e => e.ImportBatchId, "idx_sapo_sales_import_batch_id");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ReportDate).HasMaxLength(20).HasColumnName("report_date");
-            entity.Property(e => e.Branch).HasMaxLength(100).HasColumnName("branch");
-            entity.Property(e => e.ProductType).HasMaxLength(255).HasColumnName("product_type");
-            entity.Property(e => e.Sku).HasMaxLength(100).HasColumnName("sku");
-            entity.Property(e => e.BasketCode).HasMaxLength(50).HasColumnName("basket_code");
-            entity.Property(e => e.ReportCode).HasMaxLength(50).HasColumnName("report_code");
-            entity.Property(e => e.ReportName).HasMaxLength(255).HasColumnName("report_name");
-            entity.Property(e => e.ProductName).HasMaxLength(500).HasColumnName("product_name");
-            entity.Property(e => e.Price).HasPrecision(18, 2).HasColumnName("price");
-            entity.Property(e => e.Qty).HasPrecision(18, 2).HasColumnName("qty");
-            entity.Property(e => e.Orders).HasColumnName("orders");
-            entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
-            entity.Property(e => e.NetRevenue).HasPrecision(18, 2).HasColumnName("net_revenue");
-            entity.Property(e => e.ImportBatchId).HasMaxLength(50).HasColumnName("import_batch_id");
-            entity.Property(e => e.UploadedBy).HasColumnName("uploaded_by");
-            entity.Property(e => e.UploadedAt).HasColumnName("uploaded_at");
-            entity.Property(e => e.ImportedAt).HasColumnName("imported_at");
-        });
-
-        modelBuilder.Entity<SapoImport>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("sapo_imports_pkey");
-            entity.ToTable("sapo_imports");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ReportDate).HasMaxLength(50).HasColumnName("report_date");
-            entity.Property(e => e.ImportBatchId).HasMaxLength(50).HasColumnName("import_batch_id");
-            entity.Property(e => e.UploadedBy).HasColumnName("uploaded_by");
-            entity.Property(e => e.UploadedAt).HasColumnName("uploaded_at");
-            entity.Property(e => e.RowCount).HasColumnName("row_count");
-            entity.Property(e => e.NetRevenue).HasPrecision(18, 2).HasColumnName("net_revenue");
-            entity.Property(e => e.Orders).HasColumnName("orders");
-            entity.Property(e => e.Qty).HasPrecision(18, 2).HasColumnName("qty");
-            entity.Property(e => e.Note).HasColumnName("note");
         });
 
         modelBuilder.Entity<GiftCodeChangeRequest>(entity =>

@@ -17,22 +17,6 @@ public class GiftCodeMappingRepository : Repository<GiftCodeMapping>, IGiftCodeM
         : base(context) { }
 }
 
-public interface ISapoSaleRepository : IRepository<SapoSale> { }
-
-public class SapoSaleRepository : Repository<SapoSale>, ISapoSaleRepository
-{
-    public SapoSaleRepository(MemBerContext context)
-        : base(context) { }
-}
-
-public interface ISapoImportRepository : IRepository<SapoImport> { }
-
-public class SapoImportRepository : Repository<SapoImport>, ISapoImportRepository
-{
-    public SapoImportRepository(MemBerContext context)
-        : base(context) { }
-}
-
 public interface IGiftCodeChangeRequestRepository : IRepository<GiftCodeChangeRequest> { }
 
 public class GiftCodeChangeRequestRepository

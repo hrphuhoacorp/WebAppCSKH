@@ -1,11 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-public class ImportSapoRequest
-{
-    public IFormFile File { get; set; } = null!;
-    public string ReportDate { get; set; } = "";
-}
+using System.Text.Json;
 
 namespace WebAppAPI.Controllers
 {
@@ -16,14 +11,17 @@ namespace WebAppAPI.Controllers
     {
         private readonly IGiftBasketService _service;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IActivityService _activityService;
 
         public GiftBasketController(
             IGiftBasketService service,
-            IHttpContextAccessor httpContextAccessor
+            IHttpContextAccessor httpContextAccessor,
+            IActivityService activityService
         )
         {
             _service = service;
             _httpContextAccessor = httpContextAccessor;
+            _activityService = activityService;
         }
 
         private int GetCurrentUserId()
@@ -33,6 +31,9 @@ namespace WebAppAPI.Controllers
             );
             return int.Parse(claim!.Value);
         }
+
+        private string GetCurrentStaffCode() =>
+            _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "StaffCode")?.Value ?? "";
 
         // ─── BASKETS ──────────────────────────────────────────────────────────
 
@@ -65,7 +66,10 @@ namespace WebAppAPI.Controllers
         {
             try
             {
-                var result = await _service.CreateBasketAsync(dto, GetCurrentUserId());
+                var userId = GetCurrentUserId();
+                var result = await _service.CreateBasketAsync(dto, userId);
+                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "CREATE_BASKET", "gift_baskets", result.Id,
+                    null, JsonSerializer.Serialize(result));
                 return new ResponseValue<GiftBasketDTO> { StatusCode = 200, Data = result };
             }
             catch (Exception ex)
@@ -79,7 +83,10 @@ namespace WebAppAPI.Controllers
         {
             try
             {
-                var result = await _service.UpdateBasketAsync(dto, GetCurrentUserId());
+                var userId = GetCurrentUserId();
+                var result = await _service.UpdateBasketAsync(dto, userId);
+                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "UPDATE_BASKET", "gift_baskets", result.Id,
+                    JsonSerializer.Serialize(new { dto.Id }), JsonSerializer.Serialize(result));
                 return new ResponseValue<GiftBasketDTO> { StatusCode = 200, Data = result };
             }
             catch (NotFoundException ex)
@@ -97,7 +104,10 @@ namespace WebAppAPI.Controllers
         {
             try
             {
-                await _service.DeleteBasketAsync(id, GetCurrentUserId());
+                var userId = GetCurrentUserId();
+                await _service.DeleteBasketAsync(id, userId);
+                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "DELETE_BASKET", "gift_baskets", id,
+                    JsonSerializer.Serialize(new { id }), null);
                 return new ResponseValue<bool> { StatusCode = 200, Data = true };
             }
             catch (NotFoundException ex)
@@ -116,7 +126,10 @@ namespace WebAppAPI.Controllers
         {
             try
             {
-                var url = await _service.UploadBasketImageAsync(file, GetCurrentUserId());
+                var userId = GetCurrentUserId();
+                var url = await _service.UploadBasketImageAsync(file, userId);
+                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "UPLOAD_IMAGE", "gift_baskets", 0,
+                    null, JsonSerializer.Serialize(new { url, fileName = file.FileName }));
                 return new ResponseValue<string> { StatusCode = 200, Data = url };
             }
             catch (BadRequestException ex)
@@ -148,73 +161,6 @@ namespace WebAppAPI.Controllers
             catch (Exception ex)
             {
                 return new ResponseValue<List<GiftCodeMappingDTO>>
-                {
-                    StatusCode = 500,
-                    Message = ex.Message,
-                };
-            }
-        }
-
-        // ─── SAPO ─────────────────────────────────────────────────────────────
-
-        [HttpPost("ImportSapo")]
-        [Consumes("multipart/form-data")]
-        public async Task<ResponseValue<SapoDashboardDTO>> ImportSapo([FromForm] ImportSapoRequest request)
-        {
-            try
-            {
-                var result = await _service.ImportSapoFileAsync(
-                    request.File,
-                    request.ReportDate,
-                    GetCurrentUserId()
-                );
-                return new ResponseValue<SapoDashboardDTO> { StatusCode = 200, Data = result };
-            }
-            catch (BadRequestException ex)
-            {
-                return new ResponseValue<SapoDashboardDTO>
-                {
-                    StatusCode = 400,
-                    Message = ex.Message,
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<SapoDashboardDTO>
-                {
-                    StatusCode = 500,
-                    Message = ex.Message,
-                };
-            }
-        }
-
-        [HttpDelete("SapoImport/{importBatchId}")]
-        public async Task<ResponseValue<bool>> DeleteSapoImport(string importBatchId)
-        {
-            try
-            {
-                await _service.DeleteSapoImportAsync(importBatchId, GetCurrentUserId());
-                return new ResponseValue<bool> { StatusCode = 200, Data = true };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
-            }
-        }
-
-        [HttpGet("SapoDashboard")]
-        public async Task<ResponseValue<SapoDashboardDTO>> GetSapoDashboard(
-            [FromQuery] string? filterKey
-        )
-        {
-            try
-            {
-                var result = await _service.GetSapoDashboardAsync(filterKey ?? "all");
-                return new ResponseValue<SapoDashboardDTO> { StatusCode = 200, Data = result };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<SapoDashboardDTO>
                 {
                     StatusCode = 500,
                     Message = ex.Message,
@@ -263,7 +209,10 @@ namespace WebAppAPI.Controllers
         {
             try
             {
-                var result = await _service.CreateCodeChangeRequestAsync(dto, GetCurrentUserId());
+                var userId = GetCurrentUserId();
+                var result = await _service.CreateCodeChangeRequestAsync(dto, userId);
+                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "CREATE_CHANGE_REQUEST", "gift_code_change_requests", result.Id,
+                    null, JsonSerializer.Serialize(result));
                 return new ResponseValue<GiftCodeChangeRequestDTO>
                 {
                     StatusCode = 200,
@@ -287,7 +236,13 @@ namespace WebAppAPI.Controllers
         {
             try
             {
-                var result = await _service.HandleCodeChangeRequestAsync(dto, GetCurrentUserId());
+                var userId = GetCurrentUserId();
+                var before = await _service.GetCodeChangeRequestByIdAsync(dto.Id);
+                var result = await _service.HandleCodeChangeRequestAsync(dto, userId);
+                var action = dto.Status?.ToUpper() == "DONE" ? "APPROVE_CHANGE_REQUEST" : "REJECT_CHANGE_REQUEST";
+                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), action, "gift_code_change_requests", result.Id,
+                    before != null ? JsonSerializer.Serialize(before) : null,
+                    JsonSerializer.Serialize(result));
                 return new ResponseValue<GiftCodeChangeRequestDTO>
                 {
                     StatusCode = 200,
@@ -310,6 +265,14 @@ namespace WebAppAPI.Controllers
                     Message = ex.Message,
                 };
             }
+        }
+
+        [HttpGet("ChangeRequests/Export")]
+        public async Task<IActionResult> ExportChangeRequests([FromQuery] string? status)
+        {
+            var bytes = await _service.ExportChangeRequestsExcelAsync(status);
+            var fileName = $"doi-ma-gio-{DateTime.Now:yyyyMMdd}.xlsx";
+            return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
     }
 }

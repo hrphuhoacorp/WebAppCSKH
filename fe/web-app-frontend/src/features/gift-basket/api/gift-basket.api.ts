@@ -34,39 +34,17 @@ export interface GiftCodeMappingDTO {
     updatedAt?: string;
 }
 
-export interface SapoImportDTO {
-    id: number;
-    reportDate: string;
-    importBatchId: string;
-    uploadedBy?: number;
-    uploadedAt?: string;
-    rowCount: number;
-    netRevenue: number;
-    orders: number;
-    qty: number;
-    note?: string;
-}
-
-export interface SapoBucketDTO {
-    key: string;
-    label: string;
-    netRevenue: number;
-    revenue: number;
-    orders: number;
-    qty: number;
-}
-
-export interface SapoDashboardDTO {
-    filterKey: string;
-    totalNetRevenue: number;
-    totalRevenue: number;
-    totalOrders: number;
-    totalQty: number;
-    byCode: SapoBucketDTO[];
-    byDay: SapoBucketDTO[];
-    byBranch: SapoBucketDTO[];
-    recentImports: SapoImportDTO[];
-}
+export const BASKET_GROUPS: { code: string; name: string }[] = [
+    { code: '200-000-000', name: 'Giỏ trái cây' },
+    { code: '200-000-001', name: 'Giỏ trái cây có hoa' },
+    { code: '200-000-002', name: 'Giỏ trái cây có bánh kẹo' },
+    { code: '200-000-003', name: 'Giỏ trái cây có hoa và bánh kẹo' },
+    { code: '200-000-004', name: 'Giỏ trái cây bó hoa' },
+    { code: '200-000-005', name: 'Giỏ trái cây tráp cưới hỏi' },
+    { code: '200-001', name: 'Giỏ bánh kẹo' },
+    { code: '200-002', name: 'Giỏ rượu trái cây' },
+    { code: '200-003', name: 'Giỏ rau củ' },
+];
 
 export interface GiftCodeChangeRequestDTO {
     id: number;
@@ -75,16 +53,22 @@ export interface GiftCodeChangeRequestDTO {
     requestUid: string;
     branchId?: number;
     branchName?: string;
-    basketCodeOrName: string;
-    reason: string;
+    basketCodeOrName?: string;
+    reason?: string;
     note?: string;
     priority: string;
+    groupCode?: string;
+    price?: number;
+    sentZaloPhoto: boolean;
     frontImageUrl?: string;
     backImageUrl?: string;
     status: string;
     handledBy?: number;
     handledByName?: string;
     handledAt?: string;
+    oldCode?: string;
+    newCode?: string;
+    approvedDate?: string;
     resultNote?: string;
     createdBy?: number;
     createdByName?: string;
@@ -172,30 +156,6 @@ export const giftBasketApi = {
         return res.data as { content: GiftCodeMappingDTO[]; status: string };
     },
 
-    // ─── SAPO ─────────────────────────────────────────────────────────────────
-
-    importSapo: async (file: File, reportDate: string) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('reportDate', reportDate);
-        const res = await api.post('/GiftBasket/ImportSapo', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return res.data as { content: SapoDashboardDTO; status: string; message?: string };
-    },
-
-    deleteSapoImport: async (importBatchId: string) => {
-        const res = await api.delete(`/GiftBasket/SapoImport/${importBatchId}`);
-        return res.data;
-    },
-
-    getSapoDashboard: async (filterKey?: string) => {
-        const res = await api.get('/GiftBasket/SapoDashboard', {
-            params: { filterKey: filterKey ?? 'all' },
-        });
-        return res.data as { content: SapoDashboardDTO; status: string };
-    },
-
     // ─── CODE CHANGE REQUESTS ─────────────────────────────────────────────────
 
     getChangeRequests: async (params: {
@@ -211,10 +171,13 @@ export const giftBasketApi = {
     createChangeRequest: async (data: {
         batchNote?: string;
         branchId?: number;
-        basketCodeOrName: string;
-        reason: string;
+        basketCodeOrName?: string;
+        reason?: string;
         note?: string;
         priority?: string;
+        groupCode?: string;
+        price?: number;
+        sentZaloPhoto?: boolean;
         frontImageUrl?: string;
         backImageUrl?: string;
     }) => {
@@ -225,9 +188,18 @@ export const giftBasketApi = {
     handleChangeRequest: async (data: {
         id: number;
         status: string;
+        oldCode?: string;
+        newCode?: string;
+        price?: number;
+        approvedDate?: string;
         resultNote?: string;
     }) => {
         const res = await api.put('/GiftBasket/ChangeRequest/Handle', data);
         return res.data as { content: GiftCodeChangeRequestDTO; status: string; message?: string };
+    },
+
+    exportChangeRequests: () => {
+        const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
+        window.open(`${origin}/api/GiftBasket/ChangeRequests/Export`, '_blank');
     },
 };

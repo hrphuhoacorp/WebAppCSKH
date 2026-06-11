@@ -12,9 +12,6 @@ public interface IGiftBasketService
     Task<GiftBasketDTO> UpdateBasketAsync(UpdateGiftBasketDTO dto, int userId);
     Task<bool> DeleteBasketAsync(int id, int userId);
     Task<List<GiftCodeMappingDTO>> GetCodeMappingsAsync(int? branchId);
-    Task<SapoDashboardDTO> GetSapoDashboardAsync(string filterKey);
-    Task<SapoDashboardDTO> ImportSapoFileAsync(IFormFile file, string reportDate, int userId);
-    Task<bool> DeleteSapoImportAsync(string importBatchId, int userId);
     Task<PagedResult<GiftCodeChangeRequestDTO>> GetCodeChangeRequestsAsync(
         int page,
         int pageSize,
@@ -29,15 +26,15 @@ public interface IGiftBasketService
         HandleCodeChangeRequestDTO dto,
         int userId
     );
+    Task<GiftCodeChangeRequestDTO?> GetCodeChangeRequestByIdAsync(int id);
     Task<string> UploadBasketImageAsync(IFormFile file, int userId);
+    Task<byte[]> ExportChangeRequestsExcelAsync(string? status);
 }
 
 public class GiftBasketService : IGiftBasketService
 {
     private readonly IGiftBasketRepository _basketRepo;
     private readonly IGiftCodeMappingRepository _mappingRepo;
-    private readonly ISapoSaleRepository _sapoSaleRepo;
-    private readonly ISapoImportRepository _sapoImportRepo;
     private readonly IGiftCodeChangeRequestRepository _ccrRepo;
     private readonly IBranchRepository _branchRepo;
     private readonly IUserRepository _userRepo;
@@ -47,8 +44,6 @@ public class GiftBasketService : IGiftBasketService
     public GiftBasketService(
         IGiftBasketRepository basketRepo,
         IGiftCodeMappingRepository mappingRepo,
-        ISapoSaleRepository sapoSaleRepo,
-        ISapoImportRepository sapoImportRepo,
         IGiftCodeChangeRequestRepository ccrRepo,
         IBranchRepository branchRepo,
         IUserRepository userRepo,
@@ -58,8 +53,6 @@ public class GiftBasketService : IGiftBasketService
     {
         _basketRepo = basketRepo;
         _mappingRepo = mappingRepo;
-        _sapoSaleRepo = sapoSaleRepo;
-        _sapoImportRepo = sapoImportRepo;
         _ccrRepo = ccrRepo;
         _branchRepo = branchRepo;
         _userRepo = userRepo;
@@ -269,406 +262,6 @@ public class GiftBasketService : IGiftBasketService
         await _unitOfWork.SaveChangesAsync();
     }
 
-    // ─── SAPO IMPORT ───────────────────────────────────────────────────────────
-
-    public async Task<SapoDashboardDTO> ImportSapoFileAsync(
-        IFormFile file,
-        string reportDate,
-        int userId
-    )
-    {
-        if (file == null || file.Length == 0)
-            throw new BadRequestException("File không hợp lệ");
-
-        var importedAt = DateTime.UtcNow;
-        var batchId = "SAPO-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-
-        List<SapoSale> rows;
-        using (var stream = file.OpenReadStream())
-        using (var wb = new XLWorkbook(stream))
-        {
-            var ws = wb.Worksheet(1);
-            rows = ParseSapoWorksheet(ws, batchId, userId, importedAt, reportDate);
-        }
-
-        if (rows.Count == 0)
-            throw new BadRequestException("File Sapo không có dòng dữ liệu hợp lệ.");
-
-        // Xóa các ngày có trong file này trước khi insert để tránh trùng
-        var datesInFile = rows.Select(r => r.ReportDate)
-            .Where(d => !string.IsNullOrEmpty(d))
-            .Distinct()
-            .ToList();
-        var toDelete = await _sapoSaleRepo
-            .GetAll()
-            .Where(s => datesInFile.Contains(s.ReportDate))
-            .ToListAsync();
-        _sapoSaleRepo.RemoveRange(toDelete);
-
-        foreach (var row in rows)
-            await _sapoSaleRepo.AddAsync(row);
-
-        // Log import
-        var import = new SapoImport
-        {
-            ReportDate =
-                datesInFile.Count > 1
-                    ? $"{datesInFile.Min()} → {datesInFile.Max()}"
-                    : (datesInFile.FirstOrDefault() ?? reportDate),
-            ImportBatchId = batchId,
-            UploadedBy = userId,
-            UploadedAt = importedAt,
-            RowCount = rows.Count,
-            NetRevenue = rows.Sum(r => r.NetRevenue),
-            Orders = rows.Sum(r => r.Orders),
-            Qty = rows.Sum(r => r.Qty),
-            Note = $"Import {rows.Count} dòng / {datesInFile.Count} ngày",
-        };
-        await _sapoImportRepo.AddAsync(import);
-        await _unitOfWork.SaveChangesAsync();
-
-        return await BuildDashboardAsync("all");
-    }
-
-    public async Task<bool> DeleteSapoImportAsync(string importBatchId, int userId)
-    {
-        var rows = await _sapoSaleRepo
-            .GetAll()
-            .Where(s => s.ImportBatchId == importBatchId)
-            .ToListAsync();
-        _sapoSaleRepo.RemoveRange(rows);
-
-        var log = await _sapoImportRepo
-            .GetAll()
-            .FirstOrDefaultAsync(i => i.ImportBatchId == importBatchId);
-        if (log != null)
-            await _sapoImportRepo.DeleteAsync(log);
-
-        await _unitOfWork.SaveChangesAsync();
-        return true;
-    }
-
-    // ─── DASHBOARD ─────────────────────────────────────────────────────────────
-
-    public async Task<SapoDashboardDTO> GetSapoDashboardAsync(string filterKey) =>
-        await BuildDashboardAsync(filterKey ?? "all");
-
-    private async Task<SapoDashboardDTO> BuildDashboardAsync(string filterKey)
-    {
-        var allSales = await _sapoSaleRepo.GetAll().AsNoTracking().ToListAsync();
-        var filtered = FilterRows(allSales, filterKey);
-
-        var byCode = filtered
-            .GroupBy(r => r.ReportCode ?? r.BasketCode ?? r.Sku ?? "Chưa rõ")
-            .Select(g => new SapoBucketDTO
-            {
-                Key = g.Key,
-                Label = g.First().ReportName ?? g.Key,
-                NetRevenue = g.Sum(r => r.NetRevenue),
-                Revenue = g.Sum(r => r.Revenue),
-                Orders = g.Sum(r => r.Orders),
-                Qty = g.Sum(r => r.Qty),
-            })
-            .OrderByDescending(b => b.NetRevenue)
-            .Take(50)
-            .ToList();
-
-        var byDay = filtered
-            .GroupBy(r => r.ReportDate ?? "")
-            .Select(g => new SapoBucketDTO
-            {
-                Key = g.Key,
-                Label = g.Key,
-                NetRevenue = g.Sum(r => r.NetRevenue),
-                Revenue = g.Sum(r => r.Revenue),
-                Orders = g.Sum(r => r.Orders),
-                Qty = g.Sum(r => r.Qty),
-            })
-            .OrderBy(b => b.Key)
-            .ToList();
-
-        var byBranch = filtered
-            .GroupBy(r => r.Branch ?? "Chưa rõ")
-            .Select(g => new SapoBucketDTO
-            {
-                Key = g.Key,
-                Label = g.Key,
-                NetRevenue = g.Sum(r => r.NetRevenue),
-                Revenue = g.Sum(r => r.Revenue),
-                Orders = g.Sum(r => r.Orders),
-                Qty = g.Sum(r => r.Qty),
-            })
-            .OrderByDescending(b => b.NetRevenue)
-            .ToList();
-
-        var recentImports = await _sapoImportRepo
-            .GetAll()
-            .AsNoTracking()
-            .OrderByDescending(i => i.UploadedAt)
-            .Take(30)
-            .Select(i => new SapoImportDTO
-            {
-                Id = i.Id,
-                ReportDate = i.ReportDate,
-                ImportBatchId = i.ImportBatchId,
-                UploadedBy = i.UploadedBy,
-                UploadedAt = i.UploadedAt,
-                RowCount = i.RowCount,
-                NetRevenue = i.NetRevenue,
-                Orders = i.Orders,
-                Qty = i.Qty,
-                Note = i.Note,
-            })
-            .ToListAsync();
-
-        return new SapoDashboardDTO
-        {
-            FilterKey = filterKey,
-            TotalNetRevenue = filtered.Sum(r => r.NetRevenue),
-            TotalRevenue = filtered.Sum(r => r.Revenue),
-            TotalOrders = filtered.Sum(r => r.Orders),
-            TotalQty = filtered.Sum(r => r.Qty),
-            ByCode = byCode,
-            ByDay = byDay,
-            ByBranch = byBranch,
-            RecentImports = recentImports,
-        };
-    }
-
-    private static List<SapoSale> FilterRows(List<SapoSale> rows, string filterKey)
-    {
-        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
-        string? start = null,
-            end = today;
-
-        switch (filterKey)
-        {
-            case "today":
-                start = today;
-                break;
-            case "yesterday":
-                start = end = DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
-                break;
-            case "7days":
-                start = DateTime.UtcNow.AddDays(-6).ToString("yyyy-MM-dd");
-                break;
-            case "30days":
-                start = DateTime.UtcNow.AddDays(-29).ToString("yyyy-MM-dd");
-                break;
-            case "month":
-                start = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).ToString(
-                    "yyyy-MM-dd"
-                );
-                break;
-            default:
-                return rows;
-        }
-
-        return rows.Where(r =>
-            {
-                var d = r.ReportDate ?? "";
-                return string.Compare(d, start, StringComparison.Ordinal) >= 0
-                    && string.Compare(d, end, StringComparison.Ordinal) <= 0;
-            })
-            .ToList();
-    }
-
-    private List<SapoSale> ParseSapoWorksheet(
-        IXLWorksheet ws,
-        string batchId,
-        int userId,
-        DateTime importedAt,
-        string fallbackDate
-    )
-    {
-        var rows = ws.RangeUsed()?.RowsUsed().ToList() ?? new();
-        if (rows.Count < 2)
-            return new();
-
-        // Tìm header row có cột SKU
-        int headerRowIndex = -1;
-        Dictionary<string, int> colMap = new(StringComparer.OrdinalIgnoreCase);
-
-        for (int i = 0; i < Math.Min(rows.Count, 35); i++)
-        {
-            var cells = rows[i].CellsUsed().ToList();
-            foreach (var cell in cells)
-            {
-                var val = NormalizeHeader(cell.GetString());
-                if (val == "ma sku" || val == "sku")
-                {
-                    headerRowIndex = i;
-                    foreach (var c in rows[i].CellsUsed())
-                    {
-                        var h = NormalizeHeader(c.GetString());
-                        if (!string.IsNullOrEmpty(h) && !colMap.ContainsKey(h))
-                            colMap[h] = c.Address.ColumnNumber;
-                    }
-                    break;
-                }
-            }
-            if (headerRowIndex >= 0)
-                break;
-        }
-
-        if (headerRowIndex < 0)
-            throw new BadRequestException(
-                "File Sapo chưa đúng mẫu: không tìm thấy dòng tiêu đề có cột Mã SKU."
-            );
-
-        var result = new List<SapoSale>();
-
-        for (int i = headerRowIndex + 1; i < rows.Count; i++)
-        {
-            var row = rows[i];
-            var sku = GetCell(row, colMap, "ma sku", "sku");
-            var productName = GetCell(row, colMap, "ten phien ban", "ten san pham", "ten hang");
-            if (string.IsNullOrWhiteSpace(sku) && string.IsNullOrWhiteSpace(productName))
-                continue;
-
-            var rawDate = GetCell(row, colMap, "ngay", "thoi gian");
-            var reportDate = NormalizeDate(rawDate) ?? fallbackDate;
-            var branchText = GetCell(row, colMap, "chi nhanh", "cua hang", "kho") ?? "";
-            var parsedCode = ParseBasketCode(productName ?? "") ?? ParseBasketCode(sku ?? "");
-            var (reportCode, reportName) = ResolveCode(parsedCode, branchText);
-
-            result.Add(
-                new SapoSale
-                {
-                    ReportDate = reportDate,
-                    Branch = branchText.Length > 0 ? branchText : "Tất cả",
-                    ProductType = GetCell(row, colMap, "loai san pham", "nhom san pham"),
-                    Sku = sku,
-                    BasketCode = parsedCode,
-                    ReportCode = reportCode,
-                    ReportName = reportName,
-                    ProductName = productName,
-                    Price = GetDecimal(row, colMap, "don gia ban", "gia ban"),
-                    Qty = GetDecimal(row, colMap, "sl hang thuc ban", "so luong", "sl"),
-                    Orders = (int)GetDecimal(row, colMap, "sl don hang", "don hang"),
-                    Revenue = GetDecimal(row, colMap, "doanh thu", "thanh tien"),
-                    NetRevenue =
-                        GetDecimal(row, colMap, "doanh thu thuan") > 0
-                            ? GetDecimal(row, colMap, "doanh thu thuan")
-                            : GetDecimal(row, colMap, "doanh thu", "thanh tien"),
-                    ImportBatchId = batchId,
-                    UploadedBy = userId,
-                    UploadedAt = importedAt,
-                    ImportedAt = importedAt,
-                }
-            );
-        }
-
-        return result;
-    }
-
-    private static string NormalizeHeader(string s) =>
-        System.Text.RegularExpressions.Regex.Replace(
-            RemoveDiacritics(s ?? "").ToLower().Trim(),
-            @"\s+",
-            " "
-        );
-
-    private static string RemoveDiacritics(string s)
-    {
-        var normalized = s.Normalize(System.Text.NormalizationForm.FormD);
-        var sb = new System.Text.StringBuilder();
-        foreach (var c in normalized)
-        {
-            var cat = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
-            if (cat != System.Globalization.UnicodeCategory.NonSpacingMark)
-                sb.Append(c);
-        }
-        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
-    }
-
-    private static string? GetCell(IXLRangeRow row, Dictionary<string, int> colMap, params string[] keys)
-    {
-        foreach (var key in keys)
-            if (colMap.TryGetValue(key, out var col))
-            {
-                var val = row.Cell(col).GetString().Trim();
-                if (!string.IsNullOrEmpty(val))
-                    return val;
-            }
-        return null;
-    }
-
-    private static decimal GetDecimal(
-        IXLRangeRow row,
-        Dictionary<string, int> colMap,
-        params string[] keys
-    )
-    {
-        foreach (var key in keys)
-            if (colMap.TryGetValue(key, out var col))
-                try
-                {
-                    return row.Cell(col).GetValue<decimal>();
-                }
-                catch { }
-        return 0;
-    }
-
-    private static string? ParseBasketCode(string text)
-    {
-        var m = System.Text.RegularExpressions.Regex.Match(
-            text,
-            @"\b([A-Z]{2,5}\d{2,6}[A-Z]?)\b",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase
-        );
-        return m.Success ? m.Value.ToUpper() : null;
-    }
-
-    private (string reportCode, string reportName) ResolveCode(string? code, string branch)
-    {
-        if (string.IsNullOrEmpty(code))
-            return ("", "");
-        var mapping =
-            _mappingRepo.GetAll().FirstOrDefault(m => m.Code == code && m.BranchId != null)
-            ?? _mappingRepo.GetAll().FirstOrDefault(m => m.Code == code);
-        if (mapping != null)
-            return (mapping.BaseCode, $"{mapping.BaseCode} - {mapping.BasketName}");
-        return (code, code);
-    }
-
-    private static string? NormalizeDate(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-        if (
-            DateTime.TryParseExact(
-                raw,
-                "yyyy-MM-dd",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out var d1
-            )
-        )
-            return d1.ToString("yyyy-MM-dd");
-        if (
-            DateTime.TryParseExact(
-                raw,
-                "dd/MM/yyyy",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out var d2
-            )
-        )
-            return d2.ToString("yyyy-MM-dd");
-        if (
-            DateTime.TryParseExact(
-                raw,
-                "d/M/yyyy",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out var d3
-            )
-        )
-            return d3.ToString("yyyy-MM-dd");
-        return null;
-    }
-
     // ─── CODE CHANGE REQUESTS ──────────────────────────────────────────────────
 
     public async Task<PagedResult<GiftCodeChangeRequestDTO>> GetCodeChangeRequestsAsync(
@@ -713,6 +306,25 @@ public class GiftBasketService : IGiftBasketService
         };
     }
 
+    public async Task<GiftCodeChangeRequestDTO?> GetCodeChangeRequestByIdAsync(int id)
+    {
+        var req = await _ccrRepo.GetAll()
+            .Include(r => r.Branch)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (req == null) return null;
+        var users = new Dictionary<int, string>();
+        if (req.CreatedBy.HasValue || req.HandledBy.HasValue)
+        {
+            var ids = new List<int>();
+            if (req.CreatedBy.HasValue) ids.Add(req.CreatedBy.Value);
+            if (req.HandledBy.HasValue) ids.Add(req.HandledBy.Value);
+            users = await _userRepo.GetAll().Where(u => ids.Contains(u.Id))
+                .AsNoTracking().ToDictionaryAsync(u => u.Id, u => u.Name ?? u.Email);
+        }
+        return MapCcrDto(req, users);
+    }
+
     public async Task<GiftCodeChangeRequestDTO> CreateCodeChangeRequestAsync(
         CreateCodeChangeRequestDTO dto,
         int userId
@@ -726,10 +338,13 @@ public class GiftBasketService : IGiftBasketService
             BatchNote = dto.BatchNote,
             RequestUid = "REQ-" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
             BranchId = dto.BranchId,
-            BasketCodeOrName = dto.BasketCodeOrName.Trim(),
-            Reason = dto.Reason.Trim(),
+            BasketCodeOrName = dto.BasketCodeOrName?.Trim(),
+            Reason = dto.Reason?.Trim(),
             Note = dto.Note,
             Priority = dto.Priority ?? "normal",
+            GroupCode = dto.GroupCode,
+            Price = dto.Price,
+            SentZaloPhoto = dto.SentZaloPhoto,
             FrontImageUrl = dto.FrontImageUrl,
             BackImageUrl = dto.BackImageUrl,
             Status = "pending",
@@ -757,6 +372,10 @@ public class GiftBasketService : IGiftBasketService
             ?? throw new NotFoundException("Không tìm thấy yêu cầu");
 
         req.Status = dto.Status;
+        req.OldCode = dto.OldCode?.Trim();
+        req.NewCode = dto.NewCode?.Trim();
+        req.Price = dto.Price ?? req.Price;
+        req.ApprovedDate = dto.ApprovedDate;
         req.ResultNote = dto.ResultNote;
         req.HandledBy = userId;
         req.HandledAt = DateTime.UtcNow;
@@ -827,6 +446,9 @@ public class GiftBasketService : IGiftBasketService
             Reason = r.Reason,
             Note = r.Note,
             Priority = r.Priority,
+            GroupCode = r.GroupCode,
+            Price = r.Price,
+            SentZaloPhoto = r.SentZaloPhoto,
             FrontImageUrl = r.FrontImageUrl,
             BackImageUrl = r.BackImageUrl,
             Status = r.Status,
@@ -836,6 +458,9 @@ public class GiftBasketService : IGiftBasketService
                     ? hn
                     : null,
             HandledAt = r.HandledAt,
+            OldCode = r.OldCode,
+            NewCode = r.NewCode,
+            ApprovedDate = r.ApprovedDate,
             ResultNote = r.ResultNote,
             CreatedBy = r.CreatedBy,
             CreatedByName =
@@ -844,4 +469,52 @@ public class GiftBasketService : IGiftBasketService
                     : null,
             CreatedAt = r.CreatedAt,
         };
+
+    public async Task<byte[]> ExportChangeRequestsExcelAsync(string? status)
+    {
+        var query = _ccrRepo.GetAll()
+            .Include(r => r.Branch)
+            .Where(r => r.Status == "done")
+            .OrderBy(r => r.HandledAt);
+
+        var rows = await query.ToListAsync();
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Đổi Mã");
+
+        // Header row
+        ws.Cell(1, 1).Value = "MÃ TRƯỚC";
+        ws.Cell(1, 2).Value = "MÃ SAU";
+        ws.Cell(1, 3).Value = "GIÁ";
+        ws.Cell(1, 4).Value = "NGÀY";
+        ws.Cell(1, 5).Value = "GHI CHÚ";
+
+        var hRange = ws.Range(1, 1, 1, 5);
+        hRange.Style.Font.Bold = true;
+        hRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#086839");
+        hRange.Style.Font.FontColor = XLColor.White;
+        hRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        int row = 2;
+        foreach (var r in rows)
+        {
+            ws.Cell(row, 1).Value = r.OldCode ?? "";
+            ws.Cell(row, 2).Value = r.NewCode ?? "";
+            if (r.Price.HasValue)
+            {
+                ws.Cell(row, 3).Value = r.Price.Value;
+                ws.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
+            }
+            ws.Cell(row, 4).Value = r.ApprovedDate ?? "";
+            ws.Cell(row, 5).Value = r.ResultNote ?? "";
+            row++;
+        }
+
+        ws.Columns().AdjustToContents();
+        ws.Column(5).Width = Math.Max(ws.Column(5).Width, 40);
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
+    }
 }
