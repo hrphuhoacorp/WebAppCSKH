@@ -24,7 +24,7 @@ export default function ExternalPage() {
             )}
 
             <iframe
-                src="https://script.google.com/macros/s/AKfycbyu5oP2SH7FablV3cDQVQrXTso6Pg7WZNgz3_FsXjOkZmAxggPqARJH9HqXU_xJ-ac7/exec"
+                src="https://script.google.com/macros/s/AKfycbwwM108CGav4cTp0Att6OGYQ9p-4gYlnGLf4v-lfuXxnqh2QmzNB0pJs8SHJx6P56g9/exec"
                 title="External Website"
                 width="100%"
                 height="100%"
