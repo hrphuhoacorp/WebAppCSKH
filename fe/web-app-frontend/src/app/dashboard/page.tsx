@@ -19,7 +19,7 @@ export default function DashboardPage() {
         redirect('/dashboard/customer_care/orders');
     }
 
-    if (userRoles.includes('Nhân Viên')) {
+    if (userRoles.includes('Bán Hàng')) {
         redirect('/dashboard/gift_basket/gifts');
     }
 

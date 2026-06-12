@@ -1,3 +1,5 @@
+using ClosedXML.Excel;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using WebAppInfractor.Models;
@@ -16,9 +18,8 @@ public interface IUserService
 
     Task<UserDTO> GetByIdAsync(int id);
     Task<UserDTO> UpdateAsync(UserUpdateDTO dto, int id);
-
-    // Task UpdateAsync(User entity);
-    // Task DeleteAsync(int id);
+    Task<ImportStaffResultDTO> ImportStaffAsync(IFormFile file, int importerUserId);
+    byte[] GenerateImportTemplate();
 }
 
 public class UserService : IUserService
@@ -335,5 +336,360 @@ public class UserService : IUserService
             .ToListAsync();
 
         return roles;
+    }
+
+    public async Task<ImportStaffResultDTO> ImportStaffAsync(IFormFile file, int importerUserId)
+    {
+        var result = new ImportStaffResultDTO();
+
+        using var stream = new MemoryStream();
+        await file.CopyToAsync(stream);
+        stream.Position = 0;
+
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+        // Load lookup data once
+        var allBranches = await _branchRepository
+            .GetAll()
+            .Select(b => new { b.Id, Name = b.Name.ToLower() })
+            .ToListAsync();
+        var allRoles = await _roleRepository
+            .GetAll()
+            .Select(r => new { r.Id, Name = r.Name.ToLower() })
+            .ToListAsync();
+        var existingStaffCodes = await _userRepository
+            .GetAll()
+            .Where(u => u.DeletedAt == null)
+            .Select(u => u.StaffCode)
+            .ToHashSetAsync();
+        var existingEmails = await _userRepository
+            .GetAll()
+            .Where(u => u.DeletedAt == null)
+            .Select(u => u.Email)
+            .ToHashSetAsync();
+        var existingPhones = await _userRepository
+            .GetAll()
+            .Where(u => u.DeletedAt == null)
+            .Select(u => u.Phone)
+            .ToHashSetAsync();
+
+        // Row 1 is header, data starts from row 2
+        for (int row = 2; row <= lastRow; row++)
+        {
+            var staffCode = ws.Cell(row, 1).GetString().Trim();
+            var name = ws.Cell(row, 2).GetString().Trim();
+            var email = ws.Cell(row, 3).GetString().Trim().ToLower();
+            var phone = ws.Cell(row, 4).GetString().Trim();
+            var branchName = ws.Cell(row, 5).GetString().Trim();
+            var roleName = ws.Cell(row, 6).GetString().Trim();
+            var dobRaw = ws.Cell(row, 7).GetString().Trim();
+
+            // Skip empty rows
+            if (string.IsNullOrEmpty(staffCode) && string.IsNullOrEmpty(name))
+                continue;
+
+            // Validate required fields
+            if (string.IsNullOrEmpty(staffCode))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Thiếu mã nhân viên",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+            if (string.IsNullOrEmpty(name))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Thiếu họ tên",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+            if (string.IsNullOrEmpty(email))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Thiếu email",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+            if (string.IsNullOrEmpty(phone))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Thiếu số điện thoại",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+            if (string.IsNullOrEmpty(branchName))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Thiếu chi nhánh",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+            if (string.IsNullOrEmpty(roleName))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Thiếu vai trò",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+
+            // Lookup branch
+            var branch = allBranches.FirstOrDefault(b => b.Name == branchName.ToLower());
+            if (branch == null)
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = $"Chi nhánh '{branchName}' không tồn tại",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+
+            // Lookup role
+            var role = allRoles.FirstOrDefault(r => r.Name == roleName.ToLower());
+            if (role == null)
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = $"Vai trò '{roleName}' không tồn tại",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+
+            // Uniqueness checks
+            if (existingStaffCodes.Contains(staffCode))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Mã nhân viên đã tồn tại",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+            if (existingEmails.Contains(email))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Email đã tồn tại",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+            if (existingPhones.Contains(phone))
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = "Số điện thoại đã tồn tại",
+                    }
+                );
+                result.ErrorCount++;
+                continue;
+            }
+
+            // Parse date of birth (optional)
+            DateOnly? dob = null;
+            if (!string.IsNullOrEmpty(dobRaw))
+            {
+                if (
+                    DateOnly.TryParseExact(
+                        dobRaw,
+                        new[] { "dd/MM/yyyy", "yyyy-MM-dd", "d/M/yyyy" },
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None,
+                        out var parsed
+                    )
+                )
+                {
+                    if (parsed > DateOnly.FromDateTime(DateTime.Today.AddYears(-18)))
+                    {
+                        result.Errors.Add(
+                            new ImportStaffRowErrorDTO
+                            {
+                                Row = row,
+                                StaffCode = staffCode,
+                                Error = "Chưa đủ 18 tuổi",
+                            }
+                        );
+                        result.ErrorCount++;
+                        continue;
+                    }
+                    dob = parsed;
+                }
+                else
+                {
+                    result.Errors.Add(
+                        new ImportStaffRowErrorDTO
+                        {
+                            Row = row,
+                            StaffCode = staffCode,
+                            Error = "Ngày sinh không đúng định dạng (dd/MM/yyyy)",
+                        }
+                    );
+                    result.ErrorCount++;
+                    continue;
+                }
+            }
+
+            try
+            {
+                var newUser = new User
+                {
+                    StaffCode = staffCode,
+                    Name = name,
+                    Email = email,
+                    Phone = phone,
+                    BranchesId = branch.Id,
+                    DayOfBirth = dob,
+                    Password = PasswordHelper.HashPassword(phone),
+                    DeletedAt = null,
+                };
+                await _userRepository.AddAsync(newUser);
+                await _unitOfWork.SaveChangesAsync();
+
+                await _userRoleRepository.AddAsync(
+                    new UserRole { UserId = newUser.Id, RoleId = role.Id }
+                );
+                await _unitOfWork.SaveChangesAsync();
+
+                // Update local sets to detect duplicates within the file
+                existingStaffCodes.Add(staffCode);
+                existingEmails.Add(email);
+                existingPhones.Add(phone);
+
+                result.SuccessCount++;
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add(
+                    new ImportStaffRowErrorDTO
+                    {
+                        Row = row,
+                        StaffCode = staffCode,
+                        Error = ex.Message,
+                    }
+                );
+                result.ErrorCount++;
+            }
+        }
+
+        return result;
+    }
+
+    public byte[] GenerateImportTemplate()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Danh Sách Nhân Sự");
+
+        // Header style
+        var headers = new[]
+        {
+            "Mã nhân viên *",
+            "Họ tên *",
+            "Email *",
+            "Số điện thoại *",
+            "Chi nhánh *",
+            "Vai trò *",
+            "Ngày sinh (dd/MM/yyyy)",
+        };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var cell = ws.Cell(1, i + 1);
+            cell.Value = headers[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#086839");
+            cell.Style.Font.FontColor = XLColor.White;
+            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        }
+
+        // Sample rows
+        var samples = new[]
+        {
+            new[]
+            {
+                "NV001",
+                "Nguyễn Văn A",
+                "nva@example.com",
+                "0901234567",
+                "Chi nhánh 1",
+                "Online",
+                "01/01/1995",
+            },
+            new[]
+            {
+                "NV002",
+                "Trần Thị B",
+                "ttb@example.com",
+                "0912345678",
+                "Chi nhánh 2",
+                "Staff",
+                "15/06/1998",
+            },
+        };
+        for (int r = 0; r < samples.Length; r++)
+        for (int c = 0; c < samples[r].Length; c++)
+            ws.Cell(r + 2, c + 1).Value = samples[r][c];
+
+        ws.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        wb.SaveAs(stream);
+        return stream.ToArray();
     }
 }

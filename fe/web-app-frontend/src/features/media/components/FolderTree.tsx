@@ -20,23 +20,28 @@ import {
     DeleteOutlined,
     EditRounded,
     DeleteOutlineRounded,
+    ContentCopyRounded,
 } from '@mui/icons-material';
 import { MediaFolderDto } from '../schemas/media_folder.schemas';
 
 interface FolderTreeProps {
     folders: MediaFolderDto[];
     selectedFolderId: number | null;
+    copiedFolderId?: number | null;
     onSelect: (id: number | null) => void;
-    onDeleteFolder?: (folder: MediaFolderDto) => void; 
+    onDeleteFolder?: (folder: MediaFolderDto) => void;
     onRenameFolder?: (folder: MediaFolderDto) => void;
+    onCopyFolder?: (folder: MediaFolderDto) => void;
 }
 
 export default function FolderTree({
     folders,
     selectedFolderId,
+    copiedFolderId,
     onSelect,
     onDeleteFolder,
-    onRenameFolder
+    onRenameFolder,
+    onCopyFolder,
 }: FolderTreeProps) {
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -55,6 +60,7 @@ export default function FolderTree({
             const isOpen = expanded.has(folder.id);
             const isActive = selectedFolderId === folder.id;
             const isLast = idx === items.length - 1;
+            const isCopied = copiedFolderId === folder.id;
 
             return (
                 <Box key={folder.id} sx={{ position: 'relative' }}>
@@ -101,8 +107,8 @@ export default function FolderTree({
                             borderRadius: '6px',
                             mb: 0.2,
                             position: 'relative',
-                            bgcolor: isActive ? '#e3f2fd' : 'transparent',
-                            border: isActive ? '1px solid #90caf9' : '1px solid transparent',
+                            bgcolor: isActive ? '#e3f2fd' : isCopied ? '#fff8e1' : 'transparent',
+                            border: isActive ? '1px solid #90caf9' : isCopied ? '1px dashed #ffa726' : '1px solid transparent',
                             '&:hover': {
                                 bgcolor: isActive ? '#e3f2fd' : '#f5f5f5',
                                 '& .delete-folder-btn': { opacity: 1 } // Hiện nút xóa khi hover
@@ -158,36 +164,16 @@ export default function FolderTree({
                         <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
                             {onRenameFolder && (
                                 <Tooltip title="Đổi tên">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onRenameFolder(folder);
-                                        }}
-                                        sx={{
-                                            p: 0.5,
-                                            color: '#78909c',
-                                            '&:hover': { color: '#1976d2', bgcolor: '#e3f2fd' },
-                                        }}
-                                    >
+                                    <IconButton size="small" onClick={e => { e.stopPropagation(); onRenameFolder(folder); }}
+                                        sx={{ p: 0.5, color: '#78909c', '&:hover': { color: '#1976d2', bgcolor: '#e3f2fd' } }}>
                                         <EditRounded sx={{ fontSize: 17 }} />
                                     </IconButton>
                                 </Tooltip>
                             )}
                             {onDeleteFolder && (
                                 <Tooltip title="Xóa">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onDeleteFolder(folder);
-                                        }}
-                                        sx={{
-                                            p: 0.5,
-                                            color: '#78909c',
-                                            '&:hover': { color: '#ef5350', bgcolor: '#ffebee' },
-                                        }}
-                                    >
+                                    <IconButton size="small" onClick={e => { e.stopPropagation(); onDeleteFolder(folder); }}
+                                        sx={{ p: 0.5, color: '#78909c', '&:hover': { color: '#ef5350', bgcolor: '#ffebee' } }}>
                                         <DeleteOutlineRounded sx={{ fontSize: 17 }} />
                                     </IconButton>
                                 </Tooltip>

@@ -206,8 +206,17 @@ export const giftBasketApi = {
         return res.data;
     },
 
-    exportChangeRequests: () => {
-        const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
-        window.open(`${origin}/api/GiftBasket/ChangeRequests/Export`, '_blank');
+    exportChangeRequests: async (params?: { month?: string; isActive?: boolean }) => {
+        const response = await api.get('/GiftBasket/ChangeRequests/Export', {
+            params,
+            responseType: 'blob',
+        });
+        const suffix = params?.month ? params.month.replace('-', '') : new Date().toISOString().slice(0, 7).replace('-', '');
+        const url = URL.createObjectURL(new Blob([response.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `doi-ma-gio-${suffix}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
     },
 };

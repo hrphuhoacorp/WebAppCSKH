@@ -158,6 +158,27 @@ export default function ApprovePage() {
     const [adminForm, setAdminForm] = useState<any>({ approvedDate: todayStr() });
     const [saving, setSaving] = useState(false);
 
+    // export dialog
+    const [exportOpen, setExportOpen] = useState(false);
+    const [exportMonth, setExportMonth] = useState('');
+    const [exportIsActive, setExportIsActive] = useState<'' | 'true' | 'false'>('');
+    const [exporting, setExporting] = useState(false);
+
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            await giftBasketApi.exportChangeRequests({
+                month: exportMonth || undefined,
+                isActive: exportIsActive === '' ? undefined : exportIsActive === 'true',
+            });
+            setExportOpen(false);
+        } catch {
+            toast.error('Xuất Excel thất bại');
+        } finally {
+            setExporting(false);
+        }
+    };
+
     // image lightbox
     const [lightboxUrl, setLightboxUrl] = useState('');
 
@@ -383,13 +404,11 @@ export default function ApprovePage() {
                             sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
                             Tạo mã mới
                         </Button>
-                        <Tooltip title="Xuất Excel các mã đã duyệt">
-                            <Button variant="outlined" startIcon={<FileDownload />}
-                                onClick={() => giftBasketApi.exportChangeRequests()}
-                                sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
-                                Xuất Excel
-                            </Button>
-                        </Tooltip>
+                        <Button variant="outlined" startIcon={<FileDownload />}
+                            onClick={() => setExportOpen(true)}
+                            sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
+                            Xuất Excel
+                        </Button>
                     </Box>
                 }
             />
@@ -842,6 +861,52 @@ export default function ApprovePage() {
 
             {/* Lightbox */}
             {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl('')} />}
+
+            {/* Export Excel dialog */}
+            <Dialog open={exportOpen} onClose={() => setExportOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FileDownload sx={{ color: '#086839' }} /> Xuất Excel — Lọc trước khi xuất
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                        label="Lọc theo tháng"
+                        type="month"
+                        size="small"
+                        value={exportMonth}
+                        onChange={e => setExportMonth(e.target.value)}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                        helperText="Để trống = xuất tất cả tháng"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                    />
+                    <FormControl size="small">
+                        <InputLabel>Hiệu lực</InputLabel>
+                        <Select
+                            label="Hiệu lực"
+                            value={exportIsActive}
+                            onChange={e => setExportIsActive(e.target.value as '' | 'true' | 'false')}
+                            sx={{ borderRadius: '10px' }}
+                        >
+                            <MenuItem value="">Tất cả</MenuItem>
+                            <MenuItem value="true">Còn hiệu lực</MenuItem>
+                            <MenuItem value="false">Hết hiệu lực</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <Typography variant="caption" sx={{ color: '#64748b', bgcolor: '#f0fdf4', p: 1, borderRadius: 1, border: '1px solid #bbf7d0' }}>
+                        Xuất tất cả mã đã duyệt (status = done)
+                        {exportMonth ? ` · tháng ${exportMonth}` : ''}
+                        {exportIsActive === 'true' ? ' · còn hiệu lực' : exportIsActive === 'false' ? ' · hết hiệu lực' : ''}
+                    </Typography>
+                </DialogContent>
+                <Divider />
+                <DialogActions sx={{ px: 3, py: 1.5, gap: 1 }}>
+                    <Button onClick={() => setExportOpen(false)} color="inherit" disabled={exporting}>Hủy</Button>
+                    <Button variant="contained" onClick={handleExport} disabled={exporting}
+                        sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '10px', textTransform: 'none', fontWeight: 700, minWidth: 130 }}>
+                        {exporting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : '📥 Xuất Excel'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

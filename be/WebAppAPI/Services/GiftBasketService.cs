@@ -31,7 +31,7 @@ public interface IGiftBasketService
     Task SetChangeRequestActiveAsync(int id, bool isActive);
     Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(int id, ActivateCodeChangeRequestDTO dto);
     Task<string> UploadBasketImageAsync(IFormFile file, int userId);
-    Task<byte[]> ExportChangeRequestsExcelAsync(string? status);
+    Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive);
 }
 
 public class GiftBasketService : IGiftBasketService
@@ -499,15 +499,22 @@ public class GiftBasketService : IGiftBasketService
             IsActive = r.IsActive,
         };
 
-    public async Task<byte[]> ExportChangeRequestsExcelAsync(string? status)
+    public async Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive)
     {
-        var query = _ccrRepo
+        IQueryable<GiftCodeChangeRequest> query = _ccrRepo
             .GetAll()
             .Include(r => r.Branch)
-            .Where(r => r.Status == "done")
-            .OrderBy(r => r.HandledAt);
+            .Where(r => r.Status == "done");
 
-        var rows = await query.ToListAsync();
+        // Filter by month (format: "YYYY-MM")
+        if (!string.IsNullOrWhiteSpace(month))
+            query = query.Where(r => r.ApprovedDate != null && r.ApprovedDate.StartsWith(month));
+
+        // Filter by isActive
+        if (isActive.HasValue)
+            query = query.Where(r => r.IsActive == isActive.Value);
+
+        var rows = await query.OrderBy(r => r.ApprovedDate).ToListAsync();
 
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Đổi Mã");
@@ -517,9 +524,11 @@ public class GiftBasketService : IGiftBasketService
         ws.Cell(1, 2).Value = "MÃ SAU";
         ws.Cell(1, 3).Value = "GIÁ";
         ws.Cell(1, 4).Value = "NGÀY";
-        ws.Cell(1, 5).Value = "GHI CHÚ";
+        ws.Cell(1, 5).Value = "CHI NHÁNH";
+        ws.Cell(1, 6).Value = "HIỆU LỰC";
+        ws.Cell(1, 7).Value = "GHI CHÚ";
 
-        var hRange = ws.Range(1, 1, 1, 5);
+        var hRange = ws.Range(1, 1, 1, 7);
         hRange.Style.Font.Bold = true;
         hRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#086839");
         hRange.Style.Font.FontColor = XLColor.White;
@@ -536,12 +545,14 @@ public class GiftBasketService : IGiftBasketService
                 ws.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
             }
             ws.Cell(row, 4).Value = r.ApprovedDate ?? "";
-            ws.Cell(row, 5).Value = r.ResultNote ?? "";
+            ws.Cell(row, 5).Value = r.Branch?.Name ?? "";
+            ws.Cell(row, 6).Value = r.IsActive ? "Còn hiệu lực" : "Hết hiệu lực";
+            ws.Cell(row, 7).Value = r.ResultNote ?? "";
             row++;
         }
 
         ws.Columns().AdjustToContents();
-        ws.Column(5).Width = Math.Max(ws.Column(5).Width, 40);
+        ws.Column(7).Width = Math.Max(ws.Column(7).Width, 40);
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);

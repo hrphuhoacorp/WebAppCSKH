@@ -80,6 +80,30 @@ export const userApi = {
         return response.data;
     },
 
+    importStaff: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post('/User/ImportStaff', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data as {
+            content: {
+                successCount: number;
+                errorCount: number;
+                errors: { row: number; staffCode?: string; error: string }[];
+            };
+            status: string;
+            message?: string;
+        };
+    },
 
-
+    downloadImportTemplate: async () => {
+        const response = await api.get('/User/ImportStaffTemplate', { responseType: 'blob' });
+        const url = URL.createObjectURL(new Blob([response.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'mau-import-nhan-su.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+    },
 }

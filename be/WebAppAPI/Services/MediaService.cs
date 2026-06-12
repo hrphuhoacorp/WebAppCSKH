@@ -17,6 +17,7 @@ public interface IMediaService
     Task<bool> RestoreFileAsync(int id, int userId);
     Task<bool> MoveFileAsync(int id, int folderId, int userId);
     Task<bool> RenameFolderAsync(int id, string newName, int userId);
+    Task<MediaFolderDto> CopyFolderAsync(int id, int? targetParentId, int userId);
 }
 
 public class MediaService : IMediaService
@@ -635,6 +636,107 @@ public class MediaService : IMediaService
                 await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    public async Task<MediaFolderDto> CopyFolderAsync(int id, int? targetParentId, int userId)
+    {
+        using var transaction = await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            var source =
+                await _mediaFolderRepository
+                    .GetAll()
+                    .FirstOrDefaultAsync(f => f.Id == id && f.DeletedAt == null)
+                ?? throw new NotFoundException("Không tìm thấy thư mục");
+
+            var newFolder = await CopyFolderRecursive(
+                source,
+                targetParentId ?? source.ParentId,
+                userId
+            );
+
+            await _unitOfWork.SaveChangesAsync();
+            await _auditLogService.SaveLogAsync(
+                userId: userId,
+                staffCode: null,
+                action: "COPY_FOLDER",
+                tableName: "media_folders",
+                recordId: id,
+                oldData: null,
+                newData: new
+                {
+                    SourceId = id,
+                    NewFolderId = newFolder.Id,
+                    TargetParentId = targetParentId,
+                }
+            );
+            await transaction.CommitAsync();
+
+            return new MediaFolderDto
+            {
+                Id = newFolder.Id,
+                Name = newFolder.Name,
+                ParentId = newFolder.ParentId,
+                IsPublic = newFolder.IsPublic,
+                CreatedAt = newFolder.CreatedAt,
+                Count = 0,
+            };
+        }
+        catch
+        {
+            if (transaction.GetDbTransaction().Connection != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private async Task<MediaFolder> CopyFolderRecursive(
+        MediaFolder source,
+        int? parentId,
+        int userId
+    )
+    {
+        var copy = new MediaFolder
+        {
+            Name = $"{source.Name} (Bản sao)",
+            ParentId = parentId,
+            IsPublic = source.IsPublic,
+            CreatedBy = userId,
+        };
+        await _mediaFolderRepository.AddAsync(copy);
+        await _unitOfWork.SaveChangesAsync();
+
+        // Copy files (reference only — same FileUrl)
+        var files = await _mediaFileRepository
+            .GetAll()
+            .Where(f => f.FolderId == source.Id && f.DeletedAt == null)
+            .ToListAsync();
+
+        foreach (var f in files)
+        {
+            var fileCopy = new MediaFile
+            {
+                FolderId = copy.Id,
+                FileName = f.FileName,
+                OriginalName = f.OriginalName,
+                FileUrl = f.FileUrl,
+                MimeType = f.MimeType,
+                FileSize = f.FileSize,
+                CreatedBy = userId,
+            };
+            await _mediaFileRepository.AddAsync(fileCopy);
+        }
+
+        // Recurse into children
+        var children = await _mediaFolderRepository
+            .GetAll()
+            .Where(f => f.ParentId == source.Id && f.DeletedAt == null)
+            .ToListAsync();
+
+        foreach (var child in children)
+            await CopyFolderRecursive(child, copy.Id, userId);
+
+        return copy;
     }
 
     public async Task<bool> RenameFolderAsync(int id, string newName, int userId)

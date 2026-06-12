@@ -93,6 +93,8 @@ export default function MediaGalleryPage() {
     const [renameFolderOpen, setRenameFolderOpen] = useState(false);
     const [renameFolderTarget, setRenameFolderTarget] = useState<{ id: number; name: string } | null>(null);
 
+    const [copiedFolder, setCopiedFolder] = useState<MediaFolderDto | null>(null);
+
 
     const handlePreview = useCallback((image: MediaFileDto) => {
         setPreviewFile(image);
@@ -269,6 +271,43 @@ export default function MediaGalleryPage() {
         }
     };
 
+    // Copy / Paste folder
+    const handleCopyFolder = useCallback((folder: MediaFolderDto) => {
+        setCopiedFolder(folder);
+        toast.success(`Đã copy "${folder.name}" · Ctrl+V để dán`, { duration: 3000 });
+    }, []);
+
+    const handlePasteFolder = useCallback(async () => {
+        if (!copiedFolder) return;
+        const tid = toast.loading(`Đang sao chép "${copiedFolder.name}"…`);
+        try {
+            await mediaApi.copyFolder(copiedFolder.id, selectedFolderId);
+            toast.success('Sao chép thư mục thành công', { id: tid });
+            setCopiedFolder(null);
+            fetchFolders();
+        } catch (e: any) {
+            toast.error(e?.response?.data?.Message ?? 'Sao chép thất bại', { id: tid });
+        }
+    }, [copiedFolder, selectedFolderId, fetchFolders]);
+
+    // Keyboard: Ctrl+C (copy selected folder), Ctrl+V (paste)
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (!e.ctrlKey && !e.metaKey) return;
+            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') return;
+            if (e.key === 'c' && selectedFolderId) {
+                const found = flattenFolders(folders).find(f => f.id === selectedFolderId);
+                if (found) { handleCopyFolder(found); e.preventDefault(); }
+            }
+            if (e.key === 'v' && copiedFolder) {
+                handlePasteFolder(); e.preventDefault();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [selectedFolderId, folders, copiedFolder, handleCopyFolder, handlePasteFolder]);
+
     // Xóa thư mục từ FolderTree
     const handleDeleteFolder = (folder: MediaFolderDto) => {
         setDeleteTarget({
@@ -299,9 +338,11 @@ export default function MediaGalleryPage() {
                 <FolderTree
                     folders={folders}
                     selectedFolderId={selectedFolderId}
+                    copiedFolderId={copiedFolder?.id ?? null}
                     onSelect={handleFolderSelect}
                     onDeleteFolder={handleDeleteFolder}
                     onRenameFolder={handleRenameFolder}
+                    onCopyFolder={handleCopyFolder}
                 />
             </Box>
             <Box sx={{ p: 1.5, borderTop: '1px solid #e0e0e0' }}>

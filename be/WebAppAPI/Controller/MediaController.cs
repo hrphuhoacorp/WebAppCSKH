@@ -36,7 +36,7 @@ namespace WebAppAPI.Controllers
             return userId;
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Nhân Viên")]
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Bán Hàng")]
         [HttpGet("GetFolder")]
         public async Task<ResponseValue<List<MediaFolderDto>>> GetFolderAsync()
         {
@@ -102,7 +102,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<bool>(result, "Xóa thư mục thành công", StatusReponse.Success);
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Nhân Viên")]
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Bán Hàng")]
         [HttpGet("GetFiles")]
         public async Task<ResponseValue<List<MediaFileDto>>> GetFiles(
             [FromQuery] int? folderId,
@@ -188,6 +188,17 @@ namespace WebAppAPI.Controllers
                 "Lấy danh sách thùng rác thành công",
                 StatusReponse.Success
             );
+        }
+
+        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [HttpPost("CopyFolder/{id}")]
+        public async Task<ResponseValue<MediaFolderDto>> CopyFolderAsync(
+            int id,
+            [FromQuery] int? targetParentId)
+        {
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.CopyFolderAsync(id, targetParentId, userId);
+            return new ResponseValue<MediaFolderDto>(result, "Sao chép thư mục thành công", StatusReponse.Success);
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Media")]

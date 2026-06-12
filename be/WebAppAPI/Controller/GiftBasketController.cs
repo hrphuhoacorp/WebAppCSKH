@@ -384,10 +384,13 @@ namespace WebAppAPI.Controllers
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpGet("ChangeRequests/Export")]
-        public async Task<IActionResult> ExportChangeRequests([FromQuery] string? status)
+        public async Task<IActionResult> ExportChangeRequests(
+            [FromQuery] string? month,
+            [FromQuery] bool? isActive)
         {
-            var bytes = await _service.ExportChangeRequestsExcelAsync(status);
-            var fileName = $"doi-ma-gio-{DateTime.Now:yyyyMMdd}.xlsx";
+            var bytes = await _service.ExportChangeRequestsExcelAsync(month, isActive);
+            var suffix = string.IsNullOrWhiteSpace(month) ? DateTime.Now.ToString("yyyyMM") : month.Replace("-", "");
+            var fileName = $"doi-ma-gio-{suffix}.xlsx";
             return File(
                 bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

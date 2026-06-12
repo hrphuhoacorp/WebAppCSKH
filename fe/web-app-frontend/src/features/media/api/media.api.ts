@@ -88,7 +88,10 @@ export const mediaApi = {
         return response.data;
     },
 
-
-
-
+    copyFolder: async (id: number, targetParentId?: number | null) => {
+        const response = await api.post(`/Media/CopyFolder/${id}`, null, {
+            params: targetParentId != null ? { targetParentId } : {},
+        });
+        return response.data;
+    },
 }

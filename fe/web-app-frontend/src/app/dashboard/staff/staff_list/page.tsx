@@ -33,7 +33,8 @@ import {
     Settings,
     LockReset,
     AddCircleRounded,
-    RestorePageRounded
+    RestorePageRounded,
+    FileUploadRounded,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -47,6 +48,7 @@ import EditUserDialog from '@/features/user/components/EditUserDialog';
 import ResetPasswordDialog from '@/features/staff/components/ResetPasswordDialog';
 import CreateUserDialog from '@/features/staff/components/CreateUserDialog';
 import RestoreUserDialog from '@/features/staff/components/RestoreUserDialog';
+import ImportStaffDialog from '@/features/staff/components/ImportStaffDialog';
 
 type UserRow = {
     id: number;
@@ -97,13 +99,14 @@ export default function UsersPage() {
     const [branchId, setBranchId] = useState<number | ''>('');
     const [branchOptions, setBranchOptions] = useState<{ id: number; name: string }[]>([]);
     const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
-    const [roleOptions, setRoleOptions] = useState<string[]>([]);
+    const [roleOptions, setRoleOptions] = useState<{ id: number; name: string }[]>([]);
     const [detailOpen, setDetailOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [restoreOpen, setRestoreOpen] = useState(false);
     const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
 
     const formatDate = (value?: string | null) => {
         if (!value) return '-';
@@ -193,6 +196,25 @@ export default function UsersPage() {
                 gradient="linear-gradient(135deg, #086839 0%, #059669 100%)"
                 shadowColor="rgba(8,104,57,0.28)"
                 actions={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<FileUploadRounded />}
+                        onClick={() => setImportOpen(true)}
+                        sx={{
+                            borderColor: '#086839',
+                            color: '#086839',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            px: 2,
+                            '&:hover': {
+                                bgcolor: alpha('#086839', 0.06),
+                                borderColor: '#086839',
+                            },
+                        }}
+                    >
+                        Import nhân sự
+                    </Button>
                     <Button
                         variant="contained"
                         startIcon={<AddCircleRounded />}
@@ -317,7 +339,7 @@ export default function UsersPage() {
                     >
                         <MenuItem value="">Tất cả vai trò</MenuItem>
                         {roleOptions.map((item) => (
-                            <MenuItem key={item} value={item}>{item}</MenuItem>
+                            <MenuItem key={item.id} value={item.name}>{item.name}</MenuItem>
                         ))}
                     </TextField>
 
@@ -726,6 +748,11 @@ export default function UsersPage() {
                 open={createOpen}
                 branchOptions={branchOptions}
                 onClose={() => setCreateOpen(false)}
+                onSuccess={fetchUsers}
+            />
+            <ImportStaffDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
                 onSuccess={fetchUsers}
             />
         </Box>

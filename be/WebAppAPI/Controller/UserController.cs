@@ -111,5 +111,35 @@ namespace WebAppAPI.Controllers
                 StatusReponse.Success
             );
         }
+
+        [Authorize(Roles = "Super_Admin")]
+        [HttpPost("ImportStaff")]
+        [Consumes("multipart/form-data")]
+        public async Task<ResponseValue<ImportStaffResultDTO>> ImportStaff(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return new ResponseValue<ImportStaffResultDTO> { StatusCode = 400, Message = "File không hợp lệ" };
+
+            var ext = Path.GetExtension(file.FileName).ToLower();
+            if (ext != ".xlsx" && ext != ".xls")
+                return new ResponseValue<ImportStaffResultDTO> { StatusCode = 400, Message = "Chỉ chấp nhận file Excel (.xlsx, .xls)" };
+
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims
+                .FirstOrDefault(c => c.Type == "Id");
+            var importerUserId = int.Parse(userIdClaim!.Value);
+
+            var result = await _userService.ImportStaffAsync(file, importerUserId);
+            return new ResponseValue<ImportStaffResultDTO>(result, "Import hoàn tất", StatusReponse.Success);
+        }
+
+        [Authorize(Roles = "Super_Admin")]
+        [HttpGet("ImportStaffTemplate")]
+        public IActionResult DownloadImportTemplate()
+        {
+            var bytes = _userService.GenerateImportTemplate();
+            return File(bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "mau-import-nhan-su.xlsx");
+        }
     }
 }

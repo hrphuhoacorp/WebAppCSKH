@@ -37,7 +37,7 @@ namespace WebAppAPI.Controllers
                     HttpOnly = true,
                     Secure = true,
                     SameSite = SameSiteMode.None,
-                    Expires = DateTimeOffset.UtcNow.AddHours(1),
+                    Expires = DateTimeOffset.UtcNow.AddDays(1),
                     Path = "/",
                 }
             );
