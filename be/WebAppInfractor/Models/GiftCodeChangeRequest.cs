@@ -27,6 +27,7 @@ public partial class GiftCodeChangeRequest
     public string? ResultNote { get; set; }
     public int? CreatedBy { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public bool IsActive { get; set; } = true;
 
     public virtual Branch? Branch { get; set; }
 }

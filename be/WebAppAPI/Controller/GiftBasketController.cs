@@ -67,6 +67,7 @@ namespace WebAppAPI.Controllers
             }
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpPost("Create")]
         public async Task<ResponseValue<GiftBasketDTO>> Create([FromBody] CreateGiftBasketDTO dto)
         {
@@ -95,6 +96,7 @@ namespace WebAppAPI.Controllers
             }
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpPut("Update")]
         public async Task<ResponseValue<GiftBasketDTO>> Update([FromBody] UpdateGiftBasketDTO dto)
         {
@@ -157,32 +159,6 @@ namespace WebAppAPI.Controllers
             }
         }
 
-        // ─── CODE MAPPINGS ────────────────────────────────────────────────────
-
-        [HttpGet("CodeMappings")]
-        public async Task<ResponseValue<List<GiftCodeMappingDTO>>> GetCodeMappings(
-            [FromQuery] int? branchId
-        )
-        {
-            try
-            {
-                var result = await _service.GetCodeMappingsAsync(branchId);
-                return new ResponseValue<List<GiftCodeMappingDTO>>
-                {
-                    StatusCode = 200,
-                    Data = result,
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<List<GiftCodeMappingDTO>>
-                {
-                    StatusCode = 500,
-                    Message = ex.Message,
-                };
-            }
-        }
-
         // ─── CODE CHANGE REQUESTS ─────────────────────────────────────────────
 
         [HttpGet("ChangeRequests")]
@@ -190,7 +166,8 @@ namespace WebAppAPI.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
             [FromQuery] string? status = null,
-            [FromQuery] int? branchId = null
+            [FromQuery] int? branchId = null,
+            [FromQuery] bool? isActive = null
         )
         {
             try
@@ -199,7 +176,8 @@ namespace WebAppAPI.Controllers
                     page,
                     pageSize,
                     status,
-                    branchId
+                    branchId,
+                    isActive
                 );
                 return new ResponseValue<PagedResult<GiftCodeChangeRequestDTO>>
                 {
@@ -217,6 +195,7 @@ namespace WebAppAPI.Controllers
             }
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Gift,Gói Quà")]
         [HttpPost("ChangeRequest/Create")]
         public async Task<ResponseValue<GiftCodeChangeRequestDTO>> CreateChangeRequest(
             [FromBody] CreateCodeChangeRequestDTO dto
@@ -237,7 +216,12 @@ namespace WebAppAPI.Controllers
                 );
                 await _hub.Clients.All.SendAsync(
                     "GiftBasketChanged",
-                    new { table = "change_requests" }
+                    new
+                    {
+                        action = "created",
+                        table = "change_requests",
+                        data = result,
+                    }
                 );
                 return new ResponseValue<GiftCodeChangeRequestDTO>
                 {
@@ -255,6 +239,7 @@ namespace WebAppAPI.Controllers
             }
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpPut("ChangeRequest/Handle")]
         public async Task<ResponseValue<GiftCodeChangeRequestDTO>> HandleChangeRequest(
             [FromBody] HandleCodeChangeRequestDTO dto
@@ -280,7 +265,12 @@ namespace WebAppAPI.Controllers
                 );
                 await _hub.Clients.All.SendAsync(
                     "GiftBasketChanged",
-                    new { table = "change_requests" }
+                    new
+                    {
+                        action = "handled",
+                        table = "change_requests",
+                        data = result,
+                    }
                 );
                 return new ResponseValue<GiftCodeChangeRequestDTO>
                 {
@@ -306,18 +296,22 @@ namespace WebAppAPI.Controllers
             }
         }
 
-        [HttpDelete("ChangeRequest/{id}")]
-        public async Task<ResponseValue<bool>> DeleteChangeRequest(int id)
+        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [HttpPut("ChangeRequest/{id}/Active")]
+        public async Task<ResponseValue<bool>> SetChangeRequestActive(
+            int id,
+            [FromBody] bool isActive
+        )
         {
             try
             {
                 var userId = GetCurrentUserId();
                 var before = await _service.GetCodeChangeRequestByIdAsync(id);
-                await _service.DeleteCodeChangeRequestAsync(id);
+                await _service.SetChangeRequestActiveAsync(id, isActive);
                 await _activityService.SaveLogAsync(
                     userId,
                     GetCurrentStaffCode(),
-                    "DELETE_CHANGE_REQUEST",
+                    isActive ? "ACTIVATE_CHANGE_REQUEST" : "DEACTIVATE_CHANGE_REQUEST",
                     "gift_code_change_requests",
                     id,
                     before != null ? JsonSerializer.Serialize(before) : null,
@@ -325,7 +319,13 @@ namespace WebAppAPI.Controllers
                 );
                 await _hub.Clients.All.SendAsync(
                     "GiftBasketChanged",
-                    new { table = "change_requests" }
+                    new
+                    {
+                        action = "activeChanged",
+                        table = "change_requests",
+                        id,
+                        isActive,
+                    }
                 );
                 return new ResponseValue<bool> { StatusCode = 200, Data = true };
             }
@@ -339,6 +339,50 @@ namespace WebAppAPI.Controllers
             }
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [HttpPut("ChangeRequest/{id}/Activate")]
+        public async Task<ResponseValue<bool>> ActivateChangeRequest(
+            int id,
+            [FromBody] ActivateCodeChangeRequestDTO dto
+        )
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var before = await _service.GetCodeChangeRequestByIdAsync(id);
+                var result = await _service.UpdateAndActivateAsync(id, dto);
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    dto.IsActive ? "ACTIVATE_CHANGE_REQUEST" : "DEACTIVATE_CHANGE_REQUEST",
+                    "gift_code_change_requests",
+                    id,
+                    before != null ? JsonSerializer.Serialize(before) : null,
+                    JsonSerializer.Serialize(result)
+                );
+                await _hub.Clients.All.SendAsync(
+                    "GiftBasketChanged",
+                    new
+                    {
+                        action = "activeChanged",
+                        table = "change_requests",
+                        id,
+                        isActive = dto.IsActive,
+                    }
+                );
+                return new ResponseValue<bool> { StatusCode = 200, Data = true };
+            }
+            catch (NotFoundException ex)
+            {
+                return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message };
+            }
+            catch (Exception ex)
+            {
+                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
+            }
+        }
+
+        [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpGet("ChangeRequests/Export")]
         public async Task<IActionResult> ExportChangeRequests([FromQuery] string? status)
         {

@@ -13,8 +13,8 @@ function checkAccess(pathname: string, userRoles: string[]): boolean {
             const matches = pathname === item.href || pathname.startsWith(item.href + '/');
             if (!matches) continue;
 
-            // Route tìm thấy trong menu
-            if (!item.roles || item.roles.length === 0) return true; // không giới hạn
+           
+            if (!item.roles || item.roles.length === 0) return true; 
             return item.roles.some(r => userRoles.includes(r));
         }
     }

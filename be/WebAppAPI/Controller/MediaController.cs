@@ -36,7 +36,7 @@ namespace WebAppAPI.Controllers
             return userId;
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Staff")]
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Nhân Viên")]
         [HttpGet("GetFolder")]
         public async Task<ResponseValue<List<MediaFolderDto>>> GetFolderAsync()
         {
@@ -102,7 +102,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<bool>(result, "Xóa thư mục thành công", StatusReponse.Success);
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Staff")]
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Nhân Viên")]
         [HttpGet("GetFiles")]
         public async Task<ResponseValue<List<MediaFileDto>>> GetFiles(
             [FromQuery] int? folderId,

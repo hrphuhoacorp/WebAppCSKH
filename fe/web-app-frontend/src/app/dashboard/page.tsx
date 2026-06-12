@@ -1,6 +1,7 @@
 'use client';
 import { useAuth } from "@/providers/AuthProviders";
 import { redirect } from "next/navigation";
+import { UserRole } from '../../features/user/schemas/user-profile';
 
 export default function DashboardPage() {
     const { profile } = useAuth();
@@ -10,7 +11,7 @@ export default function DashboardPage() {
         redirect('/dashboard/customer_care/revenue_report');
     }
 
-    if (userRoles.includes('Admin_Media')) {
+    if (userRoles.includes('Admin_Online')) {
         redirect('/dashboard/customer_care/revenue_report');
     }
 
@@ -18,8 +19,15 @@ export default function DashboardPage() {
         redirect('/dashboard/customer_care/orders');
     }
 
-    if (userRoles.includes('Staff')) {
-        redirect('/dashboard/customer_care/gifts');
+    if (userRoles.includes('Nhân Viên')) {
+        redirect('/dashboard/gift_basket/gifts');
+    }
+
+    if (userRoles.includes('Admin_Gift')) {
+        redirect('/dashboard/gift_basket/baskets');
+    }
+    if (userRoles.includes('Gói Quà')) {
+        redirect('/dashboard/gift_basket/change_requests');
     }
 
     redirect('/login')

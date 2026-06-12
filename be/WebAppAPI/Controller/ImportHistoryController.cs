@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 //using WebAppAPI.Models;
@@ -10,6 +11,7 @@ namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Super_Admin")]
     public class ImportHistoryController : ControllerBase
     {
         private readonly IImportHistoryService _importHistoryService;

@@ -9,7 +9,7 @@ import {
     TablePagination, TableRow, TextField, Tooltip, Typography, alpha,
 } from '@mui/material';
 import {
-    Add, CloudUpload, DeleteOutlined, FormatListBulleted, ImageNotSupported,
+    Add, CloudUpload, EditOutlined, FormatListBulleted, ImageNotSupported,
     Refresh, SwapHoriz,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
@@ -85,6 +85,7 @@ export default function ChangeRequestsPage() {
     const [pageSize, setPageSize] = useState(20);
     const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
+    const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
     const [branchId, setBranchId] = useState<number | ''>('');
     const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
     const [search, setSearch] = useState('');
@@ -106,9 +107,11 @@ export default function ChangeRequestsPage() {
     const [bulkSaving, setBulkSaving] = useState(false);
     const [bulkProgress, setBulkProgress] = useState('');
 
-    // delete confirm
-    const [deleteId, setDeleteId] = useState<number | null>(null);
-    const [deleting, setDeleting] = useState(false);
+    // edit & activate dialog
+    const [editOpen, setEditOpen] = useState(false);
+    const [editRow, setEditRow] = useState<GiftCodeChangeRequestDTO | null>(null);
+    const [editForm, setEditForm] = useState<any>({});
+    const [editSaving, setEditSaving] = useState(false);
 
     const bulkRows = useMemo(() => parseBulk(bulkText), [bulkText]);
     const bulkValid = bulkRows.filter(r => !r.error);
@@ -125,11 +128,12 @@ export default function ChangeRequestsPage() {
                 page: page + 1, pageSize,
                 status: statusFilter || undefined,
                 branchId: branchId || undefined,
+                isActive: activeFilter ?? undefined,
             });
             if (res.content) { setRows(res.content.items); setTotal(res.content.totalItems); }
         } catch { toast.error('Lỗi tải danh sách'); }
         finally { setLoading(false); }
-    }, [page, pageSize, statusFilter, branchId]);
+    }, [page, pageSize, statusFilter, branchId, activeFilter]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -150,8 +154,7 @@ export default function ChangeRequestsPage() {
 
     /* ── Single create ── */
     const handleCreate = async () => {
-        if (!form.price || Number(form.price) <= 0) { toast.error('Vui lòng nhập giá bán'); return; }
-        if (!form.frontImageUrl && !form.backImageUrl) { toast.error('Vui lòng tải lên ít nhất một ảnh'); return; }
+        if (!form.basketCodeOrName?.trim()) { toast.error('Vui lòng nhập mã gốc'); return; }
         setSaving(true);
         try {
             await giftBasketApi.createChangeRequest({ ...form, price: Number(form.price) });
@@ -173,17 +176,35 @@ export default function ChangeRequestsPage() {
         e.target.value = '';
     };
 
-    /* ── Delete ── */
-    const handleDelete = async () => {
-        if (!deleteId) return;
-        setDeleting(true);
+    /* ── Edit & activate dialog ── */
+    const openEdit = (row: GiftCodeChangeRequestDTO) => {
+        setEditRow(row);
+        setEditForm({
+            oldCode: row.oldCode ?? '',
+            newCode: row.newCode ?? '',
+            price: row.price ?? '',
+            approvedDate: row.approvedDate ?? new Date().toISOString().split('T')[0],
+            resultNote: row.resultNote ?? '',
+            note: row.note ?? '',
+            groupCode: row.groupCode ?? '',
+        });
+        setEditOpen(true);
+    };
+
+    const handleSaveActivate = async (isActive: boolean) => {
+        if (!editRow) return;
+        setEditSaving(true);
         try {
-            await giftBasketApi.deleteChangeRequest(deleteId);
-            toast.success('Đã xóa yêu cầu');
-            setDeleteId(null);
+            await giftBasketApi.activateChangeRequest(editRow.id, {
+                ...editForm,
+                price: editForm.price ? Number(editForm.price) : undefined,
+                isActive,
+            });
+            toast.success(isActive ? 'Đã kích hoạt hiệu lực' : 'Đã đặt hết hiệu lực');
+            setEditOpen(false);
             load();
-        } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi xóa'); }
-        finally { setDeleting(false); }
+        } catch (e: any) { toast.error(e?.response?.data?.Message ); }
+        finally { setEditSaving(false); }
     };
 
     /* ── Bulk create ── */
@@ -260,6 +281,14 @@ export default function ChangeRequestsPage() {
                             sx={statusFilter === opt.v ? { bgcolor: '#086839', color: '#fff', fontWeight: 700 } : { bgcolor: '#f1f5f9', color: '#475569' }} />
                     ))}
                 </Box>
+                ||
+                <Box sx={{ display: 'flex', gap: 0.75 }}>
+                    {([{ v: null, l: 'Tất cả' }, { v: true, l: '✅ Hiệu lực' }, { v: false, l: '⛔ Hết hiệu lực' }] as const).map(opt => (
+                        <Chip key={String(opt.v)} label={opt.l} size="small" clickable
+                            onClick={() => { setActiveFilter(opt.v); setPage(0); }}
+                            sx={activeFilter === opt.v ? { bgcolor: '#1d4ed8', color: '#fff', fontWeight: 700 } : { bgcolor: '#f1f5f9', color: '#475569' }} />
+                    ))}
+                </Box>
                 <FormControl size="small" sx={{ minWidth: 160 }}>
                     <InputLabel>Chi nhánh</InputLabel>
                     <Select label="Chi nhánh" value={branchId} onChange={e => { setBranchId(e.target.value as any); setPage(0); }} sx={{ borderRadius: '12px' }}>
@@ -310,11 +339,17 @@ export default function ChangeRequestsPage() {
                                     <TableCell><Typography variant="caption">{row.createdByName ?? '—'}</Typography></TableCell>
                                     <TableCell><Typography variant="caption">{fmtDate(row.createdAt)}</Typography></TableCell>
                                     <TableCell sx={{ pr: 1 }}>
-                                        <Tooltip title="Xóa yêu cầu">
-                                            <Button size="small" color="error" variant="outlined"
-                                                onClick={() => setDeleteId(row.id)}
-                                                sx={{ minWidth: 0, px: 1, borderRadius: '8px' }}>
-                                                <DeleteOutlined fontSize="small" />
+                                        <Tooltip title="Sửa & cập nhật hiệu lực">
+                                            <Button size="small" variant="outlined"
+                                                color={row.isActive ? 'primary' : 'warning'}
+                                                onClick={() => openEdit(row)}
+                                                sx={{ minWidth: 0, px: 1, borderRadius: '8px', gap: 0.5 }}>
+                                                <EditOutlined fontSize="small" />
+                                                <Chip size="small"
+                                                    label={row.isActive ? 'Hiệu lực' : 'Hết HĐ'}
+                                                    sx={{ height: 16, fontSize: 9, fontWeight: 700, pointerEvents: 'none',
+                                                        bgcolor: row.isActive ? '#dcfce7' : '#fee2e2',
+                                                        color: row.isActive ? '#166534' : '#991b1b' }} />
                                             </Button>
                                         </Tooltip>
                                     </TableCell>
@@ -366,11 +401,11 @@ export default function ChangeRequestsPage() {
                             </FormControl>
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField fullWidth size="small" label="Mã gốc" value={form.basketCodeOrName ?? ''}
+                            <TextField fullWidth size="small" label="Mã gốc *" value={form.basketCodeOrName ?? ''}
                                 onChange={e => setForm((p: any) => ({ ...p, basketCodeOrName: e.target.value }))} placeholder="Ví dụ: H1046I" />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField fullWidth size="small" label="Giá bán *" type="number"
+                            <TextField fullWidth size="small" label="Giá bán" type="number"
                                 value={form.price ?? ''}
                                 onChange={e => setForm((p: any) => ({ ...p, price: e.target.value }))}
                                 slotProps={{ input: { endAdornment: <InputAdornment position="end">₫</InputAdornment> } }} />
@@ -387,10 +422,10 @@ export default function ChangeRequestsPage() {
                                 label={<Typography variant="body2" sx={{ fontWeight: 600 }}>Đã chụp hình gửi Zalo</Typography>}
                             />
                         </Grid>
-                        <Grid size={12}><Divider sx={{ my: 0 }}>Ảnh minh họa <Typography component="span" color="error" variant="caption">*</Typography></Divider></Grid>
+                        <Grid size={12}><Divider sx={{ my: 0 }}>Ảnh minh họa</Divider></Grid>
                         {(['frontImageUrl', 'backImageUrl'] as const).map(field => (
                             <Grid size={{ xs: 12, sm: 6 }} key={field}>
-                                <ImgThumb url={form[field]} label={field === 'frontImageUrl' ? 'Mặt trước *' : 'Mặt sau'} />
+                                <ImgThumb url={form[field]} label={field === 'frontImageUrl' ? 'Mặt trước' : 'Mặt sau'} />
                                 <Button size="small" variant="outlined" fullWidth startIcon={<CloudUpload />}
                                     onClick={() => { setUploadField(field); fileInputRef.current?.click(); }}
                                     sx={{ mt: 0.5, borderRadius: '10px', borderColor: '#086839', color: '#086839', textTransform: 'none' }}>
@@ -411,22 +446,6 @@ export default function ChangeRequestsPage() {
             </Dialog>
             <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageUpload} />
 
-            {/* ── CONFIRM DELETE dialog ─────────────────────────── */}
-            <Dialog open={deleteId !== null} onClose={() => setDeleteId(null)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700, color: '#991b1b' }}>Xác nhận xóa</DialogTitle>
-                <Divider />
-                <DialogContent sx={{ pt: 2 }}>
-                    <Typography>Bạn có chắc muốn xóa yêu cầu này không? Hành động này không thể hoàn tác.</Typography>
-                </DialogContent>
-                <Divider />
-                <DialogActions sx={{ px: 3, py: 1.5, gap: 1 }}>
-                    <Button onClick={() => setDeleteId(null)} color="inherit" disabled={deleting}>Hủy</Button>
-                    <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}
-                        sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}>
-                        {deleting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Xóa'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
 
             {/* ── BULK REQUEST dialog ──────────────────────────────── */}
             <Dialog open={bulkOpen} onClose={() => setBulkOpen(false)} maxWidth="md" fullWidth>
@@ -543,6 +562,87 @@ export default function ChangeRequestsPage() {
                             {bulkSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : `Gửi ${bulkValid.length} yêu cầu`}
                           </Button>
                     }
+                </DialogActions>
+            </Dialog>
+
+            {/* ── EDIT & ACTIVATE dialog ───────────────────────────── */}
+            <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ fontWeight: 700 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <EditOutlined sx={{ color: '#086839' }} />
+                        Sửa thông tin &amp; cập nhật hiệu lực
+                    </Box>
+                    {editRow && (
+                        <Typography variant="caption" sx={{ color: '#64748b', fontFamily: 'monospace' }}>
+                            #{editRow.requestUid} · {editRow.basketCodeOrName}
+                        </Typography>
+                    )}
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ pt: 2 }}>
+                    <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField fullWidth size="small" label="Mã cũ (trước)" value={editForm.oldCode ?? ''}
+                                onChange={e => setEditForm((p: any) => ({ ...p, oldCode: e.target.value }))}
+                                slotProps={{ input: { sx: { fontFamily: 'monospace' } } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField fullWidth size="small" label="Mã mới (sau)" value={editForm.newCode ?? ''}
+                                onChange={e => setEditForm((p: any) => ({ ...p, newCode: e.target.value }))}
+                                slotProps={{ input: { sx: { fontFamily: 'monospace' } } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField fullWidth size="small" label="Giá bán" type="number"
+                                value={editForm.price ?? ''}
+                                onChange={e => setEditForm((p: any) => ({ ...p, price: e.target.value }))}
+                                slotProps={{ input: { endAdornment: <InputAdornment position="end">₫</InputAdornment> } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField fullWidth size="small" label="Ngày duyệt" type="date"
+                                value={editForm.approvedDate ?? ''}
+                                onChange={e => setEditForm((p: any) => ({ ...p, approvedDate: e.target.value }))}
+                                slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+                        <Grid size={12}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Nhóm giỏ</InputLabel>
+                                <Select label="Nhóm giỏ" value={editForm.groupCode ?? ''}
+                                    onChange={e => setEditForm((p: any) => ({ ...p, groupCode: e.target.value || '' }))}>
+                                    <MenuItem value="">— Không chọn —</MenuItem>
+                                    {BASKET_GROUPS.map(g => <MenuItem key={g.code} value={g.code}>{g.code} — {g.name}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid size={12}>
+                            <TextField fullWidth size="small" label="Ghi chú kết quả" multiline rows={2}
+                                value={editForm.resultNote ?? ''}
+                                onChange={e => setEditForm((p: any) => ({ ...p, resultNote: e.target.value }))} />
+                        </Grid>
+                    </Grid>
+                </DialogContent>
+                <Divider />
+                <DialogActions sx={{ px: 3, py: 1.5, gap: 1 }}>
+                    <Button onClick={() => setEditOpen(false)} color="inherit" disabled={editSaving}>Hủy</Button>
+                    {editRow?.isActive ? (
+                        <>
+                            <Button variant="outlined" color="warning"
+                                onClick={() => handleSaveActivate(false)} disabled={editSaving}
+                                sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}>
+                                {editSaving ? <CircularProgress size={16} /> : 'Vô hiệu hóa'}
+                            </Button>
+                            <Button variant="contained"
+                                onClick={() => handleSaveActivate(true)} disabled={editSaving}
+                                sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}>
+                                {editSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Lưu'}
+                            </Button>
+                        </>
+                    ) : (
+                        <Button variant="contained"
+                            onClick={() => handleSaveActivate(true)} disabled={editSaving}
+                            sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}>
+                            {editSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Kích hoạt'}
+                        </Button>
+                    )}
                 </DialogActions>
             </Dialog>
         </Box>

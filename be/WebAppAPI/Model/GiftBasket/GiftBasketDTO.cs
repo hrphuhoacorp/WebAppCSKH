@@ -92,6 +92,7 @@ public class GiftCodeChangeRequestDTO
     public int? CreatedBy { get; set; }
     public string? CreatedByName { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public class CreateCodeChangeRequestDTO
@@ -118,4 +119,18 @@ public class HandleCodeChangeRequestDTO
     public decimal? Price { get; set; }
     public string? ApprovedDate { get; set; }
     public string? ResultNote { get; set; }
+    public string? FrontImageUrl { get; set; }
+    public string? BackImageUrl { get; set; }
+}
+
+public class ActivateCodeChangeRequestDTO
+{
+    public string? OldCode { get; set; }
+    public string? NewCode { get; set; }
+    public decimal? Price { get; set; }
+    public string? ApprovedDate { get; set; }
+    public string? ResultNote { get; set; }
+    public string? Note { get; set; }
+    public string? GroupCode { get; set; }
+    public bool IsActive { get; set; } = true;
 }

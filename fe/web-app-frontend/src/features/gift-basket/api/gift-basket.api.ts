@@ -73,6 +73,7 @@ export interface GiftCodeChangeRequestDTO {
     createdBy?: number;
     createdByName?: string;
     createdAt?: string;
+    isActive: boolean;
 }
 
 export interface PagedResult<T> {
@@ -144,14 +145,7 @@ export const giftBasketApi = {
         return res.data as { content: string; status: string; message?: string };
     },
 
-    // ─── CODE MAPPINGS ────────────────────────────────────────────────────────
 
-    getCodeMappings: async (branchId?: number) => {
-        const res = await api.get('/GiftBasket/CodeMappings', {
-            params: branchId ? { branchId } : {},
-        });
-        return res.data as { content: GiftCodeMappingDTO[]; status: string };
-    },
 
     // ─── CODE CHANGE REQUESTS ─────────────────────────────────────────────────
 
@@ -160,6 +154,7 @@ export const giftBasketApi = {
         pageSize?: number;
         status?: string;
         branchId?: number;
+        isActive?: boolean;
     }) => {
         const res = await api.get('/GiftBasket/ChangeRequests', { params });
         return res.data as { content: PagedResult<GiftCodeChangeRequestDTO>; status: string };
@@ -190,13 +185,24 @@ export const giftBasketApi = {
         price?: number;
         approvedDate?: string;
         resultNote?: string;
+        frontImageUrl?: string;
+        backImageUrl?: string;
     }) => {
         const res = await api.put('/GiftBasket/ChangeRequest/Handle', data);
         return res.data as { content: GiftCodeChangeRequestDTO; status: string; message?: string };
     },
 
-    deleteChangeRequest: async (id: number) => {
-        const res = await api.delete(`/GiftBasket/ChangeRequest/${id}`);
+    updateChangeRequestActive: async (id: number, isActive: boolean) => {
+        const res = await api.put(`/GiftBasket/ChangeRequest/${id}/Active`, isActive);
+        return res.data;
+    },
+
+    activateChangeRequest: async (id: number, data: {
+        oldCode?: string; newCode?: string; price?: number;
+        approvedDate?: string; resultNote?: string; note?: string;
+        groupCode?: string; isActive: boolean;
+    }) => {
+        const res = await api.put(`/GiftBasket/ChangeRequest/${id}/Activate`, data);
         return res.data;
     },
 

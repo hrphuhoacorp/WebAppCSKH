@@ -18,6 +18,7 @@ import { giftBasketApi, GiftCodeChangeRequestDTO, BASKET_GROUPS } from '@/featur
 import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
 import * as signalR from '@microsoft/signalr';
+import { playBeep, unlockAudio } from '@/features/gift-basket/sounds/beep';
 
 const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('vi-VN') : '—';
 const fmtVnd = (n?: number) => n != null ? n.toLocaleString('vi-VN') + ' ₫' : '—';
@@ -207,7 +208,7 @@ export default function ApprovePage() {
 
     // image upload
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [uploadTarget, setUploadTarget] = useState<{ form: 'admin'; field: 'frontImageUrl' | 'backImageUrl' } | null>(null);
+    const [uploadTarget, setUploadTarget] = useState<{ form: 'admin' | 'approve'; field: 'frontImageUrl' | 'backImageUrl' } | null>(null);
 
     useEffect(() => {
         ordersApi.getBranches().then((res: any) => { if (res?.content) setBranches(res.content); });
@@ -224,16 +225,34 @@ export default function ApprovePage() {
         finally { setLoading(false); }
     }, [page, pageSize]);
 
-    const loadRef = useRef(load);
-    useEffect(() => { loadRef.current = load; }, [load]);
-
+    useEffect(() => {
+        document.addEventListener('click', unlockAudio, { once: true });
+        return () => document.removeEventListener('click', unlockAudio);
+    }, []);
+    
     useEffect(() => {
         const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
         const conn = new signalR.HubConnectionBuilder()
             .withUrl(`${origin}/hubs/gift-basket`, { withCredentials: true })
             .withAutomaticReconnect()
             .build();
-        conn.on('GiftBasketChanged', () => loadRef.current());
+        conn.on('GiftBasketChanged', (payload: any) => {
+            if (payload.table !== 'change_requests') return;
+            if (payload.action === 'created') {
+                setRows(prev => [payload.data, ...prev]);
+                setTotal(prev => prev + 1);
+                playBeep();
+                toast('🔔 Có yêu cầu đổi mã mới!');
+            } else if (payload.action === 'handled') {
+                setRows(prev => prev.filter((r: GiftCodeChangeRequestDTO) => r.id !== payload.data.id));
+                setTotal(prev => Math.max(0, prev - 1));
+                const label = payload.data.status === 'done' ? 'đã được duyệt ✅' : 'đã bị từ chối ❌';
+                toast(`Yêu cầu ${payload.data.requestUid ?? ''} ${label}`);
+            } else if (payload.action === 'deleted') {
+                setRows(prev => prev.filter((r: GiftCodeChangeRequestDTO) => r.id !== payload.id));
+                setTotal(prev => Math.max(0, prev - 1));
+            }
+        });
         conn.start().catch(() => { });
         return () => { conn.stop(); };
     }, []);
@@ -251,6 +270,8 @@ export default function ApprovePage() {
             price: row.price ?? '',
             approvedDate: todayStr(),
             resultNote: '',
+            frontImageUrl: row.frontImageUrl ?? undefined,
+            backImageUrl: row.backImageUrl ?? undefined,
         });
         setApproveOpen(true);
     };
@@ -265,7 +286,12 @@ export default function ApprovePage() {
         }
         setSaving(true);
         try {
-            await giftBasketApi.handleChangeRequest({ ...approveForm, price: Number(approveForm.price) });
+            await giftBasketApi.handleChangeRequest({
+            ...approveForm,
+            price: Number(approveForm.price),
+            frontImageUrl: approveForm.frontImageUrl,
+            backImageUrl: approveForm.backImageUrl,
+        });
             toast.success(approveForm.status === 'done' ? 'Đã duyệt' : 'Đã từ chối');
             setApproveOpen(false);
             load();
@@ -321,13 +347,14 @@ export default function ApprovePage() {
             const res = await giftBasketApi.uploadImage(file);
             if (res.content) {
                 if (uploadTarget.form === 'admin') setAdminForm((p: any) => ({ ...p, [uploadTarget.field]: res.content }));
+                if (uploadTarget.form === 'approve') setApproveForm((p: any) => ({ ...p, [uploadTarget.field]: res.content }));
             }
         } catch { toast.error('Lỗi tải ảnh'); }
         e.target.value = '';
     };
 
-    const triggerUpload = (field: 'frontImageUrl' | 'backImageUrl') => {
-        setUploadTarget({ form: 'admin', field });
+    const triggerUpload = (form: 'admin' | 'approve', field: 'frontImageUrl' | 'backImageUrl') => {
+        setUploadTarget({ form, field });
         fileInputRef.current?.click();
     };
 
@@ -527,12 +554,12 @@ export default function ApprovePage() {
                         <Grid size={12}><Divider sx={{ my: 0 }}>Ảnh minh họa</Divider></Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
                             <UploadThumb url={adminForm.frontImageUrl} label="Mặt trước"
-                                onUploadClick={() => triggerUpload('frontImageUrl')}
+                                onUploadClick={() => triggerUpload('admin', 'frontImageUrl')}
                                 onView={setLightboxUrl} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
                             <UploadThumb url={adminForm.backImageUrl} label="Mặt sau"
-                                onUploadClick={() => triggerUpload('backImageUrl')}
+                                onUploadClick={() => triggerUpload('admin', 'backImageUrl')}
                                 onView={setLightboxUrl} />
                         </Grid>
                     </Grid>
@@ -606,6 +633,17 @@ export default function ApprovePage() {
                                         placeholder="Ví dụ: ĐỔI NHO XANH THƯỜNG"
                                         value={approveForm.resultNote ?? ''}
                                         onChange={e => setApproveForm((p: any) => ({ ...p, resultNote: e.target.value }))} />
+                                </Grid>
+                                <Grid size={12}><Divider sx={{ my: 0 }}>Cập nhật ảnh (tùy chọn)</Divider></Grid>
+                                <Grid size={{ xs: 6 }}>
+                                    <UploadThumb url={approveForm.frontImageUrl} label="Mặt trước"
+                                        onUploadClick={() => triggerUpload('approve', 'frontImageUrl')}
+                                        onView={setLightboxUrl} />
+                                </Grid>
+                                <Grid size={{ xs: 6 }}>
+                                    <UploadThumb url={approveForm.backImageUrl} label="Mặt sau"
+                                        onUploadClick={() => triggerUpload('approve', 'backImageUrl')}
+                                        onView={setLightboxUrl} />
                                 </Grid>
                             </Grid>
                         )}

@@ -34,31 +34,32 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Dashboard',
                 href: '/dashboard/customer_care/revenue_report',
                 icon: LayoutDashboard,
-                roles: ['Super_Admin', 'Admin_Media', 'Online'],
+                roles: ['Super_Admin', 'Admin_Online', 'Online'],
             },
             {
                 title: 'Danh sách đơn hàng',
                 href: '/dashboard/customer_care/orders',
                 icon: ShoppingCart,
-                roles: ['Super_Admin', 'Admin_Media', 'Online'],
+                roles: ['Super_Admin', 'Admin_Online', 'Online'],
             },
             {
                 title: 'Danh sách khách hàng',
                 href: '/dashboard/customer_care/customers',
                 icon: Users,
-                roles: ['Super_Admin', 'Admin_Media', 'Online'],
+                roles: ['Super_Admin', 'Admin_Online', 'Online'],
             },
-            {
-                title: 'Kho Ảnh Giỏ Quà',
-                href: '/dashboard/customer_care/gifts',
-                icon: GiftIcon,
-                roles: ['Super_Admin', 'Admin_Media', 'Online', 'Staff'],
-            },
+
         ],
     },
     {
         title: 'Giỏ Quà',
         children: [
+            {
+                title: 'Kho Ảnh Giỏ Quà',
+                href: '/dashboard/gift_basket/gifts',
+                icon: GiftIcon,
+                // roles: ['Super_Admin', 'Admin_Online', 'Online', 'Staff'],
+            },
             {
                 title: 'Thư viện mã',
                 href: '/dashboard/gift_basket/baskets',
@@ -68,11 +69,13 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Yêu cầu đổi mã',
                 href: '/dashboard/gift_basket/change_requests',
                 icon: ArrowLeftRight,
+                roles: ['Super_Admin', 'Admin_Gift', 'Gói Quà'],
             },
             {
                 title: 'Duyệt mã cần đổi',
                 href: '/dashboard/gift_basket/code_mappings',
                 icon: Checklist,
+                roles: ['Super_Admin', 'Admin_Gift'],
             },
         ],
     },
@@ -94,7 +97,7 @@ export const sidebarMenu: SidebarGroup[] = [
             }
         ],
     },
- 
+
 
     {
         title: 'Tiện Ích',

@@ -63,7 +63,7 @@ namespace WebAppAPI.Controllers
         }
 
         // Tạo mới - chỉ Admin
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
         [HttpPost("Create")]
         public async Task<ResponseValue<InternalNewsDTO>> Create(
             [FromBody] InternalNewsCreateDTO dto
@@ -79,7 +79,7 @@ namespace WebAppAPI.Controllers
         }
 
         // Cập nhật - chỉ Admin
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
         [HttpPut("Update/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> Update(
             int id,
@@ -95,7 +95,7 @@ namespace WebAppAPI.Controllers
         }
 
         // Xóa - chỉ Admin
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
         [HttpDelete("Delete/{id}")]
         public async Task<ResponseValue<object>> Delete(int id)
         {
@@ -108,7 +108,7 @@ namespace WebAppAPI.Controllers
         }
 
         // Ghim / bỏ ghim
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
         [HttpPatch("TogglePin/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> TogglePin(int id)
         {
@@ -121,7 +121,7 @@ namespace WebAppAPI.Controllers
         }
 
         // Đăng bài
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
         [HttpPatch("Publish/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> Publish(int id)
         {
@@ -134,7 +134,7 @@ namespace WebAppAPI.Controllers
         }
 
         // Hủy đăng
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
         [HttpPatch("Unpublish/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> Unpublish(int id)
         {
@@ -147,7 +147,7 @@ namespace WebAppAPI.Controllers
         }
 
         // Upload ảnh cho editor
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
         [HttpPost("UploadImage")]
         public async Task<ResponseValue<string>> UploadImage(IFormFile file)
         {

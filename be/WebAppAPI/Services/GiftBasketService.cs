@@ -16,7 +16,8 @@ public interface IGiftBasketService
         int page,
         int pageSize,
         string? status,
-        int? branchId
+        int? branchId,
+        bool? isActive = null
     );
     Task<GiftCodeChangeRequestDTO> CreateCodeChangeRequestAsync(
         CreateCodeChangeRequestDTO dto,
@@ -27,7 +28,8 @@ public interface IGiftBasketService
         int userId
     );
     Task<GiftCodeChangeRequestDTO?> GetCodeChangeRequestByIdAsync(int id);
-    Task DeleteCodeChangeRequestAsync(int id);
+    Task SetChangeRequestActiveAsync(int id, bool isActive);
+    Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(int id, ActivateCodeChangeRequestDTO dto);
     Task<string> UploadBasketImageAsync(IFormFile file, int userId);
     Task<byte[]> ExportChangeRequestsExcelAsync(string? status);
 }
@@ -168,7 +170,6 @@ public class GiftBasketService : IGiftBasketService
         return MapBasketDto(basket);
     }
 
-
     // ─── CODE MAPPINGS ─────────────────────────────────────────────────────────
 
     public async Task<List<GiftCodeMappingDTO>> GetCodeMappingsAsync(int? branchId)
@@ -254,7 +255,8 @@ public class GiftBasketService : IGiftBasketService
         int page,
         int pageSize,
         string? status,
-        int? branchId
+        int? branchId,
+        bool? isActive = null
     )
     {
         var query = _ccrRepo.GetAll().Include(r => r.Branch).AsNoTracking();
@@ -264,9 +266,13 @@ public class GiftBasketService : IGiftBasketService
         if (branchId.HasValue)
             query = query.Where(r => r.BranchId == branchId.Value);
 
+        if (isActive.HasValue)
+            query = query.Where(r => r.IsActive == isActive.Value);
+
         var total = await query.CountAsync();
         var items = await query
-            .OrderByDescending(r => r.Status == "pending")
+            .OrderByDescending(r => r.IsActive == true)
+            .ThenByDescending(r => r.Status == "pending")
             .ThenByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -371,6 +377,8 @@ public class GiftBasketService : IGiftBasketService
         req.Price = dto.Price ?? req.Price;
         req.ApprovedDate = dto.ApprovedDate;
         req.ResultNote = dto.ResultNote;
+        if (dto.FrontImageUrl != null) req.FrontImageUrl = dto.FrontImageUrl;
+        if (dto.BackImageUrl != null) req.BackImageUrl = dto.BackImageUrl;
         req.HandledBy = userId;
         req.HandledAt = DateTime.UtcNow;
         await _unitOfWork.SaveChangesAsync();
@@ -378,13 +386,30 @@ public class GiftBasketService : IGiftBasketService
         return MapCcrDto(req, new Dictionary<int, string>());
     }
 
-    public async Task DeleteCodeChangeRequestAsync(int id)
+    public async Task SetChangeRequestActiveAsync(int id, bool isActive)
     {
         var req =
             await _ccrRepo.GetAll().FirstOrDefaultAsync(r => r.Id == id)
             ?? throw new NotFoundException("Không tìm thấy yêu cầu");
-        await _ccrRepo.DeleteAsync(req);
+        req.IsActive = isActive;
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(int id, ActivateCodeChangeRequestDTO dto)
+    {
+        var req =
+            await _ccrRepo.GetAll().Include(r => r.Branch).FirstOrDefaultAsync(r => r.Id == id)
+            ?? throw new NotFoundException("Không tìm thấy yêu cầu");
+        if (dto.OldCode != null) req.OldCode = dto.OldCode.Trim();
+        if (dto.NewCode != null) req.NewCode = dto.NewCode.Trim();
+        if (dto.Price.HasValue) req.Price = dto.Price.Value;
+        if (dto.ApprovedDate != null) req.ApprovedDate = dto.ApprovedDate;
+        if (dto.ResultNote != null) req.ResultNote = dto.ResultNote;
+        if (dto.Note != null) req.Note = dto.Note;
+        if (dto.GroupCode != null) req.GroupCode = dto.GroupCode;
+        req.IsActive = dto.IsActive;
+        await _unitOfWork.SaveChangesAsync();
+        return MapCcrDto(req, new Dictionary<int, string>());
     }
 
     // ─── IMAGE UPLOAD ──────────────────────────────────────────────────────────
@@ -471,6 +496,7 @@ public class GiftBasketService : IGiftBasketService
                     ? cn
                     : null,
             CreatedAt = r.CreatedAt,
+            IsActive = r.IsActive,
         };
 
     public async Task<byte[]> ExportChangeRequestsExcelAsync(string? status)
