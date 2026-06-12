@@ -120,8 +120,6 @@ public class GiftBasketService : IGiftBasketService
             Notice = dto.Notice,
             Note = dto.Note,
             UpdatedBy = userId,
-            UpdatedAt = now,
-            CreatedAt = now,
         };
 
         await _basketRepo.AddAsync(basket);
@@ -349,7 +347,6 @@ public class GiftBasketService : IGiftBasketService
             BackImageUrl = dto.BackImageUrl,
             Status = "pending",
             CreatedBy = userId,
-            CreatedAt = now,
         };
         await _ccrRepo.AddAsync(req);
         await _unitOfWork.SaveChangesAsync();

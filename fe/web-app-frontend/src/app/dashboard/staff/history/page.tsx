@@ -103,6 +103,7 @@ export default function SystemHistoryPage() {
     const formatDateTime = (value?: string | null) => {
         if (!value) return '-';
         return new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'UTC',
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
