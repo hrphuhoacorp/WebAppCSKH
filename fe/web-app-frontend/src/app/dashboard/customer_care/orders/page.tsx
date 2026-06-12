@@ -246,7 +246,7 @@ export default function OrdersPage() {
             await fetchOrders();
             await loadProfile();
         } catch (error: any) {
-            toast.error(error?.response?.data?.errorMessages?.join(', ') ?? error?.response?.data?.message ?? 'Có lỗi xảy ra');
+            toast.error(error?.response?.data?.errorMessages?.join(', ') ?? error?.response?.data?.Message ?? 'Có lỗi xảy ra');
         } finally {
             setImporting(false);
             if (e.target) e.target.value = '';

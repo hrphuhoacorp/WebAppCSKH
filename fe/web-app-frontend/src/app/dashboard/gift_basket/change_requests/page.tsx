@@ -9,7 +9,7 @@ import {
     TablePagination, TableRow, TextField, Tooltip, Typography, alpha,
 } from '@mui/material';
 import {
-    Add, CloudUpload, FormatListBulleted, ImageNotSupported,
+    Add, CloudUpload, DeleteOutlined, FormatListBulleted, ImageNotSupported,
     Refresh, SwapHoriz,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
@@ -17,6 +17,7 @@ import { ordersApi } from '@/features/orders/api/orders.api';
 import { giftBasketApi, GiftCodeChangeRequestDTO, BASKET_GROUPS } from '@/features/gift-basket/api/gift-basket.api';
 import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
+import { MediaFileDto } from '@/features/media/schemas/media_file.schemas';
 
 const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('vi-VN') : '—';
 const fmtVnd = (n?: number) => n != null ? n.toLocaleString('vi-VN') + ' ₫' : '—';
@@ -105,6 +106,10 @@ export default function ChangeRequestsPage() {
     const [bulkSaving, setBulkSaving] = useState(false);
     const [bulkProgress, setBulkProgress] = useState('');
 
+    // delete confirm
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
     const bulkRows = useMemo(() => parseBulk(bulkText), [bulkText]);
     const bulkValid = bulkRows.filter(r => !r.error);
     const bulkInvalid = bulkRows.filter(r => r.error);
@@ -154,7 +159,7 @@ export default function ChangeRequestsPage() {
             setCreateOpen(false);
             setForm({ priority: 'normal', sentZaloPhoto: true });
             load();
-        } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Lỗi'); }
+        } catch (e: any) { toast.error(e?.response?.data?.MediaFileDtoessage ?? 'Lỗi'); }
         finally { setSaving(false); }
     };
 
@@ -166,6 +171,19 @@ export default function ChangeRequestsPage() {
             if (res.content) setForm((p: any) => ({ ...p, [uploadField]: res.content }));
         } catch { toast.error('Lỗi tải ảnh'); }
         e.target.value = '';
+    };
+
+    /* ── Delete ── */
+    const handleDelete = async () => {
+        if (!deleteId) return;
+        setDeleting(true);
+        try {
+            await giftBasketApi.deleteChangeRequest(deleteId);
+            toast.success('Đã xóa yêu cầu');
+            setDeleteId(null);
+            load();
+        } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi xóa'); }
+        finally { setDeleting(false); }
     };
 
     /* ── Bulk create ── */
@@ -259,16 +277,16 @@ export default function ChangeRequestsPage() {
                     <Table size="small">
                         <TableHead>
                             <TableRow sx={{ bgcolor: alpha('#086839', 0.06) }}>
-                                {['Mã YC', 'Chi nhánh', 'Nhóm giỏ', 'Mã / Tên giỏ', 'Giá', 'Zalo', 'Ưu tiên', 'Trạng thái', 'Người tạo', 'Ngày'].map(h => (
+                                {['Mã YC', 'Chi nhánh', 'Nhóm giỏ', 'Mã / Tên giỏ', 'Giá', 'Zalo', 'Ưu tiên', 'Trạng thái', 'Người tạo', 'Ngày', ''].map(h => (
                                     <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, color: '#374151', py: 1.2 }}>{h}</TableCell>
                                 ))}
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 6 }}><CircularProgress size={28} /></TableCell></TableRow>
+                                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6 }}><CircularProgress size={28} /></TableCell></TableRow>
                             ) : filtered.length === 0 ? (
-                                <TableRow><TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>Không có dữ liệu</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6, color: 'text.secondary' }}>Không có dữ liệu</TableCell></TableRow>
                             ) : filtered.map(row => (
                                 <TableRow key={row.id} hover sx={{ '&:hover': { bgcolor: alpha('#086839', 0.03) } }}>
                                     <TableCell><Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#3b82f6', fontWeight: 600 }}>{row.requestUid}</Typography></TableCell>
@@ -291,6 +309,15 @@ export default function ChangeRequestsPage() {
                                     <TableCell><StatusChip status={row.status} /></TableCell>
                                     <TableCell><Typography variant="caption">{row.createdByName ?? '—'}</Typography></TableCell>
                                     <TableCell><Typography variant="caption">{fmtDate(row.createdAt)}</Typography></TableCell>
+                                    <TableCell sx={{ pr: 1 }}>
+                                        <Tooltip title="Xóa yêu cầu">
+                                            <Button size="small" color="error" variant="outlined"
+                                                onClick={() => setDeleteId(row.id)}
+                                                sx={{ minWidth: 0, px: 1, borderRadius: '8px' }}>
+                                                <DeleteOutlined fontSize="small" />
+                                            </Button>
+                                        </Tooltip>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -383,6 +410,23 @@ export default function ChangeRequestsPage() {
                 </DialogActions>
             </Dialog>
             <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageUpload} />
+
+            {/* ── CONFIRM DELETE dialog ─────────────────────────── */}
+            <Dialog open={deleteId !== null} onClose={() => setDeleteId(null)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 700, color: '#991b1b' }}>Xác nhận xóa</DialogTitle>
+                <Divider />
+                <DialogContent sx={{ pt: 2 }}>
+                    <Typography>Bạn có chắc muốn xóa yêu cầu này không? Hành động này không thể hoàn tác.</Typography>
+                </DialogContent>
+                <Divider />
+                <DialogActions sx={{ px: 3, py: 1.5, gap: 1 }}>
+                    <Button onClick={() => setDeleteId(null)} color="inherit" disabled={deleting}>Hủy</Button>
+                    <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}
+                        sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}>
+                        {deleting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Xóa'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* ── BULK REQUEST dialog ──────────────────────────────── */}
             <Dialog open={bulkOpen} onClose={() => setBulkOpen(false)} maxWidth="md" fullWidth>

@@ -10,7 +10,7 @@ public interface IGiftBasketService
     Task<PagedResult<GiftBasketDTO>> GetBasketsAsync(GiftBasketFilterDTO filter);
     Task<GiftBasketDTO> CreateBasketAsync(CreateGiftBasketDTO dto, int userId);
     Task<GiftBasketDTO> UpdateBasketAsync(UpdateGiftBasketDTO dto, int userId);
-    Task<bool> DeleteBasketAsync(int id, int userId);
+
     Task<List<GiftCodeMappingDTO>> GetCodeMappingsAsync(int? branchId);
     Task<PagedResult<GiftCodeChangeRequestDTO>> GetCodeChangeRequestsAsync(
         int page,
@@ -27,6 +27,7 @@ public interface IGiftBasketService
         int userId
     );
     Task<GiftCodeChangeRequestDTO?> GetCodeChangeRequestByIdAsync(int id);
+    Task DeleteCodeChangeRequestAsync(int id);
     Task<string> UploadBasketImageAsync(IFormFile file, int userId);
     Task<byte[]> ExportChangeRequestsExcelAsync(string? status);
 }
@@ -167,18 +168,6 @@ public class GiftBasketService : IGiftBasketService
         return MapBasketDto(basket);
     }
 
-    public async Task<bool> DeleteBasketAsync(int id, int userId)
-    {
-        var basket =
-            await _basketRepo.GetAll().FirstOrDefaultAsync(b => b.Id == id && b.DeletedAt == null)
-            ?? throw new NotFoundException("Không tìm thấy giỏ quà");
-
-        basket.DeletedAt = DateTime.UtcNow;
-        basket.Status = "deleted";
-        basket.UpdatedBy = userId;
-        await _unitOfWork.SaveChangesAsync();
-        return true;
-    }
 
     // ─── CODE MAPPINGS ─────────────────────────────────────────────────────────
 
@@ -252,7 +241,6 @@ public class GiftBasketService : IGiftBasketService
                     BasketId = basket.Id,
                     Active = true,
                     Source = "library-sync",
-                    UpdatedAt = now,
                 }
             );
         }
@@ -272,12 +260,14 @@ public class GiftBasketService : IGiftBasketService
         var query = _ccrRepo.GetAll().Include(r => r.Branch).AsNoTracking();
         if (!string.IsNullOrWhiteSpace(status))
             query = query.Where(r => r.Status == status);
+
         if (branchId.HasValue)
             query = query.Where(r => r.BranchId == branchId.Value);
 
         var total = await query.CountAsync();
         var items = await query
-            .OrderByDescending(r => r.CreatedAt)
+            .OrderByDescending(r => r.Status == "pending")
+            .ThenByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -306,19 +296,26 @@ public class GiftBasketService : IGiftBasketService
 
     public async Task<GiftCodeChangeRequestDTO?> GetCodeChangeRequestByIdAsync(int id)
     {
-        var req = await _ccrRepo.GetAll()
+        var req = await _ccrRepo
+            .GetAll()
             .Include(r => r.Branch)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == id);
-        if (req == null) return null;
+        if (req == null)
+            return null;
         var users = new Dictionary<int, string>();
         if (req.CreatedBy.HasValue || req.HandledBy.HasValue)
         {
             var ids = new List<int>();
-            if (req.CreatedBy.HasValue) ids.Add(req.CreatedBy.Value);
-            if (req.HandledBy.HasValue) ids.Add(req.HandledBy.Value);
-            users = await _userRepo.GetAll().Where(u => ids.Contains(u.Id))
-                .AsNoTracking().ToDictionaryAsync(u => u.Id, u => u.Name ?? u.Email);
+            if (req.CreatedBy.HasValue)
+                ids.Add(req.CreatedBy.Value);
+            if (req.HandledBy.HasValue)
+                ids.Add(req.HandledBy.Value);
+            users = await _userRepo
+                .GetAll()
+                .Where(u => ids.Contains(u.Id))
+                .AsNoTracking()
+                .ToDictionaryAsync(u => u.Id, u => u.Name ?? u.Email);
         }
         return MapCcrDto(req, users);
     }
@@ -379,6 +376,15 @@ public class GiftBasketService : IGiftBasketService
         await _unitOfWork.SaveChangesAsync();
 
         return MapCcrDto(req, new Dictionary<int, string>());
+    }
+
+    public async Task DeleteCodeChangeRequestAsync(int id)
+    {
+        var req =
+            await _ccrRepo.GetAll().FirstOrDefaultAsync(r => r.Id == id)
+            ?? throw new NotFoundException("Không tìm thấy yêu cầu");
+        await _ccrRepo.DeleteAsync(req);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     // ─── IMAGE UPLOAD ──────────────────────────────────────────────────────────
@@ -469,7 +475,8 @@ public class GiftBasketService : IGiftBasketService
 
     public async Task<byte[]> ExportChangeRequestsExcelAsync(string? status)
     {
-        var query = _ccrRepo.GetAll()
+        var query = _ccrRepo
+            .GetAll()
             .Include(r => r.Branch)
             .Where(r => r.Status == "done")
             .OrderBy(r => r.HandledAt);

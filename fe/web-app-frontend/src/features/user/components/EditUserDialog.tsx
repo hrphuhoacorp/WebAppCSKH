@@ -144,7 +144,6 @@ export default function EditUserDialog({
             onClose();
         } catch (error: any) {
             toast.error(
-                error?.response?.data?.message ??
                 error?.response?.data?.Message ??
                 'Cập nhật nhân sự thất bại'
             );

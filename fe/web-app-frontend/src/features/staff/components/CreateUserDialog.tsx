@@ -133,7 +133,6 @@ export default function CreateUserDialog({
             onClose();
         } catch (error: any) {
             toast.error(
-                error?.response?.data?.message ??
                 error?.response?.data?.Message ??
                 'Thêm nhân sự thất bại'
             );

@@ -147,7 +147,7 @@ export default function SystemHistoryPage() {
                 setTotal(response.content.totalItems);
             }
         } catch (error: any) {
-            toast.error(error?.response?.data?.message ?? 'Không tải được dữ liệu lịch sử');
+            toast.error(error?.response?.data?.Message ?? 'Không tải được dữ liệu lịch sử');
         } finally {
             setLoading(false);
         }
@@ -200,7 +200,7 @@ export default function SystemHistoryPage() {
             }
             loadHistoryData();
         } catch (error: any) {
-            toast.error(error?.response?.data?.message ?? 'Thao tác tệp dữ liệu gặp lỗi', { id: toastId });
+            toast.error(error?.response?.data?.Message ?? 'Thao tác tệp dữ liệu gặp lỗi', { id: toastId });
         } finally {
             setLoading(false);
             closeConfirmDialog();

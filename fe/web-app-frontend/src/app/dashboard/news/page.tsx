@@ -159,7 +159,7 @@ export default function NewsManagePage() {
         try { await newsApi.togglePin(id); fetchNews(); }
         catch (e: any) {
             if (e?.response?.status === 409) { fetchNews(); return; }
-            toast.error(e?.response?.data?.Message ?? e?.response?.data?.message ?? 'Ghim thất bại');
+            toast.error(e?.response?.data?.Message ?? e?.response?.data?.Message ?? 'Ghim thất bại');
         }
     };
 
@@ -180,7 +180,7 @@ export default function NewsManagePage() {
                 fetchNews();
                 return;
             }
-            const msg = e?.response?.data?.Message ?? e?.response?.data?.message;
+            const msg = e?.response?.data?.Message;
             toast.error(msg ?? 'Thao tác thất bại');
         }
     };

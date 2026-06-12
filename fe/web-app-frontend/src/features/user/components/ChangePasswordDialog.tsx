@@ -93,7 +93,6 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
             onClose();
         } catch (error: any) {
             toast.error(
-                error?.response?.data?.message ??
                 error?.response?.data?.Message ??
                 'Đổi mật khẩu thất bại'
             );

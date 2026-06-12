@@ -133,10 +133,7 @@ export const giftBasketApi = {
         return res.data as { content: GiftBasketDTO; status: string; message?: string };
     },
 
-    delete: async (id: number) => {
-        const res = await api.delete(`/GiftBasket/${id}`);
-        return res.data;
-    },
+  
 
     uploadImage: async (file: File) => {
         const formData = new FormData();
@@ -196,6 +193,11 @@ export const giftBasketApi = {
     }) => {
         const res = await api.put('/GiftBasket/ChangeRequest/Handle', data);
         return res.data as { content: GiftCodeChangeRequestDTO; status: string; message?: string };
+    },
+
+    deleteChangeRequest: async (id: number) => {
+        const res = await api.delete(`/GiftBasket/ChangeRequest/${id}`);
+        return res.data;
     },
 
     exportChangeRequests: () => {

@@ -649,8 +649,14 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Notice).HasColumnName("notice");
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
-            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity
+                .Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnName("updated_at");
+            entity
+                .Property(e => e.CreatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnName("created_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
 
             entity
@@ -680,7 +686,10 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("source")
                 .HasDefaultValue("library-sync");
-            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            entity
+                .Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnName("updated_at");
 
             entity
                 .HasOne(d => d.Branch)
@@ -721,6 +730,9 @@ public partial class MemBerContext : DbContext
                 .HasMaxLength(20)
                 .HasColumnName("priority")
                 .HasDefaultValue("normal");
+            entity.Property(e => e.GroupCode).HasMaxLength(50).HasColumnName("group_code");
+            entity.Property(e => e.Price).HasPrecision(18, 2).HasColumnName("price");
+            entity.Property(e => e.SentZaloPhoto).HasColumnName("sent_zalo_photo").HasDefaultValue(true);
             entity.Property(e => e.FrontImageUrl).HasColumnName("front_image_url");
             entity.Property(e => e.BackImageUrl).HasColumnName("back_image_url");
             entity
@@ -730,9 +742,15 @@ public partial class MemBerContext : DbContext
                 .HasDefaultValue("pending");
             entity.Property(e => e.HandledBy).HasColumnName("handled_by");
             entity.Property(e => e.HandledAt).HasColumnName("handled_at");
+            entity.Property(e => e.OldCode).HasMaxLength(50).HasColumnName("old_code");
+            entity.Property(e => e.NewCode).HasMaxLength(50).HasColumnName("new_code");
+            entity.Property(e => e.ApprovedDate).HasMaxLength(20).HasColumnName("approved_date");
             entity.Property(e => e.ResultNote).HasColumnName("result_note");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity
+                .Property(e => e.CreatedAt)
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasColumnName("created_at");
 
             entity
                 .HasOne(d => d.Branch)

@@ -37,7 +37,6 @@ export default function ResetPasswordDialog({ open, user, onClose }: Props) {
             onClose();
         } catch (error: any) {
             toast.error(
-                error?.response?.data?.message ??
                 error?.response?.data?.Message ??
                 'Reset mật khẩu thất bại'
             );

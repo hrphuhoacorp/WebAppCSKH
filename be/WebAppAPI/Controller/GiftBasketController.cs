@@ -1,6 +1,7 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
+using Microsoft.AspNetCore.SignalR;
 
 namespace WebAppAPI.Controllers
 {
@@ -12,16 +13,19 @@ namespace WebAppAPI.Controllers
         private readonly IGiftBasketService _service;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActivityService _activityService;
+        private readonly IHubContext<GiftBasketHub> _hub;
 
         public GiftBasketController(
             IGiftBasketService service,
             IHttpContextAccessor httpContextAccessor,
-            IActivityService activityService
+            IActivityService activityService,
+            IHubContext<GiftBasketHub> hub
         )
         {
             _service = service;
             _httpContextAccessor = httpContextAccessor;
             _activityService = activityService;
+            _hub = hub;
         }
 
         private int GetCurrentUserId()
@@ -33,7 +37,9 @@ namespace WebAppAPI.Controllers
         }
 
         private string GetCurrentStaffCode() =>
-            _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "StaffCode")?.Value ?? "";
+            _httpContextAccessor
+                .HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "StaffCode")
+                ?.Value ?? "";
 
         // ─── BASKETS ──────────────────────────────────────────────────────────
 
@@ -68,8 +74,19 @@ namespace WebAppAPI.Controllers
             {
                 var userId = GetCurrentUserId();
                 var result = await _service.CreateBasketAsync(dto, userId);
-                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "CREATE_BASKET", "gift_baskets", result.Id,
-                    null, JsonSerializer.Serialize(result));
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    "CREATE_BASKET",
+                    "gift_baskets",
+                    result.Id,
+                    null,
+                    JsonSerializer.Serialize(result)
+                );
+                await _hub.Clients.All.SendAsync(
+                    "GiftBasketChanged",
+                    new { table = "change_requests" }
+                );
                 return new ResponseValue<GiftBasketDTO> { StatusCode = 200, Data = result };
             }
             catch (Exception ex)
@@ -85,8 +102,20 @@ namespace WebAppAPI.Controllers
             {
                 var userId = GetCurrentUserId();
                 var result = await _service.UpdateBasketAsync(dto, userId);
-                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "UPDATE_BASKET", "gift_baskets", result.Id,
-                    JsonSerializer.Serialize(new { dto.Id }), JsonSerializer.Serialize(result));
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    "UPDATE_BASKET",
+                    "gift_baskets",
+                    result.Id,
+                    JsonSerializer.Serialize(new { dto.Id }),
+                    JsonSerializer.Serialize(result)
+                );
+                await _hub.Clients.All.SendAsync(
+                    "GiftBasketChanged",
+                    new { table = "change_requests" }
+                );
+
                 return new ResponseValue<GiftBasketDTO> { StatusCode = 200, Data = result };
             }
             catch (NotFoundException ex)
@@ -99,27 +128,6 @@ namespace WebAppAPI.Controllers
             }
         }
 
-        [HttpDelete("{id}")]
-        public async Task<ResponseValue<bool>> Delete(int id)
-        {
-            try
-            {
-                var userId = GetCurrentUserId();
-                await _service.DeleteBasketAsync(id, userId);
-                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "DELETE_BASKET", "gift_baskets", id,
-                    JsonSerializer.Serialize(new { id }), null);
-                return new ResponseValue<bool> { StatusCode = 200, Data = true };
-            }
-            catch (NotFoundException ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
-            }
-        }
-
         [HttpPost("UploadImage")]
         [Consumes("multipart/form-data")]
         public async Task<ResponseValue<string>> UploadImage(IFormFile file)
@@ -128,8 +136,15 @@ namespace WebAppAPI.Controllers
             {
                 var userId = GetCurrentUserId();
                 var url = await _service.UploadBasketImageAsync(file, userId);
-                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "UPLOAD_IMAGE", "gift_baskets", 0,
-                    null, JsonSerializer.Serialize(new { url, fileName = file.FileName }));
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    "UPLOAD_IMAGE",
+                    "gift_baskets",
+                    0,
+                    null,
+                    JsonSerializer.Serialize(new { url, fileName = file.FileName })
+                );
                 return new ResponseValue<string> { StatusCode = 200, Data = url };
             }
             catch (BadRequestException ex)
@@ -211,8 +226,19 @@ namespace WebAppAPI.Controllers
             {
                 var userId = GetCurrentUserId();
                 var result = await _service.CreateCodeChangeRequestAsync(dto, userId);
-                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "CREATE_CHANGE_REQUEST", "gift_code_change_requests", result.Id,
-                    null, JsonSerializer.Serialize(result));
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    "CREATE_CHANGE_REQUEST",
+                    "gift_code_change_requests",
+                    result.Id,
+                    null,
+                    JsonSerializer.Serialize(result)
+                );
+                await _hub.Clients.All.SendAsync(
+                    "GiftBasketChanged",
+                    new { table = "change_requests" }
+                );
                 return new ResponseValue<GiftCodeChangeRequestDTO>
                 {
                     StatusCode = 200,
@@ -239,10 +265,23 @@ namespace WebAppAPI.Controllers
                 var userId = GetCurrentUserId();
                 var before = await _service.GetCodeChangeRequestByIdAsync(dto.Id);
                 var result = await _service.HandleCodeChangeRequestAsync(dto, userId);
-                var action = dto.Status?.ToUpper() == "DONE" ? "APPROVE_CHANGE_REQUEST" : "REJECT_CHANGE_REQUEST";
-                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), action, "gift_code_change_requests", result.Id,
+                var action =
+                    dto.Status?.ToUpper() == "DONE"
+                        ? "APPROVE_CHANGE_REQUEST"
+                        : "REJECT_CHANGE_REQUEST";
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    action,
+                    "gift_code_change_requests",
+                    result.Id,
                     before != null ? JsonSerializer.Serialize(before) : null,
-                    JsonSerializer.Serialize(result));
+                    JsonSerializer.Serialize(result)
+                );
+                await _hub.Clients.All.SendAsync(
+                    "GiftBasketChanged",
+                    new { table = "change_requests" }
+                );
                 return new ResponseValue<GiftCodeChangeRequestDTO>
                 {
                     StatusCode = 200,
@@ -267,12 +306,49 @@ namespace WebAppAPI.Controllers
             }
         }
 
+        [HttpDelete("ChangeRequest/{id}")]
+        public async Task<ResponseValue<bool>> DeleteChangeRequest(int id)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var before = await _service.GetCodeChangeRequestByIdAsync(id);
+                await _service.DeleteCodeChangeRequestAsync(id);
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    "DELETE_CHANGE_REQUEST",
+                    "gift_code_change_requests",
+                    id,
+                    before != null ? JsonSerializer.Serialize(before) : null,
+                    null
+                );
+                await _hub.Clients.All.SendAsync(
+                    "GiftBasketChanged",
+                    new { table = "change_requests" }
+                );
+                return new ResponseValue<bool> { StatusCode = 200, Data = true };
+            }
+            catch (NotFoundException ex)
+            {
+                return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message };
+            }
+            catch (Exception ex)
+            {
+                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
+            }
+        }
+
         [HttpGet("ChangeRequests/Export")]
         public async Task<IActionResult> ExportChangeRequests([FromQuery] string? status)
         {
             var bytes = await _service.ExportChangeRequestsExcelAsync(status);
             var fileName = $"doi-ma-gio-{DateTime.Now:yyyyMMdd}.xlsx";
-            return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            return File(
+                bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName
+            );
         }
     }
 }

@@ -299,6 +299,8 @@ if (!string.IsNullOrWhiteSpace(mediaRoot))
 }
 
 app.MapHub<ImportHub>("/hubs/import");
+app.MapHub<GiftBasketHub>("/hubs/gift-basket");
+
 app.MapControllers();
 
 app.UseSwagger();

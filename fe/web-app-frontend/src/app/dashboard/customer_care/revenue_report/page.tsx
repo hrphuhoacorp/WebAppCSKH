@@ -72,7 +72,7 @@ export default function DashboardPage() {
             });
             setDashboard(response.content);
         } catch (error: any) {
-            toast.error(error?.response?.data?.message ?? 'Không tải được dashboard');
+            toast.error(error?.response?.data?.Message ?? 'Không tải được dashboard');
         } finally {
             setLoading(false);
         }

@@ -64,7 +64,6 @@ export default function EditCustomerDialog({
         } catch (error: any) {
             toast.error(
                 error?.response?.data?.Message ??
-                error?.response?.data?.message ??
                 'Cập nhật khách hàng thất bại'
             );
         } finally {

@@ -135,7 +135,7 @@ export default function UsersPage() {
             setUsers(response.content.items);
             setTotal(response.content.totalItems);
         } catch (error: any) {
-            toast.error(error?.response?.data?.message ?? 'Không tải được danh sách nhân sự');
+            toast.error(error?.response?.data?.Message ?? 'Không tải được danh sách nhân sự');
         } finally {
             setLoading(false);
         }

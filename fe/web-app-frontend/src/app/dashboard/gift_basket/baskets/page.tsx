@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
     Box, Chip, CircularProgress, Dialog, Grid, IconButton, InputAdornment,
     Paper, TextField, Typography, alpha,
@@ -11,6 +11,7 @@ import { giftBasketApi, GiftCodeChangeRequestDTO, BASKET_GROUPS } from '@/featur
 import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
 import toast from 'react-hot-toast';
+import * as signalR from '@microsoft/signalr';
 
 const fmtVnd = (n?: number) => n != null ? n.toLocaleString('vi-VN') + ' ₫' : '';
 const groupLabel = (code?: string) => BASKET_GROUPS.find(g => g.code === code)?.name ?? '';
@@ -189,6 +190,20 @@ export default function BasketsPage() {
         finally { setLoading(false); setLoadingMore(false); }
     }, [page]);
 
+    const loadRef = useRef(load);
+    useEffect(() => { loadRef.current = load; }, [load]);
+
+    useEffect(() => {
+        const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
+        const conn = new signalR.HubConnectionBuilder()
+            .withUrl(`${origin}/hubs/gift-basket`, { withCredentials: true })
+            .withAutomaticReconnect()
+            .build();
+        conn.on('GiftBasketChanged', () => loadRef.current(true));
+        conn.start().catch(() => { });
+        return () => { conn.stop(); };
+    }, []);
+    
     useEffect(() => { load(true); }, []); // eslint-disable-line
 
     const filtered = rows.filter(r => {

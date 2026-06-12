@@ -44,7 +44,7 @@ export default function RestoreUserDialog({ open, user, onClose, onSuccess }: Re
             onSuccess(); // Re-fetch lại danh sách user ở trang chính
             onClose();   // Đóng dialog
         } catch (error: any) {
-            toast.error(error?.response?.data?.message ?? 'Khôi phục tài khoản thất bại, vui lòng thử lại');
+            toast.error(error?.response?.data?.Message ?? 'Khôi phục tài khoản thất bại, vui lòng thử lại');
         } finally {
             setLoading(false);
         }

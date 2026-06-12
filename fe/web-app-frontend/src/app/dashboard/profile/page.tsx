@@ -45,7 +45,7 @@ export default function ProfilePage() {
                 setProfile(response.content);
             } catch (error: any) {
                 toast.error(
-                    error?.response?.data?.message ?? 'Không tải được thông tin cá nhân'
+                    error?.response?.data?.Message ?? 'Không tải được thông tin cá nhân'
                 );
             } finally {
                 setLoading(false);

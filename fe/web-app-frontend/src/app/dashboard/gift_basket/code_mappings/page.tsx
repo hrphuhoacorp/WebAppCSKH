@@ -17,6 +17,7 @@ import { ordersApi } from '@/features/orders/api/orders.api';
 import { giftBasketApi, GiftCodeChangeRequestDTO, BASKET_GROUPS } from '@/features/gift-basket/api/gift-basket.api';
 import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
+import * as signalR from '@microsoft/signalr';
 
 const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('vi-VN') : '—';
 const fmtVnd = (n?: number) => n != null ? n.toLocaleString('vi-VN') + ' ₫' : '—';
@@ -123,11 +124,11 @@ function UploadThumb({ url, label, onUploadClick, onView }: { url?: string; labe
                     <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 1.5, bgcolor: 'rgba(0,0,0,0)', '&:hover': { bgcolor: 'rgba(0,0,0,0.25)' }, '&:hover .zi': { opacity: 1 }, transition: 'background 0.18s' }}>
                         <ZoomIn className="zi" sx={{ color: '#fff', opacity: 0, transition: 'opacity 0.18s' }} />
                     </Box>
-                  </Box>
+                </Box>
                 : <Box sx={{ width: '100%', height: 100, borderRadius: 1.5, border: '2px dashed #d1d5db', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                     <ImageNotSupported sx={{ color: '#d1d5db', fontSize: 24 }} />
                     <Typography variant="caption" color="text.disabled">Chưa có ảnh</Typography>
-                  </Box>
+                </Box>
             }
             <Button size="small" variant="outlined" fullWidth startIcon={<CloudUpload />}
                 onClick={onUploadClick}
@@ -217,9 +218,25 @@ export default function ApprovePage() {
         try {
             const res = await giftBasketApi.getChangeRequests({ page: page + 1, pageSize, status: 'pending' });
             if (res.content) { setRows(res.content.items); setTotal(res.content.totalItems); }
-        } catch { toast.error('Lỗi tải danh sách'); }
+        } catch (error: any) {
+            toast.error(error?.response?.data?.Message ?? 'Lỗi');
+        }
         finally { setLoading(false); }
     }, [page, pageSize]);
+
+    const loadRef = useRef(load);
+    useEffect(() => { loadRef.current = load; }, [load]);
+
+    useEffect(() => {
+        const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
+        const conn = new signalR.HubConnectionBuilder()
+            .withUrl(`${origin}/hubs/gift-basket`, { withCredentials: true })
+            .withAutomaticReconnect()
+            .build();
+        conn.on('GiftBasketChanged', () => loadRef.current());
+        conn.start().catch(() => { });
+        return () => { conn.stop(); };
+    }, []);
 
     useEffect(() => { load(); }, [load]);
 
@@ -252,7 +269,7 @@ export default function ApprovePage() {
             toast.success(approveForm.status === 'done' ? 'Đã duyệt' : 'Đã từ chối');
             setApproveOpen(false);
             load();
-        } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Lỗi'); }
+        } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi'); }
         finally { setSaving(false); }
     };
 
@@ -292,7 +309,7 @@ export default function ApprovePage() {
             setAdminCreateOpen(false);
             setAdminForm({ approvedDate: todayStr() });
             load();
-        } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Lỗi'); }
+        } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi'); }
         finally { setSaving(false); }
     };
 
@@ -646,10 +663,10 @@ export default function ApprovePage() {
                                         onClick={() => setLightboxUrl(getFullImageUrl(selected.frontImageUrl!))}>
                                         <Box component="img" src={getFullImageUrl(selected.frontImageUrl)}
                                             sx={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', '&:hover': { opacity: 0.85 }, transition: 'opacity 0.15s' }} />
-                                      </Box>
+                                    </Box>
                                     : <Box sx={{ height: 120, borderRadius: 1.5, border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <ImageNotSupported sx={{ color: '#d1d5db' }} />
-                                      </Box>
+                                    </Box>
                                 }
                             </Grid>
                             <Grid size={{ xs: 6 }}>
@@ -659,10 +676,10 @@ export default function ApprovePage() {
                                         onClick={() => setLightboxUrl(getFullImageUrl(selected.backImageUrl!))}>
                                         <Box component="img" src={getFullImageUrl(selected.backImageUrl)}
                                             sx={{ width: '100%', height: 120, objectFit: 'cover', display: 'block', '&:hover': { opacity: 0.85 }, transition: 'opacity 0.15s' }} />
-                                      </Box>
+                                    </Box>
                                     : <Box sx={{ height: 120, borderRadius: 1.5, border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <ImageNotSupported sx={{ color: '#d1d5db' }} />
-                                      </Box>
+                                    </Box>
                                 }
                             </Grid>
                         </Grid>
@@ -773,11 +790,11 @@ export default function ApprovePage() {
                         ? <Button variant="outlined" onClick={() => setBulkPreviewed(true)} disabled={!bulkText.trim()}
                             sx={{ borderColor: '#086839', color: '#086839', borderRadius: '10px', textTransform: 'none' }}>
                             Kiểm tra dữ liệu
-                          </Button>
+                        </Button>
                         : <Button variant="contained" onClick={handleBulkAdminSubmit} disabled={bulkSaving || bulkValid.length === 0}
                             sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}>
                             {bulkSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : `Ghi chính thức ${bulkValid.length} mã`}
-                          </Button>
+                        </Button>
                     }
                 </DialogActions>
             </Dialog>
