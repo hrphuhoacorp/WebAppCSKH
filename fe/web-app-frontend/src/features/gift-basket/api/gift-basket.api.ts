@@ -206,6 +206,11 @@ export const giftBasketApi = {
         return res.data;
     },
 
+    deleteChangeRequest: async (id: number) => {
+        const res = await api.delete(`/GiftBasket/ChangeRequest/${id}`);
+        return res.data;
+    },
+
     exportChangeRequests: async (params?: { month?: string; isActive?: boolean }) => {
         const response = await api.get('/GiftBasket/ChangeRequests/Export', {
             params,

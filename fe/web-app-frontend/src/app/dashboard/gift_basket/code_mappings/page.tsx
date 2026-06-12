@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, memo } from 'react';
 import {
     Box, Button, Chip, CircularProgress, Dialog, DialogActions,
     DialogContent, DialogTitle, Divider, FormControl,
@@ -9,8 +9,8 @@ import {
     TextField, Tooltip, Typography, alpha,
 } from '@mui/material';
 import {
-    Add, CheckCircle, CloudUpload, FileDownload, FormatListBulleted,
-    ImageNotSupported, TaskAlt, Visibility, ZoomIn, Close,
+    Add, BoltRounded, CheckCircle, CheckRounded, CloudUpload, FileDownload,
+    FormatListBulleted, ImageNotSupported, PhotoCameraRounded, TaskAlt, Visibility, ZoomIn, Close,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { ordersApi } from '@/features/orders/api/orders.api';
@@ -140,6 +140,72 @@ function UploadThumb({ url, label, onUploadClick, onView }: { url?: string; labe
     );
 }
 
+/* ── Quick approve row (memoized to prevent lag from parent re-renders) ── */
+interface QuickRowInp { newCode: string; frontImageUrl?: string; backImageUrl?: string; uploadingFront: boolean; uploadingBack: boolean; saving: boolean }
+const QuickApproveRow = memo(function QuickApproveRow({
+    row, inp, onApprove, onUpload, onViewImg,
+}: {
+    row: GiftCodeChangeRequestDTO;
+    inp: QuickRowInp;
+    onApprove: (row: GiftCodeChangeRequestDTO, newCode: string) => void;
+    onUpload: (id: number, field: 'frontImageUrl' | 'backImageUrl') => void;
+    onViewImg: (url: string) => void;
+}) {
+    const [newCode, setNewCode] = useState(inp.newCode);
+    const frontFull = inp.frontImageUrl ? getFullImageUrl(inp.frontImageUrl) : '';
+    const backFull = inp.backImageUrl ? getFullImageUrl(inp.backImageUrl) : '';
+
+    const ImgCell = ({ full, uploading, field }: { full: string; uploading: boolean; field: 'frontImageUrl' | 'backImageUrl' }) => (
+        <TableCell sx={{ minWidth: 72 }}>
+            {full ? (
+                <Box component="img" src={full} alt={field}
+                    sx={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 1.5, border: '1px solid #d1d5db', cursor: 'pointer', display: 'block' }}
+                    onClick={() => onViewImg(full)} />
+            ) : (
+                <Box onClick={() => onUpload(row.id, field)}
+                    sx={{ width: 52, height: 52, borderRadius: 1.5, border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', '&:hover': { borderColor: '#b45309', bgcolor: '#fffbeb' } }}>
+                    {uploading ? <CircularProgress size={18} sx={{ color: '#b45309' }} /> : <PhotoCameraRounded sx={{ color: '#9ca3af', fontSize: 20 }} />}
+                </Box>
+            )}
+            {full && (
+                <Typography variant="caption" color="text.disabled" sx={{ fontSize: 9, display: 'block', textAlign: 'center', cursor: 'pointer' }}
+                    onClick={() => onUpload(row.id, field)}>
+                    đổi ảnh
+                </Typography>
+            )}
+        </TableCell>
+    );
+
+    return (
+        <TableRow sx={{ '&:hover': { bgcolor: '#fffbeb' } }}>
+            <TableCell>
+                <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#3b82f6', fontWeight: 600 }}>{row.requestUid}</Typography>
+                {row.priority === 'urgent' && <Chip size="small" label="🔥" sx={{ ml: 0.5, height: 16, fontSize: 10 }} />}
+            </TableCell>
+            <TableCell><Typography variant="caption">{row.branchName ?? '—'}</Typography></TableCell>
+            <TableCell><Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13 }}>{row.basketCodeOrName || '—'}</Typography></TableCell>
+            <TableCell><Typography variant="body2" sx={{ color: 'success.dark', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtVnd(row.price)}</Typography></TableCell>
+            <TableCell sx={{ minWidth: 160 }}>
+                <TextField size="small" placeholder="Mã mới…" value={newCode}
+                    onChange={e => setNewCode(e.target.value)}
+                    slotProps={{ input: { sx: { fontFamily: 'monospace', fontSize: 13 } } }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', '&.Mui-focused fieldset': { borderColor: '#b45309' } } }} />
+            </TableCell>
+            <ImgCell full={frontFull} uploading={inp.uploadingFront} field="frontImageUrl" />
+            <ImgCell full={backFull} uploading={inp.uploadingBack} field="backImageUrl" />
+            <TableCell sx={{ pr: 2 }}>
+                <Button variant="contained" size="small"
+                    startIcon={inp.saving ? <CircularProgress size={14} sx={{ color: '#fff' }} /> : <CheckRounded />}
+                    disabled={inp.saving || inp.uploadingFront || inp.uploadingBack}
+                    onClick={() => onApprove(row, newCode)}
+                    sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '8px', textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    Duyệt
+                </Button>
+            </TableCell>
+        </TableRow>
+    );
+});
+
 /* ══════════════════════════════════════════════════════════════ */
 export default function ApprovePage() {
     const [rows, setRows] = useState<GiftCodeChangeRequestDTO[]>([]);
@@ -227,6 +293,27 @@ export default function ApprovePage() {
         load();
     };
 
+    // quick approve
+    const [quickOpen, setQuickOpen] = useState(false);
+    const [quickInputs, setQuickInputs] = useState<
+        Record<number, {
+            newCode: string;
+            frontImageUrl?: string;
+            backImageUrl?: string;
+            uploadingFront: boolean;
+            uploadingBack: boolean;
+            saving: boolean;
+        }>
+    >({});
+
+    const [quickUploadTarget, setQuickUploadTarget] =
+        useState<{
+            id: number;
+            field: 'frontImageUrl' | 'backImageUrl';
+        } | null>(null);
+
+    const quickFileRef = useRef<HTMLInputElement>(null);
+
     // image upload
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadTarget, setUploadTarget] = useState<{ form: 'admin' | 'approve'; field: 'frontImageUrl' | 'backImageUrl' } | null>(null);
@@ -250,7 +337,7 @@ export default function ApprovePage() {
         document.addEventListener('click', unlockAudio, { once: true });
         return () => document.removeEventListener('click', unlockAudio);
     }, []);
-    
+
     useEffect(() => {
         const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
         const conn = new signalR.HubConnectionBuilder()
@@ -280,6 +367,56 @@ export default function ApprovePage() {
 
     useEffect(() => { load(); }, [load]);
 
+    /* ── Quick approve handlers (after load) ── */
+    const openQuickApprove = () => {
+        const inputs: Record<number, { newCode: string; frontImageUrl?: string; backImageUrl?: string; uploadingFront: boolean; uploadingBack: boolean; saving: boolean }> = {};
+        rows.forEach(r => {
+            inputs[r.id] = { newCode: r.newCode ?? '', frontImageUrl: r.frontImageUrl ?? undefined, backImageUrl: r.backImageUrl ?? undefined, uploadingFront: false, uploadingBack: false, saving: false };
+        });
+        setQuickInputs(inputs);
+        setQuickOpen(true);
+    };
+
+    const handleQuickImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !quickUploadTarget) return;
+        const { id, field } = quickUploadTarget;
+        const loadingKey = field === 'frontImageUrl' ? 'uploadingFront' : 'uploadingBack';
+        setQuickInputs(p => ({ ...p, [id]: { ...p[id], [loadingKey]: true } }));
+        try {
+            const res = await giftBasketApi.uploadImage(file);
+            if (res.content) setQuickInputs(p => ({ ...p, [id]: { ...p[id], [field]: res.content } }));
+        } catch { toast.error('Lỗi tải ảnh'); }
+        finally { setQuickInputs(p => ({ ...p, [id]: { ...p[id], [loadingKey]: false } })); e.target.value = ''; }
+    }, [quickUploadTarget]);
+
+    const handleQuickApproveOne = useCallback(async (row: GiftCodeChangeRequestDTO, newCode: string) => {
+        if (!newCode?.trim()) { toast.error('Vui lòng nhập mã mới'); return; }
+        setQuickInputs(p => ({ ...p, [row.id]: { ...p[row.id], saving: true } }));
+        try {
+            const inp = quickInputs[row.id];
+            await giftBasketApi.handleChangeRequest({
+                id: row.id, status: 'done',
+                oldCode: row.basketCodeOrName ?? '',
+                newCode: newCode.trim(),
+                price: row.price ?? 0,
+                approvedDate: todayStr(),
+                resultNote: `${row.basketCodeOrName ?? ''} → ${newCode.trim()}`,
+                frontImageUrl: inp?.frontImageUrl,
+                backImageUrl: inp?.backImageUrl,
+            });
+            toast.success(`Đã duyệt ${row.requestUid}`);
+            setQuickInputs(p => { const n = { ...p }; delete n[row.id]; return n; });
+            load();
+        } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi duyệt'); }
+        finally { setQuickInputs(p => ({ ...p, [row.id]: { ...p[row.id], saving: false } })); }
+    }, [quickInputs, load]);
+
+    const handleQuickUpload = useCallback((id: number, field: 'frontImageUrl' | 'backImageUrl') => {
+        setQuickUploadTarget({ id, field });
+        quickFileRef.current?.click();
+    }, []);
+
     /* ── Approve existing pending ── */
     const openApprove = (row: GiftCodeChangeRequestDTO) => {
         setSelected(row);
@@ -308,11 +445,11 @@ export default function ApprovePage() {
         setSaving(true);
         try {
             await giftBasketApi.handleChangeRequest({
-            ...approveForm,
-            price: Number(approveForm.price),
-            frontImageUrl: approveForm.frontImageUrl,
-            backImageUrl: approveForm.backImageUrl,
-        });
+                ...approveForm,
+                price: Number(approveForm.price),
+                frontImageUrl: approveForm.frontImageUrl,
+                backImageUrl: approveForm.backImageUrl,
+            });
             toast.success(approveForm.status === 'done' ? 'Đã duyệt' : 'Đã từ chối');
             setApproveOpen(false);
             load();
@@ -393,7 +530,17 @@ export default function ApprovePage() {
                 title="Duyệt mã cần đổi"
                 subtitle={`${pendingCount} yêu cầu đang chờ duyệt`}
                 actions={
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Button variant="outlined" startIcon={<BoltRounded />}
+                            onClick={openQuickApprove}
+                            disabled={rows.length === 0}
+                            sx={{ borderColor: '#b45309', color: '#b45309', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
+                            Duyệt nhanh
+                            {pendingCount > 0 && (
+                                <Chip size="small" label={pendingCount}
+                                    sx={{ ml: 1, height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#b45309', color: '#fff', pointerEvents: 'none' }} />
+                            )}
+                        </Button>
                         <Button variant="outlined" startIcon={<FormatListBulleted />}
                             onClick={() => { setBulkText(''); setBulkPreviewed(false); setBulkDefaultDate(todayStr()); setBulkOpen(true); }}
                             sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
@@ -855,6 +1002,62 @@ export default function ApprovePage() {
                     }
                 </DialogActions>
             </Dialog>
+
+            {/* ── QUICK APPROVE dialog ──────────────────────────── */}
+            <Dialog open={quickOpen} onClose={() => setQuickOpen(false)} maxWidth="lg" fullWidth
+                slotProps={{ paper: { sx: { borderRadius: '20px', maxHeight: '90vh' } } }}>
+                <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <BoltRounded sx={{ color: '#b45309' }} />
+                        Duyệt nhanh
+                        {rows.length > 0 && (
+                            <Chip size="small" label={`${rows.length} yêu cầu`}
+                                sx={{ bgcolor: '#fef3c7', color: '#92400e', fontWeight: 700, fontSize: 11 }} />
+                        )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        Nhập mã mới (và tải hình nếu cần) rồi bấm Duyệt từng hàng
+                    </Typography>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ p: 0 }}>
+                    {rows.filter(r => quickInputs[r.id] !== undefined || true).length === 0 ? (
+                        <Box sx={{ py: 8, textAlign: 'center' }}>
+                            <CheckRounded sx={{ fontSize: 48, color: '#86efac', mb: 1 }} />
+                            <Typography color="text.secondary" sx={{ fontWeight: 600 }}>Không còn yêu cầu nào chờ duyệt</Typography>
+                        </Box>
+                    ) : (
+                        <TableContainer sx={{ maxHeight: 'calc(90vh - 170px)' }}>
+                            <Table size="small" stickyHeader>
+                                <TableHead>
+                                    <TableRow>
+                                        {['Mã YC', 'Chi nhánh', 'Mã giỏ gốc', 'Giá', 'Mã mới *', 'Mặt trước', 'Mặt sau', ''].map(h => (
+                                            <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, color: '#78350f', bgcolor: '#fffbeb', py: 1.2, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {rows.filter(r => quickInputs[r.id] !== undefined).map(row => (
+                                        <QuickApproveRow
+                                            key={row.id}
+                                            row={row}
+                                            inp={quickInputs[row.id]}
+                                            onApprove={handleQuickApproveOne}
+                                            onUpload={handleQuickUpload}
+                                            onViewImg={setLightboxUrl}
+                                        />
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+                </DialogContent>
+                <Divider />
+                <DialogActions sx={{ px: 3, py: 1.5 }}>
+                    <Button onClick={() => setQuickOpen(false)} color="inherit">Đóng</Button>
+                </DialogActions>
+            </Dialog>
+            <input ref={quickFileRef} type="file" accept="image/*" hidden onChange={handleQuickImageUpload} />
 
             {/* Hidden file input */}
             <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleImageUpload} />

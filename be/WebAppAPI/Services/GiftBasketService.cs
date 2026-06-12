@@ -30,6 +30,7 @@ public interface IGiftBasketService
     Task<GiftCodeChangeRequestDTO?> GetCodeChangeRequestByIdAsync(int id);
     Task SetChangeRequestActiveAsync(int id, bool isActive);
     Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(int id, ActivateCodeChangeRequestDTO dto);
+    Task DeleteChangeRequestAsync(int id);
     Task<string> UploadBasketImageAsync(IFormFile file, int userId);
     Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive);
 }
@@ -410,6 +411,12 @@ public class GiftBasketService : IGiftBasketService
         req.IsActive = dto.IsActive;
         await _unitOfWork.SaveChangesAsync();
         return MapCcrDto(req, new Dictionary<int, string>());
+    }
+
+    public async Task DeleteChangeRequestAsync(int id)
+    {
+        await _ccrRepo.DeleteAsync(id);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     // ─── IMAGE UPLOAD ──────────────────────────────────────────────────────────

@@ -55,6 +55,12 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Giỏ Quà',
         children: [
             {
+                title: 'Dashboard',
+                href: '/dashboard/gift_basket/dashboard',
+                icon: LayoutDashboard,
+                // roles: ['Super_Admin', 'Admin_Online', 'Online', 'Staff'],
+            },
+            {
                 title: 'Kho Ảnh Giỏ Quà',
                 href: '/dashboard/gift_basket/gifts',
                 icon: GiftIcon,

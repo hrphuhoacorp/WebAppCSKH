@@ -383,6 +383,22 @@ namespace WebAppAPI.Controllers
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [HttpDelete("ChangeRequest/{id}")]
+        public async Task<ResponseValue<bool>> DeleteChangeRequest(int id)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                await _service.DeleteChangeRequestAsync(id);
+                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "DELETE_CHANGE_REQUEST", "gift_code_change_requests", id, null, null);
+                await _hub.Clients.All.SendAsync("GiftBasketChanged", new { action = "deleted", table = "change_requests", id });
+                return new ResponseValue<bool> { StatusCode = 200, Data = true };
+            }
+            catch (NotFoundException ex) { return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message }; }
+            catch (Exception ex) { return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message }; }
+        }
+
+        [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpGet("ChangeRequests/Export")]
         public async Task<IActionResult> ExportChangeRequests(
             [FromQuery] string? month,

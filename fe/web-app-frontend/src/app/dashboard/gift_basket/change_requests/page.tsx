@@ -6,11 +6,12 @@ import {
     DialogContent, DialogTitle, Divider, FormControl, FormControlLabel,
     Grid, InputAdornment, InputLabel, MenuItem, Paper, Select,
     Stack, Table, TableBody, TableCell, TableContainer, TableHead,
-    TablePagination, TableRow, TextField, Tooltip, Typography, alpha,
+    TablePagination, TableRow, TextField, Tooltip, Typography, alpha, Collapse,
 } from '@mui/material';
+import { DeleteOutlineRounded, BlockRounded } from '@mui/icons-material';
 import {
-    Add, CloudUpload, EditOutlined, FormatListBulleted, ImageNotSupported,
-    Refresh, SwapHoriz,
+    Add, CloudUpload, EditOutlined, FormatListBulleted,
+    ImageNotSupported, Refresh, SwapHoriz,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { ordersApi } from '@/features/orders/api/orders.api';
@@ -112,6 +113,44 @@ export default function ChangeRequestsPage() {
     const [editRow, setEditRow] = useState<GiftCodeChangeRequestDTO | null>(null);
     const [editForm, setEditForm] = useState<any>({});
     const [editSaving, setEditSaving] = useState(false);
+
+    // multi-select
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [bulkActing, setBulkActing] = useState(false);
+
+    const toggleSelect = (id: number) =>
+        setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+    const toggleSelectAll = () =>
+        setSelectedIds(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(r => r.id)));
+
+    const handleBulkDeactivate = async () => {
+        if (selectedIds.size === 0) return;
+        setBulkActing(true);
+        let ok = 0; let fail = 0;
+        for (const id of selectedIds) {
+            try { await giftBasketApi.activateChangeRequest(id, { isActive: false }); ok++; }
+            catch { fail++; }
+        }
+        setBulkActing(false);
+        setSelectedIds(new Set());
+        toast.success(`Đã vô hiệu ${ok} yêu cầu${fail > 0 ? `, thất bại ${fail}` : ''}`);
+        load();
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        setBulkActing(true);
+        let ok = 0; let fail = 0;
+        for (const id of selectedIds) {
+            try { await giftBasketApi.deleteChangeRequest(id); ok++; }
+            catch { fail++; }
+        }
+        setBulkActing(false);
+        setSelectedIds(new Set());
+        toast.success(`Đã xóa ${ok} yêu cầu${fail > 0 ? `, thất bại ${fail}` : ''}`);
+        load();
+    };
 
     const bulkRows = useMemo(() => parseBulk(bulkText), [bulkText]);
     const bulkValid = bulkRows.filter(r => !r.error);
@@ -300,12 +339,40 @@ export default function ChangeRequestsPage() {
                 <Tooltip title="Làm mới"><Button size="small" onClick={load} variant="text" sx={{ minWidth: 0, color: '#94a3b8' }}><Refresh fontSize="small" /></Button></Tooltip>
             </Paper>
 
+            {/* Bulk action bar */}
+            <Collapse in={selectedIds.size >= 2}>
+                <Paper elevation={0} sx={{ p: 1.5, mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, borderRadius: '16px', border: '1.5px solid #fbbf24', bgcolor: '#fffbeb', boxShadow: '0 2px 8px rgba(180,83,9,0.08)' }}>
+                    <Chip label={`${selectedIds.size} đã chọn`} size="small" sx={{ bgcolor: '#b45309', color: '#fff', fontWeight: 700 }} />
+                    <Button size="small" variant="outlined" startIcon={bulkActing ? <CircularProgress size={13} /> : <BlockRounded />}
+                        disabled={bulkActing}
+                        onClick={handleBulkDeactivate}
+                        sx={{ borderColor: '#f59e0b', color: '#92400e', borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}>
+                        Vô hiệu tất cả
+                    </Button>
+                    <Button size="small" variant="outlined" startIcon={bulkActing ? <CircularProgress size={13} /> : <DeleteOutlineRounded />}
+                        disabled={bulkActing}
+                        onClick={handleBulkDelete}
+                        sx={{ borderColor: '#ef4444', color: '#dc2626', borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}>
+                        Xóa tất cả
+                    </Button>
+                    <Box sx={{ flex: 1 }} />
+                    <Button size="small" color="inherit" onClick={() => setSelectedIds(new Set())}>Bỏ chọn</Button>
+                </Paper>
+            </Collapse>
+
             {/* Table */}
             <Paper elevation={0} sx={{ borderRadius: '20px', border: '1px solid #e2e8f0', bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)', overflow: 'hidden' }}>
                 <TableContainer>
                     <Table size="small">
                         <TableHead>
                             <TableRow sx={{ bgcolor: alpha('#086839', 0.06) }}>
+                                <TableCell padding="checkbox" sx={{ pl: 1.5 }}>
+                                    <Checkbox size="small"
+                                        checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                                        indeterminate={selectedIds.size > 0 && selectedIds.size < filtered.length}
+                                        onChange={toggleSelectAll}
+                                        sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' }, '&.MuiCheckbox-indeterminate': { color: '#086839' } }} />
+                                </TableCell>
                                 {['Mã YC', 'Chi nhánh', 'Nhóm giỏ', 'Mã / Tên giỏ', 'Giá', 'Zalo', 'Ưu tiên', 'Trạng thái', 'Người tạo', 'Ngày', ''].map(h => (
                                     <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, color: '#374151', py: 1.2 }}>{h}</TableCell>
                                 ))}
@@ -313,11 +380,16 @@ export default function ChangeRequestsPage() {
                         </TableHead>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6 }}><CircularProgress size={28} /></TableCell></TableRow>
+                                <TableRow><TableCell colSpan={12} align="center" sx={{ py: 6 }}><CircularProgress size={28} /></TableCell></TableRow>
                             ) : filtered.length === 0 ? (
-                                <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6, color: 'text.secondary' }}>Không có dữ liệu</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={12} align="center" sx={{ py: 6, color: 'text.secondary' }}>Không có dữ liệu</TableCell></TableRow>
                             ) : filtered.map(row => (
-                                <TableRow key={row.id} hover sx={{ '&:hover': { bgcolor: alpha('#086839', 0.03) } }}>
+                                <TableRow key={row.id} hover selected={selectedIds.has(row.id)}
+                                    sx={{ '&:hover': { bgcolor: alpha('#086839', 0.03) }, '&.Mui-selected': { bgcolor: alpha('#086839', 0.06), '&:hover': { bgcolor: alpha('#086839', 0.09) } } }}>
+                                    <TableCell padding="checkbox" sx={{ pl: 1.5 }}>
+                                        <Checkbox size="small" checked={selectedIds.has(row.id)} onChange={() => toggleSelect(row.id)}
+                                            sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' } }} />
+                                    </TableCell>
                                     <TableCell><Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#3b82f6', fontWeight: 600 }}>{row.requestUid}</Typography></TableCell>
                                     <TableCell><Typography variant="caption">{row.branchName ?? '—'}</Typography></TableCell>
                                     <TableCell>
