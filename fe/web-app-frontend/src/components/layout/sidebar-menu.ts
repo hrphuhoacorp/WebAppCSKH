@@ -67,7 +67,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 // roles: ['Super_Admin', 'Admin_Online', 'Online', 'Staff'],
             },
             {
-                title: 'Thư viện mã',
+                title: 'Danh sách quy đổi mã',
                 href: '/dashboard/gift_basket/baskets',
                 icon: Library,
             },
