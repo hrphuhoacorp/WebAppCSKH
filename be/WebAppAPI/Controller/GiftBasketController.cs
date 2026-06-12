@@ -195,7 +195,7 @@ namespace WebAppAPI.Controllers
             }
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift,Gói Quà")]
+        [Authorize(Roles = "Super_Admin,Admin_Gift,Gói Quà,Nhân Viên")]
         [HttpPost("ChangeRequest/Create")]
         public async Task<ResponseValue<GiftCodeChangeRequestDTO>> CreateChangeRequest(
             [FromBody] CreateCodeChangeRequestDTO dto
@@ -390,22 +390,47 @@ namespace WebAppAPI.Controllers
             {
                 var userId = GetCurrentUserId();
                 await _service.DeleteChangeRequestAsync(id);
-                await _activityService.SaveLogAsync(userId, GetCurrentStaffCode(), "DELETE_CHANGE_REQUEST", "gift_code_change_requests", id, null, null);
-                await _hub.Clients.All.SendAsync("GiftBasketChanged", new { action = "deleted", table = "change_requests", id });
+                await _activityService.SaveLogAsync(
+                    userId,
+                    GetCurrentStaffCode(),
+                    "DELETE_CHANGE_REQUEST",
+                    "gift_code_change_requests",
+                    id,
+                    null,
+                    null
+                );
+                await _hub.Clients.All.SendAsync(
+                    "GiftBasketChanged",
+                    new
+                    {
+                        action = "deleted",
+                        table = "change_requests",
+                        id,
+                    }
+                );
                 return new ResponseValue<bool> { StatusCode = 200, Data = true };
             }
-            catch (NotFoundException ex) { return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message }; }
-            catch (Exception ex) { return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message }; }
+            catch (NotFoundException ex)
+            {
+                return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message };
+            }
+            catch (Exception ex)
+            {
+                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
+            }
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpGet("ChangeRequests/Export")]
         public async Task<IActionResult> ExportChangeRequests(
             [FromQuery] string? month,
-            [FromQuery] bool? isActive)
+            [FromQuery] bool? isActive
+        )
         {
             var bytes = await _service.ExportChangeRequestsExcelAsync(month, isActive);
-            var suffix = string.IsNullOrWhiteSpace(month) ? DateTime.Now.ToString("yyyyMM") : month.Replace("-", "");
+            var suffix = string.IsNullOrWhiteSpace(month)
+                ? DateTime.Now.ToString("yyyyMM")
+                : month.Replace("-", "");
             var fileName = $"doi-ma-gio-{suffix}.xlsx";
             return File(
                 bytes,
