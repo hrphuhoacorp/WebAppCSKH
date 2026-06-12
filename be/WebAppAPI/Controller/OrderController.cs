@@ -12,7 +12,6 @@ namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
@@ -24,6 +23,7 @@ namespace WebAppAPI.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
         [HttpPost("ImportExcel")]
         public async Task<ResponseValue<ImportResultDTO>> ImportExcelAsync(IFormFile file)
         {
@@ -40,6 +40,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
         [HttpPost("RollbackImportAsync/{importHistoryId}")]
         public async Task<ResponseValue<bool>> RollbackImportAsync(int importHistoryId)
         {
@@ -59,6 +60,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
         [HttpPost("RestoreImportAsync/{importHistoryId}")]
         public async Task<ResponseValue<bool>> RestoreImportAsync(int importHistoryId)
         {
@@ -78,6 +80,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
         [HttpGet("GetAllOrdersAsync")]
         public async Task<ResponseValue<PagedResult<OrderDTO>>> GetAllOrdersAsync(
             [FromQuery] OrderFilterDTO filter
@@ -91,6 +94,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
         [HttpGet("GetOrderByIdAsync/{id}")]
         public async Task<ResponseValue<OrderDTO>> GetOrderByIdAsync(int id)
         {
