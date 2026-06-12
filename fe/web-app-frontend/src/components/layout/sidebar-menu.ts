@@ -75,7 +75,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Yêu cầu đổi mã',
                 href: '/dashboard/gift_basket/change_requests',
                 icon: ArrowLeftRight,
-                roles: ['Super_Admin', 'Admin_Gift', 'Gói Quà','Nhân Viên'],
+                roles: ['Super_Admin', 'Admin_Gift', 'Gói Quà', 'Bán Hàng'],
             },
             {
                 title: 'Duyệt mã cần đổi',

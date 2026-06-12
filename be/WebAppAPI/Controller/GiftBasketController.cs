@@ -195,7 +195,7 @@ namespace WebAppAPI.Controllers
             }
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift,Gói Quà,Nhân Viên")]
+        [Authorize(Roles = "Super_Admin,Admin_Gift,Gói Quà,Bán Hàng")]
         [HttpPost("ChangeRequest/Create")]
         public async Task<ResponseValue<GiftCodeChangeRequestDTO>> CreateChangeRequest(
             [FromBody] CreateCodeChangeRequestDTO dto
