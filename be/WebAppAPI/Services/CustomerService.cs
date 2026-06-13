@@ -9,7 +9,11 @@ public interface ICustomerService
     Task<string> UpdateCustomerAsync(int authorId, int id, UpdateCustomerDTO updateDTO);
     Task<string> DeleteCustomerAsync(int authorId, int id, DateTime updatedAt);
     Task<ReturnRateStatsDTO> GetReturnRateStatsAsync(int months);
-    Task<PagedResult<SegmentCustomerDTO>> GetCustomersBySegmentAsync(string segment, int page, int pageSize);
+    Task<PagedResult<SegmentCustomerDTO>> GetCustomersBySegmentAsync(
+        string segment,
+        int page,
+        int pageSize
+    );
 }
 
 public class CustomerService : ICustomerService
@@ -309,24 +313,34 @@ public class CustomerService : ICustomerService
 
     public async Task<ReturnRateStatsDTO> GetReturnRateStatsAsync(int months)
     {
-        if (months < 1) months = 12;
+        if (months < 1)
+            months = 12;
         var now = DateTime.UtcNow.AddHours(7);
 
         // ── Lấy toàn bộ đơn hàng (kể cả ngoài khoảng months để tính trước kỳ) ──
         var allOrders = await _orderRepository
             .GetAll()
             .Where(o => o.DeletedAt == null && o.Customer.DeletedAt == null)
-            .Select(o => new { o.CustomerId, o.PurchaseDate, o.Revenue })
+            .Select(o => new
+            {
+                o.CustomerId,
+                o.PurchaseDate,
+                o.Revenue,
+            })
             .ToListAsync();
 
         // ── Danh sách tháng cần thống kê ──
-        var sortedMonths = Enumerable.Range(0, months)
+        var sortedMonths = Enumerable
+            .Range(0, months)
             .Select(i => now.AddMonths(-months + 1 + i))
             .ToList();
 
         var earliestMonth = sortedMonths.First();
         var priorBuyers = allOrders
-            .Where(o => o.PurchaseDate < new DateTime(earliestMonth.Year, earliestMonth.Month, 1) && o.CustomerId.HasValue)
+            .Where(o =>
+                o.PurchaseDate < new DateTime(earliestMonth.Year, earliestMonth.Month, 1)
+                && o.CustomerId.HasValue
+            )
             .Select(o => o.CustomerId!.Value)
             .Distinct()
             .ToHashSet();
@@ -340,20 +354,30 @@ public class CustomerService : ICustomerService
             var monthStart = new DateTime(m.Year, m.Month, 1);
             var monthEnd = monthStart.AddMonths(1);
             var monthOrders = allOrders
-                .Where(o => o.PurchaseDate >= monthStart && o.PurchaseDate < monthEnd && o.CustomerId.HasValue)
+                .Where(o =>
+                    o.PurchaseDate >= monthStart
+                    && o.PurchaseDate < monthEnd
+                    && o.CustomerId.HasValue
+                )
                 .ToList();
 
             var buyers = monthOrders.Select(o => o.CustomerId!.Value).Distinct().ToList();
             var returningCount = buyers.Count(id => seenBuyers.Contains(id));
 
-            monthlyStats.Add(new MonthlyReturnRateDTO
-            {
-                Year = m.Year, Month = m.Month,
-                NewCustomers = buyers.Count - returningCount,
-                ReturningCustomers = returningCount,
-                TotalBuyers = buyers.Count,
-                ReturnRate = buyers.Count > 0 ? Math.Round((double)returningCount / buyers.Count * 100, 1) : 0,
-            });
+            monthlyStats.Add(
+                new MonthlyReturnRateDTO
+                {
+                    Year = m.Year,
+                    Month = m.Month,
+                    NewCustomers = buyers.Count - returningCount,
+                    ReturningCustomers = returningCount,
+                    TotalBuyers = buyers.Count,
+                    ReturnRate =
+                        buyers.Count > 0
+                            ? Math.Round((double)returningCount / buyers.Count * 100, 1)
+                            : 0,
+                }
+            );
 
             var returningRevenue = monthOrders
                 .Where(o => seenBuyers.Contains(o.CustomerId!.Value))
@@ -362,21 +386,31 @@ public class CustomerService : ICustomerService
                 .Where(o => !seenBuyers.Contains(o.CustomerId!.Value))
                 .Sum(o => o.Revenue);
 
-            monthlyRevenue.Add(new MonthlyRevenueBreakdownDTO
-            {
-                Year = m.Year, Month = m.Month,
-                ReturningRevenue = returningRevenue,
-                NewRevenue = newRevenue,
-            });
+            monthlyRevenue.Add(
+                new MonthlyRevenueBreakdownDTO
+                {
+                    Year = m.Year,
+                    Month = m.Month,
+                    ReturningRevenue = returningRevenue,
+                    NewRevenue = newRevenue,
+                }
+            );
 
-            foreach (var id in buyers) seenBuyers.Add(id);
+            foreach (var id in buyers)
+                seenBuyers.Add(id);
         }
 
         // ── Phân bố tần suất mua hàng ──
         var allCustomerData = await _customerRepository
             .GetAll()
             .Where(c => c.DeletedAt == null)
-            .Select(c => new { c.Id, c.TotalOrders, c.TotalRevenue, c.LastOrderAt })
+            .Select(c => new
+            {
+                c.Id,
+                c.TotalOrders,
+                c.TotalRevenue,
+                c.LastOrderAt,
+            })
             .ToListAsync();
 
         var freq = new FrequencyDistributionDTO
@@ -389,17 +423,27 @@ public class CustomerService : ICustomerService
 
         var dormancy = new DormancySegmentDTO
         {
-            Active30 = allCustomerData.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays <= 30),
-            Dormant30To60 = allCustomerData.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays is > 30 and <= 60),
-            Dormant60To90 = allCustomerData.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays is > 60 and <= 90),
-            Dormant90Plus = allCustomerData.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays > 90),
+            Active30 = allCustomerData.Count(c =>
+                c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays <= 30
+            ),
+            Dormant30To60 = allCustomerData.Count(c =>
+                c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays is > 30 and <= 60
+            ),
+            Dormant60To90 = allCustomerData.Count(c =>
+                c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays is > 60 and <= 90
+            ),
+            Dormant90Plus = allCustomerData.Count(c =>
+                c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays > 90
+            ),
             NeverBought = allCustomerData.Count(c => !c.LastOrderAt.HasValue),
         };
 
-        // Khách hàng có nguy cơ rời bỏ: mua ≥2 lần, chưa mua 60-180 ngày
+        // Khách hàng có nguy cơ rời bỏ: mua ≥ 2 lần, chưa mua 60-180 ngày
         var atRisk = allCustomerData.Count(c =>
-            c.TotalOrders >= 2 && c.LastOrderAt.HasValue
-            && (now - c.LastOrderAt.Value).TotalDays is > 60 and <= 180);
+            c.TotalOrders >= 2
+            && c.LastOrderAt.HasValue
+            && (now - c.LastOrderAt.Value).TotalDays is > 60 and <= 180
+        );
 
         // ── Trung bình số ngày giữa các đơn hàng (repeat buyers) ──
         var ordersByCustomer = allOrders
@@ -408,23 +452,28 @@ public class CustomerService : ICustomerService
             .Where(g => g.Count() >= 2)
             .ToList();
 
-        var avgDaysList = ordersByCustomer.Select(g =>
-        {
-            var dates = g.OrderBy(o => o.PurchaseDate).Select(o => o.PurchaseDate).ToList();
-            var gaps = dates.Zip(dates.Skip(1), (a, b) => (b - a).TotalDays);
-            return gaps.Average();
-        }).ToList();
+        var avgDaysList = ordersByCustomer
+            .Select(g =>
+            {
+                var dates = g.OrderBy(o => o.PurchaseDate).Select(o => o.PurchaseDate).ToList();
+                var gaps = dates.Zip(dates.Skip(1), (a, b) => (b - a).TotalDays);
+                return gaps.Average();
+            })
+            .ToList();
 
         var avgDaysBetween = avgDaysList.Count > 0 ? Math.Round(avgDaysList.Average(), 1) : 0;
 
         // ── Trung bình ngày đến đơn thứ 2 ──
-        var timeToSecondList = ordersByCustomer.Select(g =>
-        {
-            var dates = g.OrderBy(o => o.PurchaseDate).Select(o => o.PurchaseDate).ToList();
-            return (dates[1] - dates[0]).TotalDays;
-        }).ToList();
+        var timeToSecondList = ordersByCustomer
+            .Select(g =>
+            {
+                var dates = g.OrderBy(o => o.PurchaseDate).Select(o => o.PurchaseDate).ToList();
+                return (dates[1] - dates[0]).TotalDays;
+            })
+            .ToList();
 
-        var avgTimeToSecond = timeToSecondList.Count > 0 ? Math.Round(timeToSecondList.Average(), 1) : 0;
+        var avgTimeToSecond =
+            timeToSecondList.Count > 0 ? Math.Round(timeToSecondList.Average(), 1) : 0;
 
         // ── Top 20 khách hàng trung thành ──
         var topCustomerRaw = await _customerRepository
@@ -435,8 +484,13 @@ public class CustomerService : ICustomerService
             .Take(20)
             .Select(c => new
             {
-                c.Id, c.Name, c.CustomerCode, c.Phone,
-                c.TotalOrders, c.TotalRevenue, c.LastOrderAt,
+                c.Id,
+                c.Name,
+                c.CustomerCode,
+                c.Phone,
+                c.TotalOrders,
+                c.TotalRevenue,
+                c.LastOrderAt,
             })
             .ToListAsync();
 
@@ -445,32 +499,40 @@ public class CustomerService : ICustomerService
         var topOrdersMap = allOrders
             .Where(o => o.CustomerId.HasValue && topCustomerIds.Contains(o.CustomerId!.Value))
             .GroupBy(o => o.CustomerId!.Value)
-            .ToDictionary(g => g.Key, g => g.OrderBy(o => o.PurchaseDate).Select(o => o.PurchaseDate).ToList());
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(o => o.PurchaseDate).Select(o => o.PurchaseDate).ToList()
+            );
 
-        var topCustomers = topCustomerRaw.Select(c =>
-        {
-            var orderDates = topOrdersMap.GetValueOrDefault(c.Id) ?? new List<DateTime>();
-            double avgGap = 0;
-            if (orderDates.Count >= 2)
+        var topCustomers = topCustomerRaw
+            .Select(c =>
             {
-                var gaps = orderDates.Zip(orderDates.Skip(1), (a, b) => (b - a).TotalDays);
-                avgGap = Math.Round(gaps.Average(), 1);
-            }
-            return new LoyalCustomerDTO
-            {
-                Id = c.Id,
-                Name = c.Name,
-                CustomerCode = c.CustomerCode,
-                Phone = c.Phone,
-                OrderCount = c.TotalOrders,
-                TotalRevenue = c.TotalRevenue,
-                AvgOrderValue = c.TotalOrders > 0 ? Math.Round(c.TotalRevenue / c.TotalOrders, 0) : 0,
-                AvgDaysBetweenOrders = avgGap,
-                LastOrderAt = c.LastOrderAt,
-                FirstOrderAt = orderDates.Count > 0 ? orderDates.First() : null,
-                DaysSinceLastOrder = c.LastOrderAt.HasValue ? (int)(now - c.LastOrderAt.Value).TotalDays : -1,
-            };
-        }).ToList();
+                var orderDates = topOrdersMap.GetValueOrDefault(c.Id) ?? new List<DateTime>();
+                double avgGap = 0;
+                if (orderDates.Count >= 2)
+                {
+                    var gaps = orderDates.Zip(orderDates.Skip(1), (a, b) => (b - a).TotalDays);
+                    avgGap = Math.Round(gaps.Average(), 1);
+                }
+                return new LoyalCustomerDTO
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    CustomerCode = c.CustomerCode,
+                    Phone = c.Phone,
+                    OrderCount = c.TotalOrders,
+                    TotalRevenue = c.TotalRevenue,
+                    AvgOrderValue =
+                        c.TotalOrders > 0 ? Math.Round(c.TotalRevenue / c.TotalOrders, 0) : 0,
+                    AvgDaysBetweenOrders = avgGap,
+                    LastOrderAt = c.LastOrderAt,
+                    FirstOrderAt = orderDates.Count > 0 ? orderDates.First() : null,
+                    DaysSinceLastOrder = c.LastOrderAt.HasValue
+                        ? (int)(now - c.LastOrderAt.Value).TotalDays
+                        : -1,
+                };
+            })
+            .ToList();
 
         // ── Thống kê sản phẩm trong khoảng months ──
         var periodStart = now.AddMonths(-months);
@@ -497,9 +559,10 @@ public class CustomerService : ICustomerService
         {
             TotalItemsSold = orderItems.Count,
             TotalProductRevenue = orderItems.Sum(oi => oi.Revenue),
-            AvgItemsPerOrder = totalOrdersInPeriod > 0
-                ? Math.Round((double)orderItems.Count / totalOrdersInPeriod, 2)
-                : 0,
+            AvgItemsPerOrder =
+                totalOrdersInPeriod > 0
+                    ? Math.Round((double)orderItems.Count / totalOrdersInPeriod, 2)
+                    : 0,
             UniqueCategories = catGroups.Count,
             TopCategory = catGroups.FirstOrDefault()?.Category,
             TopCategoryCount = catGroups.FirstOrDefault()?.ItemCount ?? 0,
@@ -520,17 +583,26 @@ public class CustomerService : ICustomerService
         };
     }
 
-    public async Task<PagedResult<SegmentCustomerDTO>> GetCustomersBySegmentAsync(string segment, int page, int pageSize)
+    public async Task<PagedResult<SegmentCustomerDTO>> GetCustomersBySegmentAsync(
+        string segment,
+        int page,
+        int pageSize
+    )
     {
-        if (page < 1) page = 1;
-        if (pageSize < 1 || pageSize > 100) pageSize = 20;
+        if (page < 1)
+            page = 1;
+        if (pageSize < 1 || pageSize > 100)
+            pageSize = 20;
         var now = DateTime.UtcNow.AddHours(7);
 
         var cutoff30 = now.AddDays(-30);
         var cutoff60 = now.AddDays(-60);
         var cutoff180 = now.AddDays(-180);
 
-        var baseQuery = _customerRepository.GetAll().Where(c => c.DeletedAt == null).AsNoTracking();
+        var baseQuery = _customerRepository
+            .GetAll()
+            .Where(c => c.DeletedAt == null && !c.Name.Contains("ách"))
+            .AsNoTracking();
 
         var filtered = segment switch
         {
@@ -538,14 +610,21 @@ public class CustomerService : ICustomerService
                 .Where(c => c.LastOrderAt != null && c.LastOrderAt >= cutoff30)
                 .OrderByDescending(c => c.LastOrderAt),
             "atRisk" => baseQuery
-                .Where(c => c.TotalOrders >= 2 && c.LastOrderAt != null && c.LastOrderAt <= cutoff60 && c.LastOrderAt >= cutoff180)
+                .Where(c =>
+                    c.TotalOrders >= 2
+                    && c.LastOrderAt != null
+                    && c.LastOrderAt <= cutoff60
+                    && c.LastOrderAt >= cutoff180
+                )
                 .OrderBy(c => c.LastOrderAt),
             "repeat" => baseQuery
                 .Where(c => c.TotalOrders >= 2)
-                .OrderByDescending(c => c.TotalOrders).ThenByDescending(c => c.TotalRevenue),
-            _ => baseQuery  // "loyal"
+                .OrderByDescending(c => c.TotalOrders)
+                .ThenByDescending(c => c.TotalRevenue),
+            _ => baseQuery // "loyal"
                 .Where(c => c.TotalOrders > 1)
-                .OrderByDescending(c => c.TotalOrders).ThenByDescending(c => c.TotalRevenue),
+                .OrderByDescending(c => c.TotalOrders)
+                .ThenByDescending(c => c.TotalRevenue),
         };
 
         var total = await filtered.CountAsync();
@@ -561,9 +640,15 @@ public class CustomerService : ICustomerService
                 Phone = c.Phone,
                 TotalOrders = c.TotalOrders,
                 TotalRevenue = c.TotalRevenue,
-                AvgOrderValue = c.TotalOrders > 0 ? Math.Round(c.TotalRevenue / c.TotalOrders, 0) : 0,
+                AvgOrderValue =
+                    c.TotalOrders > 0 ? Math.Round(c.TotalRevenue / c.TotalOrders, 0) : 0,
                 LastOrderAt = c.LastOrderAt,
-                DaysSinceLastOrder = c.LastOrderAt.HasValue ? (int)(now - c.LastOrderAt.Value).TotalDays : -1,
+                FirstOrderAt = c
+                    .Orders.Where(o => o.DeletedAt == null)
+                    .Min(o => (DateTime?)o.PurchaseDate),
+                DaysSinceLastOrder = c.LastOrderAt.HasValue
+                    ? (int)(now - c.LastOrderAt.Value).TotalDays
+                    : -1,
             })
             .ToListAsync();
 
