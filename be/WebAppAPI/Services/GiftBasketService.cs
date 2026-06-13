@@ -107,7 +107,7 @@ public class GiftBasketService : IGiftBasketService
 
     public async Task<GiftBasketDTO> CreateBasketAsync(CreateGiftBasketDTO dto, int userId)
     {
-        var now = DateTime.UtcNow;
+      
         var basket = new GiftBasket
         {
             BasketUid = "BSK-" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
@@ -163,7 +163,6 @@ public class GiftBasketService : IGiftBasketService
         basket.Notice = dto.Notice;
         basket.Note = dto.Note;
         basket.UpdatedBy = userId;
-        basket.UpdatedAt = DateTime.UtcNow;
 
         await _unitOfWork.SaveChangesAsync();
         await SyncCodeMappingAsync(basket, oldCode != basket.CurrentCode ? oldCode : null);
@@ -200,7 +199,7 @@ public class GiftBasketService : IGiftBasketService
 
     private async Task SyncCodeMappingAsync(GiftBasket basket, string? oldCode)
     {
-        var now = DateTime.UtcNow;
+        
 
         // Đánh dấu mã cũ là inactive
         if (!string.IsNullOrWhiteSpace(oldCode))
@@ -211,7 +210,6 @@ public class GiftBasketService : IGiftBasketService
             if (old != null)
             {
                 old.Active = false;
-                old.UpdatedAt = now;
             }
         }
 
@@ -229,7 +227,6 @@ public class GiftBasketService : IGiftBasketService
             existing.BasketId = basket.Id;
             existing.Active = true;
             existing.Source = "library-sync";
-            existing.UpdatedAt = now;
         }
         else
         {
@@ -381,7 +378,7 @@ public class GiftBasketService : IGiftBasketService
         if (dto.FrontImageUrl != null) req.FrontImageUrl = dto.FrontImageUrl;
         if (dto.BackImageUrl != null) req.BackImageUrl = dto.BackImageUrl;
         req.HandledBy = userId;
-        req.HandledAt = DateTime.UtcNow;
+        req.HandledAt = DateTime.UtcNow.AddHours(7);
         await _unitOfWork.SaveChangesAsync();
 
         return MapCcrDto(req, new Dictionary<int, string>());
