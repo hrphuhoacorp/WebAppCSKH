@@ -37,7 +37,9 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(false);
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
-    const [month, setMonth] = useState('');
+    const [month, setMonth] = useState<number | ''>(
+        new Date().getMonth() + 1
+    );
     const [year, setYear] = useState('');
     const [source, setSource] = useState('');
     const [branchId, setBranchId] = useState('');
@@ -156,7 +158,13 @@ export default function DashboardPage() {
                         <MenuItem value="week">Theo tuần</MenuItem>
                         <MenuItem value="month">Theo tháng</MenuItem>
                     </TextField>
-                    <TextField select size="small" label="Tháng" value={month} onChange={(e) => setMonth(e.target.value)} fullWidth sx={filterFieldSx}>
+                    <TextField select size="small" label="Tháng" value={month} onChange={(e) =>
+                        setMonth(
+                            e.target.value === ''
+                                ? ''
+                                : Number(e.target.value)
+                        )
+                    } fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả tháng</MenuItem>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                             <MenuItem key={m} value={m}>Tháng {m}</MenuItem>
@@ -172,7 +180,7 @@ export default function DashboardPage() {
 
                     <TextField select size="small" label="Nguồn khách" value={source} onChange={(e) => setSource(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả các nguồn</MenuItem>
-                        {['Zalo', 'Facebook', 'GrabMark', 'ShopeeFood'].map((s) => (
+                        {['Zalo', 'Facebook', 'GrabMark', 'ShopeeFood', 'Livestream'].map((s) => (
                             <MenuItem key={s} value={s}>{s}</MenuItem>
                         ))}
                     </TextField>
@@ -352,68 +360,68 @@ export default function DashboardPage() {
                             </Box>
 
                             <Box sx={{ overflowX: 'auto' }}>
-                            <Table size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        {['#', 'Khách hàng', 'SĐT', 'Đơn', 'Chi tiêu'].map((h, i) => (
-                                            <TableCell
-                                                key={h}
-                                                align={i >= 3 ? 'right' : 'left'}
-                                                sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', borderColor: '#f1f5f9', py: 1.2 }}
-                                            >
-                                                {h}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {dashboard.topCustomersByRevenue.map((item: any, idx: number) => (
-                                        <TableRow
-                                            key={item.customerId}
-                                            sx={{
-                                                '&:hover': { bgcolor: '#f8faf9' },
-                                                '& td': { borderColor: '#f1f5f9', py: 1.5 },
-                                                transition: 'background 0.12s',
-                                            }}
-                                        >
-                                            <TableCell sx={{ width: 44, fontSize: 18 }}>
-                                                {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
-                                                    <Typography sx={{ fontWeight: 700, color: '#cbd5e1', fontSize: 14, pl: 0.5 }}>{idx + 1}</Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                    <Avatar
-                                                        sx={{
-                                                            width: 32, height: 32, fontSize: 13,
-                                                            bgcolor: idx === 0 ? '#fef3c7' : idx === 1 ? '#f1f5f9' : idx === 2 ? '#fff7ed' : '#f0fdf4',
-                                                            color: idx === 0 ? '#d97706' : idx === 1 ? '#64748b' : idx === 2 ? '#ea580c' : '#086839',
-                                                            fontWeight: 800,
-                                                            border: `2px solid ${idx === 0 ? '#fde68a' : idx === 1 ? '#e2e8f0' : idx === 2 ? '#fed7aa' : '#bbf7d0'}`,
-                                                        }}
-                                                    >
-                                                        {item.customerName?.[0]}
-                                                    </Avatar>
-                                                    <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap' }}>
-                                                        {item.customerName}
-                                                    </Typography>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.phone}</TableCell>
-                                            <TableCell align="right">
-                                                <Chip
-                                                    label={item.totalOrders}
-                                                    size="small"
-                                                    sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 12, height: 22, border: '1px solid #bbf7d0' }}
-                                                />
-                                            </TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 800, color: '#d97706', fontSize: 13, whiteSpace: 'nowrap' }}>
-                                                {formatMoney(item.totalRevenue)}
-                                            </TableCell>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            {['#', 'Khách hàng', 'SĐT', 'Đơn', 'Chi tiêu'].map((h, i) => (
+                                                <TableCell
+                                                    key={h}
+                                                    align={i >= 3 ? 'right' : 'left'}
+                                                    sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', borderColor: '#f1f5f9', py: 1.2 }}
+                                                >
+                                                    {h}
+                                                </TableCell>
+                                            ))}
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHead>
+                                    <TableBody>
+                                        {dashboard.topCustomersByRevenue.map((item: any, idx: number) => (
+                                            <TableRow
+                                                key={item.customerId}
+                                                sx={{
+                                                    '&:hover': { bgcolor: '#f8faf9' },
+                                                    '& td': { borderColor: '#f1f5f9', py: 1.5 },
+                                                    transition: 'background 0.12s',
+                                                }}
+                                            >
+                                                <TableCell sx={{ width: 44, fontSize: 18 }}>
+                                                    {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
+                                                        <Typography sx={{ fontWeight: 700, color: '#cbd5e1', fontSize: 14, pl: 0.5 }}>{idx + 1}</Typography>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                        <Avatar
+                                                            sx={{
+                                                                width: 32, height: 32, fontSize: 13,
+                                                                bgcolor: idx === 0 ? '#fef3c7' : idx === 1 ? '#f1f5f9' : idx === 2 ? '#fff7ed' : '#f0fdf4',
+                                                                color: idx === 0 ? '#d97706' : idx === 1 ? '#64748b' : idx === 2 ? '#ea580c' : '#086839',
+                                                                fontWeight: 800,
+                                                                border: `2px solid ${idx === 0 ? '#fde68a' : idx === 1 ? '#e2e8f0' : idx === 2 ? '#fed7aa' : '#bbf7d0'}`,
+                                                            }}
+                                                        >
+                                                            {item.customerName?.[0]}
+                                                        </Avatar>
+                                                        <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap' }}>
+                                                            {item.customerName}
+                                                        </Typography>
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.phone}</TableCell>
+                                                <TableCell align="right">
+                                                    <Chip
+                                                        label={item.totalOrders}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 12, height: 22, border: '1px solid #bbf7d0' }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 800, color: '#d97706', fontSize: 13, whiteSpace: 'nowrap' }}>
+                                                    {formatMoney(item.totalRevenue)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </Box>
                         </Paper>
 

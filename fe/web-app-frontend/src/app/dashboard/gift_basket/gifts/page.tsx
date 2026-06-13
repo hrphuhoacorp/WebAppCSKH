@@ -885,8 +885,10 @@ export default function MediaGalleryPage() {
             <PreviewDialog
                 open={!!previewFile}
                 file={previewFile}
+                files={files}
                 isDeleted={previewIsDeleted}
                 onClose={() => setPreviewFile(null)}
+                onNavigate={(f) => { setPreviewFile(f); setPreviewIsDeleted(false); }}
                 onCopy={() => previewFile && copyImage(previewFile.fileUrl)}
                 onShare={() => previewFile && shareImages([previewFile])}
                 onRestore={async () => {

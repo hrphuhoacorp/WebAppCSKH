@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
@@ -98,9 +98,6 @@ export function SiteHeader() {
                 overflowX: 'auto',
                 scrollbarWidth: 'none',
                 '&::-webkit-scrollbar': { display: 'none' },
-                // Fade on right edge
-                maskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
-                WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)',
             }}>
                 {NAV_ITEMS.map(({ key, label }) => {
                     const active = isHome && key === activeCat;
@@ -138,11 +135,49 @@ export function SiteHeader() {
                         </Box>
                     );
                 })}
+
+                {/* Divider */}
+                <Box sx={{ width: '1px', bgcolor: 'rgba(255,255,255,0.1)', my: 1.2, mx: 1, flexShrink: 0 }} />
+
+                {/* Vận Hành button — nằm trong thanh category */}
+                <Box
+                    onClick={() => router.push('/dashboard')}
+                    sx={{
+                        px: { xs: 1.8, md: 2.2 },
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.9,
+                        flexShrink: 0,
+                        cursor: 'pointer',
+                        position: 'relative',
+                        fontSize: { xs: 13, md: 13.5 },
+                        fontWeight: 600,
+                        color: '#4ade80',
+                        transition: 'color 0.15s',
+                        '&:hover': { color: '#86efac' },
+                        '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: '2px',
+                            bgcolor: '#4ade80',
+                            transform: 'scaleX(0)',
+                            transformOrigin: 'left center',
+                            transition: 'transform 0.22s cubic-bezier(0.4,0,0.2,1)',
+                        },
+                        '&:hover::after': { transform: 'scaleX(1)' },
+                    }}
+                >
+                    <DashboardRoundedIcon sx={{ fontSize: 14 }} />
+                    Vận Hành
+                </Box>
             </Box>
 
             {/* ── Actions ── */}
             <Box sx={{
-                px: { xs: 2, md: 3, lg: 5 },
+                px: { xs: 2, md: 2.5, lg: 4 },
                 display: 'flex',
                 alignItems: 'center',
                 gap: { xs: 1, md: 1.5 },
@@ -159,22 +194,6 @@ export function SiteHeader() {
                         <Box component="b" sx={{ color: '#4ade80', fontWeight: 700 }}>{profile.name}</Box>
                     </Typography>
                 )}
-
-                <Tooltip title="Dashboard">
-                    <IconButton
-                        onClick={() => router.push('/dashboard')}
-                        size="small"
-                        sx={{
-                            color: 'rgba(255,255,255,0.55)',
-                            bgcolor: 'rgba(255,255,255,0.07)',
-                            borderRadius: '7px',
-                            width: 32, height: 32,
-                            '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)' },
-                        }}
-                    >
-                        <DashboardRoundedIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                </Tooltip>
 
                 <Tooltip title="Đăng xuất">
                     <IconButton

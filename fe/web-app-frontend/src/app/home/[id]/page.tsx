@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Box, Typography, Divider, Skeleton } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
 import { newsApi } from '@/features/news/api/news.api';
@@ -53,6 +53,72 @@ function RecentItem({ item, onClick }: { item: NewsItem; onClick: () => void }) 
     );
 }
 
+// ─── Lightbox ─────────────────────────────────────────────────
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    return (
+        <Box
+            onClick={onClose}
+            sx={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                bgcolor: 'rgba(0,0,0,0.88)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'zoom-out',
+                backdropFilter: 'blur(4px)',
+                animation: 'fadeIn 0.18s ease',
+                '@keyframes fadeIn': { from: { opacity: 0 }, to: { opacity: 1 } },
+            }}
+        >
+            <Box
+                onClick={e => e.stopPropagation()}
+                sx={{
+                    position: 'relative',
+                    maxWidth: '92vw',
+                    maxHeight: '92vh',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <Box
+                    component="img"
+                    src={src}
+                    sx={{
+                        maxWidth: '92vw',
+                        maxHeight: '92vh',
+                        objectFit: 'contain',
+                        borderRadius: '8px',
+                        boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+                        display: 'block',
+                    }}
+                />
+                <Box
+                    onClick={onClose}
+                    sx={{
+                        position: 'absolute', top: -14, right: -14,
+                        width: 34, height: 34,
+                        bgcolor: 'rgba(255,255,255,0.12)',
+                        backdropFilter: 'blur(8px)',
+                        borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer',
+                        color: '#fff',
+                        transition: 'background-color 0.15s',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+                    }}
+                >
+                    <CloseRoundedIcon sx={{ fontSize: 16 }} />
+                </Box>
+            </Box>
+        </Box>
+    );
+}
+
 // ─── Trang chi tiết bài viết ───────────────────────────────────
 export default function NewsDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -61,10 +127,11 @@ export default function NewsDetailPage() {
     const [recentNews, setRecentNews] = useState<NewsItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!id) return;
-        // Fetch bài viết + bài gần đây song song
         Promise.all([
             newsApi.getById(Number(id)),
             newsApi.getPaged({ status: 'published', pageSize: 6, page: 1 }),
@@ -78,6 +145,28 @@ export default function NewsDetailPage() {
             .catch(() => setNotFound(true))
             .finally(() => setLoading(false));
     }, [id]);
+
+    // Gắn click handler cho ảnh trong nội dung HTML
+    useEffect(() => {
+        const container = contentRef.current;
+        if (!container || !item) return;
+        const imgs = container.querySelectorAll('img');
+        imgs.forEach(img => {
+            img.style.cursor = 'zoom-in';
+            const handler = () => setLightboxSrc(img.src);
+            img.addEventListener('click', handler);
+            // cleanup lưu vào dataset để remove sau
+            (img as any).__lbHandler = handler;
+        });
+        return () => {
+            imgs.forEach(img => {
+                if ((img as any).__lbHandler) {
+                    img.removeEventListener('click', (img as any).__lbHandler);
+                    delete (img as any).__lbHandler;
+                }
+            });
+        };
+    }, [item]);
 
     if (loading) return <DetailSkeleton />;
 
@@ -97,6 +186,7 @@ export default function NewsDetailPage() {
 
     return (
         <Box sx={{ flex: 1, bgcolor: '#fff' }}>
+            {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
             {/* ── Breadcrumb bar ── */}
             <Box sx={{ px: { xs: 2.5, md: 6, lg: 10 }, py: 1.5, borderBottom: '1px solid rgba(13,43,30,0.07)', display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <BackBtn router={router} />
@@ -203,6 +293,7 @@ export default function NewsDetailPage() {
 
                     {/* ── Nội dung HTML ── */}
                     <Box
+                        ref={contentRef}
                         dangerouslySetInnerHTML={{ __html: item.content }}
                         sx={{
                             pt: 4,
