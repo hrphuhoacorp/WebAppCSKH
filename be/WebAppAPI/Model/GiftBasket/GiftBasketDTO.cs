@@ -132,5 +132,6 @@ public class ActivateCodeChangeRequestDTO
     public string? ResultNote { get; set; }
     public string? Note { get; set; }
     public string? GroupCode { get; set; }
+    public int? BranchId { get; set; }
     public bool IsActive { get; set; } = true;
 }

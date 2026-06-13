@@ -114,6 +114,9 @@ export default function ChangeRequestsPage() {
     const [editForm, setEditForm] = useState<any>({});
     const [editSaving, setEditSaving] = useState(false);
 
+    // scrolling ticker — 3 most recent approved requests
+    const [recentApproved, setRecentApproved] = useState<GiftCodeChangeRequestDTO[]>([]);
+
     // multi-select
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [bulkActing, setBulkActing] = useState(false);
@@ -158,6 +161,9 @@ export default function ChangeRequestsPage() {
 
     useEffect(() => {
         ordersApi.getBranches().then((res: any) => { if (res?.content) setBranches(res.content); });
+        giftBasketApi.getChangeRequests({ status: 'done', pageSize: 3, page: 1 })
+            .then(res => { if (res.content?.items) setRecentApproved(res.content.items); })
+            .catch(() => {});
     }, []);
 
     const load = useCallback(async () => {
@@ -226,6 +232,7 @@ export default function ChangeRequestsPage() {
             resultNote: row.resultNote ?? '',
             note: row.note ?? '',
             groupCode: row.groupCode ?? '',
+            branchId: row.branchId ?? null,
         });
         setEditOpen(true);
     };
@@ -237,6 +244,7 @@ export default function ChangeRequestsPage() {
             await giftBasketApi.activateChangeRequest(editRow.id, {
                 ...editForm,
                 price: editForm.price ? Number(editForm.price) : undefined,
+                branchId: editForm.branchId ?? undefined,
                 isActive,
             });
             toast.success(isActive ? 'Đã kích hoạt hiệu lực' : 'Đã đặt hết hiệu lực');
@@ -301,6 +309,48 @@ export default function ChangeRequestsPage() {
                     </Box>
                 }
             />
+
+            {/* ── Scrolling ticker: 3 yêu cầu duyệt gần nhất ── */}
+            {recentApproved.length > 0 && (
+                <Box sx={{
+                    mb: 2, borderRadius: '14px', overflow: 'hidden',
+                    bgcolor: '#086839', boxShadow: '0 2px 12px rgba(8,104,57,0.18)',
+                    display: 'flex', alignItems: 'center', height: 38,
+                }}>
+                    <Box sx={{
+                        flexShrink: 0, px: 2, height: '100%',
+                        display: 'flex', alignItems: 'center',
+                        bgcolor: '#065f2d', color: '#fff',
+                        fontSize: 12, fontWeight: 800, letterSpacing: 1.2,
+                        textTransform: 'uppercase', gap: 0.8,
+                    }}>
+                        🔔 Vừa duyệt
+                    </Box>
+                    <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                        <Box sx={{
+                            display: 'flex', gap: 6,
+                            animation: 'ticker-scroll 22s linear infinite',
+                            whiteSpace: 'nowrap',
+                            '@keyframes ticker-scroll': {
+                                '0%': { transform: 'translateX(100%)' },
+                                '100%': { transform: 'translateX(-100%)' },
+                            },
+                        }}>
+                            {recentApproved.map(r => (
+                                <Box key={r.id} component="span" sx={{ color: '#fff', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Box component="span" sx={{ opacity: 0.7, fontSize: 11 }}>#{r.requestUid}</Box>
+                                    <Box component="span" sx={{ fontWeight: 800 }}>{r.basketCodeOrName || '—'}</Box>
+                                    {r.newCode && <Box component="span">→ <Box component="span" sx={{ fontFamily: 'monospace', color: '#86efac' }}>{r.newCode}</Box></Box>}
+                                    {r.branchName && <Box component="span" sx={{ opacity: 0.75, fontSize: 11 }}>[{r.branchName}]</Box>}
+                                    <Box component="span" sx={{ opacity: 0.7 }}>·</Box>
+                                    <Box component="span" sx={{ opacity: 0.85 }}>Duyệt bởi <Box component="span" sx={{ fontWeight: 800, opacity: 1 }}>{r.handledByName ?? r.createdByName ?? '—'}</Box></Box>
+                                    <Box component="span" sx={{ opacity: 0.4, mx: 2 }}>❱❱</Box>
+                                </Box>
+                            ))}
+                        </Box>
+                    </Box>
+                </Box>
+            )}
 
             {/* Filter bar */}
             <Paper elevation={0} sx={{
@@ -684,6 +734,27 @@ export default function ChangeRequestsPage() {
                                     {BASKET_GROUPS.map(g => <MenuItem key={g.code} value={g.code}>{g.code} — {g.name}</MenuItem>)}
                                 </Select>
                             </FormControl>
+                        </Grid>
+                        <Grid size={12}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700, mb: 0.5, display: 'block' }}>Chi nhánh áp dụng</Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                <FormControlLabel
+                                    label={<Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }}>Tất cả</Typography>}
+                                    control={<Checkbox size="small"
+                                        checked={editForm.branchId == null}
+                                        onChange={() => setEditForm((p: any) => ({ ...p, branchId: null }))}
+                                        sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' }, py: 0.3 }} />}
+                                />
+                                {branches.map(b => (
+                                    <FormControlLabel key={b.id}
+                                        label={<Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }}>{b.name}</Typography>}
+                                        control={<Checkbox size="small"
+                                            checked={editForm.branchId === b.id}
+                                            onChange={() => setEditForm((p: any) => ({ ...p, branchId: p.branchId === b.id ? null : b.id }))}
+                                            sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' }, py: 0.3 }} />}
+                                    />
+                                ))}
+                            </Box>
                         </Grid>
                         <Grid size={12}>
                             <TextField fullWidth size="small" label="Ghi chú kết quả" multiline rows={2}

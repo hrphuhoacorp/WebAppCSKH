@@ -31,12 +31,22 @@ export const TYPE_OPTIONS = Object.entries(TYPE_LABEL).map(([value, v]) => ({
 
 export function timeAgo(dateStr?: string): string {
     if (!dateStr) return '';
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    // Npgsql legacy mode marks timestamp-without-tz columns as Utc (adds Z),
+    // but DB stores Vietnam local time — strip Z and treat as +07:00.
+    let adjusted = dateStr;
+    if (adjusted.endsWith('Z')) {
+        adjusted = adjusted.slice(0, -1) + '+07:00';
+    } else if (!/[+-]\d\d:\d\d$/.test(adjusted)) {
+        adjusted = adjusted + '+07:00';
+    }
+    const date = new Date(adjusted);
+    if (isNaN(date.getTime())) return '';
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
     if (diff < 60) return 'Vừa xong';
     if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
     if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
     if (diff < 604800) return `${Math.floor(diff / 86400)} ngày trước`;
-    return new Date(dateStr).toLocaleDateString('vi-VN');
+    return date.toLocaleDateString('vi-VN');
 }
 
 // Lấy đoạn text thuần đầu tiên từ HTML content làm mô tả

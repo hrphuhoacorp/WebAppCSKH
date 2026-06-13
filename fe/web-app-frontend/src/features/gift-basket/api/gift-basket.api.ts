@@ -200,7 +200,7 @@ export const giftBasketApi = {
     activateChangeRequest: async (id: number, data: {
         oldCode?: string; newCode?: string; price?: number;
         approvedDate?: string; resultNote?: string; note?: string;
-        groupCode?: string; isActive: boolean;
+        groupCode?: string; branchId?: number; isActive: boolean;
     }) => {
         const res = await api.put(`/GiftBasket/ChangeRequest/${id}/Activate`, data);
         return res.data;

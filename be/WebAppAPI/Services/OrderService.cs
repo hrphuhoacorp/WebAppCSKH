@@ -158,13 +158,12 @@ public class OrderService : IOrderService
                     var statusName = row.Cell(12).GetString().Trim();
                     var branchName = row.Cell(13).GetString().Trim();
                     var source = row.Cell(14).GetString().Trim();
-                    var channel = row.Cell(15).GetString().Trim();
                     var quantity = row.Cell(18).GetString().Trim();
 
-                    var revenue = GetDecimal(row.Cell(24));
-                    var grossProfit = GetDecimal(row.Cell(25));
-                    var shippingFee = GetDecimal(row.Cell(23));
-                    var taxAmount = GetDecimal(row.Cell(22));
+                    var revenue = GetDecimal(row.Cell(23));
+                    var grossProfit = GetDecimal(row.Cell(24));
+                    var shippingFee = GetDecimal(row.Cell(22));
+                    var taxAmount = GetDecimal(row.Cell(21));
 
                     // Validate dữ liệu bắt buộc
                     if (string.IsNullOrWhiteSpace(customerCode))
@@ -258,7 +257,6 @@ public class OrderService : IOrderService
                             ShippingFee = shippingFee,
                             TaxAmount = taxAmount,
                             Source = source,
-                            Channel = channel,
                             StatusId = status.Id,
                             BranchesId = branch.Id,
                             CreatedBy = userId,

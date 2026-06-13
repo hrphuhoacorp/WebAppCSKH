@@ -405,6 +405,7 @@ public class GiftBasketService : IGiftBasketService
         if (dto.ResultNote != null) req.ResultNote = dto.ResultNote;
         if (dto.Note != null) req.Note = dto.Note;
         if (dto.GroupCode != null) req.GroupCode = dto.GroupCode;
+        if (dto.BranchId.HasValue) req.BranchId = dto.BranchId.Value;
         req.IsActive = dto.IsActive;
         await _unitOfWork.SaveChangesAsync();
         return MapCcrDto(req, new Dictionary<int, string>());
