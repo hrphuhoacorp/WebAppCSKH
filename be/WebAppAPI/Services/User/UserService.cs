@@ -60,8 +60,7 @@ public class UserService : IUserService
             pageSize = 10;
 
         bool isAdmin =
-            currentUserRoles != null
-            && currentUserRoles.Any(r => r.Trim() == "Super_Admin");
+            currentUserRoles != null && currentUserRoles.Any(r => r.Trim() == "Super_Admin");
 
         var query = _userRepository
             .GetAll()
@@ -102,6 +101,7 @@ public class UserService : IUserService
 
         var totalIems = await query.CountAsync();
         var users = await query
+            .OrderByDescending(u => u.User.DeletedAt == null)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(u => new UserGetAllDTO
