@@ -83,8 +83,8 @@ export function SiteHeader() {
                 <Image
                     src="/images/Logo/PHF_FALOGO2.png"
                     alt="PHF"
-                    width={110}
-                    height={28}
+                    width={150}
+                    height={30}
                     style={{ objectFit: 'contain' }}
                     priority
                 />
@@ -212,7 +212,7 @@ export function SiteFooter() {
             }}>
                 {/* Brand */}
                 <Box>
-                    <Image src="/images/Logo/PHF_FALOGO2.png" alt="PHF" width={130} height={33} style={{ objectFit: 'contain', opacity: 0.82 }} />
+                    <Image src="/images/Logo/PHF_FALOGO2.png" alt="PHF" width={160} height={36} style={{ objectFit: 'contain', opacity: 0.82 }} />
                     <Typography sx={{ mt: 2.5, fontSize: 13, color: 'rgba(255,255,255,0.3)', lineHeight: 1.9, maxWidth: 230 }}>
                         Kênh thông tin nội bộ chính thức của PhuHoa Fresh — cập nhật tin tức, thông báo và sự kiện toàn công ty.
                     </Typography>
@@ -263,7 +263,7 @@ export function SiteFooter() {
                         { icon: '🏢', text: 'Phòng Quản Trị Tổng Hợp' },
                         { icon: '✉️', text: 'hr.phuhoacorp@gmail.com' },
                         { icon: '📍', text: '342 Phú Lợi, Phường Phú Lợi, TP. HCM' },
-                        { icon: '🕐', text: 'T2 – T6  ·  08:00 – 17:30' },
+                        { icon: '🕐', text: 'T2 – T7  ·  08:00 – 17:00' },
                     ].map(({ icon, text }) => (
                         <Box key={text} sx={{ display: 'flex', gap: 1.5, mb: 2, alignItems: 'flex-start' }}>
                             <Typography sx={{ fontSize: 13.5, lineHeight: 1.7, flexShrink: 0 }}>{icon}</Typography>
@@ -275,13 +275,11 @@ export function SiteFooter() {
 
             <Box sx={{ mx: { xs: 2.5, md: 5, lg: 8 }, height: 1, bgcolor: 'rgba(255,255,255,0.05)' }} />
 
-            <Box sx={{ px: { xs: 2.5, md: 5, lg: 8 }, py: 2.5, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ px: { xs: 2.5, md: 5, lg: 8 }, py: 2.5, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                 <Typography sx={{ fontSize: 11.5, color: 'rgba(255,255,255,0.16)' }}>
-                    © {year} PhuHoa Fresh · Tài liệu nội bộ — không phát tán ra ngoài
+                    © {year} PhuHoa Fresh · Thông Tin Nội Bộ
                 </Typography>
-                <Typography sx={{ fontSize: 10.5, color: 'rgba(74,222,128,0.22)', letterSpacing: 2.5, textTransform: 'uppercase', fontWeight: 700 }}>
-                    Internal News System
-                </Typography>
+             
             </Box>
         </Box>
     );
