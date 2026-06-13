@@ -138,10 +138,6 @@ public class OrderService : IOrderService
                         throw new BadRequestException("Ngày mua không hợp lệ");
                     }
                     var blockSource = row.Cell(14).GetString().Trim().ToLower();
-                    if (blockSource.Contains("pos") || blockSource.Contains("khác"))
-                    {
-                        continue;
-                    }
 
                     var customerName = row.Cell(2).GetString().Trim();
                     var customerPhone = row.Cell(3).GetString().Trim();
@@ -695,6 +691,7 @@ public class OrderService : IOrderService
         var totalItems = await query.CountAsync();
 
         var orders = await query
+            .Where(o => o.Source != "Pos")
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .Select(o => new OrderDTO

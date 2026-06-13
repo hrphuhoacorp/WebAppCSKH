@@ -41,7 +41,9 @@ public class DashboardService : IDashboardService
                 .Include(o => o.Status)
                 .Include(o => o.Branches)
                 .Where(o =>
-                    o.DeletedAt == null && (o.Customer == null || o.Customer.DeletedAt == null)
+                    o.DeletedAt == null
+                    && (o.Customer == null || o.Customer.DeletedAt == null)
+                    && o.Source != "Pos"
                 )
                 .AsNoTracking();
 
