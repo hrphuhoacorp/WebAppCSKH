@@ -97,5 +97,15 @@ namespace WebAppAPI.Controllers
             var result = await _customerService.GetReturnRateStatsAsync(months);
             return new ResponseValue<ReturnRateStatsDTO>(result, "Lấy thống kê thành công", StatusReponse.Success);
         }
+
+        [HttpGet("GetCustomersBySegment")]
+        public async Task<ResponseValue<PagedResult<SegmentCustomerDTO>>> GetCustomersBySegment(
+            [FromQuery] string segment = "loyal",
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            var result = await _customerService.GetCustomersBySegmentAsync(segment, page, pageSize);
+            return new ResponseValue<PagedResult<SegmentCustomerDTO>>(result, "Lấy danh sách thành công", StatusReponse.Success);
+        }
     }
 }
