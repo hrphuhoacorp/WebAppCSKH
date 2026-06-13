@@ -205,7 +205,8 @@ export default function NewsDetailPage() {
                         component="img"
                         src={item.thumbnailUrl}
                         alt={item.title}
-                        sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in'}}
+                        onClick={() => setLightboxSrc(item.thumbnailUrl??null)}
                     />
                 </Box>
             )}
