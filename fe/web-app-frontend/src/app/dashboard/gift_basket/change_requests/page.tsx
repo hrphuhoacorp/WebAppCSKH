@@ -238,7 +238,7 @@ export default function ChangeRequestsPage() {
             resultNote: row.resultNote ?? '',
             note: row.note ?? '',
             groupCode: row.groupCode ?? '',
-            branchId: row.branchId ?? null,
+            branchIds: row.branchId ? [row.branchId] : [],
         });
         setEditOpen(true);
     };
@@ -250,7 +250,7 @@ export default function ChangeRequestsPage() {
             await giftBasketApi.activateChangeRequest(editRow.id, {
                 ...editForm,
                 price: editForm.price ? Number(editForm.price) : undefined,
-                branchId: editForm.branchId ?? undefined,
+                branchId: editForm.branchIds?.[0] ?? undefined,
                 isActive,
             });
             toast.success(isActive ? 'Đã kích hoạt hiệu lực' : 'Đã đặt hết hiệu lực');
@@ -747,16 +747,22 @@ export default function ChangeRequestsPage() {
                                 <FormControlLabel
                                     label={<Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }}>Tất cả</Typography>}
                                     control={<Checkbox size="small"
-                                        checked={editForm.branchId == null}
-                                        onChange={() => setEditForm((p: any) => ({ ...p, branchId: null }))}
+                                        checked={(editForm.branchIds ?? []).length === 0}
+                                        onChange={() => setEditForm((p: any) => ({ ...p, branchIds: [] }))}
                                         sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' }, py: 0.3 }} />}
                                 />
                                 {branches.map(b => (
                                     <FormControlLabel key={b.id}
                                         label={<Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }}>{b.name}</Typography>}
                                         control={<Checkbox size="small"
-                                            checked={editForm.branchId === b.id}
-                                            onChange={() => setEditForm((p: any) => ({ ...p, branchId: p.branchId === b.id ? null : b.id }))}
+                                            checked={(editForm.branchIds ?? []).includes(b.id)}
+                                            onChange={() => setEditForm((p: any) => {
+                                                const ids: number[] = p.branchIds ?? [];
+                                                const next = ids.includes(b.id)
+                                                    ? ids.filter((id: number) => id !== b.id)
+                                                    : [...ids, b.id];
+                                                return { ...p, branchIds: next };
+                                            })}
                                             sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' }, py: 0.3 }} />}
                                     />
                                 ))}
