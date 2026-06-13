@@ -264,7 +264,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Content).HasColumnName("content");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("now()")
+                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");

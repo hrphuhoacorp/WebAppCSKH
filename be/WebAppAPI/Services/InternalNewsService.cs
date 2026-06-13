@@ -130,6 +130,7 @@ public class InternalNewsService : IInternalNewsService
                 IsPinned = dto.IsPinned,
                 ViewCount = 0,
                 CreatedBy = userId,
+                CreatedAt = DateTime.UtcNow.AddHours(7),
             };
             await _internalNewsRepository.AddAsync(news);
             await _unitOfWork.SaveChangesAsync();
