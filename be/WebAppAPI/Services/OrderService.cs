@@ -90,6 +90,7 @@ public class OrderService : IOrderService
                 ErrorCount = 0,
                 Status = "Imported",
                 ErrorDetails = "{}",
+                ImportDate = DateTime.UtcNow.AddHours(7),
             };
             await _importsHistoryRepository.AddAsync(importHistory);
             await _unitOfWork.SaveChangesAsync(); // Ép Database sinh ra ID thật cho importHistory
@@ -677,6 +678,7 @@ public class OrderService : IOrderService
         // sort delete
         query = query.Where(o =>
             o.DeletedAt == null && (o.Customer == null || o.Customer.DeletedAt == null)
+            && o.Source != "Pos" && o.Source != "Khác" && o.Source != "Khách đặt tại quầy"
         );
         // sort
         query = (filter.SortBy, filter.SortDir) switch
@@ -691,7 +693,6 @@ public class OrderService : IOrderService
         var totalItems = await query.CountAsync();
 
         var orders = await query
-            .Where(o => o.Source != "Pos")
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .Select(o => new OrderDTO

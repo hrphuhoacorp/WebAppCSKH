@@ -44,6 +44,8 @@ public class DashboardService : IDashboardService
                     o.DeletedAt == null
                     && (o.Customer == null || o.Customer.DeletedAt == null)
                     && o.Source != "Pos"
+                    && o.Source != "Khác"
+                    && o.Source != "Khách đặt tại quầy"
                 )
                 .AsNoTracking();
 

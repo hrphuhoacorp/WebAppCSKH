@@ -54,6 +54,7 @@ import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
 import { useAuth } from '@/providers/AuthProviders';
 import ImportHistoryDialog from '@/features/orders/components/ImportHistoryDialog';
 import ReportMessageDialog from '@/features/orders/components/ReportMessageDialog';
+import { Color } from '@tiptap/extension-text-style';
 
 const branchColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
 
@@ -83,7 +84,8 @@ const sourceOption = [
     { id: 2, name: 'Facebook', color: '#042550' },
     { id: 3, name: 'GrabMart', color: '#00B14F' },
     { id: 4, name: 'ShopeeFood', color: '#EE4D2D' },
-    { id: 5, name: 'ShopeeMart', color: '#be653c' },
+    { id: 5, name: 'ShopeeMart', color: '#ff0000' },
+    { id: 6, name: 'Livestream', color:'#6d02d1'}
 ];
 
 const getSourceStyle = (sourceName: string) => {
