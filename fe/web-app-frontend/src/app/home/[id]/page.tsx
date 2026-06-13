@@ -8,7 +8,7 @@ import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
 import { newsApi } from '@/features/news/api/news.api';
-import { NewsItem, TYPE_LABEL, readingMinutes, timeAgo, excerpt } from '@/features/news/news.shared';
+import { NewsItem, TYPE_LABEL, readingMinutes, timeAgo, excerpt, fixVnDate } from '@/features/news/news.shared';
 
 // ─── Sidebar: bài viết gần đây ────────────────────────────────
 function RecentItem({ item, onClick }: { item: NewsItem; onClick: () => void }) {
@@ -173,7 +173,7 @@ export default function NewsDetailPage() {
                                         <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>{item.createdByName}</Typography>
                                         {item.createdAt && (
                                             <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.2 }}>
-                                                {new Date(item.createdAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                {new Date(fixVnDate(item.createdAt)).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
                                             </Typography>
                                         )}
                                     </Box>
@@ -237,7 +237,7 @@ export default function NewsDetailPage() {
                         <BackBtn router={router} />
                         {(item.updatedAt || item.createdAt) && (
                             <Typography sx={{ fontSize: 12, color: '#cbd5e1' }}>
-                                Cập nhật {new Date(item.updatedAt ?? item.createdAt ?? '').toLocaleDateString('vi-VN')}
+                                Cập nhật {new Date(fixVnDate(item.updatedAt ?? item.createdAt ?? '')).toLocaleDateString('vi-VN')}
                             </Typography>
                         )}
                     </Box>

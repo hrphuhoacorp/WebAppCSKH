@@ -18,7 +18,7 @@ import LoadingOverlay from '@/components/common/LoadingOverlay';
 import PageHeader from '@/components/common/PageHeader';
 import { newsApi } from '@/features/news/api/news.api';
 import NewsEditor from '@/features/news/components/NewsEditor';
-import { TYPE_LABEL, TYPE_OPTIONS, NewsItem } from '@/features/news/news.shared';
+import { TYPE_LABEL, TYPE_OPTIONS, NewsItem, fixVnDate } from '@/features/news/news.shared';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -396,7 +396,7 @@ export default function NewsManagePage() {
                                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 12, color: '#94a3b8' }}>
                                             <AccessTimeRounded sx={{ fontSize: 13 }} />
-                                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '—'}
+                                            {item.createdAt ? new Date(fixVnDate(item.createdAt)).toLocaleDateString('vi-VN') : '—'}
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 12, color: '#94a3b8' }}>
                                             <VisibilityRounded sx={{ fontSize: 13 }} />

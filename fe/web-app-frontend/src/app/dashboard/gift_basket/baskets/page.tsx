@@ -176,7 +176,8 @@ export default function BasketsPage() {
     const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
     const [lightboxUrl, setLightboxUrl] = useState('');
     const [detailRow, setDetailRow] = useState<GiftCodeChangeRequestDTO | null>(null);
-
+    // scrolling ticker — 3 most recent approved requests
+    const [recentApproved, setRecentApproved] = useState<GiftCodeChangeRequestDTO[]>([]);
     useEffect(() => {
         ordersApi.getBranches().then((res: any) => { if (res?.content) setBranches(res.content); });
     }, []);
@@ -194,6 +195,7 @@ export default function BasketsPage() {
             });
             if (res.content) {
                 setTotal(res.content.totalItems);
+                setRecentApproved(res.content.items.slice(0, 4));
                 if (reset) {
                     setRows(res.content.items);
                     setPage(2);
@@ -223,7 +225,7 @@ export default function BasketsPage() {
         conn.start().catch(() => { });
         return () => { conn.stop(); };
     }, []);
-    
+
     useEffect(() => { load(true); }, []); // eslint-disable-line
 
     const filtered = rows.filter(r => {
@@ -253,6 +255,47 @@ export default function BasketsPage() {
                 title="Danh sách quy đổi mã"
                 subtitle={`${total} mã đã duyệt`}
             />
+
+            {recentApproved.length > 0 && (
+                <Box sx={{
+                    mb: 2, borderRadius: '14px', overflow: 'hidden',
+                    bgcolor: '#086839', boxShadow: '0 2px 12px rgba(8,104,57,0.18)',
+                    display: 'flex', alignItems: 'center', height: 38,
+                }}>
+                    <Box sx={{
+                        flexShrink: 0, px: 2, height: '100%',
+                        display: 'flex', alignItems: 'center',
+                        bgcolor: '#065f2d', color: '#fff',
+                        fontSize: 12, fontWeight: 800, letterSpacing: 1.2,
+                        textTransform: 'uppercase', gap: 0.8,
+                    }}>
+                        🔔 Vừa duyệt
+                    </Box>
+                    <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                        <Box sx={{
+                            display: 'flex', gap: 6,
+                            animation: 'ticker-scroll 22s linear infinite',
+                            whiteSpace: 'nowrap',
+                            '@keyframes ticker-scroll': {
+                                '0%': { transform: 'translateX(100%)' },
+                                '100%': { transform: 'translateX(-100%)' },
+                            },
+                        }}>
+                            {recentApproved.map(r => (
+                                <Box key={r.id} component="span" sx={{ color: '#fff', fontSize: 13, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Box component="span" sx={{ opacity: 0.7, fontSize: 11 }}>#{r.requestUid}</Box>
+                                    <Box component="span" sx={{ fontWeight: 800 }}>{r.basketCodeOrName || '—'}</Box>
+                                    {r.newCode && <Box component="span">→ <Box component="span" sx={{ fontFamily: 'monospace', color: '#86efac' }}>{r.newCode}</Box></Box>}
+                                    {r.branchName && <Box component="span" sx={{ opacity: 0.75, fontSize: 11 }}>[{r.branchName}]</Box>}
+                                    <Box component="span" sx={{ opacity: 0.7 }}>·</Box>
+                                    <Box component="span" sx={{ opacity: 0.85 }}>Duyệt bởi <Box component="span" sx={{ fontWeight: 800, opacity: 1 }}>{r.handledByName ?? r.createdByName ?? '—'}</Box></Box>
+                                    <Box component="span" sx={{ opacity: 0.4, mx: 2 }}>❱❱</Box>
+                                </Box>
+                            ))}
+                        </Box>
+                    </Box>
+                </Box>
+            )}
 
             {/* Filter bar */}
             <Paper elevation={0} sx={{
@@ -376,7 +419,7 @@ export default function BasketsPage() {
                                         sx={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 1.5, border: '1px solid #e2e8f0', cursor: 'zoom-in' }} />
                                     : <Box sx={{ width: '100%', height: 120, borderRadius: 1.5, border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Typography variant="caption" color="text.disabled">Chưa có ảnh</Typography>
-                                      </Box>
+                                    </Box>
                                 }
                             </Box>
                             <Box sx={{ flex: 1 }}>
@@ -387,7 +430,7 @@ export default function BasketsPage() {
                                         sx={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 1.5, border: '1px solid #e2e8f0', cursor: 'zoom-in' }} />
                                     : <Box sx={{ width: '100%', height: 120, borderRadius: 1.5, border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Typography variant="caption" color="text.disabled">Chưa có ảnh</Typography>
-                                      </Box>
+                                    </Box>
                                 }
                             </Box>
                         </Box>

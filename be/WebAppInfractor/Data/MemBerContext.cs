@@ -109,7 +109,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Action).HasMaxLength(50).HasColumnName("action");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.IpAddress).HasMaxLength(45).HasColumnName("ip_address");
             entity.Property(e => e.NewData).HasColumnType("jsonb").HasColumnName("new_data");
@@ -140,14 +140,14 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Address).HasColumnName("address");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
             entity.Property(e => e.Name).HasMaxLength(255).HasColumnName("name");
             entity.Property(e => e.Phone).HasMaxLength(20).HasColumnName("phone");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
         });
 
@@ -170,7 +170,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CustomerCode).HasMaxLength(50).HasColumnName("customer_code");
@@ -184,7 +184,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.TotalRevenue).HasPrecision(18, 2).HasColumnName("total_revenue");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
 
             entity
@@ -221,7 +221,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.FileName).HasMaxLength(255).HasColumnName("file_name");
             entity
                 .Property(e => e.ImportDate)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("import_date");
             entity.Property(e => e.RollbackAt).HasColumnName("rollback_at");
             entity.Property(e => e.RollbackBy).HasColumnName("rollback_by");
@@ -264,7 +264,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Content).HasColumnName("content");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
@@ -283,7 +283,7 @@ public partial class MemBerContext : DbContext
                 .HasColumnName("type");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
             entity.Property(e => e.ViewCount).HasDefaultValue(0).HasColumnName("view_count");
 
@@ -308,7 +308,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
@@ -345,7 +345,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
@@ -354,7 +354,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.ParentId).HasColumnName("parent_id");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
 
             entity
@@ -399,7 +399,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Channel).HasMaxLength(100).HasColumnName("channel");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
@@ -409,7 +409,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.OrderCode).HasMaxLength(50).HasColumnName("order_code");
             entity
                 .Property(e => e.PurchaseDate)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("purchase_date");
             entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
             entity.Property(e => e.ShippingFee).HasPrecision(18, 2).HasColumnName("shipping_fee");
@@ -418,7 +418,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.TaxAmount).HasPrecision(18, 2).HasColumnName("tax_amount");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
 
             entity
@@ -475,7 +475,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Category).HasMaxLength(255).HasColumnName("category");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.GrossProfit).HasPrecision(18, 2).HasColumnName("gross_profit");
             entity.Property(e => e.ImportHistoryId).HasColumnName("import_history_id");
@@ -529,14 +529,14 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.Name).HasMaxLength(100).HasColumnName("name");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
         });
 
@@ -560,7 +560,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.BranchesId).HasColumnName("branches_id");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.DayOfBirth).HasColumnName("day_of_birth");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
@@ -571,7 +571,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.StaffCode).HasMaxLength(50).HasColumnName("staff_code");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
 
             entity
@@ -599,7 +599,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.RoleId).HasColumnName("role_id");
@@ -651,11 +651,11 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
 
@@ -688,7 +688,7 @@ public partial class MemBerContext : DbContext
                 .HasDefaultValue("library-sync");
             entity
                 .Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
 
             entity
@@ -753,7 +753,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.IsActive).HasColumnName("is_active").HasDefaultValue(true);
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
 
             entity

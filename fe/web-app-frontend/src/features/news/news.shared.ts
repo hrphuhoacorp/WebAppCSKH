@@ -29,17 +29,18 @@ export const TYPE_OPTIONS = Object.entries(TYPE_LABEL).map(([value, v]) => ({
     label: v.label,
 }));
 
+// DB stores Vietnam local time but backend serializes with +00:00 (treating it as UTC).
+// Fix: replace +00:00 / Z with +07:00 so JS parses the correct Vietnam time.
+export function fixVnDate(dateStr: string): string {
+    if (dateStr.endsWith('Z')) return dateStr.slice(0, -1) + '+07:00';
+    if (dateStr.endsWith('+00:00')) return dateStr.slice(0, -6) + '+07:00';
+    if (!/[+-]\d\d:\d\d$/.test(dateStr)) return dateStr + '+07:00';
+    return dateStr;
+}
+
 export function timeAgo(dateStr?: string): string {
     if (!dateStr) return '';
-    // Npgsql legacy mode marks timestamp-without-tz columns as Utc (adds Z),
-    // but DB stores Vietnam local time — strip Z and treat as +07:00.
-    let adjusted = dateStr;
-    if (adjusted.endsWith('Z')) {
-        adjusted = adjusted.slice(0, -1) + '+07:00';
-    } else if (!/[+-]\d\d:\d\d$/.test(adjusted)) {
-        adjusted = adjusted + '+07:00';
-    }
-    const date = new Date(adjusted);
+    const date = new Date(fixVnDate(dateStr));
     if (isNaN(date.getTime())) return '';
     const diff = Math.floor((Date.now() - date.getTime()) / 1000);
     if (diff < 60) return 'Vừa xong';
