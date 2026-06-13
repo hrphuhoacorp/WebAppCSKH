@@ -130,7 +130,6 @@ public class InternalNewsService : IInternalNewsService
                 IsPinned = dto.IsPinned,
                 ViewCount = 0,
                 CreatedBy = userId,
-                CreatedAt = DateTime.UtcNow.AddHours(7),
             };
             await _internalNewsRepository.AddAsync(news);
             await _unitOfWork.SaveChangesAsync();
@@ -194,7 +193,6 @@ public class InternalNewsService : IInternalNewsService
             throw new NotFoundException("Không tìm thấy tin tức");
 
         news.IsPinned = !(news.IsPinned ?? false);
-        
 
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
@@ -231,7 +229,6 @@ public class InternalNewsService : IInternalNewsService
             throw new NotFoundException("Không tìm thấy bài viết");
 
         news.Status = "draft";
-    
 
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();

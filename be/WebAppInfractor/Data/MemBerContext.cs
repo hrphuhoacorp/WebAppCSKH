@@ -22,6 +22,8 @@ public partial class MemBerContext : DbContext
 
     public virtual DbSet<InternalNews> InternalNews { get; set; }
 
+    public virtual DbSet<MessageReport> MessageReports { get; set; }
+
     public virtual DbSet<MediaFile> MediaFiles { get; set; }
 
     public virtual DbSet<MediaFolder> MediaFolders { get; set; }
@@ -293,6 +295,30 @@ public partial class MemBerContext : DbContext
                 .HasForeignKey(d => d.CreatedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("internal_news_created_by_fkey");
+        });
+
+        modelBuilder.Entity<MessageReport>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("message_reports_pkey");
+            entity.ToTable("message_reports");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ReportDate).HasColumnName("report_date");
+            entity.Property(e => e.Type).HasMaxLength(20).HasColumnName("type");
+            entity.Property(e => e.Count).HasColumnName("count");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnName("updated_at");
+            entity
+                .HasOne(d => d.CreatedByNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("message_reports_created_by_fkey");
         });
 
         modelBuilder.Entity<MediaFile>(entity =>

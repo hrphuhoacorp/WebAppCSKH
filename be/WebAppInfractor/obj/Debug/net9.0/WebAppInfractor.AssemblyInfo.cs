@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WebAppInfractor")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d004024988edab93404ac71540f5ceff3e323e86")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3a0b37fad6e60e9be6f45b72c4bf2e614af74178")]
 [assembly: System.Reflection.AssemblyProductAttribute("WebAppInfractor")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WebAppInfractor")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -17,6 +17,7 @@ import {
     Chip,
     Avatar,
     Divider,
+    alpha,
 } from '@mui/material';
 import { BarChart, PieChart } from '@mui/x-charts';
 import toast from 'react-hot-toast';
@@ -25,6 +26,8 @@ import PageHeader from '@/components/common/PageHeader';
 import { InsightsRounded } from '@mui/icons-material';
 import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
 import { ordersApi } from '@/features/orders/api/orders.api';
+import { messageReportApi, MessageReportDTO } from '@/features/orders/api/messageReport.api';
+import MessageSharpIcon from '@mui/icons-material/MessageSharp';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -45,7 +48,11 @@ export default function DashboardPage() {
     const [branchId, setBranchId] = useState('');
     const [branches, setBranches] = useState<any[]>([]);
     const [dashboard, setDashboard] = useState<any>(null);
-    const [revenueGroupBy, setRevenueGroupBy] = useState<'day' | 'week' | 'month'>('month');
+    const [revenueGroupBy, setRevenueGroupBy] = useState<'day' | 'week' | 'month'>('day');
+
+    // ── message stats ──
+    const [msgType, setMsgType] = useState('');
+    const [msgRows, setMsgRows] = useState<MessageReportDTO[]>([]);
 
 
     const formatMoney = (value: number) =>
@@ -80,8 +87,20 @@ export default function DashboardPage() {
         }
     };
 
+    const fetchMsgStats = async () => {
+        try {
+            const filter: any = {};
+            if (month) filter.month = Number(month);
+            if (year) filter.year = Number(year);
+            if (msgType) filter.type = msgType;
+            const res = await messageReportApi.getList(filter);
+            setMsgRows(res.content ?? res ?? []);
+        } catch { /* silent */ }
+    };
+
     useEffect(() => { fetchBranches(); }, []);
     useEffect(() => { fetchDashboard(); }, [fromDate, toDate, month, year, source, branchId, revenueGroupBy]);
+    useEffect(() => { fetchMsgStats(); }, [month, year, msgType]);
 
     const hasFilter = fromDate || toDate || month || year || source || branchId || revenueGroupBy;
 
@@ -128,7 +147,7 @@ export default function DashboardPage() {
                     )}
                 </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(7,1fr)' }, gap: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(8,1fr)' }, gap: 2 }}>
                     {[
                         { label: 'Từ ngày', type: 'date', value: fromDate, onChange: setFromDate },
                         { label: 'Đến ngày', type: 'date', value: toDate, onChange: setToDate },
@@ -193,6 +212,21 @@ export default function DashboardPage() {
                             </MenuItem>
                         ))}
                     </TextField>
+
+                    <TextField select size="small" label="Loại tin nhắn" value={msgType} onChange={(e) => setMsgType(e.target.value)} fullWidth sx={{
+                        ...filterFieldSx,
+                        '& .MuiOutlinedInput-root': {
+                            borderRadius: '12px',
+                            borderColor: '#0068FF',
+                            '&.Mui-focused fieldset': { borderColor: '#0068FF' },
+                        },
+                        '& label.Mui-focused': { color: '#0068FF' },
+                    }}>
+                        <MenuItem value="">Tất cả tin nhắn</MenuItem>
+                        <MenuItem value="Zalo">Zalo</MenuItem>
+                        <MenuItem value="Facebook">Facebook</MenuItem>
+                        <MenuItem value="Khác">Khác</MenuItem>
+                    </TextField>
                 </Box>
             </Paper>
 
@@ -231,7 +265,7 @@ export default function DashboardPage() {
                     </Box>
 
                     {/* ── Revenue Bar Chart + Order Status Pie ── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3, mb: 3 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr' }, gap: 3, mb: 3, alignItems: 'stretch'}}>
                         <ChartCard title={revenueGroupBy === 'day' ? 'Doanh thu theo ngày' : revenueGroupBy === 'week' ? 'Doanh thu theo tuần' : 'Doanh thu theo tháng'} icon="📈">
                             <BarChart
                                 height={300}
@@ -261,7 +295,108 @@ export default function DashboardPage() {
                             />
                         </ChartCard>
 
-                        <ChartCard title="Phân bổ trạng thái đơn" icon="🥧">
+
+                    </Box>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr'}, gap: 3, mb: 3 }}>
+                        {/* ── Message Stats Bar Chart ── */}
+                        {(() => {
+                            const dates = [...new Set(msgRows.map((r) => r.reportDate))].sort();
+                            const zaloSeries = dates.map((d) => msgRows.find((r) => r.reportDate === d && r.type === 'Zalo')?.count ?? 0);
+                            const fbSeries = dates.map((d) => msgRows.find((r) => r.reportDate === d && r.type === 'Facebook')?.count ?? 0);
+                            const otherSeries = dates.map((d) => msgRows.find((r) => r.reportDate === d && r.type === 'Khác')?.count ?? 0);
+                            const zTotal = msgRows.filter((r) => r.type === 'Zalo').reduce((s, r) => s + r.count, 0);
+                            const fbTotal = msgRows.filter((r) => r.type === 'Facebook').reduce((s, r) => s + r.count, 0);
+                            const otherTotal = msgRows.filter((r) => r.type === 'Khác').reduce((s, r) => s + r.count, 0);
+                            const fmtD = (d: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(d));
+
+                            return (
+                                <Paper
+                                    elevation={0}
+                                    sx={{
+                                        ...cardSx,
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                    }}
+                                >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Box sx={{ width: 32, height: 32, borderRadius: '9px', bgcolor: alpha('#0068FF', 0.1), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <MessageSharpIcon sx={{ color: '#0068FF', fontSize: 18 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
+                                                    Thống kê tin nhắn Zalo / Facebook
+                                                </Typography>
+                                                <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>
+                                                    Số lượng tin nhắn theo ngày
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                                            {[
+                                                { label: 'Zalo', value: zTotal, color: '#0068FF', bg: alpha('#0068FF', 0.08) },
+                                                { label: 'Facebook', value: fbTotal, color: '#4267B2', bg: alpha('#4267B2', 0.08) },
+                                                ...(otherTotal > 0 ? [{ label: 'Khác', value: otherTotal, color: '#f59e0b', bg: alpha('#f59e0b', 0.08) }] : []),
+                                                { label: 'Tổng', value: zTotal + fbTotal + otherTotal, color: '#086839', bg: '#dcfce7' },
+                                            ].map(({ label, value, color, bg }) => (
+                                                <Box key={label} sx={{ px: 1.8, py: 0.6, borderRadius: '10px', bgcolor: bg, border: `1px solid ${color}22` }}>
+                                                    <Typography component="span" sx={{ fontSize: 11, color, fontWeight: 700 }}>{label}: </Typography>
+                                                    <Typography component="span" sx={{ fontSize: 13, color, fontWeight: 800 }}>{value.toLocaleString('vi-VN')}</Typography>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    </Box>
+
+                                    {msgRows.length === 0 ? (
+                                        <Box sx={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Typography sx={{ color: '#cbd5e1', fontSize: 14 }}>Chưa có dữ liệu tin nhắn trong kỳ này</Typography>
+                                        </Box>
+                                    ) : (
+                                        <BarChart
+                                            height={280}
+                                            borderRadius={6}
+                                            xAxis={[{
+                                                scaleType: 'band',
+                                                data: dates.map(fmtD),
+                                                tickLabelStyle: { fontSize: 11, fill: '#64748b' },
+                                            }]}
+                                            yAxis={[{ tickLabelStyle: { fontSize: 11, fill: '#94a3b8' } }]}
+                                            series={[
+                                                ...(!msgType || msgType === 'Zalo' ? [{
+                                                    data: zaloSeries,
+                                                    label: 'Zalo',
+                                                    color: '#0068FF',
+                                                    valueFormatter: (v: number | null) => `${(v ?? 0).toLocaleString('vi-VN')} tin`,
+                                                }] : []),
+                                                ...(!msgType || msgType === 'Facebook' ? [{
+                                                    data: fbSeries,
+                                                    label: 'Facebook',
+                                                    color: '#4267B2',
+                                                    valueFormatter: (v: number | null) => `${(v ?? 0).toLocaleString('vi-VN')} tin`,
+                                                }] : []),
+                                                ...(!msgType || msgType === 'Khác' ? [{
+                                                    data: otherSeries,
+                                                    label: 'Khác',
+                                                    color: '#f59e0b',
+                                                    valueFormatter: (v: number | null) => `${(v ?? 0).toLocaleString('vi-VN')} tin`,
+                                                }] : []),
+                                            ]}
+                                            sx={{
+                                                '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
+                                                '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
+                                                '.MuiChartsLegend-label': { fontSize: 12, fill: '#475569' },
+                                            }}
+                                        />
+                                    )}
+                                </Paper>
+                            );
+                        })()}
+                        <ChartCard
+                            title="Phân bổ trạng thái đơn"
+                            icon="🥧"
+                         
+                        >
                             <PieChart
                                 height={300}
                                 colors={['#086839', '#22c55e', '#86efac', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']}
@@ -296,7 +431,6 @@ export default function DashboardPage() {
                             />
                         </ChartCard>
                     </Box>
-
                     {/* ── By Source + By Branch ── */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
                         <ChartCard title="Khách hàng từ các nguồn" icon="🌐">
@@ -486,6 +620,7 @@ export default function DashboardPage() {
                     </Box>
                 </>
             )}
+
         </Box>
     );
 }

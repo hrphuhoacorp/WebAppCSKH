@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebAppInfractor.Data;
@@ -11,9 +12,11 @@ using WebAppInfractor.Data;
 namespace WebAppInfractor.Migrations
 {
     [DbContext(typeof(MemBerContext))]
-    partial class MemBerContextModelSnapshot : ModelSnapshot
+    [Migration("20260613075053_AddMessageReport")]
+    partial class AddMessageReport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -846,10 +849,6 @@ namespace WebAppInfractor.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("integer")
-                        .HasColumnName("created_by");
-
                     b.Property<string>("Note")
                         .HasColumnType("text")
                         .HasColumnName("note");
@@ -872,8 +871,6 @@ namespace WebAppInfractor.Migrations
 
                     b.HasKey("Id")
                         .HasName("message_reports_pkey");
-
-                    b.HasIndex("CreatedBy");
 
                     b.ToTable("message_reports", (string)null);
                 });
@@ -1403,17 +1400,6 @@ namespace WebAppInfractor.Migrations
                     b.Navigation("CreatedByNavigation");
 
                     b.Navigation("Parent");
-                });
-
-            modelBuilder.Entity("WebAppInfractor.Models.MessageReport", b =>
-                {
-                    b.HasOne("WebAppInfractor.Models.User", "CreatedByNavigation")
-                        .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("message_reports_created_by_fkey");
-
-                    b.Navigation("CreatedByNavigation");
                 });
 
             modelBuilder.Entity("WebAppInfractor.Models.Order", b =>

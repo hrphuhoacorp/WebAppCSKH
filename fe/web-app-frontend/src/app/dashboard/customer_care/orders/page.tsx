@@ -42,6 +42,8 @@ import {
     ExpandMore,
     HistoryToggleOffRounded,
     Inventory2,
+    ReportGmailerrorredOutlined,
+    Message,
 } from '@mui/icons-material';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import toast from 'react-hot-toast';
@@ -51,6 +53,7 @@ import { ReceiptLongRounded } from '@mui/icons-material';
 import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
 import { useAuth } from '@/providers/AuthProviders';
 import ImportHistoryDialog from '@/features/orders/components/ImportHistoryDialog';
+import ReportMessageDialog from '@/features/orders/components/ReportMessageDialog';
 
 const branchColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
 
@@ -147,6 +150,9 @@ export default function OrdersPage() {
     const [orderDetailOpen, setOrderDetailOpen] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [messageModalOpen, setMessageModalOpen] = useState(false);
+
+    // ── Auth ──
     const { profile, loadProfile } = useAuth();
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -179,7 +185,7 @@ export default function OrdersPage() {
             if (e?.message?.includes('stopped during negotiation')) return;
             console.error('SignalR error:', e);
         });
-        return () => { connection.stop().catch(() => {}); };
+        return () => { connection.stop().catch(() => { }); };
     }, []);
 
     useEffect(() => {
@@ -278,8 +284,6 @@ export default function OrdersPage() {
                 title="Danh Sách Đơn Hàng"
                 subtitle="Theo dõi, quản lý doanh thu và trạng thái đơn hàng thời gian thực"
                 icon={<ReceiptLongRounded />}
-                gradient="linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)"
-                shadowColor="rgba(124,58,237,0.28)"
                 actions={<Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
                     {importing && progress.total > 0 && (
                         <Box sx={{ minWidth: 200, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
@@ -320,6 +324,20 @@ export default function OrdersPage() {
                             }}
                         >
                             Lịch sử nhập File
+                        </Button>
+                    </Tooltip>
+                    <Tooltip title="Nhập số lượng tin nhắn mỗi ngày" arrow>
+                        <Button
+                            variant="outlined"
+                            startIcon={<Message sx={{ fontSize: 18 }} />}
+                            onClick={() => setMessageModalOpen(true)}
+                            sx={{
+                                borderColor: '#5d7ca7', color: '#4873af', borderWidth: '1.5px',
+                                fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
+                                '&:hover': { borderWidth: '1.5px', borderColor: '#365c99', bgcolor: '#a2bdd8' },
+                            }}
+                        >
+                            Báo cáo số lượng tin nhắn
                         </Button>
                     </Tooltip>
                     <Tooltip title="Xóa tất cả bộ lọc" arrow>
@@ -760,6 +778,10 @@ export default function OrdersPage() {
                 onClose={() => setHistoryModalOpen(false)}
                 historyData={profile?.importHistories ?? []}
                 onRefresh={loadProfile}
+            />
+            <ReportMessageDialog
+                open={messageModalOpen}
+                onClose={() => setMessageModalOpen(false)}
             />
         </Box>
     );

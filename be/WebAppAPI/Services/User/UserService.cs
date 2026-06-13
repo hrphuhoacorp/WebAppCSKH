@@ -92,9 +92,13 @@ public class UserService : IUserService
 
         if (!string.IsNullOrEmpty(search))
         {
+            search = search.ToLower();
+
             query = query.Where(u =>
-                (u.User.Name != null && EF.Functions.Like(u.User.Name, $"%{search}%"))
-                || (u.User.Email != null && EF.Functions.Like(u.User.Email, $"%{search}%"))
+                (u.User.Name != null && EF.Functions.Like(u.User.Name.ToLower(), $"%{search}%"))
+                || (
+                    u.User.Email != null && EF.Functions.Like(u.User.Email.ToLower(), $"%{search}%")
+                )
                 || (u.User.Phone != null && EF.Functions.Like(u.User.Phone, $"%{search}%"))
             );
         }
@@ -304,7 +308,8 @@ public class UserService : IUserService
                 BranchesName = user.Branches.Name,
                 // TodoTasks = user.TodoTasks.ToList(),
                 ImportHistories = user
-                    .ImportsHistoryUsers.OrderByDescending(ih => ih.ImportDate).Select(ih => new ImportHistoryDTO
+                    .ImportsHistoryUsers.OrderByDescending(ih => ih.ImportDate)
+                    .Select(ih => new ImportHistoryDTO
                     {
                         Id = ih.Id,
                         FileName = ih.FileName,

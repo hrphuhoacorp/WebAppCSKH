@@ -43,6 +43,7 @@ builder.Services.AddScoped<IInternalNewsRepository, InternalNewsRepository>();
 builder.Services.AddScoped<IGiftBasketRepository, GiftBasketRepository>();
 builder.Services.AddScoped<IGiftCodeMappingRepository, GiftCodeMappingRepository>();
 builder.Services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
+builder.Services.AddScoped<IMessageReportRepository, MessageReportRepository>();
 //Cache
 builder.Services.AddMemoryCache();
 
@@ -227,6 +228,7 @@ builder.Services.AddScoped<IImportHistoryService, ImportHistoryService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IInternalNewsService, InternalNewsService>();
 builder.Services.AddScoped<IGiftBasketService, GiftBasketService>();
+builder.Services.AddScoped<IMessageReportService, MessageReportService>();
 
 //context
 builder.Services.AddHttpContextAccessor();
