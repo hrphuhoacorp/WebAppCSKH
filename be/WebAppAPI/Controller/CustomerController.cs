@@ -90,5 +90,12 @@ namespace WebAppAPI.Controllers
                 StatusReponse.Success
             );
         }
+
+        [HttpGet("GetReturnRateStats")]
+        public async Task<ResponseValue<ReturnRateStatsDTO>> GetReturnRateStats([FromQuery] int months = 12)
+        {
+            var result = await _customerService.GetReturnRateStatsAsync(months);
+            return new ResponseValue<ReturnRateStatsDTO>(result, "Lấy thống kê thành công", StatusReponse.Success);
+        }
     }
 }

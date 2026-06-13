@@ -107,7 +107,6 @@ public class GiftBasketService : IGiftBasketService
 
     public async Task<GiftBasketDTO> CreateBasketAsync(CreateGiftBasketDTO dto, int userId)
     {
-      
         var basket = new GiftBasket
         {
             BasketUid = "BSK-" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
@@ -199,8 +198,6 @@ public class GiftBasketService : IGiftBasketService
 
     private async Task SyncCodeMappingAsync(GiftBasket basket, string? oldCode)
     {
-        
-
         // Đánh dấu mã cũ là inactive
         if (!string.IsNullOrWhiteSpace(oldCode))
         {
@@ -302,6 +299,7 @@ public class GiftBasketService : IGiftBasketService
     {
         var req = await _ccrRepo
             .GetAll()
+            .Where(r => r.IsActive == true)
             .Include(r => r.Branch)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == id);
@@ -375,8 +373,10 @@ public class GiftBasketService : IGiftBasketService
         req.Price = dto.Price ?? req.Price;
         req.ApprovedDate = dto.ApprovedDate;
         req.ResultNote = dto.ResultNote;
-        if (dto.FrontImageUrl != null) req.FrontImageUrl = dto.FrontImageUrl;
-        if (dto.BackImageUrl != null) req.BackImageUrl = dto.BackImageUrl;
+        if (dto.FrontImageUrl != null)
+            req.FrontImageUrl = dto.FrontImageUrl;
+        if (dto.BackImageUrl != null)
+            req.BackImageUrl = dto.BackImageUrl;
         req.HandledBy = userId;
         req.HandledAt = DateTime.UtcNow.AddHours(7);
         await _unitOfWork.SaveChangesAsync();
@@ -393,19 +393,30 @@ public class GiftBasketService : IGiftBasketService
         await _unitOfWork.SaveChangesAsync();
     }
 
-    public async Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(int id, ActivateCodeChangeRequestDTO dto)
+    public async Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(
+        int id,
+        ActivateCodeChangeRequestDTO dto
+    )
     {
         var req =
             await _ccrRepo.GetAll().Include(r => r.Branch).FirstOrDefaultAsync(r => r.Id == id)
             ?? throw new NotFoundException("Không tìm thấy yêu cầu");
-        if (dto.OldCode != null) req.OldCode = dto.OldCode.Trim();
-        if (dto.NewCode != null) req.NewCode = dto.NewCode.Trim();
-        if (dto.Price.HasValue) req.Price = dto.Price.Value;
-        if (dto.ApprovedDate != null) req.ApprovedDate = dto.ApprovedDate;
-        if (dto.ResultNote != null) req.ResultNote = dto.ResultNote;
-        if (dto.Note != null) req.Note = dto.Note;
-        if (dto.GroupCode != null) req.GroupCode = dto.GroupCode;
-        if (dto.BranchId.HasValue) req.BranchId = dto.BranchId.Value;
+        if (dto.OldCode != null)
+            req.OldCode = dto.OldCode.Trim();
+        if (dto.NewCode != null)
+            req.NewCode = dto.NewCode.Trim();
+        if (dto.Price.HasValue)
+            req.Price = dto.Price.Value;
+        if (dto.ApprovedDate != null)
+            req.ApprovedDate = dto.ApprovedDate;
+        if (dto.ResultNote != null)
+            req.ResultNote = dto.ResultNote;
+        if (dto.Note != null)
+            req.Note = dto.Note;
+        if (dto.GroupCode != null)
+            req.GroupCode = dto.GroupCode;
+        if (dto.BranchId.HasValue)
+            req.BranchId = dto.BranchId.Value;
         req.IsActive = dto.IsActive;
         await _unitOfWork.SaveChangesAsync();
         return MapCcrDto(req, new Dictionary<int, string>());

@@ -8,6 +8,7 @@ public interface ICustomerService
     Task<CustomerDTO> GetCustomerByIdAsync(int id);
     Task<string> UpdateCustomerAsync(int authorId, int id, UpdateCustomerDTO updateDTO);
     Task<string> DeleteCustomerAsync(int authorId, int id, DateTime updatedAt);
+    Task<ReturnRateStatsDTO> GetReturnRateStatsAsync(int months);
 }
 
 public class CustomerService : ICustomerService
@@ -303,5 +304,122 @@ public class CustomerService : ICustomerService
 
             throw;
         }
+    }
+
+    public async Task<ReturnRateStatsDTO> GetReturnRateStatsAsync(int months)
+    {
+        if (months < 1) months = 12;
+        var now = DateTime.UtcNow.AddHours(7);
+
+        // ── Lấy toàn bộ đơn hàng trong khoảng thời gian ──
+        var cutoff = now.AddMonths(-months);
+        var allOrders = await _orderRepository
+            .GetAll()
+            .Where(o => o.DeletedAt == null && o.Customer.DeletedAt == null)
+            .Select(o => new { o.CustomerId, o.PurchaseDate })
+            .ToListAsync();
+
+        // ── Tỉ lệ quay lại theo tháng ──
+        // Với mỗi tháng trong khoảng months, đếm KH mua lần đầu vs đã mua trước
+        var monthlyStats = new List<MonthlyReturnRateDTO>();
+        var sortedMonths = Enumerable.Range(0, months)
+            .Select(i => now.AddMonths(-months + 1 + i))
+            .ToList();
+
+        // Tập hợp các customerId đã mua trước kỳ đầu tiên
+        var earliestMonth = sortedMonths.First();
+        var priorBuyers = allOrders
+            .Where(o => o.PurchaseDate < new DateTime(earliestMonth.Year, earliestMonth.Month, 1) && o.CustomerId.HasValue)
+            .Select(o => o.CustomerId!.Value)
+            .Distinct()
+            .ToHashSet();
+
+        var seenBuyers = new HashSet<int>(priorBuyers);
+
+        foreach (var m in sortedMonths)
+        {
+            var monthStart = new DateTime(m.Year, m.Month, 1);
+            var monthEnd = monthStart.AddMonths(1);
+            var buyers = allOrders
+                .Where(o => o.PurchaseDate >= monthStart && o.PurchaseDate < monthEnd && o.CustomerId.HasValue)
+                .Select(o => o.CustomerId!.Value)
+                .Distinct()
+                .ToList();
+
+            var returningCount = buyers.Count(id => seenBuyers.Contains(id));
+            var newCount = buyers.Count - returningCount;
+
+            monthlyStats.Add(new MonthlyReturnRateDTO
+            {
+                Year = m.Year,
+                Month = m.Month,
+                NewCustomers = newCount,
+                ReturningCustomers = returningCount,
+                TotalBuyers = buyers.Count,
+                ReturnRate = buyers.Count > 0 ? Math.Round((double)returningCount / buyers.Count * 100, 1) : 0,
+            });
+
+            foreach (var id in buyers) seenBuyers.Add(id);
+        }
+
+        // ── Phân bố tần suất mua hàng ──
+        var allCustomerOrders = await _customerRepository
+            .GetAll()
+            .Where(c => c.DeletedAt == null)
+            .Select(c => new { c.Id, c.TotalOrders })
+            .ToListAsync();
+
+        var freq = new FrequencyDistributionDTO
+        {
+            Once = allCustomerOrders.Count(c => c.TotalOrders == 1),
+            TwoToThree = allCustomerOrders.Count(c => c.TotalOrders >= 2 && c.TotalOrders <= 3),
+            FourToTen = allCustomerOrders.Count(c => c.TotalOrders >= 4 && c.TotalOrders <= 10),
+            MoreThanTen = allCustomerOrders.Count(c => c.TotalOrders > 10),
+        };
+
+        // ── Phân khúc dormant ──
+        var allCustomers = await _customerRepository
+            .GetAll()
+            .Where(c => c.DeletedAt == null)
+            .Select(c => new { c.Id, c.LastOrderAt })
+            .ToListAsync();
+
+        var dormancy = new DormancySegmentDTO
+        {
+            Active30 = allCustomers.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays <= 30),
+            Dormant30To60 = allCustomers.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays > 30 && (now - c.LastOrderAt.Value).TotalDays <= 60),
+            Dormant60To90 = allCustomers.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays > 60 && (now - c.LastOrderAt.Value).TotalDays <= 90),
+            Dormant90Plus = allCustomers.Count(c => c.LastOrderAt.HasValue && (now - c.LastOrderAt.Value).TotalDays > 90),
+            NeverBought = allCustomers.Count(c => !c.LastOrderAt.HasValue),
+        };
+
+        // ── Top 10 khách hàng trung thành ──
+        var topCustomers = await _customerRepository
+            .GetAll()
+            .Where(c => c.DeletedAt == null && c.TotalOrders > 1)
+            .OrderByDescending(c => c.TotalOrders)
+            .ThenByDescending(c => c.TotalRevenue)
+            .Take(10)
+            .Select(c => new LoyalCustomerDTO
+            {
+                Id = c.Id,
+                Name = c.Name,
+                CustomerCode = c.CustomerCode,
+                OrderCount = c.TotalOrders,
+                TotalRevenue = c.TotalRevenue,
+                LastOrderAt = c.LastOrderAt,
+                DaysSinceLastOrder = c.LastOrderAt.HasValue
+                    ? (int)(now - c.LastOrderAt.Value).TotalDays
+                    : -1,
+            })
+            .ToListAsync();
+
+        return new ReturnRateStatsDTO
+        {
+            MonthlyReturnRate = monthlyStats,
+            FrequencyDistribution = freq,
+            DormancySegments = dormancy,
+            TopLoyalCustomers = topCustomers,
+        };
     }
 }

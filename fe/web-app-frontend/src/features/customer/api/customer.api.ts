@@ -11,6 +11,11 @@ export const customerApi = {
 
     },
 
+    getCustomerById: async (id: number) => {
+        const response = await api.get(`/Customer/GetCustomerByIdAsync/${id}`);
+        return response.data;
+    },
+
     updateCustomer: async (id: number, data: {
         name: string;
         phone: string;

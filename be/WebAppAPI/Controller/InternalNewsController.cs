@@ -154,5 +154,14 @@ namespace WebAppAPI.Controllers
             var url = await _internalNewsService.UploadImageAsync(file);
             return new ResponseValue<string>(url, "Upload ảnh thành công", StatusReponse.Success);
         }
+
+        // Upload video cho editor
+        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [HttpPost("UploadVideo")]
+        public async Task<ResponseValue<string>> UploadVideo(IFormFile file)
+        {
+            var url = await _internalNewsService.UploadVideoAsync(file);
+            return new ResponseValue<string>(url, "Upload video thành công", StatusReponse.Success);
+        }
     }
 }

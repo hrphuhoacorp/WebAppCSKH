@@ -16,7 +16,7 @@ import {
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
     FormatQuote, Image as ImageIcon, Link as LinkIcon,
     FormatClear, Undo, Redo, HorizontalRule,
-    ViewWeekRounded,
+    ViewWeekRounded, VideoFileRounded,
 } from '@mui/icons-material';
 import { useRef } from 'react';
 import { newsApi } from '../api/news.api';
@@ -66,6 +66,7 @@ const HEADING_OPTIONS = [
 
 export default function NewsEditor({ value, onChange }: NewsEditorProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
     const colorInputRef = useRef<HTMLInputElement>(null);
     const highlightInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,6 +120,22 @@ export default function NewsEditor({ value, onChange }: NewsEditorProps) {
             toast.success('Upload ảnh thành công', { id: tid });
         } catch {
             toast.error('Upload ảnh thất bại', { id: tid });
+        } finally { e.target.value = ''; }
+    };
+
+    const handleUploadVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !editor) return;
+        const tid = toast.loading('Đang upload video...');
+        try {
+            const response = await newsApi.uploadVideo(file);
+            const src = response.content;
+            editor.chain().focus().insertContent(
+                `<video src="${src}" controls style="max-width:100%;border-radius:8px;display:block;margin:1em auto"></video>`
+            ).run();
+            toast.success('Upload video thành công', { id: tid });
+        } catch {
+            toast.error('Upload video thất bại', { id: tid });
         } finally { e.target.value = ''; }
     };
 
@@ -281,12 +298,14 @@ export default function NewsEditor({ value, onChange }: NewsEditorProps) {
                 {/* Divider / HR */}
                 <Tooltip title="Đường kẻ ngang"><IconButton size="small" sx={btn()} onClick={() => editor?.chain().focus().setHorizontalRule().run()}><HorizontalRule sx={{ fontSize: 17 }} /></IconButton></Tooltip>
 
-                {/* Image / Link / Clear */}
+                {/* Image / Video / Link / Clear */}
                 <Tooltip title="Chèn ảnh"><IconButton size="small" sx={btn()} onClick={() => fileInputRef.current?.click()}><ImageIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
+                <Tooltip title="Chèn video"><IconButton size="small" sx={btn()} onClick={() => videoInputRef.current?.click()}><VideoFileRounded sx={{ fontSize: 17 }} /></IconButton></Tooltip>
                 <Tooltip title="Chèn link"><IconButton size="small" sx={btn(editor?.isActive('link'))} onClick={handleSetLink}><LinkIcon sx={{ fontSize: 17 }} /></IconButton></Tooltip>
                 <Tooltip title="Xóa định dạng"><IconButton size="small" sx={btn()} onClick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}><FormatClear sx={{ fontSize: 17 }} /></IconButton></Tooltip>
 
                 <input ref={fileInputRef} type="file" hidden accept=".jpg,.jpeg,.png,.webp" onChange={handleUploadImage} />
+                <input ref={videoInputRef} type="file" hidden accept=".mp4,.webm,.mov,.avi" onChange={handleUploadVideo} />
             </Box>
 
             {/* ── Editor content ── */}

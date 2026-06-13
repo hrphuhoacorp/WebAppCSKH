@@ -70,4 +70,13 @@ export const newsApi = {
         });
         return response.data;
     },
+
+    uploadVideo: async (file: File) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await api.post("/InternalNews/UploadVideo", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response.data;
+    },
 };

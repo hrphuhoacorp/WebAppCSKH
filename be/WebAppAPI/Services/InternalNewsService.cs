@@ -14,6 +14,7 @@ public interface IInternalNewsService
     Task<InternalNewsDTO> PublishAsync(int id);
     Task<InternalNewsDTO> UnpublishAsync(int id);
     Task<string> UploadImageAsync(IFormFile file);
+    Task<string> UploadVideoAsync(IFormFile file);
 }
 
 public class InternalNewsService : IInternalNewsService
@@ -272,5 +273,27 @@ public class InternalNewsService : IInternalNewsService
         }
 
         return $"{_mediaSettings.BaseUrl}/media/news-images/{fileName}";
+    }
+
+    public async Task<string> UploadVideoAsync(IFormFile file)
+    {
+        var allowedExts = new[] { ".mp4", ".webm", ".mov", ".avi" };
+        var ext = Path.GetExtension(file.FileName).ToLower();
+
+        if (!allowedExts.Contains(ext))
+            throw new BadRequestException($"File {file.FileName} không đúng định dạng video");
+
+        var saveFolder = Path.Combine(_mediaSettings.RootPath, "news-videos");
+        Directory.CreateDirectory(saveFolder);
+
+        var fileName = $"{Guid.NewGuid():N}{ext}";
+        var savePath = Path.Combine(saveFolder, fileName);
+
+        await using (var stream = new FileStream(savePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        return $"{_mediaSettings.BaseUrl}/media/news-videos/{fileName}";
     }
 }

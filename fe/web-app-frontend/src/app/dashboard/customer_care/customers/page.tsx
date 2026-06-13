@@ -128,6 +128,7 @@ export default function CustomerPage() {
     const [orderDetailOpen, setOrderDetailOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<CustomerSchema | null>(null);
+    const [expandedDetail, setExpandedDetail] = useState<Record<number, CustomerSchema>>({});
 
     const formatMoney = (value: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -158,6 +159,17 @@ export default function CustomerPage() {
     };
 
     useEffect(() => { fetchCustomers(); }, [page, pageSize, debouncedSearch]);
+
+    const handleExpandRow = async (customerId: number) => {
+        const next = openRow === customerId ? null : customerId;
+        setOpenRow(next);
+        if (next && !expandedDetail[next]) {
+            try {
+                const res = await customerApi.getCustomerById(next);
+                setExpandedDetail(prev => ({ ...prev, [next]: res.content }));
+            } catch { /* silently fail, preference section just won't show */ }
+        }
+    };
 
     return (
         <Box
@@ -302,7 +314,7 @@ export default function CustomerPage() {
                             <React.Fragment key={customer.id}>
                                 {/* Main Row */}
                                 <TableRow
-                                    onClick={() => setOpenRow(openRow === customer.id ? null : customer.id)}
+                                    onClick={() => handleExpandRow(customer.id)}
                                     sx={{
                                         cursor: 'pointer',
                                         bgcolor: index % 2 === 0 ? '#fff' : '#fafcfb',
@@ -314,7 +326,7 @@ export default function CustomerPage() {
                                     <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 1 }}>
                                         <IconButton
                                             size="small"
-                                            onClick={() => setOpenRow(openRow === customer.id ? null : customer.id)}
+                                            onClick={() => handleExpandRow(customer.id)}
                                             sx={{
                                                 width: 28,
                                                 height: 28,
@@ -729,6 +741,53 @@ export default function CustomerPage() {
                                                         </TableBody>
                                                     </Table>
                                                 </TableContainer>
+
+                                                {/* ── Section 3: Phân tích sở thích ── */}
+                                                {(() => {
+                                                    const detail = expandedDetail[customer.id];
+                                                    if (!detail) return null;
+                                                    const catMap: Record<string, number> = {};
+                                                    detail.orders?.forEach(ord => {
+                                                        (ord as any).items?.forEach((oi: any) => {
+                                                            const cat = oi.category;
+                                                            if (cat) catMap[cat] = (catMap[cat] || 0) + 1;
+                                                        });
+                                                    });
+                                                    const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+                                                    if (!sorted.length) return null;
+                                                    const palette = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#f43f5e'];
+                                                    return (
+                                                        <Box sx={{ mt: 3 }}>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                                                <Box sx={{ width: 28, height: 28, borderRadius: '8px', bgcolor: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <Typography sx={{ color: '#fff', fontSize: 13 }}>🎯</Typography>
+                                                                </Box>
+                                                                <Typography sx={{ color: '#1e293b', fontWeight: 800, fontSize: 12, letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                                                                    Phân tích sở thích & nhu cầu
+                                                                </Typography>
+                                                            </Box>
+                                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                                                {sorted.map(([cat, count], i) => {
+                                                                    const color = palette[i % palette.length];
+                                                                    return (
+                                                                        <Chip
+                                                                            key={cat}
+                                                                            label={`${cat}  ×${count}`}
+                                                                            sx={{
+                                                                                bgcolor: alpha(color, 0.1),
+                                                                                color,
+                                                                                fontWeight: 700,
+                                                                                border: `1px solid ${alpha(color, 0.25)}`,
+                                                                                fontSize: 12,
+                                                                                height: 26,
+                                                                            }}
+                                                                        />
+                                                                    );
+                                                                })}
+                                                            </Box>
+                                                        </Box>
+                                                    );
+                                                })()}
                                             </Box>
                                         </Collapse>
                                     </TableCell>

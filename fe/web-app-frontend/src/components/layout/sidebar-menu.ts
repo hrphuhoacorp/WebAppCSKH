@@ -1,4 +1,4 @@
-import { Checklist, CampaignRounded } from '@mui/icons-material';
+import { Checklist, CampaignRounded, TrendingUp } from '@mui/icons-material';
 import {
     LayoutDashboard,
     ShoppingCart,
@@ -46,6 +46,12 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Danh sách khách hàng',
                 href: '/dashboard/customer_care/customers',
                 icon: Users,
+                roles: ['Super_Admin', 'Admin_Online', 'Online'],
+            },
+            {
+                title: 'Tỉ lệ quay lại',
+                href: '/dashboard/customer_care/return_rate',
+                icon: TrendingUp,
                 roles: ['Super_Admin', 'Admin_Online', 'Online'],
             },
 
