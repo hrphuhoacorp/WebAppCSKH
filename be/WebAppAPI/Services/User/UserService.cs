@@ -304,13 +304,15 @@ public class UserService : IUserService
                 BranchesName = user.Branches.Name,
                 // TodoTasks = user.TodoTasks.ToList(),
                 ImportHistories = user
-                    .ImportsHistoryUsers.Select(ih => new ImportHistoryDTO
+                    .ImportsHistoryUsers.OrderByDescending(ih => ih.ImportDate).Select(ih => new ImportHistoryDTO
                     {
                         Id = ih.Id,
                         FileName = ih.FileName,
+                        Status = ih.Status,
                         SuccessCount = ih.SuccessCount,
                         ErrorCount = ih.ErrorCount,
                         ImportDate = ih.ImportDate,
+                        RollbackAt = ih.RollbackAt,
                     })
                     .ToList(),
 

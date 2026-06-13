@@ -68,5 +68,13 @@ export const ordersApi = {
         return response.data;
     },
 
+    rollbackImport: async (importHistoryId: number) => {
+        const response = await api.post(`/Order/RollbackImportAsync/${importHistoryId}`);
+        return response.data;
+    },
 
+    restoreImport: async (importHistoryId: number) => {
+        const response = await api.post(`/Order/RestoreImportAsync/${importHistoryId}`);
+        return response.data;
+    },
 };

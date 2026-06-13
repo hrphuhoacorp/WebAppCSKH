@@ -758,17 +758,8 @@ export default function OrdersPage() {
             <ImportHistoryDialog
                 open={historyModalOpen}
                 onClose={() => setHistoryModalOpen(false)}
-                historyData={(profile?.importHistories || []).map(item => ({
-                    id: item.id,
-                    fileName: item.fileName,
-                    importBy: item.importBy ?? null,
-                    status: item.status ?? null,
-                    successCount: item.successCount,
-                    errorCount: item.errorCount,
-                    importDate: item.importDate,
-                    rollbackAt: item.rollbackAt ?? null,
-                    rollbackBy: item.rollbackBy ?? null,
-                }))}
+                historyData={profile?.importHistories ?? []}
+                onRefresh={loadProfile}
             />
         </Box>
     );

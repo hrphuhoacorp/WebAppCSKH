@@ -128,9 +128,11 @@ public class AuthService : IAuthService
                 {
                     Id = ih.Id,
                     FileName = ih.FileName,
+                    Status = ih.Status,
                     SuccessCount = ih.SuccessCount,
                     ErrorCount = ih.ErrorCount,
                     ImportDate = ih.ImportDate,
+                    RollbackAt = ih.RollbackAt,
                 })
                 .ToList(),
 
