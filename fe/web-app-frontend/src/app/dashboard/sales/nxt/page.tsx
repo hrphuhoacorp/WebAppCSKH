@@ -21,6 +21,7 @@ import {
 import PageHeader from '@/components/common/PageHeader';
 
 const today = () => new Date().toLocaleDateString('sv-SE');
+const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toLocaleDateString('sv-SE');
 const fmtDate = (d?: string) => d ? d.split('-').reverse().join('/') : '';
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ function PreviewTable({ rows, cols, empty = 'Chưa có dữ liệu.' }: { rows: 
 // ─── Tab: Tổng quan ───────────────────────────────────────────────────────────
 
 function OverviewTab() {
-    const [dateFrom, setDateFrom] = useState(today());
+    const [dateFrom, setDateFrom] = useState(daysAgo(30));
     const [dateTo, setDateTo] = useState(today());
     const [branch, setBranch] = useState('');
     const [rowFilter, setRowFilter] = useState('ALL');
@@ -89,7 +90,7 @@ function OverviewTab() {
         finally { setLoading(false); }
     }, [dateFrom, dateTo, branch, rowFilter]);
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, [dateFrom, dateTo, branch, rowFilter]);
 
     const summary = data?.summary;
 
