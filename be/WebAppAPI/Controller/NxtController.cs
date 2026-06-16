@@ -97,6 +97,13 @@ public class NxtController(NxtService svc) : ControllerBase
 
     // ─── Nạp Sapo ────────────────────────────────────────────────────────────
 
+    [HttpPost("sapo/preview")]
+    public async Task<IActionResult> PreviewSapo(IFormFile file, [FromForm] string? date)
+    {
+        if (file == null || file.Length == 0) return BadRequest("Chưa chọn file.");
+        return Ok(await svc.PreviewSapoFile(file, date));
+    }
+
     [HttpPost("sapo/import")]
     public async Task<IActionResult> ImportSapo(IFormFile file, [FromForm] string? date)
     {
@@ -104,8 +111,24 @@ public class NxtController(NxtService svc) : ControllerBase
         return Ok(await svc.ImportSapoFile(file, date, UserName()));
     }
 
+    [HttpPost("sapo/undo/{importId}")]
+    public async Task<IActionResult> UndoSapo(string importId)
+    {
+        if (string.IsNullOrWhiteSpace(importId)) return BadRequest("Thiếu importId.");
+        return Ok(new { message = await svc.UndoSapoImport(importId) });
+    }
+
     [HttpGet("sapo/imports")]
     public async Task<IActionResult> GetSapoImports() => Ok(await svc.GetSapoImports());
+
+    // ─── Kiểm tra mã ─────────────────────────────────────────────────────────
+
+    [HttpGet("check-code")]
+    public async Task<IActionResult> CheckCode([FromQuery] string? date, [FromQuery] string? branch, [FromQuery] string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return BadRequest("Thiếu mã.");
+        return Ok(await svc.CheckCode(date ?? "", branch ?? "", code));
+    }
 }
 
 // ─── Request DTOs ─────────────────────────────────────────────────────────────

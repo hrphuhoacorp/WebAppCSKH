@@ -36,18 +36,18 @@ export interface NxtAdjLog {
 }
 
 export interface NxtDashboardRow {
-    branch: string; itemCode: string;
+    date: string; branch: string; itemCode: string;
     beginQty: number; inQty: number; transferInQty: number; transferOutQty: number;
     outQty: number; cancelQty: number; adjustQty: number;
     stockQty: number; dttQty: number; cttQty: number;
     expectedQty: number; compareQty: number; diff: number;
-    revenue: number; labels: string[]; notes: string[]; diffReason: string;
+    revenue: number; orderCount: number; labels: string[]; notes: string[]; diffReason: string;
 }
 
 export interface NxtDashboardSummary {
     beginQty: number; inQty: number; transferInQty: number; transferOutQty: number;
     cancelQty: number; outQty: number; stockQty: number;
-    dttQty: number; cttQty: number; revenue: number; diffLines: number;
+    dttQty: number; cttQty: number; revenue: number; diffLines: number; orderCount: number;
 }
 
 export interface NxtBranchChart {
@@ -56,14 +56,28 @@ export interface NxtBranchChart {
     diffLines: number; revenue: number;
 }
 
-export interface NxtCheckDay { branch: string; diffLines: number; absDiff: number; topCodes: string[]; }
+export interface NxtCheckDay {
+    date: string; branch: string; diffLines: number; absDiff: number; totalDiff: number; topCodes: string[];
+}
 
 export interface NxtDashboard {
     dateFrom: string; dateTo: string; prev: string; branch: string; rowFilter: string;
+    sapoUpdatedTo: string;
     summary: NxtDashboardSummary;
     branchCharts: NxtBranchChart[];
     checkDays: NxtCheckDay[];
     rows: NxtDashboardRow[];
+}
+
+export interface NxtSapoPreviewRow {
+    date: string; branch: string; itemCode: string;
+    sku: string; variantName: string;
+    netSoldQty: number; revenue: number; orderCount: number;
+}
+
+export interface NxtCheckCodeResult {
+    code: string; date: string; branch: string;
+    giftIns: string[]; sapoSales: string[]; stocks: string[]; adjustments: string[];
 }
 
 export interface NxtSapoImportLog {
@@ -109,6 +123,14 @@ export const nxtApi = {
         api.get<NxtAdjLog[]>('/nxt/adjustments', { params: { dateFrom, dateTo, branch } }).then(r => r.data),
 
     // Sapo
+    previewSapo: (file: File, date?: string) => {
+        const form = new FormData();
+        form.append('file', file);
+        if (date) form.append('date', date);
+        return api.post<NxtSapoPreviewRow[]>('/nxt/sapo/preview', form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }).then(r => r.data);
+    },
     importSapo: (file: File, date?: string) => {
         const form = new FormData();
         form.append('file', file);
@@ -117,8 +139,14 @@ export const nxtApi = {
             headers: { 'Content-Type': 'multipart/form-data' },
         }).then(r => r.data);
     },
+    undoSapo: (importId: string) =>
+        api.post<{ message: string }>(`/nxt/sapo/undo/${importId}`).then(r => r.data),
     getSapoImports: () =>
         api.get<NxtSapoImportLog[]>('/nxt/sapo/imports').then(r => r.data),
+
+    // Kiểm tra mã
+    checkCode: (code: string, date?: string, branch?: string) =>
+        api.get<NxtCheckCodeResult>('/nxt/check-code', { params: { code, date, branch } }).then(r => r.data),
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

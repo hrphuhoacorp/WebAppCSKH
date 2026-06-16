@@ -16,7 +16,7 @@ import toast from 'react-hot-toast';
 import {
     nxtApi, BRANCHES, CODE_TYPES, CANCEL_REASONS, ADJ_REASONS, OCR_URL,
     fmtRevenue, NxtGiftRow, NxtStockRow, NxtDashboard, NxtAdjLog,
-    NxtSapoImportLog,
+    NxtSapoImportLog, NxtSapoPreviewRow, NxtCheckCodeResult,
 } from '@/features/nxt/api/nxt.api';
 import PageHeader from '@/components/common/PageHeader';
 
@@ -96,8 +96,8 @@ function OverviewTab() {
 
     function exportCsv() {
         if (!data?.rows.length) { toast.error('Không có dữ liệu để xuất.'); return; }
-        const headers = ['CN', 'Mã', 'Nhãn', 'Tồn đầu', 'Gói ra', 'Nhận CN', 'Chuyển CN', 'Hủy', 'Sapo bán', 'Tồn TT', 'DTT', 'Tồn SS', 'Tồn còn lại', 'Lệch', 'Gợi ý'];
-        const rows = data.rows.map(r => [r.branch, r.itemCode, r.labels.join(' | '), r.beginQty, r.inQty, r.transferInQty, r.transferOutQty, r.cancelQty, r.outQty, r.stockQty, r.dttQty, r.compareQty, r.expectedQty, r.diff, r.diffReason]);
+        const headers = ['Ngày chốt', 'CN', 'Mã', 'Nhãn', 'Tồn đầu', 'Gói ra', 'Nhận CN', 'Chuyển CN', 'Hủy', 'Sapo bán', 'Tồn TT', 'DTT', 'Tồn SS', 'Tồn còn lại', 'Lệch', 'Gợi ý'];
+        const rows = data.rows.map(r => [r.date, r.branch, r.itemCode, r.labels.join(' | '), r.beginQty, r.inQty, r.transferInQty, r.transferOutQty, r.cancelQty, r.outQty, r.stockQty, r.dttQty, r.compareQty, r.expectedQty, r.diff, r.diffReason]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })); a.download = `nxt-${dateFrom}.csv`; a.click();
     }
@@ -141,50 +141,57 @@ function OverviewTab() {
                     { label: 'Chuyển CN', val: summary?.transferOutQty ?? 0 },
                     { label: 'Hủy giỏ', val: summary?.cancelQty ?? 0 },
                     { label: 'Sapo bán', val: summary?.outQty ?? 0 },
+                    { label: 'Số đơn', val: summary?.orderCount ?? 0 },
                     { label: 'Tồn thực tế', val: summary?.stockQty ?? 0 },
                     { label: 'DTT/chưa lấy', val: summary?.dttQty ?? 0 },
                     { label: 'Dòng lệch', val: summary?.diffLines ?? 0, warn: (summary?.diffLines ?? 0) > 0 },
                     { label: 'Doanh thu', val: fmtRevenue(summary?.revenue ?? 0) },
+                    { label: 'Sapo cập nhật đến', val: fmtDate(data?.sapoUpdatedTo) || '—' },
                 ].map(k => (
-                    <Paper key={k.label} elevation={0} sx={{ p: 1.5, border: '1px solid', borderColor: k.warn ? 'error.light' : 'divider', borderRadius: 2 }}>
+                    <Paper key={k.label} elevation={0} sx={{ p: 1.5, border: '1px solid', borderColor: (k as any).warn ? 'error.light' : 'divider', borderRadius: 2 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', fontSize: 10 }}>{k.label}</Typography>
                         {loading
                             ? <Skeleton width="60%" height={28} />
-                            : <Typography variant="h6" sx={{ fontWeight: 900, color: k.warn ? 'error.main' : 'inherit', lineHeight: 1.1 }}>{k.val}</Typography>
+                            : <Typography variant="h6" sx={{ fontWeight: 900, color: (k as any).warn ? 'error.main' : 'inherit', lineHeight: 1.1 }}>{k.val}</Typography>
                         }
                     </Paper>
                 ))}
             </Box>
 
-            {/* Check days */}
+            {/* Check days – per-date items per branch */}
             {data?.checkDays && data.checkDays.length > 0 && (
                 <Box sx={{ mb: 2 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Ngày cần kiểm tra</Typography>
                     <Alert severity="warning" sx={{ mb: 1, fontSize: 13 }}>
-                        Bấm vào chi nhánh để lọc dòng lệch. "Mức cần kiểm" = tổng lệch tuyệt đối.
+                        Bấm vào ngày để lọc dòng lệch. Lệch = tổng lệch tuyệt đối.
                     </Alert>
                     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1.5 }}>
                         {BRANCHES.map(b => {
-                            const item = data.checkDays.find(c => c.branch === b);
+                            const items = data.checkDays.filter(c => c.branch === b);
+                            const totalAbs = items.reduce((s, c) => s + c.absDiff, 0);
                             return (
                                 <Paper key={b} elevation={0} sx={{ border: '1px solid #f1db9a', bgcolor: '#fffdf7', borderRadius: 2, overflow: 'hidden' }}>
                                     <Box sx={{ bgcolor: '#fff8e7', borderBottom: '1px solid #f1db9a', px: 1.5, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <Typography sx={{ fontWeight: 800, fontSize: 14 }}>{b}</Typography>
-                                        {item
-                                            ? <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#7a5200' }}>{item.diffLines} mã · Mức {item.absDiff}</Typography>
+                                        {items.length > 0
+                                            ? <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#7a5200' }}>{items.length} ngày · Mức {totalAbs}</Typography>
                                             : <Typography sx={{ fontSize: 11, color: '#5f7a70' }}>Không lệch</Typography>
                                         }
                                     </Box>
-                                    <Box sx={{ p: 1 }}>
-                                        {item ? (
-                                            <Box
-                                                onClick={() => { setBranch(b); setRowFilter('DIFF'); setTimeout(load, 50); }}
-                                                sx={{ cursor: 'pointer', border: '1px solid #f3ddb1', borderRadius: 1.5, p: 1, bgcolor: '#fff', '&:hover': { bgcolor: '#fff8e7' } }}>
-                                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#674700' }}>
-                                                    {item.topCodes.join(', ')}{item.diffLines > 3 ? '...' : ''}
-                                                </Typography>
+                                    <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 200, overflow: 'auto' }}>
+                                        {items.length > 0 ? items.map((item, idx) => (
+                                            <Box key={idx}
+                                                onClick={() => { setBranch(b); setDateFrom(item.date); setDateTo(item.date); setRowFilter('DIFF'); setTimeout(load, 50); }}
+                                                sx={{ cursor: 'pointer', border: '1px solid #f3ddb1', borderRadius: 1.5, px: 1, py: 0.5, bgcolor: '#fff', '&:hover': { bgcolor: '#fff8e7' }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#674700' }}>{fmtDate(item.date)}</Typography>
+                                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                                    <Typography sx={{ fontSize: 11, color: '#7a5200' }}>{item.diffLines} mã</Typography>
+                                                    <Typography sx={{ fontSize: 11, color: item.totalDiff > 0 ? '#c07000' : '#c0000a', fontWeight: 700 }}>
+                                                        {item.totalDiff > 0 ? '+' : ''}{item.totalDiff}
+                                                    </Typography>
+                                                </Box>
                                             </Box>
-                                        ) : (
+                                        )) : (
                                             <Typography sx={{ fontSize: 12, color: '#5f7a70', textAlign: 'center', py: 1 }}>Không có dòng lệch.</Typography>
                                         )}
                                     </Box>
@@ -205,7 +212,7 @@ function OverviewTab() {
                 <Table size="small" stickyHeader>
                     <TableHead>
                         <TableRow>
-                            {['CN', 'Mã', 'Nhãn kiểm', 'Tồn đầu', 'Gói ra', 'Nhận CN', 'Chuyển CN', 'Hủy', 'Sapo bán', 'Tồn TT', 'DTT', 'Tồn SS', 'Tồn còn lại', 'Lệch', 'Gợi ý'].map(h => (
+                            {['Ngày chốt', 'CN', 'Mã', 'Nhãn kiểm', 'Tồn đầu', 'Gói ra', 'Nhận CN', 'Chuyển CN', 'Hủy', 'Sapo bán', 'Tồn TT', 'DTT', 'Tồn SS', 'Tồn còn lại', 'Lệch', 'Gợi ý'].map(h => (
                                 <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>{h}</TableCell>
                             ))}
                         </TableRow>
@@ -213,12 +220,13 @@ function OverviewTab() {
                     <TableBody>
                         {loading
                             ? Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}>{Array.from({ length: 15 }).map((_, j) => <TableCell key={j}><Skeleton /></TableCell>)}</TableRow>
+                                <TableRow key={i}>{Array.from({ length: 16 }).map((_, j) => <TableCell key={j}><Skeleton /></TableCell>)}</TableRow>
                             ))
                             : !data?.rows.length
-                                ? <TableRow><TableCell colSpan={15} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>Không có dữ liệu.</TableCell></TableRow>
+                                ? <TableRow><TableCell colSpan={16} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>Không có dữ liệu.</TableCell></TableRow>
                                 : data.rows.map((r, i) => (
                                     <TableRow key={i} hover sx={{ bgcolor: r.diff !== 0 ? alpha('#ef4444', 0.04) : 'inherit' }}>
+                                        <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</TableCell>
                                         <TableCell sx={{ fontSize: 12 }}>{r.branch}</TableCell>
                                         <TableCell><Typography sx={{ fontWeight: 700, fontSize: 12 }}>{r.itemCode}</Typography></TableCell>
                                         <TableCell>
@@ -464,47 +472,106 @@ function CancelTab() {
 function SapoTab() {
     const [imports, setImports] = useState<NxtSapoImportLog[]>([]);
     const [file, setFile] = useState<File | null>(null);
+    const [preview, setPreview] = useState<NxtSapoPreviewRow[]>([]);
+    const [previewed, setPreviewed] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [undoing, setUndoing] = useState<string | null>(null);
 
-    useEffect(() => {
+    const loadImports = async () => {
         nxtApi.getSapoImports().then(setImports).catch(() => { });
-    }, []);
+    };
 
-    async function importFile() {
+    useEffect(() => { loadImports(); }, []);
+
+    function onFileChange(f: File | null) {
+        setFile(f);
+        setPreview([]);
+        setPreviewed(false);
+    }
+
+    async function doPreview() {
+        if (!file) { toast.error('Chọn file Excel trước.'); return; }
+        setLoading(true);
+        try {
+            const rows = await nxtApi.previewSapo(file);
+            setPreview(rows);
+            setPreviewed(true);
+            if (!rows.length) toast.error('Không tìm thấy dòng hợp lệ trong file.');
+        } catch (e: any) { toast.error(e?.response?.data?.Message || 'Lỗi đọc file Sapo.'); }
+        finally { setLoading(false); }
+    }
+
+    async function doImport() {
         if (!file) { toast.error('Chọn file Excel trước.'); return; }
         setSaving(true);
         try {
             const r = await nxtApi.importSapo(file);
-            toast.success(`Nạp Sapo OK: ${r.rowsSaved} dòng (${r.dateMin} → ${r.dateMax}). Thay ${r.replacedRows} dòng cũ.`);
-            setFile(null);
-            const logs = await nxtApi.getSapoImports();
-            setImports(logs);
+            toast.success(`Nạp Sapo OK: ${r.rowsSaved} dòng (${fmtDate(r.dateMin)} → ${fmtDate(r.dateMax)}). Thay ${r.replacedRows} dòng cũ.`);
+            setFile(null); setPreview([]); setPreviewed(false);
+            loadImports();
         } catch (e: any) { toast.error(e?.response?.data?.Message || 'Lỗi nạp Sapo.'); }
         finally { setSaving(false); }
+    }
+
+    async function doUndo(importId: string) {
+        setUndoing(importId);
+        try {
+            const r = await nxtApi.undoSapo(importId);
+            toast.success(r.message);
+            loadImports();
+        } catch (e: any) { toast.error(e?.response?.data?.Message || 'Lỗi hoàn tác.'); }
+        finally { setUndoing(null); }
     }
 
     return (
         <Box>
             <Alert severity="warning" sx={{ mb: 2, fontSize: 12 }}>
-                Nguyên tắc: file mới sẽ thay thế dòng Sapo cũ trong cùng khoảng ngày, không cộng trùng.
+                Nguyên tắc: file mới sẽ thay thế dòng Sapo cũ trong cùng khoảng ngày, không cộng trùng. Đọc thử trước để kiểm tra trước khi cập nhật.
             </Alert>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Button component="label" variant="outlined" startIcon={<FileUploadRounded />} sx={{ borderRadius: 2 }}>
                     Chọn file Excel Sapo (.xlsx)
-                    <input type="file" accept=".xlsx,.xls" hidden onChange={e => setFile(e.target.files?.[0] ?? null)} />
+                    <input type="file" accept=".xlsx,.xls" hidden onChange={e => onFileChange(e.target.files?.[0] ?? null)} />
                 </Button>
                 {file && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{file.name}</Typography>}
             </Box>
 
-            {file && (
-                <Button variant="contained" onClick={importFile} disabled={saving} sx={{ mb: 3, borderRadius: 2, bgcolor: '#073b32', '&:hover': { bgcolor: '#0d634e' } }}>
-                    {saving ? <CircularProgress size={18} color="inherit" /> : 'Nạp Sapo vào DB'}
+            <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
+                <Button variant="outlined" onClick={doPreview} disabled={!file || loading}
+                    sx={{ borderRadius: 2 }}>
+                    {loading ? <CircularProgress size={18} /> : 'Đọc Excel Sapo'}
                 </Button>
+                <Button variant="contained" onClick={doImport} disabled={!file || saving}
+                    sx={{ borderRadius: 2, bgcolor: '#073b32', '&:hover': { bgcolor: '#0d634e' } }}>
+                    {saving ? <CircularProgress size={18} color="inherit" /> : 'Cập nhật Sapo theo file mới nhất'}
+                </Button>
+            </Box>
+
+            {previewed && (
+                <>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                        Xem trước ({preview.length} dòng hợp lệ)
+                    </Typography>
+                    <PreviewTable rows={preview} cols={[
+                        { key: 'date', label: 'Ngày', render: r => fmtDate(r.date) },
+                        { key: 'branch', label: 'CN' },
+                        { key: 'itemCode', label: 'Mã', render: r => <strong>{r.itemCode}</strong> },
+                        { key: 'netSoldQty', label: 'SL bán', right: true },
+                        { key: 'orderCount', label: 'Số đơn', right: true },
+                        { key: 'revenue', label: 'Doanh thu', right: true, render: r => fmtRevenue(r.revenue) },
+                        { key: 'sku', label: 'SKU' },
+                    ]} empty="Không có dòng hợp lệ." />
+                    <Divider sx={{ my: 2 }} />
+                </>
             )}
 
             <Divider sx={{ my: 3 }} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Lịch sử nạp Sapo</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Lịch sử nạp Sapo</Typography>
+                <Button size="small" startIcon={<RefreshRounded />} onClick={loadImports}>Làm mới</Button>
+            </Box>
             <PreviewTable rows={imports} cols={[
                 { key: 'importId', label: 'Import ID' },
                 { key: 'fileName', label: 'File' },
@@ -515,10 +582,29 @@ function SapoTab() {
                 { key: 'totalNetQty', label: 'Tổng SL', right: true },
                 { key: 'totalRevenue', label: 'Doanh thu', right: true, render: r => fmtRevenue(r.totalRevenue) },
                 { key: 'status', label: 'Trạng thái' },
+                {
+                    key: '_undo', label: 'Hoàn tác',
+                    render: r => r.status === 'active'
+                        ? <Button size="small" color="warning" variant="outlined" sx={{ fontSize: 11, py: 0 }}
+                            disabled={undoing === r.importId}
+                            onClick={() => doUndo(r.importId)}>
+                            {undoing === r.importId ? <CircularProgress size={14} /> : 'Hoàn tác'}
+                        </Button>
+                        : <Typography sx={{ fontSize: 11, color: 'text.disabled' }}>{r.status}</Typography>
+                },
             ]} empty="Chưa có lịch sử." />
         </Box>
     );
 }
+
+const ADJ_SOURCES = [
+    'Tất cả phát sinh nội bộ',
+    'Gói ra',
+    'Tồn CN',
+    'Hủy giỏ',
+    'Chuyển CN',
+    'Nhận CN',
+];
 
 // ─── Tab: Sai mã ──────────────────────────────────────────────────────────────
 
@@ -529,10 +615,18 @@ function AdjustTab() {
     const [rightCode, setRightCode] = useState('');
     const [qty, setQty] = useState(1);
     const [reason, setReason] = useState(ADJ_REASONS[0]);
+    const [adjSource, setAdjSource] = useState(ADJ_SOURCES[0]);
     const [adjNote, setAdjNote] = useState('');
     const [saving, setSaving] = useState(false);
     const [logs, setLogs] = useState<NxtAdjLog[]>([]);
     const [logLoading, setLogLoading] = useState(false);
+
+    // Kiểm tra mã
+    const [checkCode, setCheckCode] = useState('');
+    const [checkDate, setCheckDate] = useState('');
+    const [checkBranch, setCheckBranch] = useState('');
+    const [checkResult, setCheckResult] = useState<NxtCheckCodeResult | null>(null);
+    const [checking, setChecking] = useState(false);
 
     async function loadLogs() {
         setLogLoading(true);
@@ -545,14 +639,25 @@ function AdjustTab() {
 
     async function save() {
         if (!wrongCode.trim()) { toast.error('Nhập mã sai/mã tạm.'); return; }
+        const fullNote = [adjSource !== ADJ_SOURCES[0] ? `Nguồn: ${adjSource}` : '', adjNote].filter(Boolean).join(' · ');
         setSaving(true);
         try {
-            await nxtApi.saveAdjustment({ date, branch, wrongCode: wrongCode.trim().toUpperCase(), rightCode: rightCode.trim().toUpperCase() || undefined, qty, reason, note: adjNote || undefined });
+            await nxtApi.saveAdjustment({ date, branch, wrongCode: wrongCode.trim().toUpperCase(), rightCode: rightCode.trim().toUpperCase() || undefined, qty, reason, note: fullNote || undefined });
             toast.success('Đã lưu điều chỉnh.');
             setWrongCode(''); setRightCode(''); setQty(1); setAdjNote('');
             loadLogs();
         } catch (e: any) { toast.error(e?.response?.data?.Message || 'Lỗi lưu.'); }
         finally { setSaving(false); }
+    }
+
+    async function doCheckCode() {
+        if (!checkCode.trim()) { toast.error('Nhập mã cần kiểm tra.'); return; }
+        setChecking(true);
+        try {
+            const r = await nxtApi.checkCode(checkCode.trim().toUpperCase(), checkDate || undefined, checkBranch || undefined);
+            setCheckResult(r);
+        } catch (e: any) { toast.error(e?.response?.data?.Message || 'Lỗi kiểm tra mã.'); }
+        finally { setChecking(false); }
     }
 
     return (
@@ -566,21 +671,63 @@ function AdjustTab() {
                 <TextField label="Ngày phát sinh" type="date" size="small" value={date} onChange={e => setDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
                 <BranchSelect value={branch} onChange={setBranch} />
                 <FormControl size="small">
-                    <InputLabel>Loại</InputLabel>
-                    <Select value={reason} label="Loại" onChange={e => setReason(e.target.value)}>
+                    <InputLabel>Loại điều chỉnh</InputLabel>
+                    <Select value={reason} label="Loại điều chỉnh" onChange={e => setReason(e.target.value)}>
                         {ADJ_REASONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                    </Select>
+                </FormControl>
+                <FormControl size="small">
+                    <InputLabel>Nguồn phát sinh</InputLabel>
+                    <Select value={adjSource} label="Nguồn phát sinh" onChange={e => setAdjSource(e.target.value)}>
+                        {ADJ_SOURCES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                     </Select>
                 </FormControl>
                 <TextField label="Mã sai / mã tạm" size="small" value={wrongCode} onChange={e => setWrongCode(e.target.value.toUpperCase())} placeholder="VD: H1113 hoặc SON74765" />
                 <TextField label="Mã đúng" size="small" value={rightCode} onChange={e => setRightCode(e.target.value.toUpperCase())} placeholder="VD: H1136" />
                 <TextField label="Số lượng" type="number" size="small" value={qty} onChange={e => setQty(Math.max(1, Number(e.target.value)))} />
                 <TextField label="Ghi chú" size="small" fullWidth value={adjNote} onChange={e => setAdjNote(e.target.value)}
-                    placeholder="VD: Sapo bán H1113, thực tế đúng H1136" sx={{ gridColumn: '1/-1' }} />
+                    placeholder="VD: Sapo bán H1113, thực tế đúng H1136" sx={{ gridColumn: '2/-1' }} />
             </Box>
 
             <Button variant="contained" onClick={save} disabled={saving} sx={{ borderRadius: 2, bgcolor: '#073b32', '&:hover': { bgcolor: '#0d634e' }, mb: 3 }}>
                 {saving ? <CircularProgress size={18} color="inherit" /> : 'Lưu điều chỉnh'}
             </Button>
+
+            {/* Kiểm tra mã */}
+            <Divider sx={{ mb: 2 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Kiểm tra mã / chi nhánh</Typography>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 1.5 }}>
+                <TextField label="Mã cần kiểm" size="small" value={checkCode}
+                    onChange={e => setCheckCode(e.target.value.toUpperCase())}
+                    placeholder="VD: H1136" sx={{ minWidth: 150 }} />
+                <TextField label="Ngày (tuỳ chọn)" type="date" size="small" value={checkDate}
+                    onChange={e => setCheckDate(e.target.value)}
+                    slotProps={{ inputLabel: { shrink: true } }} sx={{ minWidth: 160 }} />
+                <BranchSelect value={checkBranch} onChange={setCheckBranch} label="CN (tuỳ chọn)" />
+                <Button variant="outlined" onClick={doCheckCode} disabled={checking} sx={{ borderRadius: 2 }}>
+                    {checking ? <CircularProgress size={18} /> : 'Kiểm tra mã'}
+                </Button>
+            </Box>
+
+            {checkResult && (
+                <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2, mb: 2, bgcolor: '#f8fafc' }}>
+                    <Typography sx={{ fontWeight: 700, mb: 1, fontSize: 13 }}>Kết quả mã: {checkResult.code}</Typography>
+                    {[
+                        { label: 'Gói ra', items: checkResult.giftIns },
+                        { label: 'Sapo bán', items: checkResult.sapoSales },
+                        { label: 'Tồn CN', items: checkResult.stocks },
+                        { label: 'Điều chỉnh', items: checkResult.adjustments },
+                    ].map(({ label, items }) => items.length > 0 && (
+                        <Box key={label} sx={{ mb: 1 }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: 12, color: 'text.secondary', mb: 0.5 }}>{label} ({items.length})</Typography>
+                            {items.map((s, i) => <Typography key={i} sx={{ fontSize: 12, fontFamily: 'monospace', color: '#1a1a2e' }}>{s}</Typography>)}
+                        </Box>
+                    ))}
+                    {checkResult.giftIns.length + checkResult.sapoSales.length + checkResult.stocks.length + checkResult.adjustments.length === 0 && (
+                        <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Không tìm thấy dữ liệu nào.</Typography>
+                    )}
+                </Paper>
+            )}
 
             <Divider sx={{ mb: 2 }} />
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
