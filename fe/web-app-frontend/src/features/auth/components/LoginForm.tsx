@@ -36,7 +36,7 @@ export default function LoginForm() {
 
 
             toast.success(response.message);
-
+            localStorage.setItem('isLoggedIn', '1');
             window.location.href = '/home';
 
         } catch (error: any) {

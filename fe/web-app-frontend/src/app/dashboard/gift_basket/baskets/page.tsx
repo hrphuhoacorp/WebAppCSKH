@@ -192,6 +192,7 @@ export default function BasketsPage() {
                 page: pg,
                 pageSize: PAGE_SIZE,
                 status: 'done',
+                isActive: true
             });
             if (res.content) {
                 setTotal(res.content.totalItems);

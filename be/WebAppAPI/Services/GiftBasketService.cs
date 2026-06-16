@@ -1,4 +1,5 @@
-using System.Globalization;
+﻿using System.Globalization;
+using System.Text;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -32,7 +33,8 @@ public interface IGiftBasketService
     Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(int id, ActivateCodeChangeRequestDTO dto);
     Task DeleteChangeRequestAsync(int id);
     Task<string> UploadBasketImageAsync(IFormFile file, int userId);
-    Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive);
+    // Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive);
+    Task<byte[]> ExportChangeRequestsCsvAsync(string? month, bool? isActive);
 }
 
 public class GiftBasketService : IGiftBasketService
@@ -378,7 +380,7 @@ public class GiftBasketService : IGiftBasketService
         if (dto.BackImageUrl != null)
             req.BackImageUrl = dto.BackImageUrl;
         req.HandledBy = userId;
-        req.HandledAt = DateTime.UtcNow.AddHours(7);
+        req.HandledAt = DateTime.UtcNow;
         await _unitOfWork.SaveChangesAsync();
 
         return MapCcrDto(req, new Dictionary<int, string>());
@@ -515,63 +517,111 @@ public class GiftBasketService : IGiftBasketService
             IsActive = r.IsActive,
         };
 
-    public async Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive)
+    // public async Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive)
+    // {
+    //     IQueryable<GiftCodeChangeRequest> query = _ccrRepo
+    //         .GetAll()
+    //         .Include(r => r.Branch)
+    //         .Where(r => r.Status == "done");
+
+    //     // Filter by month (format: "YYYY-MM")
+    //     if (!string.IsNullOrWhiteSpace(month))
+    //         query = query.Where(r => r.ApprovedDate != null && r.ApprovedDate.StartsWith(month));
+
+    //     // Filter by isActive
+    //     if (isActive.HasValue)
+    //         query = query.Where(r => r.IsActive == isActive.Value);
+
+    //     var rows = await query.OrderBy(r => r.ApprovedDate).ToListAsync();
+
+    //     using var wb = new XLWorkbook();
+    //     var ws = wb.Worksheets.Add("Đổi Mã");
+
+    //     // Header row
+    //     ws.Cell(1, 1).Value = "MÃ TRƯỚC";
+    //     ws.Cell(1, 2).Value = "MÃ SAU";
+    //     ws.Cell(1, 3).Value = "GIÁ";
+    //     ws.Cell(1, 4).Value = "NGÀY";
+    //     ws.Cell(1, 5).Value = "GHI CHÚ";
+
+    //     var hRange = ws.Range(1, 1, 1, 5);
+    //     hRange.Style.Font.Bold = true;
+    //     hRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#086839");
+    //     hRange.Style.Font.FontColor = XLColor.White;
+    //     hRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+    //     int row = 2;
+    //     foreach (var r in rows)
+    //     {
+    //         ws.Cell(row, 1).Value = r.OldCode ?? "";
+    //         ws.Cell(row, 2).Value = r.NewCode ?? "";
+    //         if (r.Price.HasValue)
+    //         {
+    //             ws.Cell(row, 3).Value = r.Price.Value;
+    //             ws.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
+    //         }
+    //         ws.Cell(row, 4).Value = r.ApprovedDate ?? "";
+    //         ws.Cell(row, 5).Value = r.ResultNote ?? "";
+    //         row++;
+    //     }
+
+    //     ws.Columns().AdjustToContents();
+    //     ws.Column(5).Width = Math.Max(ws.Column(5).Width, 40);
+
+    //     using var ms = new MemoryStream();
+    //     wb.SaveAs(ms);
+    //     return ms.ToArray();
+    // }
+    public async Task<byte[]> ExportChangeRequestsCsvAsync(string? month, bool? isActive)
     {
         IQueryable<GiftCodeChangeRequest> query = _ccrRepo
             .GetAll()
             .Include(r => r.Branch)
             .Where(r => r.Status == "done");
 
-        // Filter by month (format: "YYYY-MM")
         if (!string.IsNullOrWhiteSpace(month))
             query = query.Where(r => r.ApprovedDate != null && r.ApprovedDate.StartsWith(month));
 
-        // Filter by isActive
         if (isActive.HasValue)
             query = query.Where(r => r.IsActive == isActive.Value);
 
         var rows = await query.OrderBy(r => r.ApprovedDate).ToListAsync();
 
-        using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Đổi Mã");
+        var sb = new StringBuilder();
 
-        // Header row
-        ws.Cell(1, 1).Value = "MÃ TRƯỚC";
-        ws.Cell(1, 2).Value = "MÃ SAU";
-        ws.Cell(1, 3).Value = "GIÁ";
-        ws.Cell(1, 4).Value = "NGÀY";
-        ws.Cell(1, 5).Value = "CHI NHÁNH";
-        ws.Cell(1, 6).Value = "HIỆU LỰC";
-        ws.Cell(1, 7).Value = "GHI CHÚ";
+        // Header
+        sb.AppendLine("MÃ TRƯỚC,MÃ SAU,GIÁ,NGÀY,GHI CHÚ");
 
-        var hRange = ws.Range(1, 1, 1, 7);
-        hRange.Style.Font.Bold = true;
-        hRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#086839");
-        hRange.Style.Font.FontColor = XLColor.White;
-        hRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-        int row = 2;
         foreach (var r in rows)
         {
-            ws.Cell(row, 1).Value = r.OldCode ?? "";
-            ws.Cell(row, 2).Value = r.NewCode ?? "";
-            if (r.Price.HasValue)
-            {
-                ws.Cell(row, 3).Value = r.Price.Value;
-                ws.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
-            }
-            ws.Cell(row, 4).Value = r.ApprovedDate ?? "";
-            ws.Cell(row, 5).Value = r.Branch?.Name ?? "";
-            ws.Cell(row, 6).Value = r.IsActive ? "Còn hiệu lực" : "Hết hiệu lực";
-            ws.Cell(row, 7).Value = r.ResultNote ?? "";
-            row++;
+            sb.AppendLine(
+                string.Join(
+                    ",",
+                    EscapeCsv(r.OldCode),
+                    EscapeCsv(r.NewCode),
+                    r.Price?.ToString("0") ?? "",
+                    EscapeCsv(r.ApprovedDate),
+                    EscapeCsv(r.ResultNote)
+                )
+            );
         }
 
-        ws.Columns().AdjustToContents();
-        ws.Column(7).Width = Math.Max(ws.Column(7).Width, 40);
+        // UTF8 BOM để Excel mở tiếng Việt không lỗi font
+        return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+    }
 
-        using var ms = new MemoryStream();
-        wb.SaveAs(ms);
-        return ms.ToArray();
+    private static string EscapeCsv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "";
+
+        value = value.Replace("\"", "\"\"");
+
+        if (value.Contains(",") || value.Contains("\"") || value.Contains("\n"))
+        {
+            value = $"\"{value}\"";
+        }
+
+        return value;
     }
 }

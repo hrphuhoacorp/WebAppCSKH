@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Transactions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -363,7 +363,7 @@ public class AuthService : IAuthService
                 );
             }
 
-            user.DeletedAt = DateTime.UtcNow.AddHours(7);
+            user.DeletedAt = DateTime.UtcNow;
 
             await _userRepository.Update(user);
 

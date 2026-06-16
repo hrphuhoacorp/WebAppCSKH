@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using WebAppInfractor.Models;
 
@@ -71,7 +71,7 @@ public class CustomerService : ICustomerService
                 Phone = c.Phone,
                 TotalOrders = c.TotalOrders,
                 TotalRevenue = c.TotalRevenue,
-                LastOrderAt = c.LastOrderAt,
+                LastOrderAt = c.Orders.Where(o => o.DeletedAt == null).Max(o => (DateTime?)o.PurchaseDate),
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt,
                 DeletedAt = c.DeletedAt,
@@ -135,7 +135,7 @@ public class CustomerService : ICustomerService
             Phone = customer.Phone,
             TotalOrders = customer.TotalOrders,
             TotalRevenue = customer.TotalRevenue,
-            LastOrderAt = customer.LastOrderAt,
+            LastOrderAt = customer.Orders.Where(o => o.DeletedAt == null).Select(o => (DateTime?)o.PurchaseDate).DefaultIfEmpty().Max(),
             CreatedAt = customer.CreatedAt,
             UpdatedAt = customer.UpdatedAt,
             DeletedAt = customer.DeletedAt,
@@ -283,7 +283,7 @@ public class CustomerService : ICustomerService
                     "Dữ liệu đã bị thay đổi, vui lòng tải lại trang và thử lại"
                 );
             }
-            customer.DeletedAt = DateTime.UtcNow.AddHours(7);
+            customer.DeletedAt = DateTime.UtcNow;
             await _customerRepository.Update(customer);
 
             await _auditLogService.SaveLogAsync(
@@ -315,7 +315,7 @@ public class CustomerService : ICustomerService
     {
         if (months < 1)
             months = 12;
-        var now = DateTime.UtcNow.AddHours(7);
+        var now = DateTime.UtcNow;
 
         // ── Lấy toàn bộ đơn hàng (kể cả ngoài khoảng months để tính trước kỳ) ──
         var allOrders = await _orderRepository
@@ -409,7 +409,7 @@ public class CustomerService : ICustomerService
                 c.Id,
                 c.TotalOrders,
                 c.TotalRevenue,
-                c.LastOrderAt,
+                LastOrderAt = c.Orders.Where(o => o.DeletedAt == null).Max(o => (DateTime?)o.PurchaseDate),
             })
             .ToListAsync();
 
@@ -490,7 +490,7 @@ public class CustomerService : ICustomerService
                 c.Phone,
                 c.TotalOrders,
                 c.TotalRevenue,
-                c.LastOrderAt,
+                LastOrderAt = c.Orders.Where(o => o.DeletedAt == null).Max(o => (DateTime?)o.PurchaseDate),
             })
             .ToListAsync();
 
@@ -593,35 +593,42 @@ public class CustomerService : ICustomerService
             page = 1;
         if (pageSize < 1 || pageSize > 100)
             pageSize = 20;
-        var now = DateTime.UtcNow.AddHours(7);
+        var now = DateTime.UtcNow;
 
         var cutoff30 = now.AddDays(-30);
         var cutoff60 = now.AddDays(-60);
         var cutoff180 = now.AddDays(-180);
 
-        var baseQuery = _customerRepository
+        // Project live-computed LastOrderAt to fix stale denormalized column
+        var projected = _customerRepository
             .GetAll()
             .Where(c => c.DeletedAt == null && !c.Name.Contains("ách"))
+            .Select(c => new
+            {
+                c.Id, c.Name, c.CustomerCode, c.Phone, c.TotalOrders, c.TotalRevenue,
+                LiveLastOrderAt = c.Orders.Where(o => o.DeletedAt == null).Max(o => (DateTime?)o.PurchaseDate),
+                LiveFirstOrderAt = c.Orders.Where(o => o.DeletedAt == null).Min(o => (DateTime?)o.PurchaseDate),
+            })
             .AsNoTracking();
 
         var filtered = segment switch
         {
-            "active30" => baseQuery
-                .Where(c => c.LastOrderAt != null && c.LastOrderAt >= cutoff30)
-                .OrderByDescending(c => c.LastOrderAt),
-            "atRisk" => baseQuery
+            "active30" => projected
+                .Where(c => c.LiveLastOrderAt != null && c.LiveLastOrderAt >= cutoff30)
+                .OrderByDescending(c => c.LiveLastOrderAt),
+            "atRisk" => projected
                 .Where(c =>
                     c.TotalOrders >= 2
-                    && c.LastOrderAt != null
-                    && c.LastOrderAt <= cutoff60
-                    && c.LastOrderAt >= cutoff180
+                    && c.LiveLastOrderAt != null
+                    && c.LiveLastOrderAt <= cutoff60
+                    && c.LiveLastOrderAt >= cutoff180
                 )
-                .OrderBy(c => c.LastOrderAt),
-            "repeat" => baseQuery
+                .OrderBy(c => c.LiveLastOrderAt),
+            "repeat" => projected
                 .Where(c => c.TotalOrders >= 2)
                 .OrderByDescending(c => c.TotalOrders)
                 .ThenByDescending(c => c.TotalRevenue),
-            _ => baseQuery // "loyal"
+            _ => projected
                 .Where(c => c.TotalOrders > 1)
                 .OrderByDescending(c => c.TotalOrders)
                 .ThenByDescending(c => c.TotalRevenue),
@@ -629,28 +636,26 @@ public class CustomerService : ICustomerService
 
         var total = await filtered.CountAsync();
 
-        var items = await filtered
+        var pageData = await filtered
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(c => new SegmentCustomerDTO
-            {
-                Id = c.Id,
-                Name = c.Name,
-                CustomerCode = c.CustomerCode,
-                Phone = c.Phone,
-                TotalOrders = c.TotalOrders,
-                TotalRevenue = c.TotalRevenue,
-                AvgOrderValue =
-                    c.TotalOrders > 0 ? Math.Round(c.TotalRevenue / c.TotalOrders, 0) : 0,
-                LastOrderAt = c.LastOrderAt,
-                FirstOrderAt = c
-                    .Orders.Where(o => o.DeletedAt == null)
-                    .Min(o => (DateTime?)o.PurchaseDate),
-                DaysSinceLastOrder = c.LastOrderAt.HasValue
-                    ? (int)(now - c.LastOrderAt.Value).TotalDays
-                    : -1,
-            })
             .ToListAsync();
+
+        var items = pageData.Select(c => new SegmentCustomerDTO
+        {
+            Id = c.Id,
+            Name = c.Name,
+            CustomerCode = c.CustomerCode,
+            Phone = c.Phone,
+            TotalOrders = c.TotalOrders,
+            TotalRevenue = c.TotalRevenue,
+            AvgOrderValue = c.TotalOrders > 0 ? Math.Round(c.TotalRevenue / c.TotalOrders, 0) : 0,
+            LastOrderAt = c.LiveLastOrderAt,
+            FirstOrderAt = c.LiveFirstOrderAt,
+            DaysSinceLastOrder = c.LiveLastOrderAt.HasValue
+                ? (int)(now - c.LiveLastOrderAt.Value).TotalDays
+                : -1,
+        }).ToList();
 
         return new PagedResult<SegmentCustomerDTO>
         {

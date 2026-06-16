@@ -19,6 +19,10 @@ public partial class ImportsHistory
 
     public string Status { get; set; } = null!;
 
+    public string? FilePath { get; set; }
+
+    public string? FileHash { get; set; }
+
     public DateTime? ImportDate { get; set; }
 
     public DateTime? RollbackAt { get; set; }

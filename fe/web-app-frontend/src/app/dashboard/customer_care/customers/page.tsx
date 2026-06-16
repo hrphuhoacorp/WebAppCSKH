@@ -133,8 +133,10 @@ export default function CustomerPage() {
     const formatMoney = (value: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
-    const formatDate = (value: string) =>
-        new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+    const formatDate = (value?: string | null) => {
+        if (!value) return '—';
+        return new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+    };
 
     useEffect(() => {
         const timer = setTimeout(() => { setDebouncedSearch(search); setPage(0); }, 500);
@@ -520,9 +522,7 @@ export default function CustomerPage() {
                                                         if (key === 'createdAt' && customer.createdAt) {
                                                             value = formatDate(customer.createdAt);
                                                         } else if (key === 'updatedAt' && customer.updatedAt) {
-                                                            value = formatDate(
-                                                                new Date(new Date(customer.updatedAt).getTime() + 7 * 60 * 60 * 1000).toISOString()
-                                                            );
+                                                            value = formatDate(customer.updatedAt);
                                                         } else if (key === 'createdName') {
                                                             value = customer.createdName || '—';
                                                         }

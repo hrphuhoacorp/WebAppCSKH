@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -54,8 +54,8 @@ public class ActivityService : IActivityService
 
         const string sql =
             @"
-            INSERT INTO activity_logs (user_id, staff_code, action, table_name, record_id, old_data, new_data, ip_address, user_agent)
-            VALUES (@UserId, @StaffCode, @Action, @TableName, @RecordId, @OldData::jsonb, @NewData::jsonb, @IpAddress, @UserAgent);";
+            INSERT INTO activity_logs (user_id, staff_code, action, table_name, record_id, old_data, new_data, ip_address, user_agent, created_at)
+            VALUES (@UserId, @StaffCode, @Action, @TableName, @RecordId, @OldData::jsonb, @NewData::jsonb, @IpAddress, @UserAgent, @CreatedAt);";
 
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.ExecuteAsync(
@@ -71,6 +71,7 @@ public class ActivityService : IActivityService
                 NewData = newDataJson?.ToString(),
                 IpAddress = ipAddress,
                 UserAgent = userAgent,
+                CreatedAt = DateTime.UtcNow,
             }
         );
     }

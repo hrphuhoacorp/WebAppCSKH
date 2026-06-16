@@ -62,6 +62,7 @@ public class ImportHistoryDTO
     public DateTime? ImportDate { get; set; }
     public DateTime? RollbackAt { get; set; }
     public string? RollbackBy { get; set; }
+    public string? FileUrl { get; set; }
 }
 
 // public class TodoTaskDTO

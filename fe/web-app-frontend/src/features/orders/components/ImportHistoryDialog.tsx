@@ -18,7 +18,7 @@ import {
     alpha,
     Button,
 } from '@mui/material';
-import { Close, CloudUploadRounded, CalendarMonth, SettingsBackupRestoreRounded } from '@mui/icons-material';
+import { Close, CloudUploadRounded, CalendarMonth, SettingsBackupRestoreRounded, FileDownloadRounded } from '@mui/icons-material';
 import { useState } from 'react';
 import { userApi } from '@/features/user/api/user.api';
 import ConfirmRollbackDialog from '@/features/staff/components/ConfirmRollbackDialog';
@@ -43,7 +43,7 @@ export default function ImportHistoryDialog({ open, onClose, historyData, onRefr
     const formatDateTime = (value?: string | null) => {
         if (!value) return '-';
         return new Intl.DateTimeFormat('vi-VN', {
-            timeZone: 'UTC',
+            timeZone: 'Asia/Ho_Chi_Minh',
             day: '2-digit', month: '2-digit', year: 'numeric',
             hour: '2-digit', minute: '2-digit', second: '2-digit',
         }).format(new Date(value));
@@ -131,7 +131,7 @@ export default function ImportHistoryDialog({ open, onClose, historyData, onRefr
                         <Table stickyHeader size="small">
                             <TableHead>
                                 <TableRow>
-                                    {['Thời gian nhận', 'Tên tệp Excel', 'Thành công', 'Lỗi dòng', 'Trạng thái', 'Thời gian hủy', 'Thao tác'].map(label => (
+                                    {['Thời gian nhận', 'Tên tệp Excel', 'Thành công', 'Lỗi dòng', 'Trạng thái', 'Thời gian hủy', 'Tệp gốc', 'Thao tác'].map(label => (
                                         <TableCell key={label} sx={{ bgcolor: '#fff', color: '#475569', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', py: 1.5 }}>
                                             {label}
                                         </TableCell>
@@ -169,6 +169,23 @@ export default function ImportHistoryDialog({ open, onClose, historyData, onRefr
                                                 {formatDateTime(file.rollbackAt)}
                                             </TableCell>
                                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                {file.fileUrl ? (
+                                                    <Button
+                                                        component="a"
+                                                        href={file.fileUrl}
+                                                        download
+                                                        variant="outlined"
+                                                        size="small"
+                                                        startIcon={<FileDownloadRounded />}
+                                                        sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 12, borderColor: '#0ea5e9', color: '#0ea5e9', '&:hover': { bgcolor: '#f0f9ff' } }}
+                                                    >
+                                                        Tải xuống
+                                                    </Button>
+                                                ) : (
+                                                    <Typography sx={{ fontSize: 12, color: '#cbd5e1', fontStyle: 'italic' }}>Không có</Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
                                                 {isRollbacked ? (
                                                     <Button
                                                         variant="outlined"
@@ -200,7 +217,7 @@ export default function ImportHistoryDialog({ open, onClose, historyData, onRefr
                                 })}
                                 {!historyData.length && (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                                        <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                                                 <CalendarMonth sx={{ color: '#94a3b8', fontSize: 32 }} />
                                                 <Typography sx={{ fontWeight: 700, color: '#64748b', fontSize: 14 }}>Bạn chưa tải lên tệp nào</Typography>

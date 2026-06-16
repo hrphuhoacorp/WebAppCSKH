@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 public interface IImportHistoryService
 {
@@ -10,16 +11,19 @@ public class ImportHistoryService : IImportHistoryService
     private readonly IImportsHistoryRepository _importHistoryRepository;
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly MediaSettings _mediaSettings;
 
     public ImportHistoryService(
         IImportsHistoryRepository importHistoryRepository,
         IUserRepository userRepository,
-        IUnitOfWork unitOfWork
+        IUnitOfWork unitOfWork,
+        IOptions<MediaSettings> mediaOptions
     )
     {
         _importHistoryRepository = importHistoryRepository;
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
+        _mediaSettings = mediaOptions.Value;
     }
 
     public async Task<PagedResult<ImportHistoryDTO>> GetAllImportHistoryAsync(
@@ -80,6 +84,10 @@ public class ImportHistoryService : IImportHistoryService
                         .Select(u => u.Name)
                         .FirstOrDefault()
                     : null,
+                FileUrl =
+                    i.FilePath != null
+                        ? $"{_mediaSettings.BaseUrl}/api/ImportHistory/{i.Id}/Download"
+                        : null,
             })
             .ToListAsync();
         return new PagedResult<ImportHistoryDTO>

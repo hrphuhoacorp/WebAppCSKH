@@ -169,7 +169,7 @@ export default function RecycleBinDialog({ open, onClose, onSuccess }: RecycleBi
         if (diffMins < 60) return `${diffMins} phút trước`;
         if (diffHours < 24) return `${diffHours} giờ trước`;
         if (diffDays < 7) return `${diffDays} ngày trước`;
-        return new Date(dateStr).toLocaleDateString('vi-VN');
+        return new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateStr));
     };
 
     const renderTreeNode = (node: TreeNode, depth: number = 0) => {

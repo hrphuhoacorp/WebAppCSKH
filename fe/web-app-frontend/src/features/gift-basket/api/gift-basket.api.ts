@@ -220,7 +220,7 @@ export const giftBasketApi = {
         const url = URL.createObjectURL(new Blob([response.data]));
         const a = document.createElement('a');
         a.href = url;
-        a.download = `doi-ma-gio-${suffix}.xlsx`;
+        a.download = `doi-ma-gio-${suffix}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     },

@@ -427,16 +427,12 @@ namespace WebAppAPI.Controllers
             [FromQuery] bool? isActive
         )
         {
-            var bytes = await _service.ExportChangeRequestsExcelAsync(month, isActive);
+            var bytes = await _service.ExportChangeRequestsCsvAsync(month, isActive);
             var suffix = string.IsNullOrWhiteSpace(month)
                 ? DateTime.Now.ToString("yyyyMM")
                 : month.Replace("-", "");
-            var fileName = $"doi-ma-gio-{suffix}.xlsx";
-            return File(
-                bytes,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                fileName
-            );
+            var fileName = $"doi-ma-gio-{suffix}.csv";
+            return File(bytes, "text/csv", fileName);
         }
     }
 }

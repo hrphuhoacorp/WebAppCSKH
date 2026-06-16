@@ -13,8 +13,8 @@ import {
 type AuthContextType = {
     profile: UserProfile | null;
     setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
-    loading: boolean; 
-    loadProfile: () => Promise<void>;
+    loading: boolean;
+    loadProfile: (silent?: boolean) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -27,15 +27,15 @@ export function AuthProvider({
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState<boolean>(true); // THÊM DÒNG NÀY: Mặc định ban đầu là đang tải (true)
 
-    const loadProfile = useCallback(async () => {
+    const loadProfile = useCallback(async (silent = false) => {
         try {
-            setLoading(true); // Bắt đầu gọi API thì bật loading
+            if (!silent) setLoading(true);
             const res = await authApi.getProfile();
             setProfile(res.content);
         } catch {
             setProfile(null);
         } finally {
-            setLoading(false); // Gọi API xong (dù thành công hay lỗi) thì tắt loading đi
+            if (!silent) setLoading(false);
         }
     }, []);
 

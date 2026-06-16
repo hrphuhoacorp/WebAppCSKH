@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-//using WebAppAPI.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using WebAppInfractor.Data;
 
 namespace WebAppAPI.Controllers
 {
@@ -15,10 +12,18 @@ namespace WebAppAPI.Controllers
     public class ImportHistoryController : ControllerBase
     {
         private readonly IImportHistoryService _importHistoryService;
+        private readonly MemBerContext _context;
+        private readonly MediaSettings _mediaSettings;
 
-        public ImportHistoryController(IImportHistoryService importHistoryService)
+        public ImportHistoryController(
+            IImportHistoryService importHistoryService,
+            MemBerContext context,
+            IOptions<MediaSettings> mediaOptions
+        )
         {
             _importHistoryService = importHistoryService;
+            _context = context;
+            _mediaSettings = mediaOptions.Value;
         }
 
         [HttpGet("GetAllImportHistoryAsync")]
@@ -32,6 +37,26 @@ namespace WebAppAPI.Controllers
                 "Lấy danh sách lịch sử nhập khẩu thành công",
                 StatusReponse.Success
             );
+        }
+
+        [HttpGet("{id}/Download")]
+        public async Task<IActionResult> DownloadFile(int id)
+        {
+            var history = await _context
+                .Set<WebAppInfractor.Models.ImportsHistory>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.Id == id);
+
+            if (history == null || string.IsNullOrEmpty(history.FilePath))
+                return NotFound("File không tồn tại hoặc chưa được lưu.");
+
+            var fullPath = Path.Combine(_mediaSettings.RootPath, history.FilePath);
+            if (!System.IO.File.Exists(fullPath))
+                return NotFound("File đã bị xóa khỏi server.");
+
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(fullPath);
+            var mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            return File(fileBytes, mimeType, history.FileName);
         }
     }
 }

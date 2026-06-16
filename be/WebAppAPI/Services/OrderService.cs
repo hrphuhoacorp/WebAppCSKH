@@ -1,16 +1,18 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Options;
 using WebAppInfractor.Data;
 using WebAppInfractor.Models;
 
 public interface IOrderService
 {
     Task<ImportResultDTO> ImportExcelAsync(IFormFile file, int userId);
-    Task<PagedResult<OrderDTO>> GetAllOrdersAsync(OrderFilterDTO filter);
+    Task<PagedResult<OrderDTO>> GetAllOrdersForOnlineAsync(OrderFilterDTO filter);
+    Task<PagedResult<OrderDTO>> GetAllOrdersForSalesAsync(OrderFilterDTO filter);
     Task<OrderDTO> GetOrderByIdAsync(int id);
     Task<StatusDTO[]> GetAllStatusesAsync();
     Task<BranchDTO[]> GetAllBranchesAsync();
@@ -31,6 +33,7 @@ public class OrderService : IOrderService
     public readonly IOrderItemRepository _orderItemRepository;
     private readonly IHubContext<ImportHub> _hubContext;
     private readonly IActivityService _auditLogService;
+    private readonly MediaSettings _mediaSettings;
 
     public OrderService(
         ICustomerRepository customerRepository,
@@ -43,7 +46,8 @@ public class OrderService : IOrderService
         MemBerContext context,
         IOrderItemRepository orderItemRepository,
         IHubContext<ImportHub> hubContext,
-        IActivityService auditLogService
+        IActivityService auditLogService,
+        IOptions<MediaSettings> mediaOptions
     )
     {
         _customerRepository = customerRepository;
@@ -57,6 +61,7 @@ public class OrderService : IOrderService
         _orderItemRepository = orderItemRepository;
         _hubContext = hubContext;
         _auditLogService = auditLogService;
+        _mediaSettings = mediaOptions.Value;
     }
 
     public async Task<ImportResultDTO> ImportExcelAsync(IFormFile file, int userId)
@@ -74,8 +79,26 @@ public class OrderService : IOrderService
 
         try
         {
-            using var stream = file.OpenReadStream();
-            using var workbook = new XLWorkbook(stream);
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            ms.Seek(0, SeekOrigin.Begin);
+
+            // Cấp 1: Tính hash SHA256 để chặn upload cùng file 2 lần
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            var hashBytes = await sha256.ComputeHashAsync(ms);
+            var fileHash = Convert.ToHexString(hashBytes).ToLower();
+            ms.Seek(0, SeekOrigin.Begin);
+
+            var duplicateImport = await _context
+                .Set<ImportsHistory>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.FileHash == fileHash && h.Status == "Imported");
+            if (duplicateImport != null)
+                throw new BadRequestException(
+                    $"File này đã được import trước đó (Import #{duplicateImport.Id} — {duplicateImport.FileName}). Vui lòng rollback trước hoặc kiểm tra lại."
+                );
+
+            using var workbook = new XLWorkbook(ms);
             var worksheet = workbook.Worksheet(1);
             var rows = worksheet.RangeUsed().RowsUsed().Skip(1).ToList(); // Bỏ qua header
             var totalRows = rows.Count();
@@ -86,17 +109,37 @@ public class OrderService : IOrderService
             {
                 FileName = file.FileName,
                 UserId = userId,
-                SuccessCount = 0, // Sẽ cập nhật lại sau khi chạy xong
+                SuccessCount = 0,
                 ErrorCount = 0,
                 Status = "Imported",
                 ErrorDetails = "{}",
-                ImportDate = DateTime.UtcNow.AddHours(7),
+                ImportDate = DateTime.UtcNow,
+                FileHash = fileHash,
             };
             await _importsHistoryRepository.AddAsync(importHistory);
             await _unitOfWork.SaveChangesAsync(); // Ép Database sinh ra ID thật cho importHistory
             var currentImportId = importHistory.Id; // Khóa ngoại dùng xuyên suốt luồng dưới
 
-            // Tải cache ban đầu
+            // Lưu file Excel gốc vào disk để tra cứu sau này
+            try
+            {
+                var saveFolder = Path.Combine(_mediaSettings.RootPath, "import-excel");
+                Directory.CreateDirectory(saveFolder);
+                var safeFileName = $"{currentImportId}_{Path.GetFileName(file.FileName)}";
+                var savePath = Path.Combine(saveFolder, safeFileName);
+                ms.Seek(0, SeekOrigin.Begin);
+                await using var fs = new FileStream(savePath, FileMode.Create);
+                await ms.CopyToAsync(fs);
+                ms.Seek(0, SeekOrigin.Begin);
+                importHistory.FilePath = $"import-excel/{safeFileName}";
+                _context.Entry(importHistory).State = EntityState.Modified;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Import] Không lưu được file Excel: {ex.Message}");
+            }
+
+            // Tải cache lookup
             var statuses = await _orderStatusRepository
                 .GetAll()
                 .AsNoTracking()
@@ -105,17 +148,43 @@ public class OrderService : IOrderService
                 .GetAll()
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.Name.Trim());
-            var orderCache = await _orderRepository
-                .GetAll()
-                .AsNoTracking()
-                .ToDictionaryAsync(x => x.OrderCode);
             var customerCache = await _customerRepository
                 .GetAll()
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.CustomerCode);
 
+            // Cấp 2: Fingerprint dedup — chỉ bỏ qua dòng TRÙNG HOÀN TOÀN với DB (mã+ngày+doanh thu+SL)
+            var orderCodesInFile = rows.Select(r => r.Cell(11).GetString().Trim())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .ToHashSet();
+
+            var rawFps = await (
+                from oi in _context.Set<OrderItem>()
+                join o in _context.Set<Order>() on oi.OrderId equals o.Id
+                where orderCodesInFile.Contains(o.OrderCode) && o.DeletedAt == null
+                select new
+                {
+                    o.OrderCode,
+                    o.PurchaseDate,
+                    oi.Revenue,
+                    oi.Quantity,
+                    oi.Sku,
+                    oi.ServiceName,
+                }
+            ).AsNoTracking().ToListAsync();
+
+            var dbFingerprints = rawFps
+                .Select(x =>
+                    $"{x.OrderCode}|{x.PurchaseDate:yyyyMMdd}|{x.Revenue}|{Math.Round(x.Quantity ?? 0m, 4)}|{x.Sku}|{x.ServiceName}"
+                )
+                .ToHashSet();
+
+            var fileFingerprints = new HashSet<string>();
             var pendingOrders = new Dictionary<string, Order>();
+            var pendingOrdersNeedReattach = new HashSet<string>();
             var pendingCustomers = new Dictionary<string, Customer>();
+            var skippedCount = 0;
+            var skippedMessages = new List<string>();
 
             foreach (var row in rows)
             {
@@ -138,7 +207,6 @@ public class OrderService : IOrderService
                     {
                         throw new BadRequestException("Ngày mua không hợp lệ");
                     }
-                    var blockSource = row.Cell(14).GetString().Trim().ToLower();
 
                     var customerName = row.Cell(2).GetString().Trim();
                     var customerPhone = row.Cell(3).GetString().Trim();
@@ -161,6 +229,7 @@ public class OrderService : IOrderService
                     var grossProfit = GetDecimal(row.Cell(24));
                     var shippingFee = GetDecimal(row.Cell(22));
                     var taxAmount = GetDecimal(row.Cell(21));
+                    var qty = GetDecimal(row.Cell(17));
 
                     // Validate dữ liệu bắt buộc
                     if (string.IsNullOrWhiteSpace(customerCode))
@@ -171,6 +240,29 @@ public class OrderService : IOrderService
                         throw new BadRequestException($"Trạng thái '{statusName}' không tồn tại");
                     if (!branches.TryGetValue(branchName, out var branch))
                         throw new BadRequestException($"Chi nhánh '{branchName}' không tồn tại");
+
+                    // Số lượng âm hoặc doanh thu âm → tự động gắn trạng thái "Hoàn trả"
+                    if (
+                        (qty < 0 || revenue < 0)
+                        && statuses.TryGetValue("Hoàn trả", out var hoanTraStatus)
+                    )
+                        status = hoanTraStatus;
+
+                    // Fingerprint: trùng mã đơn + ngày + doanh thu + SL → bỏ qua (đã import trước đó)
+                    var fingerprint =
+                        $"{orderCode}|{orderDate:yyyyMMdd}|{revenue}|{Math.Round(qty, 4)}|{sku}|{serviceName}";
+                    if (
+                        dbFingerprints.Contains(fingerprint)
+                        || fileFingerprints.Contains(fingerprint)
+                    )
+                    {
+                        skippedCount++;
+                        skippedMessages.Add(
+                            $"Dòng {row.RowNumber()}: Mã '{orderCode}' ngày {orderDate:dd/MM/yyyy} doanh thu {revenue:N0} SL {qty} — đã tồn tại, bỏ qua"
+                        );
+                        continue;
+                    }
+                    fileFingerprints.Add(fingerprint);
 
                     //  XỬ LÝ CUSTOMER (Gán ImportHistoryId cho khách hàng mới)
 
@@ -188,6 +280,7 @@ public class OrderService : IOrderService
                             customer.DeletedAt = null;
                             customer.Name = customerName;
                             customer.Phone = customerPhone;
+                            customer.ImportHistoryId = currentImportId;
                             _context.Attach(customer);
                             _context.Entry(customer).State = EntityState.Modified;
                             pendingCustomers[customerCode] = customer;
@@ -205,7 +298,7 @@ public class OrderService : IOrderService
                             Phone = customerPhone,
                             CustomerCode = customerCode,
                             CreatedBy = userId,
-                            ImportHistoryId = currentImportId, // GÁN ĐỂ BIẾT KHÁCH NÀY TẠO TỪ FILE NÀO
+                            ImportHistoryId = currentImportId,
                         };
 
                         await _customerRepository.AddAsync(customer);
@@ -213,29 +306,19 @@ public class OrderService : IOrderService
                         customerId = 0;
                     }
 
-                    //XỬ LÝ ORDER (Gán ImportHistoryId cho đơn hàng mới)
+                    // XỬ LÝ ORDER — key = mã+ngày, cùng mã khác ngày → 2 đơn riêng biệt
 
+                    var orderKey = $"{orderCode}|{orderDate:yyyyMMdd}";
                     Order orderEntity;
-                    if (orderCache.TryGetValue(orderCode, out var existingOrder))
+                    if (pendingOrders.TryGetValue(orderKey, out orderEntity))
                     {
-                        existingOrder.Revenue += revenue;
-                        existingOrder.GrossProfit += grossProfit;
-                        existingOrder.ShippingFee += shippingFee;
-                        existingOrder.TaxAmount += taxAmount;
-
-                        if (!pendingOrders.ContainsKey(orderCode))
+                        // Cần re-attach sau khi batch reload (ChangeTracker.Clear xóa tracking)
+                        if (pendingOrdersNeedReattach.Contains(orderKey))
                         {
-                            // Restore soft-deleted order (e.g. sau rollback)
-                            if (existingOrder.DeletedAt != null)
-                                existingOrder.DeletedAt = null;
-                            _context.Attach(existingOrder);
-                            _context.Entry(existingOrder).State = EntityState.Modified;
-                            pendingOrders[orderCode] = existingOrder;
+                            _context.Attach(orderEntity);
+                            _context.Entry(orderEntity).State = EntityState.Modified;
+                            pendingOrdersNeedReattach.Remove(orderKey);
                         }
-                        orderEntity = existingOrder;
-                    }
-                    else if (pendingOrders.TryGetValue(orderCode, out orderEntity))
-                    {
                         orderEntity.Revenue += revenue;
                         orderEntity.GrossProfit += grossProfit;
                         orderEntity.ShippingFee += shippingFee;
@@ -257,11 +340,11 @@ public class OrderService : IOrderService
                             StatusId = status.Id,
                             BranchesId = branch.Id,
                             CreatedBy = userId,
-                            ImportHistoryId = currentImportId, // GÁN ĐỂ PHỤC VỤ LUỒNG ROLLBACK
+                            ImportHistoryId = currentImportId,
                         };
 
                         await _orderRepository.AddAsync(orderEntity);
-                        pendingOrders[orderCode] = orderEntity;
+                        pendingOrders[orderKey] = orderEntity;
                     }
 
                     // XỬ LÝ ORDER ITEM (Gán ImportHistoryId)
@@ -274,14 +357,14 @@ public class OrderService : IOrderService
                         ProductName = productName,
                         Sku = sku,
                         UnitPrice = unitPrice,
-                        Quantity = decimal.Parse(quantity),
+                        Quantity = qty,
                         ServiceName = serviceName,
                         Unit = unit,
                         Revenue = revenue,
                         GrossProfit = grossProfit,
                         ShippingFee = shippingFee,
                         TaxAmount = taxAmount,
-                        ImportHistoryId = currentImportId, // GÁN ĐỂ PHỤC VỤ LUỒNG ROLLBACK
+                        ImportHistoryId = currentImportId,
                     };
                     await _orderItemRepository.AddAsync(orderItem);
 
@@ -293,16 +376,21 @@ public class OrderService : IOrderService
                         await _unitOfWork.SaveChangesAsync();
                         _context.ChangeTracker.Clear();
 
-                        // Tải lại Cache sạch từ DB
-                        orderCache = await _orderRepository
+                        // Tải lại pendingOrders chỉ từ import hiện tại (không load toàn bộ orders)
+                        var reloaded = await _orderRepository
                             .GetAll()
+                            .Where(o => o.ImportHistoryId == currentImportId)
                             .AsNoTracking()
-                            .ToDictionaryAsync(x => x.OrderCode);
+                            .ToListAsync();
+                        pendingOrders = reloaded
+                            .GroupBy(o => $"{o.OrderCode}|{o.PurchaseDate:yyyyMMdd}")
+                            .ToDictionary(g => g.Key, g => g.First());
+                        pendingOrdersNeedReattach = pendingOrders.Keys.ToHashSet();
+
                         customerCache = await _customerRepository
                             .GetAll()
                             .AsNoTracking()
                             .ToDictionaryAsync(x => x.CustomerCode);
-                        pendingOrders.Clear();
                         pendingCustomers.Clear();
 
                         Console.WriteLine($"Đã save batch: {processedRows}/{totalRows}");
@@ -359,12 +447,14 @@ public class OrderService : IOrderService
             {
                 TotalRows = totalRows,
                 SuccessfulImports = successCount,
+                SkippedImports = skippedCount,
                 FailedImports = errorCount,
                 ErrorMessages = errors
                     .Select(e =>
                         $"Dòng {e.GetType().GetProperty("Row")?.GetValue(e)}: {e.GetType().GetProperty("Error")?.GetValue(e)}"
                     )
                     .ToList(),
+                SkippedMessages = skippedMessages,
             };
         }
         catch
@@ -398,15 +488,9 @@ public class OrderService : IOrderService
         try
         {
             // Lấy thời gian hiện tại chuẩn Việt Nam từ DB hoặc ép múi giờ trong code
-            var crmNow = DateTime.UtcNow.AddHours(7);
+            var crmNow = DateTime.UtcNow;
 
-            // BƯỚC 2a: XÓA CỨNG ORDER ITEMS (không có soft-delete)
-            var itemsToDelete = await _context
-                .Set<OrderItem>()
-                .Where(oi => oi.ImportHistoryId == importHistoryId)
-                .ToListAsync();
-
-            // BƯỚC 2a-ext: HOÀN TRẢ REVENUE CHO CÁC ORDER CŨ (không phải order mới tạo bởi file này)
+            // BƯỚC 2a-ext: HOÀN TRẢ REVENUE CHO CÁC ORDER CŨ
             // Orders cũ có items từ file này sẽ không bị soft-delete, cần trừ revenue thủ công.
             var newOrderIds = await _orderRepository
                 .GetAll()
@@ -414,9 +498,13 @@ public class OrderService : IOrderService
                 .Select(o => o.Id)
                 .ToHashSetAsync();
 
-            var revenueByExistingOrder = itemsToDelete
-                .Where(i => !newOrderIds.Contains(i.OrderId))
-                .GroupBy(i => i.OrderId)
+            // GroupBy trên DB — không load items vào RAM
+            var revenueDeltas = await _context
+                .Set<OrderItem>()
+                .Where(oi =>
+                    oi.ImportHistoryId == importHistoryId && !newOrderIds.Contains(oi.OrderId)
+                )
+                .GroupBy(oi => oi.OrderId)
                 .Select(g => new
                 {
                     OrderId = g.Key,
@@ -425,52 +513,48 @@ public class OrderService : IOrderService
                     ShippingFee = g.Sum(i => i.ShippingFee),
                     TaxAmount = g.Sum(i => i.TaxAmount),
                 })
-                .ToList();
+                .ToListAsync();
 
-            foreach (var delta in revenueByExistingOrder)
+            if (revenueDeltas.Count > 0)
             {
-                var existingOrder = await _orderRepository
+                // Load tất cả existing orders cần điều chỉnh trong 1 query (fix N+1)
+                var existingOrderIds = revenueDeltas.Select(d => d.OrderId).ToList();
+                var existingOrders = await _orderRepository
                     .GetAll()
-                    .FirstOrDefaultAsync(o => o.Id == delta.OrderId && o.DeletedAt == null);
-                if (existingOrder != null)
+                    .Where(o => existingOrderIds.Contains(o.Id) && o.DeletedAt == null)
+                    .ToListAsync();
+
+                var orderDict = existingOrders.ToDictionary(o => o.Id);
+                foreach (var delta in revenueDeltas)
                 {
-                    existingOrder.Revenue -= delta.Revenue;
-                    existingOrder.GrossProfit -= delta.GrossProfit;
-                    existingOrder.ShippingFee -= delta.ShippingFee;
-                    existingOrder.TaxAmount -= delta.TaxAmount;
-                    _context.Entry(existingOrder).State = EntityState.Modified;
+                    if (orderDict.TryGetValue(delta.OrderId, out var order))
+                    {
+                        order.Revenue -= delta.Revenue;
+                        order.GrossProfit -= delta.GrossProfit;
+                        order.ShippingFee -= delta.ShippingFee;
+                        order.TaxAmount -= delta.TaxAmount;
+                        _context.Entry(order).State = EntityState.Modified;
+                    }
                 }
             }
 
-            _context.Set<OrderItem>().RemoveRange(itemsToDelete);
+            // BƯỚC 2a: XÓA CỨNG ORDER ITEMS — bulk DELETE trực tiếp, không load vào RAM
+            await _context
+                .Set<OrderItem>()
+                .Where(oi => oi.ImportHistoryId == importHistoryId)
+                .ExecuteDeleteAsync();
 
-            // BƯỚC 2b: XÓA MỀM CÁC ĐƠN HÀNG THUỘC FILE IMPORT NÀY
-            // Lấy ra tất cả các đơn hàng chưa bị xóa của đợt import này
-            var ordersToRollback = await _orderRepository
-                .GetAll()
+            // BƯỚC 2b: XÓA MỀM ORDERS — bulk UPDATE (trigger trg_orders_sync_customer_stats vẫn bắn per-row ở DB)
+            var rollbackCount = await _context
+                .Set<Order>()
                 .Where(o => o.ImportHistoryId == importHistoryId && o.DeletedAt == null)
-                .ToListAsync();
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.DeletedAt, crmNow));
 
-            foreach (var order in ordersToRollback)
-            {
-                order.DeletedAt = crmNow; // Đánh dấu xóa mềm
-
-                // Lệnh này kích hoạt Trigger trg_orders_sync_customer_stats dưới DB
-                // Trigger sẽ tự động trừ tiền và giảm số đơn của khách hàng tương ứng.
-                _context.Entry(order).State = EntityState.Modified;
-            }
-
-            // BƯỚC 3: XÓA MỀM KHÁCH HÀNG MỚI (NẾU CÓ)
-            var customersToRollback = await _customerRepository
-                .GetAll()
+            // BƯỚC 3: XÓA MỀM KHÁCH HÀNG — bulk UPDATE
+            await _context
+                .Set<Customer>()
                 .Where(c => c.ImportHistoryId == importHistoryId && c.DeletedAt == null)
-                .ToListAsync();
-
-            foreach (var customer in customersToRollback)
-            {
-                customer.DeletedAt = crmNow;
-                _context.Entry(customer).State = EntityState.Modified;
-            }
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.DeletedAt, crmNow));
 
             // BƯỚC 4: CẬP NHẬT TRẠNG THÁI BẢNG LỊCH SỬ IMPORT
             importHistory.Status = "Rollbacked";
@@ -487,7 +571,7 @@ public class OrderService : IOrderService
                 tableName: "imports_history",
                 recordId: importHistoryId,
                 oldData: JsonSerializer.Serialize(
-                    new { Message = $"Rollback thành công {ordersToRollback.Count} đơn hàng." }
+                    new { Message = $"Rollback thành công {rollbackCount} đơn hàng." }
                 ),
                 newData: null
             );
@@ -615,16 +699,142 @@ public class OrderService : IOrderService
 
             return cell.GetValue<decimal>();
         }
-        catch (Exception ex)
+        catch
         {
+            var str = cell.GetString()?.Trim().Replace(",", ".");
+            if (
+                !string.IsNullOrEmpty(str)
+                && decimal.TryParse(
+                    str,
+                    NumberStyles.Any,
+                    CultureInfo.InvariantCulture,
+                    out var parsed
+                )
+            )
+                return parsed;
             Console.WriteLine(
-                $"Lỗi đọc số tại cell {cell.Address}: {cell.GetString()} - {ex.Message}"
+                $"[Import] Không đọc được số tại cell {cell.Address}: '{cell.GetString()}'"
             );
             return 0;
         }
     }
 
-    public async Task<PagedResult<OrderDTO>> GetAllOrdersAsync(OrderFilterDTO filter)
+    public async Task<PagedResult<OrderDTO>> GetAllOrdersForOnlineAsync(OrderFilterDTO filter)
+    {
+        var query = _orderRepository
+            .GetAll()
+            .Include(o => o.Customer)
+            .Include(o => o.OrderItems)
+            .Include(o => o.Status)
+            .Include(o => o.Branches)
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var keyword = filter.Search.Trim().ToLower();
+            query = query.Where(o =>
+                o.OrderCode.ToLower().Contains(keyword)
+                || o.Customer.Name.ToLower().Contains(keyword)
+                || o.Customer.Phone.Contains(keyword)
+            );
+        }
+        if (filter.FromDate.HasValue && filter.ToDate.HasValue && filter.FromDate > filter.ToDate)
+        {
+            throw new BadRequestException("Ngày bắt đầu phải nhỏ hơn ngày kết thúc");
+        }
+
+        //date range
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(o => o.PurchaseDate >= filter.FromDate.Value);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(o => o.PurchaseDate <= filter.ToDate.Value);
+        }
+
+        //filter
+        if (filter.StatusId.HasValue)
+        {
+            query = query.Where(o => o.StatusId == filter.StatusId.Value);
+        }
+
+        if (filter.BranchId.HasValue)
+        {
+            query = query.Where(o => o.BranchesId == filter.BranchId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Source))
+        {
+            var source = filter.Source.Trim().ToLower();
+            query = query.Where(o => o.Source.ToLower() == source);
+        }
+        // sort delete
+        query = query.Where(o =>
+            o.DeletedAt == null
+            && (o.Customer == null || o.Customer.DeletedAt == null)
+            && o.Source != "Pos"
+            && o.Source != "Khác"
+            && o.Source != "Khách đặt tại quầy"
+        );
+        // sort
+        query = (filter.SortBy, filter.SortDir) switch
+        {
+            ("revenue", "asc") => query.OrderBy(o => o.Revenue),
+            ("revenue", "desc") => query.OrderByDescending(o => o.Revenue),
+            ("purchaseDate", "asc") => query.OrderBy(o => o.PurchaseDate),
+            ("purchaseDate", "desc") => query.OrderByDescending(o => o.PurchaseDate),
+            _ => query,
+        };
+        //pagination
+        var totalItems = await query.CountAsync();
+
+        var orders = await query
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .Select(o => new OrderDTO
+            {
+                Id = o.Id,
+                OrderCode = o.OrderCode,
+                PurchaseDate = o.PurchaseDate,
+                Source = o.Source,
+                Channel = o.Channel,
+                Revenue = o.Revenue,
+                GrossProfit = o.GrossProfit,
+                ShippingFee = o.ShippingFee,
+                TaxAmount = o.TaxAmount,
+                CreatedAt = o.CreatedAt,
+                CustomerName = o.Customer.Name,
+                CustomerPhone = o.Customer.Phone,
+                StatusName = o.Status.TrangThai,
+                BranchName = o.Branches.Name,
+                Items = o
+                    .OrderItems.Select(oi => new OrderItemDTO
+                    {
+                        Id = oi.Id,
+                        Category = oi.Category,
+                        ProductName = oi.ProductName,
+                        SKU = oi.Sku,
+                        UnitPrice = oi.UnitPrice,
+                        Quantity = oi.Quantity,
+                        ServiceName = oi.ServiceName,
+                        Unit = oi.Unit,
+                    })
+                    .ToList(),
+            })
+            .ToListAsync();
+
+        return new PagedResult<OrderDTO>
+        {
+            TotalItems = totalItems,
+            Page = filter.Page,
+            PageSize = filter.PageSize,
+            Items = orders,
+        };
+    }
+
+    public async Task<PagedResult<OrderDTO>> GetAllOrdersForSalesAsync(OrderFilterDTO filter)
     {
         var query = _orderRepository
             .GetAll()
@@ -678,7 +888,6 @@ public class OrderService : IOrderService
         // sort delete
         query = query.Where(o =>
             o.DeletedAt == null && (o.Customer == null || o.Customer.DeletedAt == null)
-            && o.Source != "Pos" && o.Source != "Khác" && o.Source != "Khách đặt tại quầy"
         );
         // sort
         query = (filter.SortBy, filter.SortDir) switch

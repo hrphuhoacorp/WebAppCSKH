@@ -92,6 +92,18 @@ export const sidebarMenu: SidebarGroup[] = [
         ],
     },
     {
+        title: 'Bán Hàng',
+        children: [
+            {
+                title: 'Danh sách đơn hàng',
+                href: '/dashboard/sales/orders',
+                icon: ShoppingCart,
+                roles: ['Super_Admin', 'Bán Hàng'],
+            }
+
+        ],
+    },
+    {
         title: 'Nhân sự',
         children: [
             {

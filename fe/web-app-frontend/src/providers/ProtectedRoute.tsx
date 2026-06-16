@@ -5,23 +5,26 @@ import { useAuth } from './AuthProviders';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { profile, loading } = useAuth(); // Bây giờ bạn đã có thể lấy 'loading' ra dùng thoải mái
+    const { profile, loading } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        // CHỈ ĐẨY VỀ LOGIN KHI: Đã gọi xong API (loading = false) và không lấy được profile
+        // Check localStorage flag ngay lập tức — không chờ API
+        const hasFlag = typeof window !== 'undefined' && localStorage.getItem('isLoggedIn') === '1';
+        if (!hasFlag) {
+            router.replace('/login');
+            return;
+        }
+        // Có flag nhưng API xác thực thất bại (token hết hạn) → xóa flag và về login
         if (!loading && !profile) {
-            router.push('/login');
+            localStorage.removeItem('isLoggedIn');
+            router.replace('/login');
         }
     }, [profile, loading, router]);
 
-    // Trong lúc API đang chạy, giữ người dùng ở lại giao diện chờ để tránh bị đá văng nhầm
-    if (loading) {
-        return (
-            <LoadingOverlay open={loading} text="Đang xác thực tài khoản" />
-
-        );
+    if (!profile) {
+        return <LoadingOverlay open text="Đang xác thực tài khoản" />;
     }
 
-    return profile ? <>{children}</> : null;
+    return <>{children}</>;
 }

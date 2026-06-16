@@ -267,7 +267,7 @@ export default function PreviewDialog({
                         </Typography>
                         <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>·</Typography>
                         <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-                            {new Date(file.createdAt).toLocaleString('vi-VN')}
+                            {new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(file.createdAt))}
                         </Typography>
                         {file.createdBy && (
                             <>

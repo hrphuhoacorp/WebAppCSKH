@@ -307,7 +307,7 @@ export default function DashboardPage() {
                             const zTotal = msgRows.filter((r) => r.type === 'Zalo').reduce((s, r) => s + r.count, 0);
                             const fbTotal = msgRows.filter((r) => r.type === 'Facebook').reduce((s, r) => s + r.count, 0);
                             const otherTotal = msgRows.filter((r) => r.type === 'Khác').reduce((s, r) => s + r.count, 0);
-                            const fmtD = (d: string) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(d));
+                            const fmtD = (d: string) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit' }).format(new Date(d));
 
                             return (
                                 <Paper

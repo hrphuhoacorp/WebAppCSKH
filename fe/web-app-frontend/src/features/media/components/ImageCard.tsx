@@ -135,7 +135,7 @@ function ImageCard({
                     {image.originalName || image.fileName}
                 </Typography>
                 <Typography sx={{ color: '#78909c', fontSize: { xs: 10, md: 11 }, mb: { xs: 0.5, md: 0.8 } }}>
-                    {formatFileSize(image.fileSize || 0)} • {new Date(image.createdAt).toLocaleDateString('vi-VN')}
+                    {formatFileSize(image.fileSize || 0)} • {new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(image.createdAt))}
                 </Typography>
                 <Typography
                     sx={{

@@ -43,6 +43,7 @@ export default function Sidebar() {
         try {
             const response = await authApi.logout();
             toast.success(response.message);
+            localStorage.removeItem('isLoggedIn');
             router.replace('/login');
         } catch {
             toast.error('Đăng xuất thất bại');

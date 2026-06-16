@@ -19,7 +19,7 @@ import { api } from "@/services/axios";
 // }
 
 export const ordersApi = {
-    getOrders: async (data: {
+    getOrdersOnline: async (data: {
         page: number;
         pageSize: number;
         search?: string;
@@ -32,7 +32,23 @@ export const ordersApi = {
         sortDir?: string;
     }) => {
         // Gọi API để lấy dữ liệu đơn hàng với các tham số lọc
-        const reponse = await api.get('/Order/GetAllOrdersAsync', { params: data });
+        const reponse = await api.get('/Order/GetAllOrdersForOnlineAsync', { params: data });
+        return reponse.data;
+    },
+    getOrdersSale: async (data: {
+        page: number;
+        pageSize: number;
+        search?: string;
+        fromDate?: string;
+        toDate?: string;
+        statusId?: number;
+        branchId?: number;
+        source?: string;
+        sortBy?: string;
+        sortDir?: string;
+    }) => {
+        // Gọi API để lấy dữ liệu đơn hàng với các tham số lọc
+        const reponse = await api.get('/Order/GetAllOrdersForSalesAsync', { params: data });
         return reponse.data;
     },
 

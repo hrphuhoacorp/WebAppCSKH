@@ -105,7 +105,7 @@ export default function ReportMessageDialog({ open, onClose }: Props) {
     const grandTotal = zaloTotal + fbTotal + otherTotal;
 
     const fmtDate = (d: string) =>
-        new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(d));
+        new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(d));
 
     const typeColor = (t: string) => TYPES.find((x) => x.value === t)?.color ?? '#64748b';
 

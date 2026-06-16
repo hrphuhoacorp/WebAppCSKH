@@ -44,6 +44,13 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<GiftCodeMapping> GiftCodeMappings { get; set; }
     public virtual DbSet<GiftCodeChangeRequest> GiftCodeChangeRequests { get; set; }
 
+    public virtual DbSet<NxtGiftIn> NxtGiftIns { get; set; }
+    public virtual DbSet<NxtStockCount> NxtStockCounts { get; set; }
+    public virtual DbSet<NxtSapoSale> NxtSapoSales { get; set; }
+    public virtual DbSet<NxtSapoImport> NxtSapoImports { get; set; }
+    public virtual DbSet<NxtAdjustment> NxtAdjustments { get; set; }
+    public virtual DbSet<NxtClosing> NxtClosings { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(
@@ -234,6 +241,8 @@ public partial class MemBerContext : DbContext
                 .HasColumnName("status");
             entity.Property(e => e.SuccessCount).HasDefaultValue(0).HasColumnName("success_count");
             entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.FilePath).HasColumnName("file_path");
+            entity.Property(e => e.FileHash).HasMaxLength(64).HasColumnName("file_hash");
 
             entity
                 .HasOne(d => d.RollbackByNavigation)
@@ -266,7 +275,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Content).HasColumnName("content");
             entity
                 .Property(e => e.CreatedAt)
-                .HasDefaultValueSql("timezone('Asia/Ho_Chi_Minh'::text, now())")
+                .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
@@ -418,7 +427,7 @@ public partial class MemBerContext : DbContext
 
             entity.HasIndex(e => e.StatusId, "idx_orders_status_id");
 
-            entity.HasIndex(e => e.OrderCode, "orders_order_code_key").IsUnique();
+            entity.HasIndex(e => e.OrderCode, "orders_order_code_key");
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.BranchesId).HasColumnName("branches_id");

@@ -20,13 +20,8 @@ import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
 import { MediaFileDto } from '@/features/media/schemas/media_file.schemas';
 
-const fixVnDate = (s: string) => {
-    if (s.endsWith('Z')) return s.slice(0, -1) + '+07:00';
-    if (s.endsWith('+00:00')) return s.slice(0, -6) + '+07:00';
-    if (!/[+-]\d\d:\d\d$/.test(s)) return s + '+07:00';
-    return s;
-};
-const fmtDate = (s?: string) => s ? new Date(fixVnDate(s)).toLocaleDateString('vi-VN') : '—';
+const fmtDate = (s?: string) =>
+    s ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(s)) : '—';
 const fmtVnd = (n?: number) => n != null ? n.toLocaleString('vi-VN') + ' ₫' : '—';
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {

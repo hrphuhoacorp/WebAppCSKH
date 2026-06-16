@@ -11,8 +11,9 @@ export interface ImportHistory {
     successCount: number;
     errorCount: number;
     importDate: string;
-    rollbackAt?:string;
-    rollbackBy?:string;
+    rollbackAt?: string;
+    rollbackBy?: string;
+    fileUrl?: string | null;
 }
 
 export interface UserProfile {

@@ -101,7 +101,7 @@ export default function ImageRow({
                     </Typography>
                     <Typography sx={{ color: '#bdbdbd', fontSize: 11, display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>•</Typography>
                     <Typography sx={{ color: '#78909c', fontSize: 11, display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>
-                        {new Date(image.createdAt).toLocaleDateString('vi-VN')}
+                        {new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(image.createdAt))}
                     </Typography>
                     <Typography sx={{ color: '#bdbdbd', fontSize: 11, display: { xs: 'none', md: 'block' }, flexShrink: 0 }}>•</Typography>
                     <PersonOutlined sx={{ fontSize: 11, color: '#90a4ae', display: { xs: 'none', md: 'block' }, flexShrink: 0 }} />

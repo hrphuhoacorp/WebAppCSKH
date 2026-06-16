@@ -63,6 +63,7 @@ export default function OrderDetailDialog({ open, orderId, onClose }: Props) {
 
     const formatDate = (value: string) =>
         new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',

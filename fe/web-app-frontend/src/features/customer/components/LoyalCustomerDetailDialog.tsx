@@ -15,7 +15,7 @@ const VND = (v: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
 
 const fmtDate = (d?: string | null) =>
-    d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+    d ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(d)) : '—';
 
 interface Props {
     customer: LoyalCustomerDTO | null;

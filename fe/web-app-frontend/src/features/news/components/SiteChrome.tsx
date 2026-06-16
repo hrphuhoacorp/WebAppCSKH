@@ -44,6 +44,7 @@ export function SiteHeader() {
         try {
             const res = await authApi.logout();
             toast.success(res.message);
+            localStorage.removeItem('isLoggedIn');
             router.replace('/login');
         } catch {
             toast.error('Đăng xuất thất bại');

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
     Box, Typography, Paper, Chip, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, alpha, MenuItem, TextField,
-    Skeleton, Tooltip, Tabs, Tab, TablePagination,
+    Skeleton, Tooltip, Tabs, Tab, TablePagination, CircularProgress,
 } from '@mui/material';
 import {
     TrendingUp, People, AccessTime, Repeat, Warning, Schedule,
@@ -25,8 +25,8 @@ const MONTHS_VI = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12
 const CAT_COLORS = ['#7c3aed','#086839','#0ea5e9','#f59e0b','#ef4444','#ec4899','#10b981','#6366f1'];
 
 // ── Building blocks ────────────────────────────────────────────
-function StatCard({ label, value, sub, color, icon }: {
-    label: string; value: string | number; sub?: string; color: string; icon: React.ReactNode;
+function StatCard({ label, value, sub, color, icon, loading }: {
+    label: string; value: string | number; sub?: string; color: string; icon: React.ReactNode; loading?: boolean;
 }) {
     return (
         <Paper elevation={0} sx={{
@@ -34,14 +34,20 @@ function StatCard({ label, value, sub, color, icon }: {
             bgcolor: alpha(color, 0.04), display: 'flex', alignItems: 'flex-start', gap: 2,
         }}>
             <Box sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: alpha(color, 0.12), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Box sx={{ color }}>{icon}</Box>
+                {loading ? <CircularProgress size={20} sx={{ color }} /> : <Box sx={{ color }}>{icon}</Box>}
             </Box>
-            <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: alpha(color, 0.7), textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.3 }}>
                     {label}
                 </Typography>
-                <Typography sx={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1.1 }}>{value}</Typography>
-                {sub && <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.4 }}>{sub}</Typography>}
+                {loading
+                    ? <Skeleton width="60%" height={32} sx={{ borderRadius: '6px' }} />
+                    : <Typography sx={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1.1 }}>{value}</Typography>
+                }
+                {loading
+                    ? <Skeleton width="80%" height={16} sx={{ mt: 0.4, borderRadius: '4px' }} />
+                    : sub && <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.4 }}>{sub}</Typography>
+                }
             </Box>
         </Paper>
     );
@@ -177,7 +183,7 @@ function SegmentTable({
                                             {VND(c.avgOrderValue)}
                                         </TableCell>
                                         <TableCell align="center" sx={{ fontSize: 13, color: '#64748b', whiteSpace: 'nowrap' }}>
-                                            {c.lastOrderAt ? new Date(c.lastOrderAt).toLocaleDateString('vi-VN') : '—'}
+                                            {c.lastOrderAt ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(c.lastOrderAt)) : '—'}
                                         </TableCell>
                                         <TableCell align="center">
                                             <Chip
@@ -274,13 +280,13 @@ export default function ReturnRatePage() {
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3,1fr)', lg: 'repeat(6,1fr)' }, gap: 1.5, mb: 1.5 }}>
                 {[
-                    { label: 'Tỉ lệ quay lại TB', color: '#7c3aed', icon: <Repeat sx={{ fontSize: 20 }} />, value: loading ? '...' : `${avgReturnRate}%`, sub: `Trung bình ${months} tháng` },
-                    { label: 'KH mua ≥ 2 lần', color: '#086839', icon: <People sx={{ fontSize: 20 }} />, value: loading ? '...' : repeatCustomers.toLocaleString('vi-VN'), sub: `${repeatRate}% tổng KH` },
-                    { label: 'Hoạt động (30 ngày)', color: '#0ea5e9', icon: <TrendingUp sx={{ fontSize: 20 }} />, value: loading ? '...' : (dorm?.active30 ?? 0).toLocaleString('vi-VN'), sub: dormTotal > 0 ? `${Math.round((dorm!.active30 / dormTotal) * 100)}% tổng KH` : '' },
-                    { label: 'Ngủ đông (>90 ngày)', color: '#ef4444', icon: <AccessTime sx={{ fontSize: 20 }} />, value: loading ? '...' : (dorm?.dormant90Plus ?? 0).toLocaleString('vi-VN'), sub: dormTotal > 0 ? `${Math.round((dorm!.dormant90Plus / dormTotal) * 100)}% tổng KH` : '' },
-                    { label: 'Chu kỳ mua TB', color: '#f59e0b', icon: <Schedule sx={{ fontSize: 20 }} />, value: loading ? '...' : data ? `${data.avgDaysBetweenOrders} ngày` : '—', sub: 'Giữa 2 đơn liên tiếp' },
-                    { label: 'KH có nguy cơ mất', color: '#dc2626', icon: <Warning sx={{ fontSize: 20 }} />, value: loading ? '...' : (data?.atRiskCustomers ?? 0).toLocaleString('vi-VN'), sub: '≥2 đơn, chưa mua 60-180 ngày' },
-                ].map(c => <StatCard key={c.label} {...c} />)}
+                    { label: 'Tỉ lệ quay lại TB', color: '#7c3aed', icon: <Repeat sx={{ fontSize: 20 }} />, value: `${avgReturnRate}%`, sub: `Trung bình ${months} tháng` },
+                    { label: 'KH mua ≥ 2 lần', color: '#086839', icon: <People sx={{ fontSize: 20 }} />, value: repeatCustomers.toLocaleString('vi-VN'), sub: `${repeatRate}% tổng KH` },
+                    { label: 'Hoạt động (30 ngày)', color: '#0ea5e9', icon: <TrendingUp sx={{ fontSize: 20 }} />, value: (dorm?.active30 ?? 0).toLocaleString('vi-VN'), sub: dormTotal > 0 ? `${Math.round((dorm!.active30 / dormTotal) * 100)}% tổng KH` : '' },
+                    { label: 'Ngủ đông (>90 ngày)', color: '#ef4444', icon: <AccessTime sx={{ fontSize: 20 }} />, value: (dorm?.dormant90Plus ?? 0).toLocaleString('vi-VN'), sub: dormTotal > 0 ? `${Math.round((dorm!.dormant90Plus / dormTotal) * 100)}% tổng KH` : '' },
+                    { label: 'Chu kỳ mua TB', color: '#f59e0b', icon: <Schedule sx={{ fontSize: 20 }} />, value: data ? `${data.avgDaysBetweenOrders} ngày` : '—', sub: 'Giữa 2 đơn liên tiếp' },
+                    { label: 'KH có nguy cơ mất', color: '#dc2626', icon: <Warning sx={{ fontSize: 20 }} />, value: (data?.atRiskCustomers ?? 0).toLocaleString('vi-VN'), sub: '≥2 đơn, chưa mua 60-180 ngày' },
+                ].map(c => <StatCard key={c.label} {...c} loading={loading} />)}
             </Box>
 
             {/* ── Row 2: Product KPIs ── */}
@@ -289,13 +295,13 @@ export default function ReturnRatePage() {
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3,1fr)', lg: 'repeat(6,1fr)' }, gap: 1.5, mb: 3 }}>
                 {[
-                    { label: 'Tổng SP bán ra', color: '#7c3aed', icon: <Inventory2 sx={{ fontSize: 20 }} />, value: loading ? '...' : (prod?.totalItemsSold ?? 0).toLocaleString('vi-VN'), sub: `${months} tháng gần nhất` },
-                    { label: 'Doanh thu từ SP', color: '#086839', icon: <TrendingUp sx={{ fontSize: 20 }} />, value: loading ? '...' : prod ? VND(prod.totalProductRevenue) : '—', sub: 'Tổng giá trị order items' },
-                    { label: 'TB sản phẩm/đơn', color: '#0ea5e9', icon: <BarChartIcon sx={{ fontSize: 20 }} />, value: loading ? '...' : prod ? `${prod.avgItemsPerOrder}` : '—', sub: 'Số SP trung bình mỗi đơn' },
-                    { label: 'Số danh mục', color: '#f59e0b', icon: <Category sx={{ fontSize: 20 }} />, value: loading ? '...' : (prod?.uniqueCategories ?? 0).toLocaleString('vi-VN'), sub: 'Danh mục sản phẩm khác nhau' },
-                    { label: 'Danh mục hot nhất', color: '#ec4899', icon: <StarBorder sx={{ fontSize: 20 }} />, value: loading ? '...' : prod?.topCategory ?? '—', sub: prod ? `${prod.topCategoryCount.toLocaleString('vi-VN')} sản phẩm` : '' },
-                    { label: 'Tỉ lệ DM hot', color: '#10b981', icon: <BarChartIcon sx={{ fontSize: 20 }} />, value: loading ? '...' : prod && totalCatItems > 0 ? `${Math.round(prod.topCategoryCount / totalCatItems * 100)}%` : '—', sub: `${prod?.topCategory ?? ''} / tổng SP` },
-                ].map(c => <StatCard key={c.label} {...c} />)}
+                    { label: 'Tổng SP bán ra', color: '#7c3aed', icon: <Inventory2 sx={{ fontSize: 20 }} />, value: (prod?.totalItemsSold ?? 0).toLocaleString('vi-VN'), sub: `${months} tháng gần nhất` },
+                    { label: 'Doanh thu từ SP', color: '#086839', icon: <TrendingUp sx={{ fontSize: 20 }} />, value: prod ? VND(prod.totalProductRevenue) : '—', sub: 'Tổng giá trị order items' },
+                    { label: 'TB sản phẩm/đơn', color: '#0ea5e9', icon: <BarChartIcon sx={{ fontSize: 20 }} />, value: prod ? `${prod.avgItemsPerOrder}` : '—', sub: 'Số SP trung bình mỗi đơn' },
+                    { label: 'Số danh mục', color: '#f59e0b', icon: <Category sx={{ fontSize: 20 }} />, value: (prod?.uniqueCategories ?? 0).toLocaleString('vi-VN'), sub: 'Danh mục sản phẩm khác nhau' },
+                    { label: 'Danh mục hot nhất', color: '#ec4899', icon: <StarBorder sx={{ fontSize: 20 }} />, value: prod?.topCategory ?? '—', sub: prod ? `${prod.topCategoryCount.toLocaleString('vi-VN')} sản phẩm` : '' },
+                    { label: 'Tỉ lệ DM hot', color: '#10b981', icon: <BarChartIcon sx={{ fontSize: 20 }} />, value: prod && totalCatItems > 0 ? `${Math.round(prod.topCategoryCount / totalCatItems * 100)}%` : '—', sub: `${prod?.topCategory ?? ''} / tổng SP` },
+                ].map(c => <StatCard key={c.label} {...c} loading={loading} />)}
             </Box>
 
             {/* ── Avg time to 2nd purchase callout ── */}

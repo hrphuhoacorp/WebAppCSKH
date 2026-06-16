@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml.Office2010.Excel;
+﻿using DocumentFormat.OpenXml.Office2010.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
@@ -283,7 +283,7 @@ public class MediaService : IMediaService
                 tableName: "MediaFiles",
                 recordId: file.Id,
                 oldData: null,
-                newData: new { RestoredAt = DateTime.UtcNow.AddHours(7), RestoredBy = userId }
+                newData: new { RestoredAt = DateTime.UtcNow, RestoredBy = userId }
             );
 
             await transaction.CommitAsync();
@@ -341,7 +341,7 @@ public class MediaService : IMediaService
                 tableName: "MediaFolders",
                 recordId: folder.Id,
                 oldData: null,
-                newData: new { RestoredAt = DateTime.UtcNow.AddHours(7), RestoredBy = userId }
+                newData: new { RestoredAt = DateTime.UtcNow, RestoredBy = userId }
             );
 
             await transaction.CommitAsync();
@@ -474,7 +474,7 @@ public class MediaService : IMediaService
                 tableName: "MediaFolders",
                 recordId: folder.Id,
                 oldData: folderInfo,
-                newData: new { DeletedAt = DateTime.UtcNow.AddHours(7), DeletedBy = userId }
+                newData: new { DeletedAt = DateTime.UtcNow, DeletedBy = userId }
             );
 
             await transaction.CommitAsync();
@@ -497,7 +497,7 @@ public class MediaService : IMediaService
         if (folder == null)
             return;
 
-        folder.DeletedAt = DateTime.UtcNow.AddHours(7);
+        folder.DeletedAt = DateTime.UtcNow;
         await _mediaFolderRepository.Update(folder);
 
         //
@@ -513,7 +513,7 @@ public class MediaService : IMediaService
 
         foreach (var file in files)
         {
-            file.DeletedAt = DateTime.UtcNow.AddHours(7);
+            file.DeletedAt = DateTime.UtcNow;
             await _mediaFileRepository.Update(file);
         }
 
@@ -546,7 +546,7 @@ public class MediaService : IMediaService
 
             foreach (var file in files)
             {
-                file.DeletedAt = DateTime.UtcNow.AddHours(7);
+                file.DeletedAt = DateTime.UtcNow;
                 await _mediaFileRepository.Update(file);
 
                 deletedFilesInfo.Add(
@@ -571,7 +571,7 @@ public class MediaService : IMediaService
                     tableName: "MediaFiles",
                     recordId: ((dynamic)fileInfo).Id,
                     oldData: fileInfo,
-                    newData: new { DeletedAt = DateTime.UtcNow.AddHours(7), DeletedBy = userId }
+                    newData: new { DeletedAt = DateTime.UtcNow, DeletedBy = userId }
                 );
             }
 
@@ -623,7 +623,7 @@ public class MediaService : IMediaService
                 {
                     FolderId = folderId,
                     MovedBy = userId,
-                    MovedAt = DateTime.UtcNow.AddHours(7),
+                    MovedAt = DateTime.UtcNow,
                 }
             );
 

@@ -37,6 +37,7 @@ import {
     CalendarMonth,
     InfoOutlined,
     Close,
+    FileDownloadRounded,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -69,6 +70,7 @@ type ImportRow = {
     importDate: string;
     rollbackAt: string | null;
     rollbackBy: string | null;
+    fileUrl?: string | null;
 };
 
 export default function SystemHistoryPage() {
@@ -103,7 +105,7 @@ export default function SystemHistoryPage() {
     const formatDateTime = (value?: string | null) => {
         if (!value) return '-';
         return new Intl.DateTimeFormat('vi-VN', {
-            timeZone: 'UTC',
+            timeZone: 'Asia/Ho_Chi_Minh',
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -366,7 +368,7 @@ export default function SystemHistoryPage() {
                                     <TableCell key={label} sx={{ bgcolor: '#f8fafc', color: '#475569', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.6px', py: 1.75, borderBottom: '2px solid #e2e8f0' }}>{label}</TableCell>
                                 ))
                             ) : (
-                                ['Thời gian nhận', 'Tên tệp dữ liệu Excel', 'Người Đăng tải', 'Thành công', 'Lỗi dòng', 'Trạng thái file', 'Thời gian Hủy', 'Người Hủy', 'Thao tác'].map(label => (
+                                ['Thời gian nhận', 'Tên tệp dữ liệu Excel', 'Người Đăng tải', 'Thành công', 'Lỗi dòng', 'Trạng thái file', 'Thời gian Hủy', 'Người Hủy', 'Tệp gốc', 'Thao tác'].map(label => (
                                     <TableCell key={label} sx={{ bgcolor: '#f8fafc', color: '#475569', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.6px', py: 1.75, borderBottom: '2px solid #e2e8f0' }}>{label}</TableCell>
                                 ))
                             )}
@@ -429,6 +431,25 @@ export default function SystemHistoryPage() {
                                     <TableCell sx={{ fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDateTime(file.rollbackAt)}</TableCell>
                                     <TableCell sx={{ fontSize: 13, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>{file.rollbackBy || '-'}</TableCell>
                                     <TableCell>
+                                        {file.fileUrl ? (
+                                            <Tooltip title="Tải xuống file Excel gốc" arrow>
+                                                <Button
+                                                    component="a"
+                                                    href={file.fileUrl}
+                                                    download
+                                                    variant="outlined"
+                                                    size="small"
+                                                    startIcon={<FileDownloadRounded />}
+                                                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', borderColor: '#0ea5e9', color: '#0ea5e9', '&:hover': { bgcolor: '#f0f9ff', borderColor: '#0284c7' } }}
+                                                >
+                                                    Tải xuống
+                                                </Button>
+                                            </Tooltip>
+                                        ) : (
+                                            <Typography sx={{ fontSize: 12, color: '#cbd5e1', fontStyle: 'italic' }}>Không có</Typography>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
                                         {file.status === 'Imported' ? (
                                             <Button
                                                 variant="outlined"
@@ -460,7 +481,7 @@ export default function SystemHistoryPage() {
                         {/* Không tìm thấy dữ liệu */}
                         {((currentTab === 0 && !logs.length) || (currentTab === 1 && !imports.length)) && !loading && (
                             <TableRow>
-                                <TableCell colSpan={currentTab === 0 ? 9 : 9} align="center" sx={{ py: 8 }}>
+                                <TableCell colSpan={currentTab === 0 ? 9 : 10} align="center" sx={{ py: 8 }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
                                         <Box sx={{ width: 56, height: 56, borderRadius: '16px', bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <CalendarMonth sx={{ fontSize: 28, color: '#94a3b8' }} />

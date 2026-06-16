@@ -396,7 +396,7 @@ export default function NewsManagePage() {
                                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 12, color: '#94a3b8' }}>
                                             <AccessTimeRounded sx={{ fontSize: 13 }} />
-                                            {item.createdAt ? new Date(fixVnDate(item.createdAt)).toLocaleDateString('vi-VN') : '—'}
+                                            {item.createdAt ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.createdAt)) : '—'}
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: 12, color: '#94a3b8' }}>
                                             <VisibilityRounded sx={{ fontSize: 13 }} />

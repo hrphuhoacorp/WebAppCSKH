@@ -81,12 +81,26 @@ namespace WebAppAPI.Controllers
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
-        [HttpGet("GetAllOrdersAsync")]
-        public async Task<ResponseValue<PagedResult<OrderDTO>>> GetAllOrdersAsync(
+        [HttpGet("GetAllOrdersForOnlineAsync")]
+        public async Task<ResponseValue<PagedResult<OrderDTO>>> GetAllOrdersForOnlineAsync(
             [FromQuery] OrderFilterDTO filter
         )
         {
-            var result = await _orderService.GetAllOrdersAsync(filter);
+            var result = await _orderService.GetAllOrdersForOnlineAsync(filter);
+            return new ResponseValue<PagedResult<OrderDTO>>(
+                result,
+                "Lấy danh sách đơn hàng thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+        [HttpGet("GetAllOrdersForSalesAsync")]
+        public async Task<ResponseValue<PagedResult<OrderDTO>>> GetAllOrdersForSalesAsync(
+            [FromQuery] OrderFilterDTO filter
+        )
+        {
+            var result = await _orderService.GetAllOrdersForSalesAsync(filter);
             return new ResponseValue<PagedResult<OrderDTO>>(
                 result,
                 "Lấy danh sách đơn hàng thành công",

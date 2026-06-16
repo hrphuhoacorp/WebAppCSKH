@@ -20,7 +20,8 @@ import PageHeader from '@/components/common/PageHeader';
 import * as signalR from '@microsoft/signalr';
 import { playBeep, unlockAudio } from '@/features/gift-basket/sounds/beep';
 
-const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString('vi-VN') : '—';
+const fmtDate = (s?: string) =>
+    s ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(s)) : '—';
 const fmtVnd = (n?: number) => n != null ? n.toLocaleString('vi-VN') + ' ₫' : '—';
 const groupLabel = (code?: string) => BASKET_GROUPS.find(g => g.code === code)?.name ?? code ?? '—';
 const todayStr = () => new Date().toISOString().split('T')[0];
