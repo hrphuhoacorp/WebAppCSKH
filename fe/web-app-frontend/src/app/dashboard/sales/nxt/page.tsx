@@ -462,46 +462,20 @@ function CancelTab() {
 
 function SapoTab() {
     const [imports, setImports] = useState<NxtSapoImportLog[]>([]);
-    const [preview, setPreview] = useState<string[][]>([]);
-    const [previewRows, setPreviewRows] = useState<Record<string, any>[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [file, setFile] = useState<File | null>(null);
     const [saving, setSaving] = useState(false);
-    const [fileName, setFileName] = useState('');
 
     useEffect(() => {
         nxtApi.getSapoImports().then(setImports).catch(() => { });
     }, []);
 
-    async function readFile(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setFileName(file.name);
-        setLoading(true);
-        try {
-            // Use SheetJS if available, else warn
-            const XLSX = (window as any).XLSX;
-            if (!XLSX) { toast.error('Cần tải thư viện SheetJS. Thêm script tag vào layout.'); return; }
-            const buf = await file.arrayBuffer();
-            const wb = XLSX.read(buf, { type: 'array' });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const rawMatrix: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-            const matrix: string[][] = rawMatrix.map((row: any[]) => row.map((cell: any) => String(cell ?? '')));
-            setPreview(matrix);
-            // Show first 5 data rows as preview
-            const headers: string[] = matrix[0] ?? [];
-            setPreviewRows(matrix.slice(1, 6).map(row => Object.fromEntries(headers.map((h, i) => [h, row[i] ?? '']))));
-            toast.success(`Đọc được ${matrix.length - 1} dòng từ "${file.name}".`);
-        } catch { toast.error('Lỗi đọc file Excel.'); }
-        finally { setLoading(false); }
-    }
-
     async function importFile() {
-        if (!preview.length) { toast.error('Chọn file Excel trước.'); return; }
+        if (!file) { toast.error('Chọn file Excel trước.'); return; }
         setSaving(true);
         try {
-            const r = await nxtApi.importSapo(preview, fileName);
+            const r = await nxtApi.importSapo(file);
             toast.success(`Nạp Sapo OK: ${r.rowsSaved} dòng (${r.dateMin} → ${r.dateMax}). Thay ${r.replacedRows} dòng cũ.`);
-            setPreview([]); setPreviewRows([]); setFileName('');
+            setFile(null);
             const logs = await nxtApi.getSapoImports();
             setImports(logs);
         } catch (e: any) { toast.error(e?.response?.data?.Message || 'Lỗi nạp Sapo.'); }
@@ -512,28 +486,20 @@ function SapoTab() {
         <Box>
             <Alert severity="warning" sx={{ mb: 2, fontSize: 12 }}>
                 Nguyên tắc: file mới sẽ thay thế dòng Sapo cũ trong cùng khoảng ngày, không cộng trùng.
-                Đọc thử trước khi bấm Nạp.
             </Alert>
 
-            <Box sx={{ mb: 2 }}>
-                <Button component="label" variant="outlined" startIcon={<FileUploadRounded />} sx={{ borderRadius: 2 }} disabled={loading}>
-                    {loading ? <CircularProgress size={18} /> : 'Chọn file Excel Sapo (.xlsx)'}
-                    <input type="file" accept=".xlsx,.xls" hidden onChange={readFile} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Button component="label" variant="outlined" startIcon={<FileUploadRounded />} sx={{ borderRadius: 2 }}>
+                    Chọn file Excel Sapo (.xlsx)
+                    <input type="file" accept=".xlsx,.xls" hidden onChange={e => setFile(e.target.files?.[0] ?? null)} />
                 </Button>
-                {fileName && <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>{fileName}</Typography>}
+                {file && <Typography variant="caption" sx={{ color: 'text.secondary' }}>{file.name}</Typography>}
             </Box>
 
-            {previewRows.length > 0 && (
-                <>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Xem trước (5 dòng đầu)</Typography>
-                    <PreviewTable
-                        rows={previewRows}
-                        cols={(Object.keys(previewRows[0] ?? {})).slice(0, 8).map(k => ({ key: k, label: k }))}
-                    />
-                    <Button variant="contained" onClick={importFile} disabled={saving} sx={{ mt: 2, borderRadius: 2, bgcolor: '#073b32', '&:hover': { bgcolor: '#0d634e' } }}>
-                        {saving ? <CircularProgress size={18} color="inherit" /> : 'Nạp Sapo vào DB'}
-                    </Button>
-                </>
+            {file && (
+                <Button variant="contained" onClick={importFile} disabled={saving} sx={{ mb: 3, borderRadius: 2, bgcolor: '#073b32', '&:hover': { bgcolor: '#0d634e' } }}>
+                    {saving ? <CircularProgress size={18} color="inherit" /> : 'Nạp Sapo vào DB'}
+                </Button>
             )}
 
             <Divider sx={{ my: 3 }} />

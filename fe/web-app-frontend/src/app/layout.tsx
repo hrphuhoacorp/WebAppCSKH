@@ -16,11 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <head>
-        {/* SheetJS for reading Excel files in the Nạp Sapo tab */}
-        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" async />
-      </head>
-      <body className={inter.variable}>
+<body className={inter.variable}>
         <AppRouterCacheProvider>
           <NextTopLoader
             color="#086839"

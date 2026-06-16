@@ -380,6 +380,29 @@ public class NxtService(MemBerContext db)
 
     // ─── Nạp Sapo ─────────────────────────────────────────────────────────────
 
+    public async Task<NxtSapoImportResultDto> ImportSapoFile(IFormFile file, string? defaultDate, string createdBy)
+    {
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext != ".xlsx" && ext != ".xls")
+            throw new InvalidOperationException("Chỉ chấp nhận file Excel (.xlsx, .xls).");
+
+        using var stream = file.OpenReadStream();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheet(1);
+        var range = ws.RangeUsed();
+        if (range == null) throw new InvalidOperationException("File không có dữ liệu.");
+
+        int colFirst = range.FirstColumn().ColumnNumber();
+        int colLast = range.LastColumn().ColumnNumber();
+        var matrix = range.RowsUsed()
+            .Select(row => Enumerable.Range(colFirst, colLast - colFirst + 1)
+                .Select(col => row.Cell(col).GetValue<string>()?.Trim() ?? "")
+                .ToList())
+            .ToList();
+
+        return await ImportSapoRows(matrix, file.FileName, defaultDate, createdBy);
+    }
+
     public async Task<NxtSapoImportResultDto> ImportSapoRows(List<List<string>> matrix, string? fileName, string? defaultDate, string createdBy)
     {
         if (!matrix.Any()) throw new InvalidOperationException("File không có dữ liệu.");

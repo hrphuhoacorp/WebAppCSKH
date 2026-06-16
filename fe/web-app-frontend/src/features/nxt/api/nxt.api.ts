@@ -109,8 +109,14 @@ export const nxtApi = {
         api.get<NxtAdjLog[]>('/nxt/adjustments', { params: { dateFrom, dateTo, branch } }).then(r => r.data),
 
     // Sapo
-    importSapo: (rows: string[][], fileName?: string, date?: string) =>
-        api.post<NxtSapoImportResult>('/nxt/sapo/import', { rows, fileName, date }).then(r => r.data),
+    importSapo: (file: File, date?: string) => {
+        const form = new FormData();
+        form.append('file', file);
+        if (date) form.append('date', date);
+        return api.post<NxtSapoImportResult>('/nxt/sapo/import', form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }).then(r => r.data);
+    },
     getSapoImports: () =>
         api.get<NxtSapoImportLog[]>('/nxt/sapo/imports').then(r => r.data),
 };
