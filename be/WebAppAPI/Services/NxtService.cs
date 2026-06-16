@@ -406,7 +406,20 @@ public class NxtService(MemBerContext db)
     public async Task<NxtSapoImportResultDto> ImportSapoRows(List<List<string>> matrix, string? fileName, string? defaultDate, string createdBy)
     {
         if (!matrix.Any()) throw new InvalidOperationException("File không có dữ liệu.");
-        var header = matrix[0].Select(h => RemoveAccent(h).ToLowerInvariant().Trim()).ToList();
+
+        // Tìm dòng header thực sự (giống findHeaderRow trong prototype)
+        int headerRowIdx = 0;
+        for (int hi = 0; hi < Math.Min(matrix.Count, 20); hi++)
+        {
+            var rowText = string.Join("|", matrix[hi].Select(c => RemoveAccent(c ?? "").ToLowerInvariant()));
+            if ((rowText.Contains("ma sku") || rowText.Contains("sku")) &&
+                (rowText.Contains("ten phien ban") || rowText.Contains("san pham") || rowText.Contains("ma hang")))
+            {
+                headerRowIdx = hi;
+                break;
+            }
+        }
+        var header = matrix[headerRowIdx].Select(h => RemoveAccent(h).ToLowerInvariant().Trim()).ToList();
 
         int Find(params string[] names)
         {
@@ -444,7 +457,7 @@ public class NxtService(MemBerContext db)
         var values = new List<NxtSapoSale>();
         string dateMin = "", dateMax = "", fallbackDate = NormDate(defaultDate);
 
-        for (int i = 1; i < matrix.Count; i++)
+        for (int i = headerRowIdx + 1; i < matrix.Count; i++)
         {
             var row = matrix[i];
             var sku = Cell(row, idxSku); var variant = Cell(row, idxVariant);
@@ -453,13 +466,15 @@ public class NxtService(MemBerContext db)
             if (Regex.IsMatch(RemoveAccent(orderStatus).ToLowerInvariant(), @"huy|cancel")) continue;
 
             var code = ExtractCode(variant) ?? ExtractCode(sku);
-            if (string.IsNullOrEmpty(code) || !IsValidGiftCode(code)) continue;
+            if (string.IsNullOrEmpty(code)) continue;
 
             var rawDate = Cell(row, idxDate);
             var rowDate = string.IsNullOrEmpty(rawDate) ? fallbackDate : ParseExcelDate(rawDate) ?? fallbackDate;
             var branch = NormBranch(Cell(row, idxBranch));
+            if (string.IsNullOrEmpty(branch)) branch = BRANCHES[0];
             var netQty = (int)Num(Cell(row, idxNetSold));
             var revenue = Num(Cell(row, idxRevenue));
+            if (netQty == 0 && revenue == 0) continue;
 
             if (string.IsNullOrEmpty(dateMin) || string.Compare(rowDate, dateMin) < 0) dateMin = rowDate;
             if (string.IsNullOrEmpty(dateMax) || string.Compare(rowDate, dateMax) > 0) dateMax = rowDate;
