@@ -95,10 +95,13 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy tin tức");
 
+        var createdAtBackup = news.CreatedAt;
         news.ViewCount = (news.ViewCount ?? 0) + 1;
         await _internalNewsRepository.Update(news);
 
         await _unitOfWork.SaveChangesAsync();
+
+        news.CreatedAt = createdAtBackup;
 
         return new InternalNewsDTO
         {
@@ -156,6 +159,8 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy tin tức");
 
+        var createdAtBackup = news.CreatedAt;
+
         news.Title = dto.Title.Trim();
         news.Content = dto.Content;
         news.ThumbnailUrl = dto.ThumbnailUrl;
@@ -165,6 +170,8 @@ public class InternalNewsService : IInternalNewsService
 
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
+
+        news.CreatedAt = createdAtBackup;
 
         return MapToDTO(news);
     }
@@ -178,7 +185,7 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy tin tức");
 
-        news.DeletedAt = DateTime.UtcNow;
+        news.DeletedAt = DateTime.UtcNow.AddHours(7);
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
     }
@@ -193,10 +200,13 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy tin tức");
 
+        var createdAtBackup = news.CreatedAt;
         news.IsPinned = !(news.IsPinned ?? false);
 
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
+
+        news.CreatedAt = createdAtBackup;
 
         return MapToDTO(news);
     }
@@ -211,10 +221,13 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy bài viết");
 
+        var createdAtBackup = news.CreatedAt;
         news.Status = "published";
 
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
+
+        news.CreatedAt = createdAtBackup;
 
         return MapToDTO(news);
     }
@@ -229,10 +242,13 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy bài viết");
 
+        var createdAtBackup = news.CreatedAt;
         news.Status = "draft";
 
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
+
+        news.CreatedAt = createdAtBackup;
 
         return MapToDTO(news);
     }
@@ -277,7 +293,7 @@ public class InternalNewsService : IInternalNewsService
 
     public async Task<string> UploadVideoAsync(IFormFile file)
     {
-        var allowedExts = new[] { ".mp4", ".webm", ".mov", ".avi" };
+        var allowedExts = new[] { ".mp4", ".webm", ".ogg", ".mov" };
         var ext = Path.GetExtension(file.FileName).ToLower();
 
         if (!allowedExts.Contains(ext))
