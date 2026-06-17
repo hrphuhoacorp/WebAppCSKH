@@ -951,6 +951,7 @@ function setupStock() {
       if (r.status === "Chuyển chi nhánh" && r.transferToBranch) {
         applyTransferRow({ date:r.date, fromBranch:r.branch, toBranch:r.transferToBranch, itemCode:r.itemCode, qty:r.qty });
       } else {
+        
         const soldNotPicked = isSoldNotPickedStatus(r.status) ? r.qty : 0;
         setDashboardStock({ closeDate:isoToDisplay(r.date), branch:r.branch, itemCode:r.itemCode, actualStock:r.qty, soldNotPicked, stockStatus:r.status });
       }
