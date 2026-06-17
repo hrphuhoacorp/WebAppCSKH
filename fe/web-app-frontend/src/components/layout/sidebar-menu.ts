@@ -100,12 +100,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: ShoppingCart,
                 roles: ['Super_Admin', 'Bán Hàng'],
             },
-            {
-                title: 'Kiểm quà NXT',
-                href: '/dashboard/sales/nxt',
-                icon: GiftIcon,
-                roles: ['Super_Admin', 'Bán Hàng'],
-            },
+
         ],
     },
     {

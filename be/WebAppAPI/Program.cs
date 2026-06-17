@@ -13,7 +13,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
 using WebAppInfractor.Data;
-using WebAppAPI.Services;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -230,7 +229,6 @@ builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IInternalNewsService, InternalNewsService>();
 builder.Services.AddScoped<IGiftBasketService, GiftBasketService>();
 builder.Services.AddScoped<IMessageReportService, MessageReportService>();
-builder.Services.AddScoped<NxtService>();
 
 //context
 builder.Services.AddHttpContextAccessor();

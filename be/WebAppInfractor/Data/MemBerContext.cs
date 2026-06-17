@@ -44,13 +44,6 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<GiftCodeMapping> GiftCodeMappings { get; set; }
     public virtual DbSet<GiftCodeChangeRequest> GiftCodeChangeRequests { get; set; }
 
-    public virtual DbSet<NxtGiftIn> NxtGiftIns { get; set; }
-    public virtual DbSet<NxtStockCount> NxtStockCounts { get; set; }
-    public virtual DbSet<NxtSapoSale> NxtSapoSales { get; set; }
-    public virtual DbSet<NxtSapoImport> NxtSapoImports { get; set; }
-    public virtual DbSet<NxtAdjustment> NxtAdjustments { get; set; }
-    public virtual DbSet<NxtClosing> NxtClosings { get; set; }
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(
@@ -797,123 +790,6 @@ public partial class MemBerContext : DbContext
                 .HasForeignKey(d => d.BranchId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("gift_ccr_branch_id_fkey");
-        });
-
-        modelBuilder.Entity<NxtGiftIn>(entity =>
-        {
-            entity.ToTable("nxt_gift_in");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ImportId).HasMaxLength(50).HasColumnName("import_id");
-            entity.Property(e => e.Date).HasMaxLength(10).HasColumnName("date");
-            entity.Property(e => e.Branch).HasMaxLength(50).HasColumnName("branch");
-            entity.Property(e => e.ItemCode).HasMaxLength(50).HasColumnName("item_code");
-            entity.Property(e => e.Sku).HasMaxLength(100).HasColumnName("sku");
-            entity.Property(e => e.ItemName).HasColumnName("item_name");
-            entity.Property(e => e.Qty).HasColumnName("qty");
-            entity.Property(e => e.Price).HasPrecision(18, 2).HasColumnName("price");
-            entity.Property(e => e.CodeType).HasMaxLength(100).HasColumnName("code_type");
-            entity.Property(e => e.Note).HasColumnName("note");
-            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("active").HasColumnName("status");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
-            entity.Property(e => e.CreatedBy).HasMaxLength(50).HasColumnName("created_by");
-            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
-        });
-
-        modelBuilder.Entity<NxtStockCount>(entity =>
-        {
-            entity.ToTable("nxt_stock_counts");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ImportId).HasMaxLength(50).HasColumnName("import_id");
-            entity.Property(e => e.Date).HasMaxLength(10).HasColumnName("date");
-            entity.Property(e => e.Branch).HasMaxLength(50).HasColumnName("branch");
-            entity.Property(e => e.ItemCode).HasMaxLength(50).HasColumnName("item_code");
-            entity.Property(e => e.Qty).HasColumnName("qty");
-            entity.Property(e => e.StockStatus).HasMaxLength(100).HasColumnName("stock_status");
-            entity.Property(e => e.Note).HasColumnName("note");
-            entity.Property(e => e.SourceText).HasColumnName("source_text");
-            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("active").HasColumnName("status");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
-            entity.Property(e => e.CreatedBy).HasMaxLength(50).HasColumnName("created_by");
-            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
-        });
-
-        modelBuilder.Entity<NxtSapoSale>(entity =>
-        {
-            entity.ToTable("nxt_sapo_sales");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ImportId).HasMaxLength(50).HasColumnName("import_id");
-            entity.Property(e => e.RowNo).HasColumnName("row_no");
-            entity.Property(e => e.Date).HasMaxLength(10).HasColumnName("date");
-            entity.Property(e => e.ProductType).HasMaxLength(100).HasColumnName("product_type");
-            entity.Property(e => e.Sku).HasMaxLength(100).HasColumnName("sku");
-            entity.Property(e => e.VariantName).HasColumnName("variant_name");
-            entity.Property(e => e.ItemCode).HasMaxLength(50).HasColumnName("item_code");
-            entity.Property(e => e.WarehouseStatus).HasMaxLength(100).HasColumnName("warehouse_status");
-            entity.Property(e => e.PaymentStatus).HasMaxLength(100).HasColumnName("payment_status");
-            entity.Property(e => e.OrderStatus).HasMaxLength(100).HasColumnName("order_status");
-            entity.Property(e => e.Branch).HasMaxLength(50).HasColumnName("branch");
-            entity.Property(e => e.SoldQty).HasColumnName("sold_qty");
-            entity.Property(e => e.NetSoldQty).HasColumnName("net_sold_qty");
-            entity.Property(e => e.OrderCount).HasColumnName("order_count");
-            entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
-            entity.Property(e => e.NetRevenue).HasPrecision(18, 2).HasColumnName("net_revenue");
-            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("active").HasColumnName("status");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
-            entity.Property(e => e.CreatedBy).HasMaxLength(50).HasColumnName("created_by");
-        });
-
-        modelBuilder.Entity<NxtSapoImport>(entity =>
-        {
-            entity.ToTable("nxt_sapo_imports");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ImportId).HasMaxLength(50).HasColumnName("import_id");
-            entity.Property(e => e.FileName).HasColumnName("file_name");
-            entity.Property(e => e.ImportDate).HasColumnName("import_date");
-            entity.Property(e => e.RowsRead).HasColumnName("rows_read");
-            entity.Property(e => e.RowsSaved).HasColumnName("rows_saved");
-            entity.Property(e => e.DateMin).HasMaxLength(10).HasColumnName("date_min");
-            entity.Property(e => e.DateMax).HasMaxLength(10).HasColumnName("date_max");
-            entity.Property(e => e.TotalNetQty).HasColumnName("total_net_qty");
-            entity.Property(e => e.TotalRevenue).HasPrecision(18, 2).HasColumnName("total_revenue");
-            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("active").HasColumnName("status");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
-            entity.Property(e => e.CreatedBy).HasMaxLength(50).HasColumnName("created_by");
-        });
-
-        modelBuilder.Entity<NxtAdjustment>(entity =>
-        {
-            entity.ToTable("nxt_adjustments");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.ImportId).HasMaxLength(50).HasColumnName("import_id");
-            entity.Property(e => e.Date).HasMaxLength(10).HasColumnName("date");
-            entity.Property(e => e.Branch).HasMaxLength(50).HasColumnName("branch");
-            entity.Property(e => e.WrongCode).HasMaxLength(50).HasColumnName("wrong_code");
-            entity.Property(e => e.RightCode).HasMaxLength(50).HasColumnName("right_code");
-            entity.Property(e => e.Qty).HasColumnName("qty");
-            entity.Property(e => e.Reason).HasMaxLength(100).HasDefaultValue("Đổi mã tạm/nhập nhầm").HasColumnName("reason");
-            entity.Property(e => e.Note).HasColumnName("note");
-            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("active").HasColumnName("status");
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
-            entity.Property(e => e.CreatedBy).HasMaxLength(50).HasColumnName("created_by");
-            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
-        });
-
-        modelBuilder.Entity<NxtClosing>(entity =>
-        {
-            entity.ToTable("nxt_closings");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Date).HasMaxLength(10).HasColumnName("date");
-            entity.Property(e => e.Branch).HasMaxLength(50).HasColumnName("branch");
-            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("closed").HasColumnName("status");
-            entity.Property(e => e.Note).HasColumnName("note");
-            entity.Property(e => e.ClosedAt).HasDefaultValueSql("now()").HasColumnName("closed_at");
-            entity.Property(e => e.ClosedBy).HasMaxLength(50).HasColumnName("closed_by");
         });
 
         OnModelCreatingPartial(modelBuilder);
