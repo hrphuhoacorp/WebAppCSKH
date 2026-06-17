@@ -63,43 +63,12 @@ jobs:
           script: |
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # 1. Backup media files từ container cũ (trước khi xóa)
-            echo "Backing up media files..."
-            docker cp ${{ env.CONTAINER_NAME }}:/data/phf-media /tmp/phf-media-backup 2>/dev/null || echo "No old container or media folder"
+            cd /opt/phf-crm/source/WebAppCSKH
+            git pull origin main
 
-            # 2. Xóa container cũ
-            echo "Removing old container..."
-            docker rm -f ${{ env.CONTAINER_NAME }} || true
+            cd /opt/phf-crm
+            docker compose pull api || true
+            docker compose up -d --build api
 
-            # 3. Tạo thư mục media trên host nếu chưa có
-            mkdir -p ${{ env.MEDIA_PATH }}
-
-            # 4. Restore backup vào thư mục host
-            if [ -d "/tmp/phf-media-backup" ]; then
-              echo "Restoring media files..."
-              cp -r /tmp/phf-media-backup/* ${{ env.MEDIA_PATH }}/ 2>/dev/null || true
-              rm -rf /tmp/phf-media-backup
-            fi
-
-            # 5. Pull image mới
-            echo "Pulling new image..."
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-            # 6. Chạy container mới VỚI VOLUME MOUNT
-            echo "Starting new container..."
-            docker run -d \
-              --name ${{ env.CONTAINER_NAME }} \
-              -p ${{ env.PORT_HOST }}:${{ env.PORT_CONTAINER }} \
-              -v ${{ env.MEDIA_PATH }}:/data/phf-media \
-              -e ASPNETCORE_URLS=http://+:${{ env.PORT_CONTAINER }} \
-              --restart always \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-            # 7. Cleanup
             docker image prune -f
-
-            # 8. Verify
-            echo "Container started successfully!"
-            docker ps | grep ${{ env.CONTAINER_NAME }}
-            echo "Media files on host:"
-            ls -la ${{ env.MEDIA_PATH }}/ 2>/dev/null || echo "Media folder empty"
+            docker ps
