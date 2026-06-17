@@ -44,6 +44,7 @@ builder.Services.AddScoped<IGiftBasketRepository, GiftBasketRepository>();
 builder.Services.AddScoped<IGiftCodeMappingRepository, GiftCodeMappingRepository>();
 builder.Services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
 builder.Services.AddScoped<IMessageReportRepository, MessageReportRepository>();
+
 //Cache
 builder.Services.AddMemoryCache();
 
@@ -241,26 +242,6 @@ var app = builder.Build();
 
 // 1. CHỈ GỌI UseCors MỘT LẦN, đặt ở đầu pipeline
 app.UseCors("AllowAllOrigins");
-
-// 2. Middleware thêm CORS cho static files - ĐẶT SAU UseCors
-app.Use(
-    async (context, next) =>
-    {
-        // Thêm CORS headers cho tất cả static files
-        context.Response.OnStarting(() =>
-        {
-            if (context.Request.Path.StartsWithSegments("/media"))
-            {
-                context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
-                context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, OPTIONS");
-                context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
-            }
-            return Task.CompletedTask;
-        });
-
-        await next();
-    }
-);
 
 // 3. Static files middleware
 app.UseStaticFiles();
