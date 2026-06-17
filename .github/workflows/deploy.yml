@@ -51,6 +51,10 @@ jobs:
     needs: build-and-push
 
     steps:
+      # BƯỚC QUAN TRỌNG: Chuyển tên Repo thành chữ thường (lowercase) ở tầng deploy
+      - name: Set lowercase image name
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Deploy trực tiếp trên máy local
         run: |
           # 1. Đăng nhập vào GitHub Container Registry tại local
@@ -60,9 +64,11 @@ jobs:
           cd /opt/phf-crm/source/WebAppCSKH
           git pull origin main
 
-          # 3. Di chuyển ra thư mục chứa docker-compose và deploy cấu hình mới
+          # 3. Di chuyển ra thư mục chứa docker-compose và pull đúng bản image chữ thường
           cd /opt/phf-crm
-          docker compose pull api || true
+          
+          # Dùng biến IMAGE_NAME viết thường để pull tránh lỗi uppercase của Docker
+          docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest || true
           docker compose up -d --build api
 
           # 4. Dọn dẹp các ảnh docker cũ bị thừa để tránh đầy ổ cứng
