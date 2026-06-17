@@ -243,6 +243,7 @@ public class InternalNewsService : IInternalNewsService
             throw new NotFoundException("Không tìm thấy bài viết");
 
         var createdAtBackup = news.CreatedAt;
+        
         news.Status = "draft";
 
         await _internalNewsRepository.Update(news);
