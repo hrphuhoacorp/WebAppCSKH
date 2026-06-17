@@ -10,6 +10,7 @@ import {
     MailCheck,
     ArrowLeftRight,
     Library,
+    Import,
 } from 'lucide-react';
 import React from 'react';
 
@@ -100,6 +101,12 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: ShoppingCart,
                 roles: ['Super_Admin', 'Bán Hàng'],
             },
+            {
+                title: 'Kiểm quà XNT',
+                href: '/dashboard/sales/xnt',
+                icon: Import,
+                roles: ['Super_Admin', 'Bán Hàng'],
+            }
 
         ],
     },

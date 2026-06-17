@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PHF NXT Giỏ Quà - Web Prototype v0.5.12</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --green-dark:#06342e; --green-mid:#0d634e; --green:#58ad28; --green-soft:#eef8e7;
+      --text:#0b2f2a; --muted:#6f8580; --line:#dfead9; --danger:#dc3545; --amber:#f6a609;
+      --shadow:0 18px 50px rgba(11,47,42,.12); --radius:22px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#f6fbf3,#eef8e7);color:var(--text)}
+    .hero{background:linear-gradient(135deg,#073b32,#0d634e 55%,#68b42a);color:#fff;padding:22px 18px 36px;border-bottom-left-radius:32px;border-bottom-right-radius:32px;box-shadow:var(--shadow)}
+    .wrap{max-width:1380px;margin:0 auto}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:16px}
+    .logo-box{width:260px;height:66px;display:flex;align-items:center;overflow:hidden}
+    .logo-box img{max-width:260px;max-height:66px;object-fit:contain}
+    .title h1{margin:0 0 4px;font-size:25px;line-height:1.1}
+    .title p{margin:0;color:rgba(255,255,255,.82);font-size:14px}
+    .top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .user-pill{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.13);border-radius:999px;padding:9px 13px;font-weight:700;white-space:nowrap}
+    .main,.login-screen{max-width:1380px;margin:-22px auto 40px;padding:0 16px}
+    .login-screen{max-width:560px}
+    .card,.login-card{background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+    .panel-title{margin:0 0 6px;font-size:22px}
+    .muted{color:var(--muted);font-size:14px;margin:0}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+    .tab{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer}
+    .tab.active{background:var(--green-dark);color:#fff;border-color:var(--green-dark)}
+    .filters,.simple-form{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+    .simple-form{grid-template-columns:repeat(3,1fr);margin-top:14px}
+    .full{grid-column:1/-1}
+    label{display:block;font-size:13px;color:var(--muted);font-weight:700;margin-bottom:7px}
+    input,select,textarea{width:100%;border:1px solid var(--line);border-radius:15px;padding:12px 13px;font-size:15px;background:#fff;color:var(--text);outline:none;font-family:Arial,Helvetica,sans-serif}
+    textarea{min-height:140px;resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 4px rgba(88,173,40,.12)}
+    .button-row,.login-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px}
+    .btn{border:0;border-radius:15px;padding:12px 16px;font-weight:850;background:var(--green);color:#fff;cursor:pointer}
+    .btn:hover{filter:brightness(.98)}
+    .btn.ghost{background:#eef7e9;color:var(--green-dark)}
+    .btn.dark{background:var(--green-dark)}
+    .btn.danger{background:var(--danger)}
+    .hint,.placeholder-box,.demo-codes{background:#f4fbf1;border:1px dashed #b9daa9;border-radius:16px;padding:12px;color:#46625b;font-size:13px;line-height:1.5;margin-bottom:12px}
+    .warnbox{background:#fff8e7;border-color:#f1db9a;color:#6b4a00}
+    .login-error{display:none;margin-top:10px;color:#b00020;font-size:13px;font-weight:700}
+    .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+    .kpi{background:linear-gradient(180deg,#fff,#f9fcf7);border:1px solid var(--line);border-radius:18px;padding:14px}
+    .kpi span{display:block;font-size:12px;color:var(--muted);font-weight:750}
+    .kpi b{display:block;font-size:22px;margin-top:6px}
+    .note-grid{display:grid;grid-template-columns:1.1fr .95fr .95fr;gap:12px;margin-top:14px}
+    .note-card{border-radius:18px;padding:14px 15px;border:1px solid var(--line);background:#fff}
+    .note-card h3{margin:0 0 8px;font-size:15px}
+    .note-card p,.note-card li{font-size:13px;line-height:1.45;color:#35524b}
+    .note-card ul{margin:0;padding-left:18px}
+    .note-card.formula{background:#f4fbf1;border-color:#cfe7c0}.note-card.warning{background:#fff8e7;border-color:#f1db9a}.note-card.info{background:#f5f8fb;border-color:#d5e0ea}
+    .table-box{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:16px;background:#fff;margin-top:14px}
+    table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+    th,td{padding:10px;border-bottom:1px solid #edf3e9;text-align:left;vertical-align:top}
+    th{font-size:12px;color:#5c716d;background:#f6fbf2;position:sticky;top:0;z-index:1}
+    .right{text-align:right}
+    .badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:850;background:#eef7e9;color:#276c16}
+    .badge.bad{background:#ffe7e9;color:#b00020}.badge.warn{background:#fff4d9;color:#9b6400}.badge.info{background:#edf4ff;color:#0b4b82}
+    .screen{display:none}.screen.active{display:block}.app-hidden{display:none!important}.role-hidden{display:none!important}
+    .preview-title{margin:16px 0 8px;font-size:15px;font-weight:850}
+    .clickable-row{cursor:pointer}.clickable-row:hover{background:#fbfff7}
+
+    .check-day-list{margin-top:12px}
+    .check-day-board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-items:start}
+    .check-branch-card{border:1px solid #f1db9a;background:#fffdf7;border-radius:18px;overflow:hidden;box-shadow:0 8px 20px rgba(103,71,0,.06)}
+    .check-branch-head{background:#fff8e7;border-bottom:1px solid #f1db9a;padding:11px 12px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+    .check-branch-head b{color:#0b2f2a;font-size:15px;white-space:nowrap}
+    .check-branch-head span{font-size:12px;color:#7a5200;font-weight:800;text-align:right;line-height:1.35}
+    .check-branch-list{padding:8px;display:flex;flex-direction:column;gap:7px;max-height:330px;overflow:auto}
+    .check-day-item{width:100%;border:1px solid #f3ddb1;background:#fff;border-radius:13px;padding:9px 10px;text-align:left;cursor:pointer;color:#674700;font-family:Arial,Helvetica,sans-serif}
+    .check-day-item:hover{background:#fff8e7}
+    .check-date{display:block;font-weight:900;color:#0b2f2a;font-size:13px;margin-bottom:3px}
+    .check-stat{display:block;font-weight:850;font-size:12px;color:#7a5200;margin-bottom:2px}
+    .check-codes{display:block;font-size:11px;color:#7b6530;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .check-day-empty{border:1px dashed #d9e8d2;background:#f7fbf3;border-radius:13px;padding:14px;text-align:center;color:#5f7a70;font-weight:800;font-size:13px}
+    .check-day-chip{border:1px solid #f1db9a;background:#fff8e7;color:#674700;border-radius:16px;padding:10px 12px;font-weight:800;cursor:pointer}
+    .check-day-chip:hover{filter:brightness(.98)}
+    .check-day-chip b{color:#0b2f2a}
+    .check-day-chip .small{display:block;font-size:12px;font-weight:600;color:#6f5a22;margin-top:4px}
+    .mini-input{padding:8px 10px;border-radius:10px;font-size:13px}
+    .check-day-chip.compact{padding:8px 10px;font-size:13px;min-width:190px;max-width:260px;line-height:1.35}
+    .check-day-chip.compact span{font-weight:700;color:#7a5200}
+    .check-day-chip.compact small{display:block;margin-top:3px;color:#7b6530;font-weight:600}
+    .tool-card{background:#f4fbf1;border:1px dashed #b9daa9;border-radius:16px;padding:12px;margin:10px 0;color:#35524b;font-size:13px;line-height:1.45}
+    .tool-card b{color:#06342e}
+    .ocr-card{display:flex;flex-direction:column;gap:10px}
+    .ocr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+    .ocr-head span{font-size:12px;color:#56726b;font-weight:600}
+    .ocr-action{align-self:stretch;width:100%;font-weight:900;box-shadow:0 10px 22px rgba(6,52,46,.12);display:inline-flex;justify-content:center;align-items:center}
+    .mini-note{font-size:12px;color:var(--muted);line-height:1.4}
+    .reason-cell{min-width:180px}
+
+    .row-labels{display:flex;flex-direction:column;gap:4px;min-width:112px}
+    .transfer-note{display:flex;flex-direction:column;gap:4px;min-width:96px}
+    .transfer-badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:850;white-space:nowrap}
+    .transfer-badge.out{background:#fff3cd;color:#805300;border:1px solid #f1db9a}
+    .transfer-badge.in{background:#e7f5ff;color:#075985;border:1px solid #bae6fd}
+    .stock-note{margin-top:4px}.stock-badge{display:inline-block;border-radius:999px;padding:3px 7px;font-size:11px;font-weight:850;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;white-space:nowrap}
+
+    .stock-badge.dtt{background:#e7f5ff;color:#075985;border-color:#bae6fd}
+    .stock-badge.ctt{background:#fff8e7;color:#8a5a00;border-color:#f1db9a}
+    .stock-badge.sourcewarn{background:#fff1f2;color:#be123c;border-color:#fecdd3}
+    .app-popup-overlay{position:fixed;inset:0;background:rgba(6,52,46,.24);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}
+    .app-popup-overlay.show{display:flex}
+    .app-popup{width:min(430px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 24px 80px rgba(6,52,46,.24);padding:18px;text-align:left}
+    .app-popup-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .app-popup-title{font-weight:900;font-size:18px;color:var(--green-dark)}
+    .app-popup-message{white-space:pre-line;color:#35524b;font-size:14px;line-height:1.45;margin:8px 0 14px}
+    .app-popup-spinner{width:18px;height:18px;border:3px solid #dbead4;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
+    .app-popup-actions{text-align:right}.app-popup-ok{border:0;border-radius:13px;background:var(--green-dark);color:white;font-weight:850;padding:10px 14px;cursor:pointer}
+    .app-popup-overlay.error .app-popup-title{color:#b00020}.app-popup-overlay.success .app-popup-title{color:#276c16}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:900px){.topbar{align-items:flex-start;flex-direction:column}.filters,.simple-form,.kpis,.note-grid,.check-day-board{grid-template-columns:1fr}.logo-box{width:210px;height:54px}.logo-box img{max-width:210px;max-height:54px}}
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap topbar">
+      <div class="brand">
+        <div class="logo-box"><img src="assets/phf-logo.png" alt="Phuhoa Fresh"></div>
+        <div class="title">
+          <h1>Kiểm quà</h1>
+          <p>Gói ra · Sapo bán · Tồn cuối ngày · Gợi ý lệch</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="user-pill" id="currentUserPill">Chưa đăng nhập</div>
+        <button class="btn ghost app-hidden" id="btnLogoutTop" type="button">Đăng xuất</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <h2 class="panel-title">Đăng nhập</h2>
+      <p class="muted">Nhập mã để vào màn hình làm việc.</p>
+      <div style="margin-top:14px">
+        <label>Mã đăng nhập</label>
+        <input id="loginCodeInput" placeholder="Ví dụ: ADMIN1, PL, NQ, LT, QUA">
+      </div>
+      <div class="login-actions">
+        <button class="btn" id="btnLogin" type="button">Đăng nhập</button>
+        <button class="btn ghost" id="btnDemoAdmin" type="button">Vào nhanh Admin</button>
+      </div>
+      <div class="login-error" id="loginError">Mã đăng nhập không đúng hoặc chưa được mở quyền.</div>
+      <div class="demo-codes">
+        <b>Mã đăng nhập:</b><br>
+        ADMIN1 hoặc TC: Admin/Trưởng ca full quyền<br>
+        PL/NQ/LT/QUA: Nhân viên nhập liệu, xem Tổng quan, không upload Sapo<br>
+        Nhân viên chỉ gửi đề xuất sai mã; Admin/Trưởng ca mới áp dụng điều chỉnh
+      </div>
+    </div>
+  </section>
+
+  <main class="main app-hidden" id="appMain">
+    <section class="card">
+      <h2 class="panel-title">Bảng tổng quan</h2>
+      <p class="muted">Xem nhanh số liệu theo ngày và chi nhánh.</p>
+      <div class="tabs">
+        <button class="tab active" data-tab="overview" data-roles="admin,employee">Tổng quan</button>
+        <button class="tab" data-tab="giftIn" data-roles="admin,employee">Gói ra</button>
+        <button class="tab" data-tab="stockCount" data-roles="admin,employee">Tồn CN</button>
+        <button class="tab" data-tab="cancelBasket" data-roles="admin,employee">Hủy giỏ</button>
+        <button class="tab" data-tab="sapoImport" data-roles="admin">Nạp Sapo</button>
+        <button class="tab" data-tab="wrongCode" data-roles="admin,employee">Sai mã</button>
+      </div>
+    </section>
+
+    <section class="card screen active" id="screen-overview">
+      <div class="filters">
+        <div><label>Từ ngày</label><input id="dateFrom" type="date" value="2026-06-15"></div>
+        <div><label>Đến ngày</label><input id="dateTo" type="date" value="2026-06-15"></div>
+        <div>
+          <label>Chi nhánh</label>
+          <select id="overviewBranchFilter">
+            <option>Tất cả</option><option>Phú Lợi</option><option>Ngô Quyền</option><option>Lái Thiêu</option>
+          </select>
+        </div>
+        <div>
+          <label>Bộ lọc</label>
+          <select id="overviewStatusFilter">
+            <option value="all">Tất cả</option>
+            <option value="diff">Chỉ dòng lệch</option>
+            <option value="match">Chỉ dòng khớp</option>
+            <option value="soldNotPicked">DTT/đã bán chưa lấy</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn" type="button" id="btnRefreshOverview">Làm mới Tổng quan</button>
+        <button class="btn ghost" id="btnExportCsv" type="button">Xuất Excel dữ liệu đang xem</button>
+      </div>
+
+      <div class="hint">
+        Nguyên tắc dễ nhớ: so số giỏ đếm thực tế với số giỏ hệ thống đang tính là còn lại.
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><span>Tồn đầu</span><b id="kpiOpeningStock">0</b></div>
+        <div class="kpi"><span>Gói ra</span><b id="kpiGiftIn">0</b></div>
+        <div class="kpi"><span>Nhận CN</span><b id="kpiReceiveBranch">0</b></div>
+        <div class="kpi"><span>Chuyển CN</span><b id="kpiTransferBranch">0</b></div>
+        <div class="kpi"><span>Hủy giỏ</span><b id="kpiCancelBasket">0</b></div>
+        <div class="kpi"><span>Sapo bán</span><b id="kpiSapoSold">0</b></div>
+        <div class="kpi"><span>Tồn thực tế</span><b id="kpiActualStock">0</b></div>
+        <div class="kpi"><span>DTT/đã bán chưa lấy</span><b id="kpiSoldNotPicked">0</b></div>
+        <div class="kpi"><span>Dòng lệch</span><b id="kpiDiffRows">0</b></div>
+        <div class="kpi"><span>Số đơn</span><b id="kpiOrderCount">0</b></div>
+        <div class="kpi"><span>Sapo cập nhật đến</span><b id="kpiSapoUpdated">Chưa nạp</b></div>
+        <div class="kpi"><span>Doanh thu</span><b id="kpiRevenue">0</b></div>
+      </div>
+
+      <h3 class="preview-title">Ngày cần kiểm tra</h3>
+      <div class="placeholder-box warnbox">
+        Bảng gom theo 3 chi nhánh để dễ kiểm. “Mức cần kiểm” là tổng số lệch theo trị tuyệt đối, giúp ưu tiên ngày lệch nhiều trước. Bấm vào từng dòng để lọc đúng ngày, đúng chi nhánh, chỉ hiện dòng lệch.
+      </div>
+      <div id="checkDaysRows" class="check-day-list">
+        <div class="check-day-chip">Chưa có dữ liệu lệch.</div>
+      </div>
+
+      <div class="note-grid">
+        <div class="note-card formula"><h3>🧮 Cách app tính dễ hiểu</h3><p><b>Tồn thực tế</b> là số giỏ nhân viên đếm thấy tại quầy/kho. Số này được đem qua làm <b>Tồn đầu ngày sau</b>.</p><p><b>Tồn còn lại theo app</b> = Tồn đầu + Gói ra + Nhận CN - Chuyển CN - Sapo bán - Hủy giỏ ± Điều chỉnh khác.</p><p>Nếu số này âm khi có Chuyển CN, app sẽ gắn cảnh báo <b>Chuyển CN thiếu nguồn</b>: đã gửi đi nhưng thiếu tồn đầu/gói ra/nhận CN để chứng minh nguồn.</p><p><b>Tồn so sánh</b> = Tồn thực tế - DTT/đã bán nhưng khách chưa lấy.</p><p><b>Lệch</b> = Tồn so sánh - Tồn còn lại theo app.</p><p><b>CTT</b> vẫn nằm trong tồn thực tế và chỉ là nhãn nhắc kiểm tra. <b>DTT</b> mới vào cột đã bán/chưa lấy để trừ khi so lệch.</p></div>
+        <div class="note-card warning"><h3>📌 Hiểu nhanh</h3><ul><li>Lệch = 0: khớp, yên tâm.</li><li>Lệch &gt; 0: thực tế đang dư so với app.</li><li>Lệch &lt; 0: thực tế đang thiếu so với app.</li></ul></div>
+        <div class="note-card info"><h3>😄 Gợi ý nguyên nhân</h3><ul><li>App chỉ nghi ngờ để mình kiểm nhanh hơn, chưa kết luận thay người kiểm.</li><li>Có bán nhưng không có tồn đầu/gói ra: kiểm sai mã hoặc thiếu tồn đầu.</li><li>Có luân chuyển: đối chiếu gửi/nhận CN.</li></ul></div>
+      </div>
+
+      <div class="table-box">
+        <table>
+          <thead>
+            <tr>
+              <th>Ngày chốt</th><th>CN</th><th>Mã</th><th>Nhãn kiểm</th><th class="right">Tồn đầu</th><th class="right">Gói ra</th><th class="right">Nhận CN</th><th class="right">Chuyển CN</th><th class="right">Hủy</th><th class="right">Sapo bán</th><th class="right">Điều chỉnh</th><th class="right">Tồn thực tế</th><th class="right">DTT/đã bán chưa lấy</th><th class="right">Tồn so sánh</th><th class="right">Tồn còn lại theo app</th><th>Lệch</th><th class="reason-cell">Gợi ý kiểm tra</th>
+            </tr>
+          </thead>
+          <tbody id="dashboardRows"><tr><td colspan="17">Đang tải dữ liệu mẫu...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card screen" id="screen-giftIn">
+      <h2 class="panel-title">Gói ra</h2>
+      <p class="muted">Dán danh sách gói ra để app đọc thử mã và số lượng.</p>
+      <div class="simple-form">
+        <div><label>Ngày</label><input id="giftInDate" type="date" value="2026-06-15"></div>
+        <div><label>Chi nhánh nhận</label><select id="giftInBranch"><option>Phú Lợi</option><option>Ngô Quyền</option><option>Lái Thiêu</option></select></div>
+        <div><label>Loại mã</label><select id="giftInCodeType"><option>Mã Sapo có sẵn</option><option>Mã SON/đơn khách tự lựa</option><option>Mã tạm/chưa có Sapo</option></select></div>
+        <div class="full"><label>Dán danh sách gói ra</label><textarea id="giftInText" placeholder="H1135 2&#10;H1094A 1&#10;GT2013&#10;H1045F 1+1"></textarea><div class="tool-card ocr-card"><div class="ocr-head"><b>Chuyển ảnh thành text</b><span>OCR mở ở tab mới. Chuyển ảnh Zalo xong, copy text dán lại vào ô này.</span></div><button class="btn dark ocr-action btnOpenOcr" type="button">📷 Chuyển ảnh thành text</button></div></div>
+      </div>
+      <div class="button-row"><button class="btn" id="btnPreviewGiftIn" type="button">Đọc thử</button><button class="btn ghost" id="btnAddGiftInToSample" type="button">Cộng vào dữ liệu mẫu</button><button class="btn ghost" id="btnClearGiftIn" type="button">Xóa nhập thử</button></div>
+      <h3 class="preview-title">Bảng xem trước gói ra</h3>
+      <div class="table-box"><table><thead><tr><th>Ngày</th><th>Chi nhánh</th><th>Mã giỏ</th><th class="right">SL</th><th>Loại mã</th><th>Dòng gốc</th></tr></thead><tbody id="giftInPreviewRows"><tr><td colspan="6">Chưa có dữ liệu.</td></tr></tbody></table></div>
+    </section>
+
+    <section class="card screen" id="screen-stockCount">
+      <h2 class="panel-title">Tồn CN</h2>
+      <p class="muted">Dán danh sách tồn thực tế cuối ngày của chi nhánh.</p>
+      <div class="simple-form">
+        <div><label>Ngày kiểm</label><input id="stockDate" type="date" value="2026-06-15"></div>
+        <div><label>Chi nhánh</label><select id="stockBranch"><option>Phú Lợi</option><option>Ngô Quyền</option><option>Lái Thiêu</option></select></div>
+        <div><label>Trạng thái mặc định</label><select id="stockDefaultStatus"><option>Tồn bình thường</option><option>Đã thanh toán - khách chưa lấy</option><option>Chưa thanh toán - giữ giỏ</option><option>Chờ xử lý khác</option></select></div>
+        <div class="full"><label>Dán danh sách tồn thực tế / chuyển CN</label><textarea id="stockText" placeholder="H1135 1&#10;GT2013 2&#10;H1045F 1 dtt&#10;H1094A ctt 1&#10;H1136 1 chuyển NQ"></textarea><div class="tool-card ocr-card"><div class="ocr-head"><b>Mẫu đọc được:</b><span>DTT, CTT, chuyển chi nhánh đều đọc được. Có ảnh thì dùng nút chuyển ảnh thành text.</span></div><div class="mini-note">H1045F 1 dtt = đã thanh toán/chưa lấy 1<br>H1094A ctt 1 = chưa thanh toán/giữ giỏ 1<br>H1045F dtt 2 hoặc H1094A ctt 1 vẫn đọc được<br>H1136 1 chuyển NQ = CN hiện tại gửi, NQ nhận</div><button class="btn dark ocr-action btnOpenOcr" type="button">📷 Chuyển ảnh thành text</button></div></div>
+      </div>
+      <div class="button-row"><button class="btn" id="btnPreviewStock" type="button">Đọc thử tồn</button><button class="btn ghost" id="btnApplyStockToSample" type="button">Cập nhật tồn mẫu</button><button class="btn ghost" id="btnClearStock" type="button">Xóa nhập thử</button></div>
+      <div class="placeholder-box">
+        Tồn thực tế là số đang nằm tại quầy. Nếu giỏ <b>đã thanh toán/chưa lấy</b>, ghi DTT để app trừ khi so lệch. Nếu giỏ <b>chưa thanh toán/giữ giỏ</b>, ghi CTT để gắn nhãn kiểm, không đưa vào cột DTT.<br>Tồn đầu ngày hôm sau app lấy theo <b>Tồn thực tế</b> cuối ngày trước — đúng số nhân viên đếm thấy. DTT/CTT chỉ dùng để hỗ trợ kiểm lệch trong ngày.<br>
+        Chuyển CN nhập ngay trong ô tồn: <b>H1136 1 chuyển NQ</b>, app tự tạo dòng Gửi/Nhận.
+      </div>
+      <h3 class="preview-title">Bảng xem trước tồn CN</h3>
+      <div class="table-box"><table><thead><tr><th>Ngày</th><th>Chi nhánh</th><th>Mã giỏ</th><th class="right">SL</th><th>Trạng thái</th><th>Chuyển tới</th><th>Dòng gốc</th></tr></thead><tbody id="stockPreviewRows"><tr><td colspan="7">Chưa có dữ liệu.</td></tr></tbody></table></div>
+    </section>
+
+    <section class="card screen" id="screen-cancelBasket">
+      <h2 class="panel-title">Hủy giỏ</h2>
+      <p class="muted">Ghi nhận giỏ bị hủy/lỗi/tháo giỏ để trừ tồn dự kiến.</p>
+      <div class="simple-form">
+        <div><label>Ngày hủy</label><input id="cancelDate" type="date" value="2026-06-15"></div>
+        <div><label>Chi nhánh</label><select id="cancelBranch"><option>Phú Lợi</option><option>Ngô Quyền</option><option>Lái Thiêu</option></select></div>
+        <div><label>Lý do</label><select id="cancelReason"><option>Hủy giỏ do lỗi</option><option>Rã giỏ bán lẻ</option><option>Gói sai mẫu</option><option>Khách đổi mẫu</option><option>Khác</option></select></div>
+        <div class="full"><label>Dán danh sách hủy</label><textarea id="cancelText" placeholder="H1135 2&#10;GT2013 1&#10;H1045F 1+1&#10;TEMP01"></textarea><div class="tool-card ocr-card"><div class="ocr-head"><b>Chuyển ảnh thành text</b><span>Nếu danh sách hủy nằm trong ảnh Zalo, mở OCR rồi dán kết quả vào đây.</span></div><button class="btn dark ocr-action btnOpenOcr" type="button">📷 Chuyển ảnh thành text</button></div></div>
+      </div>
+      <div class="button-row"><button class="btn" id="btnPreviewCancel" type="button">Đọc thử hủy</button><button class="btn ghost" id="btnApplyCancelToSample" type="button">Cộng hủy vào mẫu</button></div>
+      <h3 class="preview-title">Bảng xem trước hủy giỏ</h3>
+      <div class="table-box"><table><thead><tr><th>Ngày</th><th>Chi nhánh</th><th>Mã giỏ</th><th class="right">SL</th><th>Lý do</th><th>Dòng gốc</th></tr></thead><tbody id="cancelPreviewRows"><tr><td colspan="6">Chưa có dữ liệu.</td></tr></tbody></table></div>
+    </section>
+
+    <section class="card screen" id="screen-sapoImport">
+      <h2 class="panel-title">Nạp Sapo</h2>
+      <p class="muted">Upload Excel .xlsx theo mẫu Sapo thật để đọc dữ liệu bán.</p>
+      <div class="simple-form">
+        <div class="full">
+          <label>File Excel Sapo (.xlsx)</label>
+          <input id="sapoFileInput" type="file" accept=".xlsx,.xls">
+        </div>
+      </div>
+      <div class="button-row"><button class="btn" id="btnReadSapoExcel" type="button">Đọc Excel Sapo</button><button class="btn ghost" id="btnApplySapoExcel" type="button">Cập nhật Sapo theo file mới nhất</button><button class="btn danger" id="btnUndoLastSapoUpload" type="button">Hoàn tác Sapo vừa cập nhật</button></div>
+      <div class="placeholder-box warnbox">Nguyên tắc an toàn: đọc thử trước, kiểm tra dòng đọc được rồi mới cập nhật. Nếu lỡ nạp sai, bấm <b>Hoàn tác Sapo vừa cập nhật</b> để hoàn tác lượt nạp gần nhất. Nguyên tắc nạp: nếu file không đổi, app giữ số cũ; nếu file có thay đổi, app cập nhật theo file mới nhất và không cộng trùng.</div>
+      <h3 class="preview-title">Dữ liệu Sapo đọc được</h3>
+      <div class="table-box"><table><thead><tr><th>Ngày</th><th>Chi nhánh</th><th>Mã</th><th class="right">SL bán</th><th class="right">Số đơn</th><th class="right">Doanh thu</th><th>Ghi chú</th></tr></thead><tbody id="sapoPreviewRows"><tr><td colspan="7">Chưa nạp Sapo.</td></tr></tbody></table></div>
+    </section>
+
+    <section class="card screen" id="screen-wrongCode">
+      <h2 class="panel-title">Sai mã / đổi mã tạm</h2>
+      <p class="muted">Điều chỉnh phải nằm đúng ngày phát sinh sai, không lấy ngày phát hiện.</p>
+      <div class="placeholder-box" id="wrongCodePermissionNote">Admin/Trưởng ca áp dụng điều chỉnh; Nhân viên chỉ gửi đề xuất.</div>
+      <div class="simple-form">
+        <div><label>Ngày phát sinh sai</label><input id="wrongCodeDate" type="date" value="2026-06-15"></div>
+        <div><label>Chi nhánh</label><select id="wrongCodeBranch"><option>Phú Lợi</option><option>Ngô Quyền</option><option>Lái Thiêu</option></select></div>
+        <div><label>Loại</label><select id="wrongCodeType"><option>Đổi mã tạm / nhập nhầm</option><option>Sai mã Sapo / check đơn</option></select></div>
+        <div>
+          <label>Nguồn phát sinh cần đổi</label>
+          <select id="tempCodeSource">
+            <option value="allInternal">Tất cả phát sinh nội bộ</option>
+            <option value="giftIn">Gói ra</option>
+            <option value="stock">Tồn CN</option>
+            <option value="cancel">Hủy giỏ</option>
+            <option value="transfer">Chuyển CN / Nhận CN</option>
+          </select>
+        </div>
+        <div><label>Mã sai / mã tạm</label><input id="wrongCodeInput" placeholder="Ví dụ: H1113"></div>
+        <div><label>Mã đúng</label><input id="rightCodeInput" placeholder="Ví dụ: H1136"></div>
+        <div><label>Số lượng</label><input id="wrongCodeQty" type="number" value="1"></div>
+        <div class="full"><label>Ghi chú</label><textarea id="wrongCodeNote" placeholder="Ví dụ: Sapo bán H1113, thực tế đúng H1136, điều chỉnh ngày 15/06."></textarea></div>
+      </div>
+      <div class="button-row"><button class="btn ghost" id="btnCheckTempCode" type="button">Kiểm tra mã / chi nhánh</button><button class="btn" id="btnApplyWrongCode" type="button">Áp dụng điều chỉnh</button><button class="btn ghost" id="btnClearAdjustments" type="button">Xóa log điều chỉnh</button></div>
+      <div class="placeholder-box" id="tempCodeCheckResult">Bấm <b>Kiểm tra mã / chi nhánh</b> trước khi áp dụng để biết mã đang nằm đúng CN, nhiều CN hay sai CN.</div>
+      <div class="placeholder-box">
+        <b>Đổi mã tạm / nhập nhầm:</b> dùng cho mã nhập từ Gói ra, Tồn CN, Hủy, Chuyển/Nhận CN. App chuyển phát sinh từ mã cũ sang mã đúng và ẩn mã cũ nếu đã hết phát sinh.<br>
+        <b>Sai mã Sapo / check đơn:</b> dùng khi file Sapo bán sai mã. App chuyển Sapo bán/doanh thu/số đơn từ mã sai sang mã đúng để Tổng quan không còn giữ mã sai như dòng chính.
+      </div>
+      <h3 class="preview-title">Lịch sử điều chỉnh / đề xuất sai mã</h3>
+      <div class="table-box"><table><thead><tr><th>Thời gian</th><th>Ngày</th><th>CN</th><th>Loại</th><th>Mã sai/tạm</th><th>Mã đúng</th><th class="right">SL</th><th>User</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody id="adjustmentRows"><tr><td colspan="10">Chưa có điều chỉnh/đề xuất.</td></tr></tbody></table></div>
+    </section>
+  </main>
+
+
+  <div class="app-popup-overlay" id="appPopupOverlay" aria-live="polite">
+    <div class="app-popup" role="dialog" aria-modal="true">
+      <div class="app-popup-head">
+        <span class="app-popup-spinner" id="appPopupSpinner"></span>
+        <div class="app-popup-title" id="appPopupTitle">Đang xử lý dữ liệu...</div>
+      </div>
+      <div class="app-popup-message" id="appPopupMessage">Vui lòng chờ trong giây lát.</div>
+      <div class="app-popup-actions"><button class="app-popup-ok" id="appPopupOk" type="button">Đã hiểu</button></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

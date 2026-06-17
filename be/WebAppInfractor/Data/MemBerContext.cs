@@ -44,12 +44,9 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<GiftCodeMapping> GiftCodeMappings { get; set; }
     public virtual DbSet<GiftCodeChangeRequest> GiftCodeChangeRequests { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseNpgsql(
-            "Host=aws-1-ap-southeast-1.pooler.supabase.com;Database=postgres;Username=postgres.uphzkplgxoayzowfdadd;Password=Phuhoafresh@342"
-        );
-    }
+    public virtual DbSet<NxtRow> NxtRows { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -790,6 +787,35 @@ public partial class MemBerContext : DbContext
                 .HasForeignKey(d => d.BranchId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("gift_ccr_branch_id_fkey");
+        });
+
+        modelBuilder.Entity<NxtRow>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("nxt_rows_pkey");
+            entity.ToTable("nxt_rows");
+
+            entity.HasIndex(e => new { e.CloseDate, e.Branch, e.ItemCode }, "idx_nxt_rows_key").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CloseDate).HasMaxLength(20).HasColumnName("close_date");
+            entity.Property(e => e.Branch).HasMaxLength(100).HasColumnName("branch");
+            entity.Property(e => e.ItemCode).HasMaxLength(100).HasColumnName("item_code");
+            entity.Property(e => e.OpeningStock).HasPrecision(18, 2).HasColumnName("opening_stock");
+            entity.Property(e => e.OpeningSource).HasColumnName("opening_source");
+            entity.Property(e => e.GiftIn).HasPrecision(18, 2).HasColumnName("gift_in");
+            entity.Property(e => e.ReceiveBranch).HasPrecision(18, 2).HasColumnName("receive_branch");
+            entity.Property(e => e.TransferBranch).HasPrecision(18, 2).HasColumnName("transfer_branch");
+            entity.Property(e => e.CancelBasket).HasPrecision(18, 2).HasColumnName("cancel_basket");
+            entity.Property(e => e.SapoSold).HasPrecision(18, 2).HasColumnName("sapo_sold");
+            entity.Property(e => e.Adjustment).HasPrecision(18, 2).HasColumnName("adjustment");
+            entity.Property(e => e.ActualStock).HasPrecision(18, 2).HasColumnName("actual_stock");
+            entity.Property(e => e.SoldNotPicked).HasPrecision(18, 2).HasColumnName("sold_not_picked");
+            entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
+            entity.Property(e => e.OrderCount).HasPrecision(18, 2).HasColumnName("order_count");
+            entity.Property(e => e.TransferNotes).HasColumnType("jsonb").HasColumnName("transfer_notes");
+            entity.Property(e => e.Inactive).HasColumnName("inactive").HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
         });
 
         OnModelCreatingPartial(modelBuilder);
