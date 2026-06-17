@@ -47,28 +47,24 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-and-push
 
     steps:
-      - name: Set lowercase image name
-        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+      - name: Deploy trực tiếp trên máy local
+        run: |
+          # 1. Đăng nhập vào GitHub Container Registry tại local
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          # 2. Di chuyển vào thư mục code và cập nhật source code mới nhất
+          cd /opt/phf-crm/source/WebAppCSKH
+          git pull origin main
 
-            cd /opt/phf-crm/source/WebAppCSKH
-            git pull origin main
+          # 3. Di chuyển ra thư mục chứa docker-compose và deploy cấu hình mới
+          cd /opt/phf-crm
+          docker compose pull api || true
+          docker compose up -d --build api
 
-            cd /opt/phf-crm
-            docker compose pull api || true
-            docker compose up -d --build api
-
-            docker image prune -f
-            docker ps
+          # 4. Dọn dẹp các ảnh docker cũ bị thừa để tránh đầy ổ cứng
+          docker image prune -f
+          docker ps
