@@ -129,7 +129,7 @@ const warnSx = { ...hintSx, bgcolor: '#fffbeb', borderColor: '#fcd34d', color: '
 
 /* table header */
 const thSx = { bgcolor: '#086839', color: '#fff', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', py: 1.5, textAlign: 'center', whiteSpace: 'nowrap', border: 'none' } as const;
-const thLSx = { ...thSx, textAlign: 'left' } as const; /* left-align header for text columns */
+const thLSx = { ...thSx } as const;
 
 /* ─── Tiny sub-components ────────────────────────────────────────────────────── */
 function FL({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
