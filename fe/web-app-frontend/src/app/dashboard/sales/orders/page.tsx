@@ -96,8 +96,8 @@ const sourceOption = [
     { id: 5, name: 'ShopeeMart', color: '#ff0000' },
     { id: 6, name: 'Livestream', color: '#6d02d1' },
     { id: 7, name: 'Pos', color: '#bcd102' },
-    { id: 6, name: 'Khác', color: '#464545' },
-
+    { id: 8, name: 'Khách đặt tại quầy', color: '#f97316' },
+    { id: 9, name: 'Khác', color: '#464545' },
 ];
 
 const getSourceStyle = (sourceName: string) => {

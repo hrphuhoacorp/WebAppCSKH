@@ -132,7 +132,7 @@ export default function DashboardPage() {
                     )}
                 </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(8,1fr)' }, gap: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(7,1fr)' }, gap: 2 }}>
                     {[
                         { label: 'Từ ngày', type: 'date', value: fromDate, onChange: setFromDate },
                         { label: 'Đến ngày', type: 'date', value: toDate, onChange: setToDate },
@@ -184,7 +184,7 @@ export default function DashboardPage() {
 
                     <TextField select size="small" label="Nguồn khách" value={source} onChange={(e) => setSource(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả các nguồn</MenuItem>
-                        {['Zalo', 'Facebook', 'GrabMark', 'ShopeeFood', 'Livestream'].map((s) => (
+                        {['Zalo', 'Facebook', 'GrabMart', 'ShopeeFood', 'ShopeeMart', 'Livestream', 'Pos', 'Khách đặt tại quầy', 'Khác'].map((s) => (
                             <MenuItem key={s} value={s}>{s}</MenuItem>
                         ))}
                     </TextField>

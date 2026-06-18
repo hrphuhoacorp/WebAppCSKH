@@ -202,7 +202,7 @@ export default function DashboardPage() {
 
                     <TextField select size="small" label="Nguồn khách" value={source} onChange={(e) => setSource(e.target.value)} fullWidth sx={filterFieldSx}>
                         <MenuItem value="">Tất cả các nguồn</MenuItem>
-                        {['Zalo', 'Facebook', 'GrabMark', 'ShopeeFood', 'Livestream'].map((s) => (
+                        {['Zalo', 'Facebook', 'GrabMart', 'ShopeeFood', 'ShopeeMart', 'Livestream'].map((s) => (
                             <MenuItem key={s} value={s}>{s}</MenuItem>
                         ))}
                     </TextField>

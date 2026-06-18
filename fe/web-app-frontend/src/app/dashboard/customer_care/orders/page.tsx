@@ -94,7 +94,7 @@ const sourceOption = [
     { id: 3, name: 'GrabMart', color: '#00B14F' },
     { id: 4, name: 'ShopeeFood', color: '#EE4D2D' },
     { id: 5, name: 'ShopeeMart', color: '#ff0000' },
-    { id: 6, name: 'Livestream', color:'#6d02d1'}
+    { id: 6, name: 'Livestream', color: '#6d02d1' },
 ];
 
 const getSourceStyle = (sourceName: string) => {

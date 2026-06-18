@@ -575,7 +575,7 @@ export default function NxtPage() {
             <Paper elevation={0} className="screen" id="screen-sapoImport" sx={cardSx}>
                 <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1e293b', mb: 0.5 }}>Nạp Sapo</Typography>
                 <Typography sx={{ color: '#6b7280', fontSize: 13, mb: 1.5 }}>Upload Excel .xlsx theo mẫu Sapo thật để đọc dữ liệu bán.</Typography>
-                    <Button id="btnDownloadSapoTemplate" variant="outlined" size="small" startIcon={<FileDownloadRounded sx={{ fontSize: '16px !important' }} />} sx={{ borderRadius: '10px', fontSize: 12,marginBottom:2, textTransform: 'none', borderColor: '#d1d5db', color: '#374151', '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: 'rgba(8,104,57,.04)' } }}>Tải file mẫu</Button>
+                <Button id="btnDownloadSapoTemplate" variant="outlined" size="small" startIcon={<FileDownloadRounded sx={{ fontSize: '16px !important' }} />} sx={{ borderRadius: '10px', fontSize: 12, marginBottom: 2, textTransform: 'none', borderColor: '#d1d5db', color: '#374151', '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: 'rgba(8,104,57,.04)' } }}>Tải file mẫu</Button>
                 <Box sx={{ mb: 1.5 }}>
                     <FL htmlFor="sapoFileInput">File Excel Sapo (.xlsx)</FL>
                     <Box component="input" id="sapoFileInput" type="file" accept=".xlsx,.xls" sx={{ ...inputSx, py: '8px', cursor: 'pointer' }} />
@@ -770,7 +770,7 @@ export default function NxtPage() {
             </div>
 
             <Script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" strategy="afterInteractive" />
-            <Script src="/nxt/app.js" strategy="afterInteractive"
+            <Script src="/nxt/nxt-core.js" strategy="afterInteractive"
                 onLoad={() => { scriptReady.current = true; tryBoot(); }} />
         </Box>
     );
