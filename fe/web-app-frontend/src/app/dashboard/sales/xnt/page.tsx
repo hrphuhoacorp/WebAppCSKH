@@ -770,7 +770,7 @@ export default function NxtPage() {
             </div>
 
             <Script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" strategy="afterInteractive" />
-            <Script src="/nxt/nxt-core.js" strategy="afterInteractive"
+            <Script src="/js/nxt-core.js" strategy="afterInteractive"
                 onLoad={() => { scriptReady.current = true; tryBoot(); }} />
         </Box>
     );
