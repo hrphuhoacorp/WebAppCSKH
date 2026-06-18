@@ -49,12 +49,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: Users,
                 roles: ['Super_Admin', 'Admin_Online', 'Online'],
             },
-            {
-                title: 'Tỉ lệ quay lại',
-                href: '/dashboard/customer_care/return_rate',
-                icon: TrendingUp,
-                roles: ['Super_Admin', 'Admin_Online', 'Online'],
-            },
+
 
         ],
     },
@@ -96,17 +91,29 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Bán Hàng',
         children: [
             {
+                title: 'Dashboard',
+                href: '/dashboard/sales/revenue_report',
+                icon: LayoutDashboard,
+                roles: ['Super_Admin', 'Bán Hàng'],
+            },
+            {
                 title: 'Danh sách đơn hàng',
                 href: '/dashboard/sales/orders',
                 icon: ShoppingCart,
                 roles: ['Super_Admin', 'Bán Hàng'],
             },
             {
-                title: 'Kiểm quà XNT',
+                title: 'Kiểm Giỏ Quà',
                 href: '/dashboard/sales/xnt',
                 icon: Import,
                 roles: ['Super_Admin', 'Bán Hàng'],
-            }
+            },
+            {
+                title: 'Tỉ lệ quay lại',
+                href: '/dashboard/sales/return_rate',
+                icon: TrendingUp,
+                roles: ['Super_Admin', 'Admin_Online', 'Online'],
+            },
 
         ],
     },

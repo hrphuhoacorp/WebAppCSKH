@@ -1,7 +1,7 @@
 import { api } from "@/services/axios";
 
 export const dashboardApi = {
-    getDashboard: async (data: {
+    getDashboardForOnline: async (data: {
         fromDate?: string | null;
         toDate?: string | null;
         month?: number;
@@ -10,7 +10,20 @@ export const dashboardApi = {
         branchId?: number;
         revenueGroupBy?: string
     }) => {
-        const response = await api.get("Dashboard/GetDashboardAsync", { params: data });
+        const response = await api.get("Dashboard/GetDashboardForOnlineAsync", { params: data });
+        return response.data;
+
+    },
+    getDashboardForSales: async (data: {
+        fromDate?: string | null;
+        toDate?: string | null;
+        month?: number;
+        year?: number;
+        source?: string;
+        branchId?: number;
+        revenueGroupBy?: string
+    }) => {
+        const response = await api.get("Dashboard/GetDashboardForSalesAsync", { params: data });
         return response.data;
 
     }

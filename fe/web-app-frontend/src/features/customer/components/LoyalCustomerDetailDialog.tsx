@@ -69,6 +69,12 @@ export default function LoyalCustomerDetailDialog({ customer, onClose, badge = '
 
     const totalItems = orders.reduce((s: number, o: any) => s + (o.items?.length ?? 0), 0);
 
+    const firstOrderDate = orderDates.length > 0 ? orderDates[0] : null;
+    const lastOrderDate = orderDates.length > 0 ? orderDates[orderDates.length - 1] : null;
+    const daysSinceCalc = lastOrderDate
+        ? Math.floor((Date.now() - lastOrderDate.getTime()) / (1000 * 60 * 60 * 24))
+        : -1;
+
     return (
         <Dialog
             open={open}
@@ -158,12 +164,18 @@ export default function LoyalCustomerDetailDialog({ customer, onClose, badge = '
 
                 {/* ── Secondary info chips ── */}
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 3 }}>
-                    <InfoChip label="Lần đầu mua" value={fmtDate(customer?.firstOrderAt)} />
-                    <InfoChip label="Lần cuối mua" value={fmtDate(customer?.lastOrderAt)} />
+                    <InfoChip
+                        label="Lần đầu mua"
+                        value={loading ? '...' : customer?.firstOrderAt ? fmtDate(customer.firstOrderAt) : firstOrderDate ? fmtDate(firstOrderDate.toISOString()) : '—'}
+                    />
+                    <InfoChip
+                        label="Lần cuối mua"
+                        value={loading ? '...' : customer?.lastOrderAt ? fmtDate(customer.lastOrderAt) : lastOrderDate ? fmtDate(lastOrderDate.toISOString()) : '—'}
+                    />
                     <InfoChip
                         label="Chưa mua"
-                        value={(customer?.daysSinceLastOrder ?? -1) >= 0 ? `${customer!.daysSinceLastOrder} ngày` : '—'}
-                        alert={(customer?.daysSinceLastOrder ?? 0) > 90}
+                        value={loading ? '...' : (customer?.daysSinceLastOrder ?? -1) >= 0 ? `${customer!.daysSinceLastOrder} ngày` : daysSinceCalc >= 0 ? `${daysSinceCalc} ngày` : '—'}
+                        alert={((customer?.daysSinceLastOrder ?? daysSinceCalc) > 90)}
                     />
                     <InfoChip label="Sản phẩm đã mua" value={loading ? '...' : `${totalItems} sản phẩm`} />
                 </Box>

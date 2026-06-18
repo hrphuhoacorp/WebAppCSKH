@@ -57,14 +57,6 @@ const BRANCH_ALIASES = {
 
 const VALID_CODE_PREFIX = /^(H|GT|BK|SON|TEMP|TMP|AT)[A-Z0-9-]*/i;
 
-const demoUsers = [
-  { loginCode: "ADMIN1", displayName: "Admin 1", role: "admin", branch: "ALL" },
-  { loginCode: "TC", displayName: "Trưởng ca", role: "admin", branch: "ALL" },
-  { loginCode: "PL", displayName: "Nhân viên Phú Lợi", role: "employee", branch: "Phú Lợi" },
-  { loginCode: "NQ", displayName: "Nhân viên Ngô Quyền", role: "employee", branch: "Ngô Quyền" },
-  { loginCode: "LT", displayName: "Nhân viên Lái Thiêu", role: "employee", branch: "Lái Thiêu" },
-  { loginCode: "QUA", displayName: "Nhân viên Gói quà", role: "employee", branch: "ALL" }
-];
 
 let currentUser = null;
 let lastGiftInPreview = [];
@@ -325,36 +317,6 @@ function setupAppPopup() {
   }, true);
 }
 
-function findDemoUser(loginCode) {
-  const code = String(loginCode || "").trim().toUpperCase();
-  return demoUsers.find(user => user.loginCode === code) || null;
-}
-
-function loginPrototype(loginCode) {
-  const user = findDemoUser(loginCode);
-  const errorEl = document.getElementById("loginError");
-  if (!user) {
-    if (errorEl) errorEl.style.display = "block";
-    return;
-  }
-  if (errorEl) errorEl.style.display = "none";
-  currentUser = user;
-  localStorage.setItem("phf_nxt_demo_user", user.loginCode);
-  applyLoginState();
-}
-
-function logoutPrototype() {
-  currentUser = null;
-  localStorage.removeItem("phf_nxt_demo_user");
-  document.getElementById("loginScreen")?.classList.remove("app-hidden");
-  document.getElementById("appMain")?.classList.add("app-hidden");
-  const pill = document.getElementById("currentUserPill");
-  if (pill) pill.textContent = "Chưa đăng nhập";
-  document.getElementById("btnLogoutTop")?.classList.add("app-hidden");
-  const input = document.getElementById("loginCodeInput");
-  if (input) input.value = "";
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
 
 function isAdminUser() {
   return currentUser?.role === "admin";
@@ -421,26 +383,9 @@ function setDefaultBranchForUser() {
 
 function applyLoginState() {
   if (!currentUser) return;
-  document.getElementById("loginScreen")?.classList.add("app-hidden");
-  document.getElementById("appMain")?.classList.remove("app-hidden");
-  document.getElementById("btnLogoutTop")?.classList.remove("app-hidden");
-  const pill = document.getElementById("currentUserPill");
-  if (pill) pill.textContent = `${currentUser.displayName} · ${roleLabel(currentUser.role)} · ${currentUser.branch}`;
   applyRoleTabs();
   syncPermissionUi();
   setDefaultBranchForUser();
-  renderDashboardByPermission();
-}
-
-function setupLogin() {
-  const input = document.getElementById("loginCodeInput");
-  document.getElementById("btnLogin")?.addEventListener("click", () => loginPrototype(input?.value || ""));
-  input?.addEventListener("keydown", e => { if (e.key === "Enter") loginPrototype(input.value); });
-  document.getElementById("btnDemoAdmin")?.addEventListener("click", () => loginPrototype("ADMIN1"));
-  document.getElementById("btnLogoutTop")?.addEventListener("click", logoutPrototype);
-  const savedCode = localStorage.getItem("phf_nxt_demo_user");
-  const savedUser = savedCode ? findDemoUser(savedCode) : null;
-  if (savedUser) { currentUser = savedUser; applyLoginState(); }
 }
 
 function applyRoleTabs() {
@@ -1583,13 +1528,15 @@ function formatSourceName(source) {
   return map[source] || source || "";
 }
 
-async function bootPrototype() {
+window.bootNxt = async function(user) {
+  currentUser = user;
   setupAppPopup();
-  setupLogin(); setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode();
+  setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode();
+  applyLoginState();
   try {
     const [rowsRes, logsRes] = await Promise.all([
-      fetch(`${NXT_API}/rows`),
-      fetch(`${NXT_API}/logs`)
+      fetch(`${NXT_API}/rows`, { credentials: "include" }),
+      fetch(`${NXT_API}/logs`, { credentials: "include" })
     ]);
     if (rowsRes.ok) dashboardRows = await rowsRes.json();
     if (logsRes.ok) adjustmentsLog = await logsRes.json();
@@ -1597,6 +1544,5 @@ async function bootPrototype() {
     console.warn("Không kết nối được API, dùng dữ liệu rỗng.", e);
   }
   renderDashboardByPermission();
-}
-
-document.addEventListener("DOMContentLoaded", bootPrototype);
+  renderAdjustments();
+};

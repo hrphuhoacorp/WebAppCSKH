@@ -28,11 +28,10 @@
     .user-pill{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.13);border-radius:999px;padding:8px 14px;font-weight:700;font-size:14px;white-space:nowrap}
 
     /* ── LAYOUT ── */
-    .main,.login-screen{max-width:1380px;margin:-20px auto 40px;padding:0 16px}
-    .login-screen{max-width:480px}
+    .main{max-width:1380px;margin:-20px auto 40px;padding:0 16px}
 
     /* ── CARDS ── */
-    .card,.login-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 1px 4px rgba(0,0,0,.06);padding:20px;margin-bottom:16px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 1px 4px rgba(0,0,0,.06);padding:20px;margin-bottom:16px}
     .panel-title{margin:0 0 4px;font-size:20px;font-weight:800;color:var(--text)}
     .muted{color:var(--muted);font-size:13px;margin:0;font-weight:500}
 
@@ -52,7 +51,7 @@
     input:focus,select:focus,textarea:focus{border-color:#086839;box-shadow:0 0 0 3px rgba(8,104,57,.12)}
 
     /* ── BUTTONS ── */
-    .button-row,.login-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px}
+    .button-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 14px}
     .btn{border:0;border-radius:10px;padding:10px 18px;font-weight:700;font-size:13px;background:#086839;color:#fff;cursor:pointer;transition:filter .15s,box-shadow .15s;letter-spacing:.1px}
     .btn:hover{filter:brightness(.93)}
     .btn.ghost{background:#f0f7ed;color:#065f2d;border:1px solid #c7dfc0}
@@ -61,9 +60,8 @@
     .btn.danger{background:#dc2626}
 
     /* ── HINT BOXES ── */
-    .hint,.placeholder-box,.demo-codes{background:#f0f7ed;border:1px solid #c7dfc0;border-radius:12px;padding:12px 14px;color:#374151;font-size:13px;line-height:1.6;margin-bottom:12px}
+    .hint,.placeholder-box{background:#f0f7ed;border:1px solid #c7dfc0;border-radius:12px;padding:12px 14px;color:#374151;font-size:13px;line-height:1.6;margin-bottom:12px}
     .warnbox{background:#fffbeb;border-color:#fcd34d;color:#78350f}
-    .login-error{display:none;margin-top:10px;color:#dc2626;font-size:13px;font-weight:700}
 
     /* ── KPIs ── */
     .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
@@ -170,29 +168,7 @@
     </div>
   </header>
 
-  <section class="login-screen" id="loginScreen">
-    <div class="login-card">
-      <h2 class="panel-title">Đăng nhập</h2>
-      <p class="muted">Nhập mã để vào màn hình làm việc.</p>
-      <div style="margin-top:14px">
-        <label>Mã đăng nhập</label>
-        <input id="loginCodeInput" placeholder="Ví dụ: ADMIN1, PL, NQ, LT, QUA">
-      </div>
-      <div class="login-actions">
-        <button class="btn" id="btnLogin" type="button">Đăng nhập</button>
-        <button class="btn ghost" id="btnDemoAdmin" type="button">Vào nhanh Admin</button>
-      </div>
-      <div class="login-error" id="loginError">Mã đăng nhập không đúng hoặc chưa được mở quyền.</div>
-      <div class="demo-codes">
-        <b>Mã đăng nhập:</b><br>
-        ADMIN1 hoặc TC: Admin/Trưởng ca full quyền<br>
-        PL/NQ/LT/QUA: Nhân viên nhập liệu, xem Tổng quan, không upload Sapo<br>
-        Nhân viên chỉ gửi đề xuất sai mã; Admin/Trưởng ca mới áp dụng điều chỉnh
-      </div>
-    </div>
-  </section>
-
-  <main class="main app-hidden" id="appMain">
+  <main class="main" id="appMain">
     <section class="card">
       <h2 class="panel-title">Bảng tổng quan</h2>
       <p class="muted">Xem nhanh số liệu theo ngày và chi nhánh.</p>

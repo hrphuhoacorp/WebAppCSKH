@@ -10,6 +10,7 @@ public class DashboardDTO
     public List<MonthlyRevenueDTO> RevenueByMonth { get; set; } = new();
     public List<TopCustomerDTO> TopCustomersByRevenue { get; set; } = new();
     public List<ChartItemDTO> RevenueByBranch { get; set; } = new();
+    public List<ChartItemDTO> RevenueByCategory { get; set; } = new();
     public List<BirthdayCustomerDTO> BirthdayCustomersThisMonth { get; set; } = new();
 }
 

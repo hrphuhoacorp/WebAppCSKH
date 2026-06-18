@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import { BarChart } from '@mui/x-charts/BarChart';
 import PageHeader from '@/components/common/PageHeader';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 import {
     returnRateApi, ReturnRateStatsDTO, LoyalCustomerDTO, SegmentCustomerDTO,
 } from '@/features/customer/api/returnRate.api';
@@ -256,6 +257,7 @@ export default function ReturnRatePage() {
 
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: '#f8fafc' }}>
+            <LoadingOverlay open={loading} text="Đang tải dữ liệu..." fullScreen />
             <PageHeader
                 title="Tỉ Lệ Quay Lại"
                 subtitle="Phân tích tần suất mua hàng, sản phẩm và phân khúc khách hàng"

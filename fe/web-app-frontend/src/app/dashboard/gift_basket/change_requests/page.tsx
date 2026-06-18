@@ -18,6 +18,7 @@ import { ordersApi } from '@/features/orders/api/orders.api';
 import { giftBasketApi, GiftCodeChangeRequestDTO, BASKET_GROUPS } from '@/features/gift-basket/api/gift-basket.api';
 import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { MediaFileDto } from '@/features/media/schemas/media_file.schemas';
 
 const fmtDate = (s?: string) =>
@@ -291,6 +292,7 @@ export default function ChangeRequestsPage() {
             bgcolor: '#f0f7f3',
             backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
         }}>
+            <LoadingOverlay open={loading} text="Đang tải dữ liệu..." fullScreen />
             <PageHeader
                 icon={<SwapHoriz />}
                 title="Yêu cầu đổi mã"

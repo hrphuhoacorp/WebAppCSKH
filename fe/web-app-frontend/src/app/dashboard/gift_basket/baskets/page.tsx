@@ -11,6 +11,7 @@ import { giftBasketApi, GiftCodeChangeRequestDTO, BASKET_GROUPS } from '@/featur
 import { ordersApi } from '@/features/orders/api/orders.api';
 import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 import toast from 'react-hot-toast';
 import * as signalR from '@microsoft/signalr';
 
@@ -251,6 +252,7 @@ export default function BasketsPage() {
             bgcolor: '#f0f7f3',
             backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
         }}>
+            <LoadingOverlay open={loading} text="Đang tải dữ liệu..." fullScreen />
             <PageHeader
                 icon={<LibraryBooksRounded />}
                 title="Danh sách quy đổi mã -  Mã mới"
