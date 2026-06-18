@@ -331,7 +331,7 @@ export default function NxtPage() {
                 {/* Check days */}
                 <PT>Ngày cần kiểm tra</PT>
                 <Box sx={warnSx}>
-                    Bảng gom theo 3 chi nhánh để dễ kiểm. &ldquo;Mức cần kiểm&rdquo; là tổng số lệch theo trị tuyệt đối. Bấm vào từng dòng để lọc đúng ngày, đúng chi nhánh.
+                    Bảng gom theo 3 chi nhánh để dễ kiểm. &ldquo;Mức cần kiểm&rdquo; là tổng số lệch theo trị tuyệt đối, giúp ưu tiên ngày lệch nhiều trước. Bấm vào từng dòng để lọc đúng ngày, đúng chi nhánh, chỉ hiện dòng lệch.
                 </Box>
                 <Box id="checkDaysRows" sx={{ mt: 1 }}>
                     <Box sx={{ border: '1px dashed #d1d5db', bgcolor: '#f9fafb', borderRadius: '10px', p: 1.75, textAlign: 'center', color: '#6b7280', fontWeight: 700, fontSize: 13 }}>
@@ -342,15 +342,18 @@ export default function NxtPage() {
                 {/* Note cards */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.1fr .95fr .95fr' }, gap: 1.5, mt: 2 }}>
                     <Paper variant="outlined" sx={{ borderRadius: '14px', p: 1.75, bgcolor: '#f0fdf4', borderColor: '#c7dfc0' }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: 14, mb: 1 }}>🧮 Cách app tính</Typography>
+                        <Typography sx={{ fontWeight: 800, fontSize: 14, mb: 1 }}>🧮 Cách app tính <b>dễ hiểu</b></Typography>
                         <Box sx={{ fontSize: 13, lineHeight: 1.65, color: '#374151', '& p': { m: 0, mb: '6px' } }}>
-                            <p><b>Tồn còn lại theo app</b> = Tồn đầu + Gói ra + Nhận CN − Chuyển CN − Sapo bán − Hủy ± Điều chỉnh.</p>
-                            <p><b>Tồn so sánh</b> = Tồn thực tế − DTT (đã bán/chưa lấy).</p>
-                            <p><b>Lệch</b> = Tồn so sánh − Tồn còn lại theo app. CTT chỉ là nhãn nhắc, không trừ lệch.</p>
+                            <p>Tồn thực tế là số giỏ nhân viên đếm thấy tại quầy/kho. Số này được đem qua làm <b>Tồn đầu ngày sau</b>.</p>
+                            <p><b>Tồn còn lại theo app</b> = Tồn đầu + Gói ra + Nhận CN − Chuyển CN − Sapo bán − Hủy giỏ ± Điều chỉnh khác.</p>
+                            <p>Nếu số này âm khi có Chuyển CN, app sẽ gắn cảnh báo <b>Chuyển CN thiếu nguồn</b>: đã gửi đi nhưng thiếu tồn đầu/gói ra/nhận CN để chứng minh nguồn.</p>
+                            <p><b>Tồn so sánh</b> = Tồn thực tế − DTT/đã bán nhưng khách chưa lấy.</p>
+                            <p><b>Lệch</b> = Tồn so sánh − Tồn còn lại theo app.</p>
+                            <p><b>CTT</b> vẫn nằm trong tồn thực tế và chỉ là nhãn nhắc kiểm tra. <b>DTT</b> mới vào cột đã bán/chưa lấy để trừ khi so lệch.</p>
                         </Box>
                     </Paper>
                     <Paper variant="outlined" sx={{ borderRadius: '14px', p: 1.75, bgcolor: '#fffbeb', borderColor: '#fcd34d' }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: 14, mb: 1 }}>📌 Đọc nhanh</Typography>
+                        <Typography sx={{ fontWeight: 800, fontSize: 14, mb: 1 }}>📌 Hiểu nhanh</Typography>
                         <Box component="ul" sx={{ m: 0, pl: 2.5, fontSize: 13, color: '#374151', lineHeight: 1.7 }}>
                             <li>Lệch = 0: khớp, yên tâm.</li>
                             <li>Lệch &gt; 0: thực tế dư so app.</li>
@@ -360,9 +363,9 @@ export default function NxtPage() {
                     <Paper variant="outlined" sx={{ borderRadius: '14px', p: 1.75, bgcolor: '#eff6ff', borderColor: '#bfdbfe' }}>
                         <Typography sx={{ fontWeight: 800, fontSize: 14, mb: 1 }}>😄 Gợi ý nguyên nhân</Typography>
                         <Box component="ul" sx={{ m: 0, pl: 2.5, fontSize: 13, color: '#374151', lineHeight: 1.7 }}>
-                            <li>Bán không có tồn đầu/gói ra → kiểm sai mã.</li>
-                            <li>Có luân chuyển → đối chiếu gửi/nhận CN.</li>
-                            <li>App chỉ gợi ý, chưa kết luận thay người kiểm.</li>
+                            <li>App chỉ nghi ngờ để mình kiểm nhanh hơn, chưa kết luận thay người kiểm.</li>
+                            <li>Có bán nhưng không có tồn đầu/gói ra: kiểm sai mã hoặc thiếu tồn đầu.</li>
+                            <li>Có luân chuyển: đối chiếu gửi/nhận CN.</li>
                         </Box>
                     </Paper>
                 </Box>
@@ -476,8 +479,8 @@ export default function NxtPage() {
                         <FL htmlFor="stockText">Dán danh sách tồn thực tế / chuyển CN</FL>
                         <Box component="textarea" id="stockText" placeholder={"H1135 1\nGT2013 2\nH1045F 1 dtt\nH1094A ctt 1\nH1136 1 chuyển NQ"} sx={textareaSx} />
                         <OcrCard
-                            hint="DTT, CTT, chuyển chi nhánh đều đọc được."
-                            note={<>H1045F 1 dtt = đã TT/chưa lấy · H1094A ctt 1 = chưa TT/giữ giỏ · H1136 1 chuyển NQ = CN hiện tại gửi, NQ nhận</>}
+                            hint="Mẫu đọc được: DTT, CTT, chuyển chi nhánh đều đọc được. Có ảnh thì dùng nút chuyển ảnh thành text."
+                            note={<>H1045F 1 dtt = đã thanh toán/chưa lấy 1<br />H1094A ctt 1 = chưa thanh toán/giữ giỏ 1<br />H1045F dtt 2 hoặc H1094A ctt 1 vẫn đọc được<br />H1136 1 chuyển NQ = CN hiện tại gửi, NQ nhận</>}
                         />
                     </Box>
                 </FG>
@@ -487,8 +490,9 @@ export default function NxtPage() {
                     <Button id="btnClearStock" variant="outlined" size="small" sx={ghostBtn}>Xóa</Button>
                 </BR>
                 <Box sx={hintSx}>
-                    Ghi <b>DTT</b> để app trừ khi so lệch; ghi <b>CTT</b> để gắn nhãn kiểm, không trừ lệch.<br />
-                    Chuyển CN nhập trong ô tồn: <b>H1136 1 chuyển NQ</b>, app tự tạo dòng Gửi/Nhận.
+                    Tồn thực tế là số đang nằm tại quầy. Nếu giỏ <b>đã thanh toán/chưa lấy</b>, ghi DTT để app trừ khi so lệch. Nếu giỏ <b>chưa thanh toán/giữ giỏ</b>, ghi CTT để gắn nhãn kiểm, không đưa vào cột DTT.<br />
+                    Tồn đầu ngày hôm sau app lấy theo <b>Tồn thực tế</b> cuối ngày trước — đúng số nhân viên đếm thấy. DTT/CTT chỉ dùng để hỗ trợ kiểm lệch trong ngày.<br />
+                    Chuyển CN nhập ngay trong ô tồn: <b>H1136 1 chuyển NQ</b>, app tự tạo dòng Gửi/Nhận.
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 0.5 }}>
                     <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#1e293b' }}>Kết quả phân tích</Typography>
@@ -579,7 +583,7 @@ export default function NxtPage() {
                     <Button id="btnUndoLastSapoUpload" variant="contained" size="small" sx={dangerBtn}>Hoàn tác</Button>
                 </BR>
                 <Box sx={warnSx}>
-                    Đọc thử trước, kiểm tra dữ liệu đọc được rồi mới lưu. Nếu lỡ lưu sai, bấm <b>Hoàn tác</b> để quay về lượt trước.
+                    Nguyên tắc an toàn: đọc thử trước, kiểm tra dòng đọc được rồi mới cập nhật. Nếu lỡ nạp sai, bấm <b>Hoàn tác Sapo vừa cập nhật</b> để hoàn tác lượt nạp gần nhất. Nguyên tắc nạp: nếu file không đổi, app giữ số cũ; nếu file có thay đổi, app cập nhật theo file mới nhất và không cộng trùng.
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 0.5 }}>
                     <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#1e293b' }}>Dữ liệu đọc được</Typography>
@@ -662,8 +666,8 @@ export default function NxtPage() {
                     Bấm <b>Kiểm tra mã / CN</b> trước khi áp dụng để biết mã đang nằm đúng CN, nhiều CN hay sai CN.
                 </Box>
                 <Box sx={{ ...hintSx, mb: 2 }}>
-                    <b>Đổi mã tạm / nhập nhầm:</b> chuyển phát sinh từ mã cũ sang mã đúng (Gói ra, Tồn CN, Hủy, Chuyển/Nhận CN).<br />
-                    <b>Sai mã Sapo / check đơn:</b> chuyển Sapo bán/doanh thu/số đơn từ mã sai sang mã đúng.
+                    <b>Đổi mã tạm / nhập nhầm:</b> dùng cho mã nhập từ Gói ra, Tồn CN, Hủy, Chuyển/Nhận CN. App chuyển phát sinh từ mã cũ sang mã đúng và ẩn mã cũ nếu đã hết phát sinh.<br />
+                    <b>Sai mã Sapo / check đơn:</b> dùng khi file Sapo bán sai mã. App chuyển Sapo bán/doanh thu/số đơn từ mã sai sang mã đúng để Tổng quan không còn giữ mã sai như dòng chính.
                 </Box>
                 <PT>Lịch sử điều chỉnh</PT>
                 <TableContainer sx={{ borderRadius: '14px', border: '1px solid #e5e7eb', maxHeight: 360 }}>
