@@ -24,6 +24,7 @@ import {
     alpha,
     Skeleton,
     MenuItem,
+    TableContainer,
 } from '@mui/material';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
@@ -31,7 +32,6 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteForeverOutlined';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import InventoryIcon from '@mui/icons-material/Inventory';
@@ -39,6 +39,8 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import CategoryIcon from '@mui/icons-material/Category';
 import HistoryIcon from '@mui/icons-material/History';
 import InfoIcon from '@mui/icons-material/Info';
+import DownloadIcon from '@mui/icons-material/Download';
+import UndoIcon from '@mui/icons-material/Undo';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -272,7 +274,10 @@ const ADMIN_CODE = 'phf2025';
 export default function SapoDashboardPage() {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<DashState | null>(null);
-    const [months, setMonths] = useState(6);
+    const [filterMode, setFilterMode] = useState<'month' | 'range'>('month');
+    const [selectedMonth, setSelectedMonth] = useState('');
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
     const [importMsg, setImportMsg] = useState<{ text: string; err: boolean } | null>(null);
     const sapoFileRef = useRef<HTMLInputElement>(null);
     const mappingFileRef = useRef<HTMLInputElement>(null);
@@ -287,7 +292,15 @@ export default function SapoDashboardPage() {
     async function loadDashboard() {
         try {
             setLoading(true);
-            const result = await apiCall(`/api/sapo/dashboard?filter=latest_month`);
+            let url = '/api/sapo/dashboard';
+            if (filterMode === 'month' && selectedMonth) {
+                url = `/api/sapo/dashboard/month?month=${selectedMonth}`;
+            } else if (filterMode === 'range' && fromDate && toDate) {
+                url = `/api/sapo/dashboard/range?fromDate=${fromDate}&toDate=${toDate}`;
+            } else {
+                url = `/api/sapo/dashboard?filter=latest_month`;
+            }
+            const result = await apiCall(url);
             setData(result);
         } catch (e: any) {
             toast.error(e.message ?? 'Có lỗi xảy ra');
@@ -316,8 +329,8 @@ export default function SapoDashboardPage() {
         }
     }
 
-    async function handleUndo() {
-        if (!confirm('Xóa upload gần nhất?')) return;
+    async function handleRollback(importId: number) {
+        if (!confirm('Bạn chắc chắn muốn hoàn tác upload này?')) return;
         try {
             setLoading(true);
             await apiCall('/api/sapo/admin/delete-latest', {
@@ -325,16 +338,16 @@ export default function SapoDashboardPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ adminCode: ADMIN_CODE }),
             });
-            setImportMsg({ text: 'Đã xóa upload gần nhất.', err: false });
+            toast.success('Đã hoàn tác upload');
             await loadDashboard();
         } catch (e: any) {
-            setImportMsg({ text: e.message, err: true });
+            toast.error(e.message);
         } finally {
             setLoading(false);
         }
     }
 
-    useEffect(() => { loadDashboard(); }, [months]);
+    useEffect(() => { loadDashboard(); }, [filterMode, selectedMonth, fromDate, toDate]);
 
     const q = data?.quickInsights ?? {};
     const analysis = data?.usefulAnalysis ?? {};
@@ -406,41 +419,20 @@ export default function SapoDashboardPage() {
                 gradient="linear-gradient(135deg, #086839 0%, #0a9e4a 100%)"
                 shadowColor="rgba(8,104,57,0.28)"
                 actions={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <TextField
-                            select
-                            size="small"
-                            value={months}
-                            onChange={e => setMonths(Number(e.target.value))}
-                            label="Khoảng thời gian"
+                    <Tooltip title="Làm mới dữ liệu">
+                        <IconButton
+                            onClick={loadDashboard}
+                            disabled={loading}
                             sx={{
-                                minWidth: 170,
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: '10px',
-                                    bgcolor: '#fff',
-                                    '&.Mui-focused fieldset': { borderColor: GREEN }
-                                },
-                                '& label.Mui-focused': { color: GREEN }
+                                bgcolor: '#fff',
+                                borderRadius: '10px',
+                                border: '1px solid #e2e8f0',
+                                '&:hover': { bgcolor: GREEN_LIGHT, borderColor: GREEN }
                             }}
                         >
-                            {MONTH_OPTIONS.map(m => (
-                                <MenuItem key={m} value={m}>{m} tháng gần nhất</MenuItem>
-                            ))}
-                        </TextField>
-                        <Tooltip title="Làm mới dữ liệu">
-                            <IconButton
-                                onClick={loadDashboard}
-                                sx={{
-                                    bgcolor: '#fff',
-                                    borderRadius: '10px',
-                                    border: '1px solid #e2e8f0',
-                                    '&:hover': { bgcolor: GREEN_LIGHT, borderColor: GREEN }
-                                }}
-                            >
-                                <RefreshIcon sx={{ color: GREEN }} />
-                            </IconButton>
-                        </Tooltip>
-                    </Box>
+                            <RefreshIcon sx={{ color: GREEN }} />
+                        </IconButton>
+                    </Tooltip>
                 }
             />
 
@@ -453,7 +445,7 @@ export default function SapoDashboardPage() {
                 bgcolor: '#fff',
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                    <Box>
+                    <Box sx={{ flex: 1 }}>
                         <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
                             📥 Nhập báo cáo
                         </Typography>
@@ -461,21 +453,29 @@ export default function SapoDashboardPage() {
                             File có ngày nào cập nhật ngày đó · nếu không đổi hệ thống giữ nguyên
                         </Typography>
                     </Box>
-                    <Tooltip title="Xóa bản upload gần nhất">
-                        <Button
-                            size="small"
-                            variant="outlined"
-                            color="error"
-                            startIcon={<DeleteOutlineIcon />}
-                            onClick={handleUndo}
-                            sx={{ borderRadius: '10px', flexShrink: 0 }}
-                        >
-                            Xóa upload
-                        </Button>
-                    </Tooltip>
+                    <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={<UploadFileIcon />}
+                        onClick={handleImport}
+                        disabled={loading}
+                        sx={{
+                            height: 44,
+                            px: 3,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            borderRadius: '10px',
+                            background: GRADIENT_GREEN,
+                            '&:hover': { background: 'linear-gradient(135deg, #064a27 0%, #088a3e 100%)' },
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        Nhập báo cáo
+                    </Button>
                 </Box>
 
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-end' }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                     <Box sx={{ flex: '1 1 240px' }}>
                         <Box sx={{
                             border: '2px dashed #e2e8f0',
@@ -513,34 +513,83 @@ export default function SapoDashboardPage() {
                             </Typography>
                         </Box>
                     </Box>
-
-                    <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<UploadFileIcon />}
-                        onClick={handleImport}
-                        sx={{
-                            height: 52,
-                            px: 4,
-                            fontSize: 15,
-                            fontWeight: 700,
-                            borderRadius: '12px',
-                            background: GRADIENT_GREEN,
-                            '&:hover': { background: 'linear-gradient(135deg, #064a27 0%, #088a3e 100%)' },
-                            flexShrink: 0,
-                        }}
-                    >
-                        Nhập báo cáo
-                    </Button>
                 </Box>
 
                 {importMsg && (
                     <Fade in>
-                        <Alert severity={importMsg.err ? 'error' : 'success'} sx={{ mt: 2.5, borderRadius: '12px' }}>
+                        <Alert severity={importMsg.err ? 'error' : 'success'} sx={{ borderRadius: '12px' }}>
                             {importMsg.text}
                         </Alert>
                     </Fade>
                 )}
+
+                {/* ── Filter Section ── */}
+                <Divider sx={{ my: 2.5, borderColor: '#e2e8f0' }} />
+                <Box>
+                    <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#1e293b', mb: 1.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        🔍 Lọc dữ liệu
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                        <TextField
+                            select
+                            size="small"
+                            label="Chế độ lọc"
+                            value={filterMode}
+                            onChange={e => setFilterMode(e.target.value as any)}
+                            sx={{
+                                '& .MuiOutlinedInput-root': { borderRadius: '10px', '&.Mui-focused fieldset': { borderColor: GREEN } },
+                                '& label.Mui-focused': { color: GREEN }
+                            }}
+                        >
+                            <MenuItem value="month">Theo tháng</MenuItem>
+                            <MenuItem value="range">Theo khoảng ngày</MenuItem>
+                        </TextField>
+
+                        {filterMode === 'month' && (
+                            <TextField
+                                type="month"
+                                size="small"
+                                label="Chọn tháng"
+                                value={selectedMonth}
+                                onChange={e => setSelectedMonth(e.target.value)}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': { borderRadius: '10px', '&.Mui-focused fieldset': { borderColor: GREEN } },
+                                    '& label.Mui-focused': { color: GREEN }
+                                }}
+                            />
+                        )}
+
+                        {filterMode === 'range' && (
+                            <>
+                                <TextField
+                                    type="date"
+                                    size="small"
+                                    label="Từ ngày"
+                                    value={fromDate}
+                                    onChange={e => setFromDate(e.target.value)}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': { borderRadius: '10px', '&.Mui-focused fieldset': { borderColor: GREEN } },
+                                        '& label.Mui-focused': { color: GREEN }
+                                    }}
+                                />
+                                <TextField
+                                    type="date"
+                                    size="small"
+                                    label="Đến ngày"
+                                    value={toDate}
+                                    onChange={e => setToDate(e.target.value)}
+                                    slotProps={{ inputLabel: { shrink: true } }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': { borderRadius: '10px', '&.Mui-focused fieldset': { borderColor: GREEN } },
+                                        '& label.Mui-focused': { color: GREEN }
+                                    }}
+                                />
+                            </>
+                        )}
+                    </Box>
+                </Box>
             </Paper>
 
             {/* ── Data Notice ── */}
@@ -684,7 +733,7 @@ export default function SapoDashboardPage() {
                             valueFn={(r) => Number(r.netRevenue ?? 0)}
                             textFn={(r) => money(r.netRevenue)}
                             emptyText="Chưa có dữ liệu"
-                            color={GREEN}
+                            color="#0284c7"
                         />
                     </Box>
 
@@ -699,7 +748,7 @@ export default function SapoDashboardPage() {
                             valueFn={(r) => Number(r.qty ?? 0)}
                             textFn={(r) => `${fmt(r.qty)} giỏ`}
                             emptyText="Chưa có dữ liệu nhóm giỏ"
-                            color="#0a7e4a"
+                            color="#f59e0b"
                         />
                         <BarSection
                             title="Phân khúc giá"
@@ -709,75 +758,87 @@ export default function SapoDashboardPage() {
                             valueFn={(r) => Number(r.netRevenue ?? 0)}
                             textFn={(r) => money(r.netRevenue)}
                             emptyText="Chưa có dữ liệu phân khúc giá"
-                            color="#0a8e4a"
+                            color="#10b981"
                         />
                     </Box>
 
                     {/* ── Top codes table ── */}
                     <SectionHeader label="Mã kéo doanh thu" sub="Top mã báo cáo" />
-                    <Paper elevation={0} sx={{
-                        borderRadius: CARD_RADIUS,
-                        border: '1px solid #e2e8f0',
-                        overflow: 'hidden',
-                        mb: 3.5,
-                    }}>
+                    <TableContainer
+                        component={Paper}
+                        elevation={0}
+                        sx={{
+                            borderRadius: CARD_RADIUS,
+                            border: '1px solid #e2e8f0',
+                            overflow: 'auto',
+                            bgcolor: '#fff',
+                            mb: 3.5,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        }}
+                    >
                         {(data.byCode ?? []).length === 0 ? (
                             <Box sx={{ p: 4, textAlign: 'center' }}>
                                 <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>Chưa có dữ liệu mã báo cáo</Typography>
                             </Box>
                         ) : (
-                            <Box sx={{ overflow: 'auto' }}>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Mã báo cáo</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Mô tả</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>SL</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Số đơn</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Doanh thu</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Đơn giá TB</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {(data.byCode ?? []).slice(0, 10).map((r: any, i: number) => {
-                                            const aov = Number(r.qty ?? 0) ? Number(r.revenue ?? 0) / Number(r.qty ?? 0) : 0;
-                                            return (
-                                                <TableRow key={i} hover sx={{ '&:hover': { bgcolor: '#f8fafc' } }}>
-                                                    <TableCell sx={{ py: 1.5 }}>
-                                                        <Chip
-                                                            label={r.key}
-                                                            size="small"
-                                                            sx={{
-                                                                fontWeight: 700,
-                                                                fontSize: 12,
-                                                                bgcolor: GREEN_LIGHT,
-                                                                color: GREEN_DARK,
-                                                                borderRadius: '8px',
-                                                            }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell sx={{
-                                                        fontSize: 12.5,
-                                                        whiteSpace: 'pre-line',
-                                                        color: '#64748b',
-                                                        maxWidth: 260,
-                                                        lineHeight: 1.4,
-                                                        py: 1.5,
-                                                    }}>
-                                                        {describeCodeRow(r)}
-                                                    </TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: 13, py: 1.5 }}>{fmt(r.qty)}</TableCell>
-                                                    <TableCell align="right" sx={{ fontSize: 13, py: 1.5 }}>{fmt(r.orders)}</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 700, color: GREEN, fontSize: 13, py: 1.5 }}>{money(r.netRevenue)}</TableCell>
-                                                    <TableCell align="right" sx={{ fontSize: 13, py: 1.5 }}>{money(aov)}</TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </Box>
+                            <Table stickyHeader>
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: GREEN }}>
+                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Mã báo cáo</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Mô tả</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>SL</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Số đơn</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Doanh thu</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Đơn giá TB</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {(data.byCode ?? []).slice(0, 10).map((r: any, i: number) => {
+                                        const aov = Number(r.qty ?? 0) ? Number(r.revenue ?? 0) / Number(r.qty ?? 0) : 0;
+                                        return (
+                                            <TableRow
+                                                key={i}
+                                                hover
+                                                sx={{
+                                                    bgcolor: i % 2 === 0 ? '#fff' : '#fafcfb',
+                                                    '& > *': { borderBottom: '1px solid #f1f5f9 !important' },
+                                                    '&:hover': { bgcolor: '#f0fdf4 !important' },
+                                                }}
+                                            >
+                                                <TableCell sx={{ py: 1.5 }}>
+                                                    <Chip
+                                                        label={r.key}
+                                                        size="small"
+                                                        sx={{
+                                                            fontWeight: 700,
+                                                            fontSize: 12,
+                                                            bgcolor: GREEN_LIGHT,
+                                                            color: GREEN_DARK,
+                                                            borderRadius: '8px',
+                                                        }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell sx={{
+                                                    fontSize: 12.5,
+                                                    whiteSpace: 'pre-line',
+                                                    color: '#64748b',
+                                                    maxWidth: 260,
+                                                    lineHeight: 1.4,
+                                                    py: 1.5,
+                                                }}>
+                                                    {describeCodeRow(r)}
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 600, fontSize: 13, py: 1.5 }}>{fmt(r.qty)}</TableCell>
+                                                <TableCell align="right" sx={{ fontSize: 13, py: 1.5 }}>{fmt(r.orders)}</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 700, color: GREEN, fontSize: 13, py: 1.5 }}>{money(r.netRevenue)}</TableCell>
+                                                <TableCell align="right" sx={{ fontSize: 13, py: 1.5 }}>{money(aov)}</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
                         )}
-                    </Paper>
+                    </TableContainer>
 
                     {/* ── Analysis cards ── */}
                     <SectionHeader label="Phân tích thêm" sub="Gợi ý hỗ trợ quản lý" />
@@ -832,43 +893,87 @@ export default function SapoDashboardPage() {
                     </Box>
 
                     {/* ── Import history ── */}
-                    <SectionHeader label="Lịch sử cập nhật gần nhất" />
-                    <Paper elevation={0} sx={{
-                        borderRadius: CARD_RADIUS,
-                        border: '1px solid #e2e8f0',
-                        overflow: 'hidden',
-                    }}>
+                    <SectionHeader label="Lịch sử cập nhật gần nhất" sub="Quản lý và hoàn tác upload" />
+                    <TableContainer
+                        component={Paper}
+                        elevation={0}
+                        sx={{
+                            borderRadius: CARD_RADIUS,
+                            border: '1px solid #e2e8f0',
+                            overflow: 'auto',
+                            bgcolor: '#fff',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        }}
+                    >
                         {(data.imports ?? []).length === 0 ? (
                             <Box sx={{ p: 4, textAlign: 'center' }}>
                                 <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>Chưa có lịch sử import</Typography>
                             </Box>
                         ) : (
-                            <Box sx={{ overflow: 'auto' }}>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Thời gian</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>File</TableCell>
-                                            <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Ngày dữ liệu</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Dòng</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Doanh thu</TableCell>
+                            <Table stickyHeader>
+                                <TableHead>
+                                    <TableRow sx={{ bgcolor: GREEN }}>
+                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Thời gian</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>File</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Ngày dữ liệu</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Dòng</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Doanh thu</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Thao tác</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {(data.imports ?? []).slice(0, 10).map((r: any, i: number) => (
+                                        <TableRow
+                                            key={i}
+                                            hover
+                                            sx={{
+                                                bgcolor: i % 2 === 0 ? '#fff' : '#fafcfb',
+                                                '& > *': { borderBottom: '1px solid #f1f5f9 !important' },
+                                                '&:hover': { bgcolor: '#f0fdf4 !important' },
+                                            }}
+                                        >
+                                            <TableCell sx={{ fontSize: 12.5, fontWeight: 500, py: 1.5 }}>{r.importedAt}</TableCell>
+                                            <TableCell sx={{ fontSize: 12.5, py: 1.5 }}>
+                                                <Tooltip title={r.sapoFileName}>
+                                                    <Typography sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {r.sapoFileName}
+                                                    </Typography>
+                                                </Tooltip>
+                                            </TableCell>
+                                            <TableCell sx={{ fontSize: 12.5, py: 1.5 }}>{displayDateRange(r.dateRange)}</TableCell>
+                                            <TableCell align="right" sx={{ fontSize: 12.5, py: 1.5 }}>{fmt(r.rowCount)}</TableCell>
+                                            <TableCell align="right" sx={{ fontSize: 12.5, fontWeight: 700, color: GREEN, py: 1.5 }}>{money(r.revenue ?? r.netRevenue)}</TableCell>
+                                            <TableCell align="center" sx={{ py: 1.5 }}>
+                                                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                    <Tooltip title="Tải file này">
+                                                        <IconButton
+                                                            size="small"
+                                                            sx={{ color: '#0284c7', '&:hover': { bgcolor: '#e0f2fe' } }}
+                                                            onClick={() => toast.success('Chức năng download sẽ được bổ sung')}
+                                                        >
+                                                            <DownloadIcon sx={{ fontSize: 16 }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    {i === 0 && (
+                                                        <Tooltip title="Hoàn tác upload này">
+                                                            <IconButton
+                                                                size="small"
+                                                                sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}
+                                                                onClick={() => handleRollback(r.id)}
+                                                                disabled={loading}
+                                                            >
+                                                                <UndoIcon sx={{ fontSize: 16 }} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    )}
+                                                </Box>
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {(data.imports ?? []).slice(0, 10).map((r: any, i: number) => (
-                                            <TableRow key={i} hover>
-                                                <TableCell sx={{ fontSize: 12.5, fontWeight: 500, py: 1.5 }}>{r.importedAt}</TableCell>
-                                                <TableCell sx={{ fontSize: 12.5, py: 1.5 }}>{r.sapoFileName}</TableCell>
-                                                <TableCell sx={{ fontSize: 12.5, py: 1.5 }}>{displayDateRange(r.dateRange)}</TableCell>
-                                                <TableCell align="right" sx={{ fontSize: 12.5, py: 1.5 }}>{fmt(r.rowCount)}</TableCell>
-                                                <TableCell align="right" sx={{ fontSize: 12.5, fontWeight: 700, color: GREEN, py: 1.5 }}>{money(r.revenue ?? r.netRevenue)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </Box>
+                                    ))}
+                                </TableBody>
+                            </Table>
                         )}
-                    </Paper>
+                    </TableContainer>
                 </>
             )}
         </Box>
