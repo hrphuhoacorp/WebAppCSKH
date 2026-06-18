@@ -56,7 +56,7 @@ namespace WebAppAPI.Controllers
                 existing.OrderCount = dto.OrderCount;
                 existing.TransferNotes = dto.TransferNotes != null ? JsonSerializer.Serialize(dto.TransferNotes) : null;
                 existing.Inactive = dto.Inactive;
-                existing.UpdatedAt = DateTime.UtcNow.AddHours(7);
+                existing.UpdatedAt = DateTime.UtcNow;
             }
 
             await _db.SaveChangesAsync();
@@ -99,7 +99,7 @@ namespace WebAppAPI.Controllers
                     ex.OrderCount = dto.OrderCount;
                     ex.TransferNotes = dto.TransferNotes != null ? JsonSerializer.Serialize(dto.TransferNotes) : null;
                     ex.Inactive = dto.Inactive;
-                    ex.UpdatedAt = DateTime.UtcNow.AddHours(7);
+                    ex.UpdatedAt = DateTime.UtcNow;
                 }
             }
 
@@ -161,7 +161,7 @@ namespace WebAppAPI.Controllers
                     status = dto.Status,
                     detail = dto.Detail ?? ""
                 }),
-                CreatedAt = DateTime.UtcNow.AddHours(7)
+                CreatedAt = DateTime.UtcNow
             };
             _db.ActivityLogs.Add(log);
             await _db.SaveChangesAsync();

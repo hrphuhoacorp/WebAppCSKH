@@ -6,11 +6,12 @@ import {
     Box, Button, GlobalStyles, Paper,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
-import { Inventory2Rounded } from '@mui/icons-material';
+import { FileDownloadRounded, Inventory2Rounded } from '@mui/icons-material';
 import { useAuth } from '@/providers/AuthProviders';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import toast from 'react-hot-toast';
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
 const NXT_ADMIN_ROLES = ['Super_Admin', 'Admin_Gift'];
@@ -20,6 +21,9 @@ const BRANCHES = ['Phú Lợi', 'Ngô Quyền', 'Lái Thiêu'];
 declare global {
     interface Window {
         bootNxt: (user: { loginCode: string; displayName: string; role: string; branch: string }) => void;
+        NXT_API: string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        nxtToast: any;
     }
 }
 
@@ -76,32 +80,27 @@ const dynamicStyles = {
     '.nxt .td-left': { textAlign: 'left !important' },
     '.nxt .reason-cell': { textAlign: 'left !important', minWidth: 200, fontSize: 12, lineHeight: 1.55, color: '#374151' },
     '.nxt .clickable-row': { cursor: 'pointer' },
-    /* popup — giống LoadingOverlay: nền trắng mờ + blur, spinner xanh, không nền tối */
+    /* ── LOADING overlay: full-screen blur ── */
     '.nxt .app-popup-overlay': {
         position: 'fixed', inset: 0,
         background: 'rgba(255,255,255,0.72)',
-        backdropFilter: 'blur(2px)',
-        WebkitBackdropFilter: 'blur(2px)',
+        backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
         display: 'none', alignItems: 'center', justifyContent: 'center',
         flexDirection: 'column', gap: 16, zIndex: 9999,
     },
-    '.nxt .app-popup-overlay.show': { display: 'flex' },
-    /* loading state: không card, spinner + text thẳng giữa màn */
+    '.nxt .app-popup-overlay.show.loading': { display: 'flex' },
     '.nxt .app-popup': { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 },
     '.nxt .app-popup-head': { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 },
     '.nxt .app-popup-spinner': {
         display: 'block', width: 40, height: 40, flexShrink: 0,
-        border: '3.6px solid rgba(8,104,57,0.2)',
-        borderTopColor: '#086839',
+        border: '3.6px solid rgba(8,104,57,0.2)', borderTopColor: '#086839',
         borderRadius: '50%', animation: 'nxt-spin .8s linear infinite',
     },
     '.nxt .app-popup-title': { fontWeight: 600, fontSize: 14, color: '#086839', textAlign: 'center' },
     '.nxt .app-popup-message': { display: 'none' },
     '.nxt .app-popup-actions': { display: 'none' },
     '.nxt .app-popup-ok': { display: 'none' },
-    '.nxt .app-popup-overlay.error .app-popup-title': { color: '#dc2626' },
     '.nxt .app-popup-overlay.error .app-popup-spinner': { borderTopColor: '#dc2626', borderColor: 'rgba(220,38,38,0.2)' },
-    '.nxt .app-popup-overlay.success .app-popup-title': { color: '#166534' },
     '@keyframes nxt-spin': { to: { transform: 'rotate(360deg)' } },
     '@media (max-width:900px)': { '.nxt .check-day-board': { gridTemplateColumns: '1fr' } },
 };
@@ -188,6 +187,8 @@ export default function NxtPage() {
         if (!scriptReady.current || !profileRef.current || bootedRef.current) return;
         bootedRef.current = true;
         try {
+            window.NXT_API = (process.env.NEXT_PUBLIC_DOTNET_API_URL ?? 'http://localhost:5109/api') + '/nxt';
+            window.nxtToast = toast;
             const p = profileRef.current;
             const roles = p.roles.map((r: { name: string }) => r.name);
             const role = roles.some((r: string) => NXT_ADMIN_ROLES.includes(r)) ? 'admin' : 'employee';
@@ -340,7 +341,7 @@ export default function NxtPage() {
                 </Box>
 
                 {/* Note cards */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.1fr .95fr .95fr' }, gap: 1.5, mt: 2 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 1.5, mt: 2 }}>
                     <Paper variant="outlined" sx={{ borderRadius: '14px', p: 1.75, bgcolor: '#f0fdf4', borderColor: '#c7dfc0' }}>
                         <Typography sx={{ fontWeight: 800, fontSize: 14, mb: 1 }}>🧮 Cách app tính <b>dễ hiểu</b></Typography>
                         <Box sx={{ fontSize: 13, lineHeight: 1.65, color: '#374151', '& p': { m: 0, mb: '6px' } }}>
@@ -573,6 +574,7 @@ export default function NxtPage() {
             <Paper elevation={0} className="screen" id="screen-sapoImport" sx={cardSx}>
                 <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1e293b', mb: 0.5 }}>Nạp Sapo</Typography>
                 <Typography sx={{ color: '#6b7280', fontSize: 13, mb: 1.5 }}>Upload Excel .xlsx theo mẫu Sapo thật để đọc dữ liệu bán.</Typography>
+                    <Button id="btnDownloadSapoTemplate" variant="outlined" size="small" startIcon={<FileDownloadRounded sx={{ fontSize: '16px !important' }} />} sx={{ borderRadius: '10px', fontSize: 12,marginBottom:2, textTransform: 'none', borderColor: '#d1d5db', color: '#374151', '&:hover': { borderColor: '#086839', color: '#086839', bgcolor: 'rgba(8,104,57,.04)' } }}>Tải file mẫu</Button>
                 <Box sx={{ mb: 1.5 }}>
                     <FL htmlFor="sapoFileInput">File Excel Sapo (.xlsx)</FL>
                     <Box component="input" id="sapoFileInput" type="file" accept=".xlsx,.xls" sx={{ ...inputSx, py: '8px', cursor: 'pointer' }} />

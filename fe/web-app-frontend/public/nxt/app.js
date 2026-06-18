@@ -13,7 +13,7 @@
 
 const APP_VERSION = "FULL_v0_5_12_NEXT_OPENING_SYNC_AFTER_CODE_CHANGE";
 const OCR_HELPER_URL = "https://script.google.com/macros/s/AKfycbzRaxdoT45hrrJ9V0MwdPDLr59zRIp6CAbGYjr3AHlsAz3DBbBuLsadDShtJG75nf_D/exec";
-const NXT_API = "http://localhost:5109/api/nxt";
+let NXT_API = "http://localhost:5109/api/nxt";
 
 function rowToDto(row) {
   return {
@@ -29,11 +29,11 @@ function rowToDto(row) {
 }
 
 function dbSaveRow(row) {
-  fetch(`${NXT_API}/rows/upsert`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(rowToDto(row)) }).catch(() => {});
+  return fetch(`${NXT_API}/rows/upsert`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(rowToDto(row)) }).catch(() => {});
 }
 
 function dbSyncBatch() {
-  fetch(`${NXT_API}/rows/batch`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(dashboardRows.map(rowToDto)) }).catch(() => {});
+  return fetch(`${NXT_API}/rows/batch`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(dashboardRows.map(rowToDto)) }).catch(() => {});
 }
 
 function dbSaveLog(entry) {
@@ -253,26 +253,38 @@ function appPopupElements() {
 }
 
 function appNotify(message, type = "info", sticky = false) {
-  const { overlay, title, message: msgEl, spinner, ok } = appPopupElements();
-  if (!overlay) {
-    console.log(message);
+  if (type !== "loading") {
+    // Dùng react-hot-toast (giống toàn bộ app) nếu đã được expose
+    const rht = window.nxtToast;
+    if (rht) {
+      const duration = sticky ? 5000 : 2200;
+      const msg = String(message || "");
+      if (type === "success") rht.success(msg, { duration });
+      else if (type === "error") rht.error(msg, { duration });
+      else rht(msg, { duration, icon: "ℹ️" });
+      return;
+    }
+    // fallback nếu chưa có rht: hiện overlay đơn giản
+    const { overlay, title, spinner, ok } = appPopupElements();
+    if (!overlay) { console.log(message); return; }
+    overlay.className = `app-popup-overlay show ${type}`;
+    if (title) title.textContent = String(message || "");
+    if (spinner) spinner.style.display = "none";
+    if (ok) ok.style.display = "none";
+    if (!sticky) {
+      clearTimeout(appNotify._timer);
+      appNotify._timer = setTimeout(() => hideAppPopup(), 2200);
+    }
     return;
   }
-  const titleMap = {
-    loading: "Đang xử lý dữ liệu...",
-    success: "Đã cập nhật xong",
-    error: "Cần kiểm tra lại",
-    info: "Thông báo"
-  };
-  overlay.className = `app-popup-overlay show ${type}`;
-  if (title) title.textContent = titleMap[type] || "Thông báo";
+  // Loading: full-screen overlay
+  const { overlay, title, message: msgEl, spinner, ok } = appPopupElements();
+  if (!overlay) { console.log(message); return; }
+  overlay.className = `app-popup-overlay show loading`;
+  if (title) title.textContent = "Đang xử lý dữ liệu...";
   if (msgEl) msgEl.textContent = String(message || "");
-  if (spinner) spinner.style.display = type === "loading" ? "inline-block" : "none";
-  if (ok) ok.style.display = type === "loading" ? "none" : "inline-block";
-  if (!sticky && type !== "loading") {
-    clearTimeout(appNotify._timer);
-    appNotify._timer = setTimeout(() => hideAppPopup(), 2200);
-  }
+  if (spinner) spinner.style.display = "inline-block";
+  if (ok) ok.style.display = "none";
 }
 
 function hideAppPopup() {
@@ -313,7 +325,7 @@ function setupAppPopup() {
     setTimeout(() => {
       const { overlay } = appPopupElements();
       if (overlay?.classList.contains("loading")) hideAppPopup();
-    }, 900);
+    }, 8000);
   }, true);
 }
 
@@ -412,9 +424,10 @@ function setupTabs() {
 }
 
 function getRowsByFilter() {
+    const today = new Date().toISOString().split('T')[0];
   let rows = [...dashboardRows].filter(row => !isInactiveRow(row));
-  const from = document.getElementById("dateFrom")?.value || "";
-  const to = document.getElementById("dateTo")?.value || "";
+  const from = document.getElementById("dateFrom")?.value 
+  const to = document.getElementById("dateTo")?.value ;
   const branch = document.getElementById("overviewBranchFilter")?.value || "Tất cả";
   const status = document.getElementById("overviewStatusFilter")?.value || "all";
 
@@ -792,6 +805,7 @@ function setDashboardStock({ closeDate, branch, itemCode, actualStock, soldNotPi
   row.actualStock = number(actualStock);
   row.soldNotPicked = number(soldNotPicked);
   row.stockStatus = stockStatus || "Tồn bình thường";
+  dbSaveRow(row);
 
   // Nguyên tắc vận hành: tồn đầu ngày sau lấy theo Tồn thực tế cuối ngày trước.
   // DTT dùng để trừ khi so lệch trong ngày; CTT chỉ gắn nhãn trong tồn thực tế. Tồn đầu ngày sau lấy theo tồn thực tế.
@@ -876,10 +890,12 @@ function setupGiftIn() {
     lastGiftInPreview = parseCodeQtyText(document.getElementById("giftInText").value, { date:document.getElementById("giftInDate").value, branch:document.getElementById("giftInBranch").value, codeType:document.getElementById("giftInCodeType").value });
     renderPreview("giftInPreviewRows", lastGiftInPreview, [{key:"date"},{key:"branch"},{key:"itemCode",render:r=>`<b>${r.itemCode}</b>`},{key:"qty",right:true},{key:"codeType"},{key:"raw"}], "Chưa đọc được dòng hợp lệ.");
   });
-  document.getElementById("btnAddGiftInToSample")?.addEventListener("click", () => {
+  document.getElementById("btnAddGiftInToSample")?.addEventListener("click", async () => {
     if (!lastGiftInPreview.length) previewBtn?.click();
     lastGiftInPreview.forEach(r => upsertDashboardRow({ closeDate:isoToDisplay(r.date), branch:r.branch, itemCode:r.itemCode, patch:{ giftIn:r.qty }}));
-    renderDashboardByPermission(); appNotify("Đã cộng Gói ra vào Tổng quan.", "success");
+    renderDashboardByPermission();
+    await dbSyncBatch();
+    appNotify("Đã cộng Gói ra vào Tổng quan.", "success");
   });
   document.getElementById("btnClearGiftIn")?.addEventListener("click", () => { document.getElementById("giftInText").value = ""; lastGiftInPreview=[]; renderPreview("giftInPreviewRows", [], [{},{},{},{},{},{}], "Chưa có dữ liệu."); });
 }
@@ -890,18 +906,19 @@ function setupStock() {
     lastStockPreview = parseCodeQtyText(document.getElementById("stockText").value, { date:document.getElementById("stockDate").value, branch:document.getElementById("stockBranch").value }).map(row => ({ ...row, status: inferStockStatus(row.raw, document.getElementById("stockDefaultStatus").value), transferToBranch: parseTransferToBranch(row.raw, "") }));
     renderPreview("stockPreviewRows", lastStockPreview, [{key:"date"},{key:"branch"},{key:"itemCode",render:r=>`<b>${r.itemCode}</b>`},{key:"qty",right:true},{key:"status"},{key:"transferToBranch"},{key:"raw"}], "Chưa đọc được dòng tồn hợp lệ.");
   });
-  document.getElementById("btnApplyStockToSample")?.addEventListener("click", () => {
+  document.getElementById("btnApplyStockToSample")?.addEventListener("click", async () => {
     if (!lastStockPreview.length) previewBtn?.click();
     lastStockPreview.forEach(r => {
       if (r.status === "Chuyển chi nhánh" && r.transferToBranch) {
         applyTransferRow({ date:r.date, fromBranch:r.branch, toBranch:r.transferToBranch, itemCode:r.itemCode, qty:r.qty });
       } else {
-        
         const soldNotPicked = isSoldNotPickedStatus(r.status) ? r.qty : 0;
         setDashboardStock({ closeDate:isoToDisplay(r.date), branch:r.branch, itemCode:r.itemCode, actualStock:r.qty, soldNotPicked, stockStatus:r.status });
       }
     });
-    renderDashboardByPermission(); appNotify("Đã cập nhật Tồn CN / Chuyển CN vào Tổng quan.", "success");
+    renderDashboardByPermission();
+    await dbSyncBatch();
+    appNotify("Đã cập nhật Tồn CN / Chuyển CN vào Tổng quan.", "success");
   });
   document.getElementById("btnClearStock")?.addEventListener("click", () => { document.getElementById("stockText").value = ""; lastStockPreview=[]; renderPreview("stockPreviewRows", [], [{},{},{},{},{},{},{}], "Chưa có dữ liệu."); });
 }
@@ -912,10 +929,12 @@ function setupCancel() {
     lastCancelPreview = parseCodeQtyText(document.getElementById("cancelText").value, { date:document.getElementById("cancelDate").value, branch:document.getElementById("cancelBranch").value, reason:document.getElementById("cancelReason").value });
     renderPreview("cancelPreviewRows", lastCancelPreview, [{key:"date"},{key:"branch"},{key:"itemCode",render:r=>`<b>${r.itemCode}</b>`},{key:"qty",right:true},{key:"reason"},{key:"raw"}], "Chưa đọc được dòng hủy hợp lệ.");
   });
-  document.getElementById("btnApplyCancelToSample")?.addEventListener("click", () => {
+  document.getElementById("btnApplyCancelToSample")?.addEventListener("click", async () => {
     if (!lastCancelPreview.length) previewBtn?.click();
     lastCancelPreview.forEach(r => upsertDashboardRow({ closeDate:isoToDisplay(r.date), branch:r.branch, itemCode:r.itemCode, patch:{ cancelBasket:r.qty }}));
-    renderDashboardByPermission(); appNotify("Đã cập nhật Hủy giỏ vào Tổng quan.", "success");
+    renderDashboardByPermission();
+    await dbSyncBatch();
+    appNotify("Đã cập nhật Hủy giỏ vào Tổng quan.", "success");
   });
 }
 
@@ -928,9 +947,13 @@ function applyTransferRow(r) {
 
   upsertDashboardRow({ closeDate, branch: fromBranch, itemCode, patch: { transferBranch: qty } });
   addTransferNote({ closeDate, branch: fromBranch, itemCode, type: "out", otherBranch: toBranch, qty });
+  const fromRow = dashboardRows.find(r => r.closeDate === closeDate && r.branch === fromBranch && r.itemCode === itemCode);
+  if (fromRow) dbSaveRow(fromRow);
 
   upsertDashboardRow({ closeDate, branch: toBranch, itemCode, patch: { receiveBranch: qty } });
   addTransferNote({ closeDate, branch: toBranch, itemCode, type: "in", otherBranch: fromBranch, qty });
+  const toRow = dashboardRows.find(r => r.closeDate === closeDate && r.branch === toBranch && r.itemCode === itemCode);
+  if (toRow) dbSaveRow(toRow);
 }
 
 function setupTransfer() {
@@ -940,22 +963,26 @@ function setupTransfer() {
     lastTransferPreview = parseCodeQtyText(document.getElementById("transferText").value, { date:document.getElementById("transferDate").value, fromBranch:document.getElementById("transferFromBranch").value }).map(r => ({ ...r, toBranch: parseTransferToBranch(r.raw, defaultTo) }));
     renderPreview("transferPreviewRows", lastTransferPreview, [{key:"date"},{key:"fromBranch"},{key:"toBranch"},{key:"itemCode",render:r=>`<b>${r.itemCode}</b>`},{key:"qty",right:true},{key:"raw"}], "Chưa đọc được dòng chuyển hợp lệ.");
   });
-  document.getElementById("btnApplyTransferToSample")?.addEventListener("click", () => {
+  document.getElementById("btnApplyTransferToSample")?.addEventListener("click", async () => {
     if (!lastTransferPreview.length) previewBtn?.click();
     lastTransferPreview.forEach(applyTransferRow);
-    renderDashboardByPermission(); appNotify("Đã cập nhật Chuyển CN vào Tổng quan.", "success");
+    renderDashboardByPermission();
+    await dbSyncBatch();
+    appNotify("Đã cập nhật Chuyển CN vào Tổng quan.", "success");
   });
 }
 
 function setupSapo() {
   document.getElementById("btnReadSapoExcel")?.addEventListener("click", readSapoExcel);
-  document.getElementById("btnApplySapoExcel")?.addEventListener("click", () => {
+  document.getElementById("btnDownloadSapoTemplate")?.addEventListener("click", downloadSapoTemplate);
+  document.getElementById("btnApplySapoExcel")?.addEventListener("click", async () => {
     if (!lastSapoPreview.length) { appNotify("Chưa có dữ liệu Sapo đọc được.", "error"); return; }
     const result = applySapoRowsLatest(lastSapoPreview);
     if (!result.changed && result.same > 0) {
       appNotify(`File Sapo không có thay đổi so với dữ liệu đang có (${result.same} dòng). App giữ số cũ, không cộng thêm lần nữa.`, "info", true);
       return;
     }
+    await result.syncPromise;
     appNotify(`Đã cập nhật Sapo theo file mới nhất. ${result.changed} dòng thay đổi, ${result.same} dòng giữ nguyên. Nếu nạp nhầm, có thể bấm Xóa dữ liệu Sapo vừa nạp.`, "success", true);
   });
   document.getElementById("btnUndoLastSapoUpload")?.addEventListener("click", undoLastSapoUpload);
@@ -1018,13 +1045,13 @@ function applySapoRowsLatest(rows) {
   });
 
   dashboardRows.forEach(maybeDeactivateRow);
-  if (changed > 0) dbSyncBatch();
+  const syncPromise = changed > 0 ? dbSyncBatch() : Promise.resolve();
   renderDashboardByPermission();
   if (changed > 0) {
     lastAppliedSapoRows = undoRows;
     lastAppliedSapoSignature = signature;
   }
-  return { changed, same, total:aggregated.length };
+  return { changed, same, total:aggregated.length, syncPromise };
 }
 
 function undoLastSapoUpload() {
@@ -1052,13 +1079,36 @@ function renderSapoRows(rows) {
 async function readSapoExcel() {
   if (typeof XLSX === "undefined") { appNotify("Chưa tải được thư viện đọc Excel SheetJS. Kiểm tra internet hoặc để IT đóng gói thư viện nội bộ.", "error", true); return; }
   const file = document.getElementById("sapoFileInput")?.files?.[0];
-  if (!file) { appNotify("Anh chọn file Excel Sapo trước nhé.", "error"); return; }
+  if (!file) { appNotify("Vui lòng chọn file Excel Sapo trước nhé.", "error"); return; }
   const buffer = await file.arrayBuffer();
   const wb = XLSX.read(buffer, { type:"array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const matrix = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
   lastSapoPreview = parseSapoMatrix(matrix);
   renderSapoRows(lastSapoPreview);
+}
+
+function downloadSapoTemplate() {
+  if (typeof XLSX === "undefined") { appNotify("Chưa tải được SheetJS để tạo file mẫu.", "error"); return; }
+  const headers = [
+    "Ngày","Loại sản phẩm","Mã SKU","Tên phiên bản",
+    "Trạng thái xuất kho","Trạng thái thanh toán","Trạng thái đơn hàng",
+    "Tên chi nhánh","SL hàng bán ra","SL hàng thực bán","SL đơn hàng",
+    "Doanh thu","Doanh thu thuần"
+  ];
+  const today = (() => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; })();
+  const rows = [
+    headers,
+    [today,"Giỏ quà","H1144","Giỏ quà Phú Lợi 650k","Đã giao","Đã thanh toán","Hoàn thành","Phú Lợi",1,1,1,650000,650000],
+    [today,"Giỏ quà","H1129","Giỏ quà Ngô Quyền 780k","Đã giao","Đã thanh toán","Hoàn thành","Ngô Quyền",1,1,1,780000,780000],
+    [today,"Giỏ quà","H1133","Giỏ quà Lái Thiêu 590k","Chưa giao","Đã thanh toán","Đã hủy","Lái Thiêu",1,1,1,590000,590000],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = headers.map((h, i) => ({ wch: [10,14,10,28,18,20,22,16,14,16,12,12,14][i] || 14 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Mẫu Sapo");
+  XLSX.writeFile(wb, "mau-sapo-nxt.xlsx");
+  appNotify("Đã tải file mẫu. Dòng 'Đã hủy' sẽ bị lọc tự động khi nạp, không cần xóa tay.", "info", true);
 }
 
 function findHeaderRow(matrix) {
@@ -1169,7 +1219,7 @@ function checkTempCodeBranch() {
 
   if (!closeDate || !branch || !wrongCode) {
     box.className = "placeholder-box warnbox";
-    box.innerHTML = "Anh nhập ngày phát sinh, chi nhánh và mã sai/mã tạm trước rồi bấm kiểm tra.";
+    box.innerHTML = "Vui lòng nhập ngày phát sinh, chi nhánh và mã sai/mã tạm trước rồi bấm kiểm tra.";
     return;
   }
 
@@ -1202,7 +1252,7 @@ function checkTempCodeBranch() {
 
     if (sameSapo.length > 1 || (sameSapo.length > 0 && otherSapo.length > 0)) {
       box.className = "placeholder-box warnbox";
-      box.innerHTML = `<b>Cần kiểm tra:</b> Mã <b>${wrongCode}</b> có nhiều phát sinh Sapo/nghi vấn nhiều chi nhánh. Anh xác nhận ngày và CN trước khi đổi.`;
+      box.innerHTML = `<b>Cần kiểm tra:</b> Mã <b>${wrongCode}</b> có nhiều phát sinh Sapo/nghi vấn nhiều chi nhánh. Vui lòng xác nhận ngày và CN trước khi đổi.`;
       return;
     }
 
@@ -1224,13 +1274,13 @@ function checkTempCodeBranch() {
 
   if (sameBranchRows.length > 1) {
     box.className = "placeholder-box warnbox";
-    box.innerHTML = `<b>Cần kiểm tra:</b> Mã <b>${wrongCode}</b> có nhiều phát sinh nội bộ trong chi nhánh <b>${branch}</b>. Anh xem kỹ nguồn phát sinh trước khi đổi.`;
+    box.innerHTML = `<b>Cần kiểm tra:</b> Mã <b>${wrongCode}</b> có nhiều phát sinh nội bộ trong chi nhánh <b>${branch}</b>. Vui lòng xem kỹ nguồn phát sinh trước khi đổi.`;
     return;
   }
 
   if (sameBranchRows.length === 0 && otherBranchRows.length > 0) {
     box.className = "placeholder-box warnbox";
-    box.innerHTML = `<b>CẢNH BÁO MẠNH:</b> Mã <b>${wrongCode}</b> không nằm ở chi nhánh <b>${branch}</b>, mà đang thấy ở: <b>${[...new Set(otherBranchRows.map(row => row.branch))].join(", ")}</b>. Có thể anh chọn sai chi nhánh hoặc sai ngày.`;
+    box.innerHTML = `<b>CẢNH BÁO MẠNH:</b> Mã <b>${wrongCode}</b> không nằm ở chi nhánh <b>${branch}</b>, mà đang thấy ở: <b>${[...new Set(otherBranchRows.map(row => row.branch))].join(", ")}</b>. Có thể bạn chọn sai chi nhánh hoặc sai ngày.`;
     return;
   }
 
@@ -1265,7 +1315,7 @@ function setupWrongCode() {
   document.getElementById("btnClearAdjustments")?.addEventListener("click", () => { if (!isAdminUser()) return; adjustmentsLog=[]; dbClearLogs(); renderAdjustments(); });
 }
 
-function applyWrongCode() {
+async function applyWrongCode() {
   const closeDate = isoToDisplay(document.getElementById("wrongCodeDate").value);
   const branch = document.getElementById("wrongCodeBranch").value;
   const type = document.getElementById("wrongCodeType").value;
@@ -1276,12 +1326,12 @@ function applyWrongCode() {
   const note = document.getElementById("wrongCodeNote").value.trim();
 
   if (!closeDate || !branch || !wrongCode || !rightCode || !qty) {
-    appNotify("Anh nhập đủ ngày phát sinh, chi nhánh, mã sai, mã đúng, số lượng.", "error");
+    appNotify("Vui lòng nhập đủ ngày phát sinh, chi nhánh, mã sai, mã đúng, số lượng.", "error");
     return;
   }
 
   if (wrongCode === rightCode) {
-    appNotify("Mã sai/mã tạm và mã đúng đang giống nhau. Anh kiểm tra lại mã.", "error");
+    appNotify("Mã sai/mã tạm và mã đúng đang giống nhau. Vui lòng kiểm tra lại mã.", "error");
     return;
   }
 
@@ -1342,6 +1392,7 @@ function applyWrongCode() {
   const msg = type === "Sai mã Sapo / check đơn"
     ? "Đã chuyển Sapo bán từ mã sai sang mã đúng trong Tổng quan."
     : "Đã chuyển phát sinh nội bộ từ mã cũ sang mã đúng trong Tổng quan.";
+  await dbSyncBatch();
   appNotify(msg + "\nMã cũ sẽ tự ẩn nếu đã hết phát sinh có ý nghĩa.", "success", true);
 }
 
@@ -1437,6 +1488,8 @@ function moveTempCodeOccurrences({ closeDate, branch, wrongCode, rightCode, qty,
   }
 
   deactivateIfEmpty(wrong);
+  dbSaveRow(wrong);
+  if (right) dbSaveRow(right);
   return { moved: true, detail: [movedFields.join(", "), nextOpeningSyncDetail].filter(Boolean).join(" | ") };
 }
 
@@ -1475,6 +1528,8 @@ function moveSapoWrongCode({ closeDate, branch, wrongCode, rightCode, qty }) {
   cleanupZeroFields(wrong);
   cleanupZeroFields(right);
   deactivateIfEmpty(wrong);
+  dbSaveRow(wrong);
+  if (right) dbSaveRow(right);
 
   return {
     moved: true,
@@ -1529,6 +1584,7 @@ function formatSourceName(source) {
 }
 
 window.bootNxt = async function(user) {
+  if (window.NXT_API) NXT_API = window.NXT_API;
   currentUser = user;
   setupAppPopup();
   setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode();
@@ -1543,6 +1599,15 @@ window.bootNxt = async function(user) {
   } catch (e) {
     console.warn("Không kết nối được API, dùng dữ liệu rỗng.", e);
   }
+  // Thêm đoạn này vào cuối hàm window.bootNxt hoặc trước khi render dữ liệu
+const todayIso = new Date().toISOString().split('T')[0]; // Kết quả dạng: YYYY-MM-DD
+
+// Tự động điền vào các ô nhập ngày
+["giftInDate", "stockDate", "cancelDate", "wrongCodeDate", "dateFrom", "dateTo"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.value = todayIso;
+});
   renderDashboardByPermission();
   renderAdjustments();
 };
+

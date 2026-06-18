@@ -185,7 +185,7 @@ public class InternalNewsService : IInternalNewsService
         if (news == null)
             throw new NotFoundException("Không tìm thấy tin tức");
 
-        news.DeletedAt = DateTime.UtcNow.AddHours(7);
+        news.DeletedAt = DateTime.UtcNow;
         await _internalNewsRepository.Update(news);
         await _unitOfWork.SaveChangesAsync();
     }
