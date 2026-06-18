@@ -264,6 +264,7 @@ export default function NxtPage() {
                     <button className="tab" data-tab="cancelBasket" data-roles="admin,employee">Hủy giỏ</button>
                     <button className="tab" data-tab="sapoImport" data-roles="admin">Nạp Sapo</button>
                     <button className="tab" data-tab="wrongCode" data-roles="admin,employee">Sai mã</button>
+                    <button className="tab" data-tab="editQty" data-roles="admin">Sửa SL</button>
                 </Box>
             </Paper>
 
@@ -691,6 +692,67 @@ export default function NxtPage() {
                         </TableBody>
                     </Table>
                 </TableContainer>
+            </Paper>
+
+            {/* ── SỬA SL ── */}
+            <Paper elevation={0} className="screen" id="screen-editQty" sx={cardSx}>
+                <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1e293b', mb: 0.5 }}>Sửa số lượng</Typography>
+                <Typography sx={{ color: '#6b7280', fontSize: 13, mb: 1.5 }}>Chỉ dùng khi nhập sai số lượng. Không sửa được dữ liệu Sapo — nếu Sapo sai hãy nạp lại file Sapo.</Typography>
+                <Box sx={hintSx}>Chỉ Admin áp dụng được. Mọi thay đổi đều ghi vào lịch sử điều chỉnh.</Box>
+                <FG cols={4}>
+                    <Box>
+                        <FL htmlFor="editQtyDate">Ngày phát sinh</FL>
+                        <Box component="input" id="editQtyDate" type="date" sx={inputSx} />
+                    </Box>
+                    <Box>
+                        <FL htmlFor="editQtyBranch">Chi nhánh</FL>
+                        <Box component="select" id="editQtyBranch" sx={selectSx}>
+                            {BRANCHES.map(b => <option key={b}>{b}</option>)}
+                        </Box>
+                    </Box>
+                    <Box>
+                        <FL htmlFor="editQtyCode">Mã giỏ</FL>
+                        <Box component="input" id="editQtyCode" placeholder="Ví dụ: H1144" sx={inputSx} />
+                    </Box>
+                    <Box>
+                        <FL htmlFor="editQtyField">Trường cần sửa</FL>
+                        <Box component="select" id="editQtyField" sx={selectSx}>
+                            <option value="giftIn">Gói ra</option>
+                            <option value="receiveBranch">Nhận CN</option>
+                            <option value="transferBranch">Chuyển CN</option>
+                            <option value="cancelBasket">Hủy giỏ</option>
+                            <option value="actualStock">Tồn thực tế</option>
+                            <option value="soldNotPicked">Bán chưa lấy</option>
+                        </Box>
+                    </Box>
+                    <Box id="editQtyCounterBox" sx={{ display: 'none' }}>
+                        <FL htmlFor="editQtyCounterBranch">Chi nhánh đối ứng</FL>
+                        <Box component="select" id="editQtyCounterBranch" sx={selectSx}>
+                            {BRANCHES.map(b => <option key={b}>{b}</option>)}
+                        </Box>
+                    </Box>
+                    <Box>
+                        <FL>Giá trị hiện tại</FL>
+                        <Box id="editQtyCurrentVal" sx={{ ...inputSx, bgcolor: '#f9fafb', color: '#374151', fontWeight: 700, display: 'flex', alignItems: 'center' }}>—</Box>
+                    </Box>
+                    <Box>
+                        <FL htmlFor="editQtyNewVal">Giá trị mới</FL>
+                        <Box component="input" id="editQtyNewVal" type="number" step="1" sx={inputSx} />
+                    </Box>
+                    <Box sx={{ gridColumn: '1/-1' }}>
+                        <FL htmlFor="editQtyReason">Lý do sửa (bắt buộc)</FL>
+                        <Box component="textarea" id="editQtyReason" placeholder="Vd: Nhập nhầm gói ra từ 3 thành 2, thực tế đúng là 2." sx={{ ...textareaSx, minHeight: 80 }} />
+                    </Box>
+                </FG>
+                <BR>
+                    <Button id="btnApplyEditQty" variant="contained" size="small" sx={primaryBtn}>Áp dụng sửa</Button>
+                </BR>
+                <Box id="editQtyCheckResult" sx={hintSx}>Nhập ngày, chi nhánh và mã giỏ để xem giá trị hiện tại.</Box>
+                <Box sx={{ ...warnSx, mb: 2 }}>
+                    <b>Không sửa được:</b> Sapo bán, Điều chỉnh, Tồn đầu ngày.<br />
+                    <b>Sửa Tồn thực tế:</b> app tự đồng bộ Tồn đầu ngày kế tiếp.<br />
+                    <b>Sửa Chuyển/Nhận CN:</b> chọn chi nhánh đối ứng, app cập nhật đồng thời cả 2 phía.
+                </Box>
             </Paper>
 
             {/* ── POPUP — app.js quản lý ── */}
