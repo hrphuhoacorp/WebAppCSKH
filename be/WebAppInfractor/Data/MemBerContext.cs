@@ -46,6 +46,10 @@ public partial class MemBerContext : DbContext
 
     public virtual DbSet<NxtRow> NxtRows { get; set; }
 
+    public virtual DbSet<SapoImportBatch> SapoImportBatches { get; set; }
+    public virtual DbSet<SapoSalesRow> SapoSalesRows { get; set; }
+    public virtual DbSet<SapoCodeMapping> SapoCodeMappings { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -816,6 +820,88 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Inactive).HasColumnName("inactive").HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<SapoImportBatch>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("sapo_import_batches_pkey");
+            entity.ToTable("sapo_import_batches");
+
+            entity.HasIndex(e => e.BatchId, "idx_sapo_import_batches_batch_id").IsUnique();
+            entity.HasIndex(e => e.ImportedAt, "idx_sapo_import_batches_imported_at");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.BatchId).HasMaxLength(50).HasColumnName("batch_id");
+            entity.Property(e => e.ImportedAt).HasMaxLength(30).HasColumnName("imported_at");
+            entity.Property(e => e.SapoFileName).HasMaxLength(255).HasColumnName("sapo_file_name");
+            entity.Property(e => e.MappingFileName).HasMaxLength(255).HasColumnName("mapping_file_name");
+            entity.Property(e => e.RowCount).HasColumnName("row_count");
+            entity.Property(e => e.DateRange).HasMaxLength(50).HasColumnName("date_range");
+            entity.Property(e => e.NetRevenue).HasPrecision(18, 2).HasColumnName("net_revenue");
+            entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
+            entity.Property(e => e.Qty).HasPrecision(18, 2).HasColumnName("qty");
+            entity.Property(e => e.Orders).HasPrecision(18, 2).HasColumnName("orders");
+            entity.Property(e => e.MappingCount).HasColumnName("mapping_count");
+            entity.Property(e => e.WarningCount).HasColumnName("warning_count");
+            entity.Property(e => e.UploadedBy).HasMaxLength(100).HasColumnName("uploaded_by");
+            entity.Property(e => e.Version).HasMaxLength(20).HasColumnName("version");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<SapoSalesRow>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("sapo_sales_rows_pkey");
+            entity.ToTable("sapo_sales_rows");
+
+            entity.HasIndex(e => e.BatchId, "idx_sapo_sales_rows_batch_id");
+            entity.HasIndex(e => new { e.Date, e.Branch, e.ReportCode }, "idx_sapo_sales_rows_date_branch_code");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.BatchId).HasMaxLength(50).HasColumnName("batch_id");
+            entity.Property(e => e.Date).HasMaxLength(20).HasColumnName("date");
+            entity.Property(e => e.Branch).HasMaxLength(100).HasColumnName("branch");
+            entity.Property(e => e.ProductType).HasMaxLength(100).HasColumnName("product_type");
+            entity.Property(e => e.Sku).HasMaxLength(100).HasColumnName("sku");
+            entity.Property(e => e.SapoCode).HasMaxLength(100).HasColumnName("sapo_code");
+            entity.Property(e => e.ReportCode).HasMaxLength(100).HasColumnName("report_code");
+            entity.Property(e => e.ReportName).HasMaxLength(255).HasColumnName("report_name");
+            entity.Property(e => e.ProductName).HasMaxLength(255).HasColumnName("product_name");
+            entity.Property(e => e.BasketGroup).HasMaxLength(100).HasColumnName("basket_group");
+            entity.Property(e => e.PriceBucket).HasMaxLength(30).HasColumnName("price_bucket");
+            entity.Property(e => e.Price).HasPrecision(18, 2).HasColumnName("price");
+            entity.Property(e => e.Qty).HasPrecision(18, 2).HasColumnName("qty");
+            entity.Property(e => e.Orders).HasPrecision(18, 2).HasColumnName("orders");
+            entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
+            entity.Property(e => e.NetRevenue).HasPrecision(18, 2).HasColumnName("net_revenue");
+            entity.Property(e => e.ResolveSource).HasMaxLength(50).HasColumnName("resolve_source");
+            entity.Property(e => e.MatchedCode).HasMaxLength(100).HasColumnName("matched_code");
+            entity.Property(e => e.MappingPrice).HasPrecision(18, 2).HasColumnName("mapping_price");
+            entity.Property(e => e.MappingDate).HasMaxLength(20).HasColumnName("mapping_date");
+            entity.Property(e => e.MappingNote).HasColumnName("mapping_note");
+            entity.Property(e => e.AutoGroupNote).HasColumnName("auto_group_note");
+            entity.Property(e => e.Warning).HasMaxLength(100).HasColumnName("warning");
+            entity.Property(e => e.UploadedBy).HasMaxLength(100).HasColumnName("uploaded_by");
+            entity.Property(e => e.UploadedAt).HasMaxLength(30).HasColumnName("uploaded_at");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<SapoCodeMapping>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("sapo_code_mappings_pkey");
+            entity.ToTable("sapo_code_mappings");
+
+            entity.HasIndex(e => new { e.OldCode, e.NewCode, e.EffectiveDate }, "idx_sapo_code_mappings_key").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.OldCode).HasMaxLength(100).HasColumnName("old_code");
+            entity.Property(e => e.NewCode).HasMaxLength(100).HasColumnName("new_code");
+            entity.Property(e => e.Price).HasPrecision(18, 2).HasColumnName("price");
+            entity.Property(e => e.EffectiveDate).HasMaxLength(20).HasColumnName("effective_date");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.Active).HasMaxLength(10).HasDefaultValue("TRUE").HasColumnName("active");
+            entity.Property(e => e.UploadedAt).HasMaxLength(30).HasColumnName("uploaded_at");
+            entity.Property(e => e.Source).HasMaxLength(100).HasColumnName("source");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
         });
 
         OnModelCreatingPartial(modelBuilder);

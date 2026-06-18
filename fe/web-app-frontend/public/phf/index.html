@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PHF - Dashboard Sapo</title>
+  <link rel="stylesheet" href="/phf/style.css" />
+</head>
+<body>
+  <div class="app shell">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <img class="brand-logo" src="/phf/assets/logo-color.png" alt="PhuhoaFresh" />
+        <div class="brand-copy">
+          <div class="eyebrow">Báo cáo gói quà / quà tặng</div>
+          <h1>Theo dõi doanh thu Sapo mỗi ngày</h1>
+          <p>Đúng số liệu, rõ xu hướng, dễ ra quyết định.</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <div class="version-pill" id="versionText">Đang tải...</div>
+        <div class="owner-pill">Phụ trách: <b>Dương Sô Phát</b></div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="notice-row">
+        <div class="data-notice" id="dataNotice">Đang kiểm tra dữ liệu...</div>
+        <div class="admin-gate">
+          <div class="admin-status">Quyền cập nhật: <b id="adminStatus">Chưa mở</b></div>
+          <div class="admin-actions">
+            <input id="adminCode" type="password" placeholder="Mã admin" />
+            <button class="btn dark" id="btnUnlock">Mở admin</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="upload-panel admin-only">
+        <div class="panel-head">
+          <div>
+            <h2>Nạp dữ liệu báo cáo</h2>
+            <p>File có ngày nào sẽ cập nhật đúng ngày đó. Nếu dữ liệu không đổi, hệ thống giữ nguyên để tránh ghi đè không cần thiết.</p>
+          </div>
+          <div class="sample-actions">
+            <a class="btn sample" href="/sample/sapo">Tải mẫu file Sapo</a>
+            <a class="btn sample" href="/sample/mapping">Tải mẫu file đổi mã</a>
+          </div>
+        </div>
+        <div class="upload-grid">
+          <div>
+            <label>File báo cáo Sapo</label>
+            <input type="file" id="sapoFile" accept=".csv,.xlsx,.xls" />
+            <div class="hint">Nhận CSV/XLSX. Dùng cho doanh thu, số lượng, số đơn.</div>
+          </div>
+          <div>
+            <label>File đổi mã nếu có</label>
+            <input type="file" id="mappingFile" accept=".csv,.xlsx,.xls" />
+            <div class="hint">Mã báo cáo gốc → mã Sapo đang bán. Hệ thống tự bỏ qua dòng trùng.</div>
+          </div>
+          <div class="upload-buttons">
+            <button class="btn primary" id="btnImport">Nạp báo cáo</button>
+            <button class="btn danger" id="btnUndo">Xóa upload gần nhất</button>
+          </div>
+        </div>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="filter-card">
+        <div class="filters">
+          <button data-filter="latest_month" class="active">Tháng mới nhất</button>
+          <button data-filter="last7">7 ngày gần nhất</button>
+          <button data-filter="last30">30 ngày gần nhất</button>
+        </div>
+        <div class="date-filter-controls">
+          <input type="date" id="fromDate" />
+          <input type="date" id="toDate" />
+          <button class="btn dark" id="btnRange">Xem khoảng ngày</button>
+          <input type="month" id="monthText" />
+          <button class="btn" id="btnMonth">Xem tháng</button>
+        </div>
+      </section>
+
+      <div class="section-title">
+        <h3>1. Tổng quan kỳ đang xem</h3>
+        <span id="metaText">Đang tải...</span>
+      </div>
+      <section class="metrics">
+        <div class="metric"><div class="label">Doanh thu</div><div class="value" id="revenue">0</div><div class="sub">Dùng cột Doanh thu</div></div>
+        <div class="metric"><div class="label">Doanh thu thuần</div><div class="value" id="netRevenue">0</div><div class="sub">Theo file Sapo</div></div>
+        <div class="metric"><div class="label">Số lượng bán</div><div class="value" id="qty">0</div><div class="sub">Có giữ dòng âm trả hàng</div></div>
+        <div class="metric"><div class="label">Đơn giá TB/giỏ</div><div class="value" id="aov">0</div><div class="sub">Doanh thu / Số lượng</div></div>
+      </section>
+
+      <div class="section-title"><h3>2. Nhận định nhanh</h3><span>Tự rút từ dữ liệu đã nạp</span></div>
+      <section class="insights">
+        <div class="insight"><div class="label">Ngày cao nhất</div><div class="value" id="bestDay">-</div><div class="sub" id="bestDaySub"></div></div>
+        <div class="insight"><div class="label">Nhóm giỏ mạnh nhất</div><div class="value" id="bestGroup">-</div><div class="sub" id="bestGroupSub"></div></div>
+        <div class="insight"><div class="label">Mã kéo doanh thu</div><div class="value" id="bestCode">-</div><div class="sub" id="bestCodeSub"></div></div>
+        <div class="insight"><div class="label">Phân khúc giá chính</div><div class="value" id="bestPrice">-</div><div class="sub" id="bestPriceSub"></div></div>
+      </section>
+
+      <div class="section-title"><h3>3. Diễn biến doanh thu</h3><span>Theo ngày trong kỳ lọc</span></div>
+      <section class="grid">
+        <div class="card chart-card"><h3>Doanh thu theo ngày</h3><div id="byDay" class="bars chart-bars"></div></div>
+        <div class="card chart-card"><h3>Doanh thu theo tháng</h3><div class="hint">Tổng hợp theo tháng để nhìn xu hướng dài hơn.</div><div id="byMonth" class="bars chart-bars"></div></div>
+      </section>
+
+      <div class="section-title"><h3>4. Cơ cấu bán hàng</h3><span>Nhóm giỏ và phân khúc giá</span></div>
+      <section class="grid sales-structure-grid">
+        <div class="card chart-card"><h3>Cơ cấu số lượng giỏ bán ra</h3><div class="hint">Dùng SKU để phân loại nhóm giỏ.</div><div id="byGroup" class="bars chart-bars"></div></div>
+        <div class="card chart-card"><h3>Phân khúc giá</h3><div class="hint">Sắp xếp từ phân khúc thấp đến cao.</div><div id="byPrice" class="bars chart-bars"></div></div>
+      </section>
+
+      <div class="section-title"><h3>5. Mã kéo doanh thu</h3><span>Top mã báo cáo</span></div>
+      <section class="card"><h3>Top mã báo cáo</h3><div id="byCode"></div></section>
+
+      <div class="section-title"><h3>6. Phân tích thêm</h3><span>Gợi ý hỗ trợ quản lý</span></div>
+      <section class="analysis-grid" id="analysisCards"></section>
+
+      <section class="card imports-card">
+        <h3>Lịch sử cập nhật gần nhất</h3>
+        <div id="imports"></div>
+      </section>
+
+      <div class="footer-note">
+        Prototype chuyển đổi từ Google Apps Script đã chốt. Khi IT tích hợp server thật, cần thay data_store JSON bằng database/nơi lưu trữ nội bộ và giữ nguyên nghiệp vụ.
+      </div>
+    </main>
+  </div>
+  <script src="/phf/app.js"></script>
+</body>
+</html>

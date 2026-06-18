@@ -232,6 +232,7 @@ builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IInternalNewsService, InternalNewsService>();
 builder.Services.AddScoped<IGiftBasketService, GiftBasketService>();
 builder.Services.AddScoped<IMessageReportService, MessageReportService>();
+builder.Services.AddScoped<WebAppAPI.Services.SapoService>();
 
 //context
 builder.Services.AddHttpContextAccessor();
