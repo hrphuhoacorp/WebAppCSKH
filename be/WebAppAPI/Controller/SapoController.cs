@@ -11,11 +11,13 @@ namespace WebAppAPI.Controllers;
 public class SapoController : ControllerBase
 {
     private readonly SapoService _sapo;
+    private readonly IActivityService _activity;
     private const string ADMIN_CODE = "phf2025";
 
-    public SapoController(SapoService sapo)
+    public SapoController(SapoService sapo, IActivityService activity)
     {
         _sapo = sapo;
+        _activity = activity;
     }
 
     [HttpGet("dashboard")]
@@ -80,6 +82,9 @@ public class SapoController : ControllerBase
             mappingBytes, mappingFileName,
             form.UploadedBy ?? "webapp.user");
 
+        await _activity.SaveLogAsync(null, null, "SAPO_IMPORT", "sapo_import_batches", null,
+            newData: new { fileName = form.SapoFile.FileName, uploadedBy = form.UploadedBy, message = result.Message });
+
         return Ok(result);
     }
 
@@ -106,6 +111,7 @@ public class SapoController : ControllerBase
         try
         {
             var result = await _sapo.DeleteLatestUploadAsync();
+            await _activity.SaveLogAsync(null, null, "SAPO_DELETE_LATEST", "sapo_import_batches", null);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
