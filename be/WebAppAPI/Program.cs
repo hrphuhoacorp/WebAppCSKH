@@ -49,6 +49,18 @@ builder.Services.AddScoped<IMessageReportRepository, MessageReportRepository>();
 builder.Services.AddMemoryCache();
 
 //signalR
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 1048576000;
+});
+
+// Cấu hình giới hạn cho Form Options khi upload Multipart (1000MB)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.ValueLengthLimit = 1048576000;
+    options.MultipartBodyLengthLimit = 1048576000;
+    options.MultipartHeadersLengthLimit = 1048576000;
+});
 
 //cotroller
 builder
