@@ -38,7 +38,7 @@ const Video = Node.create({
         return [{ tag: 'video' }];
     },
     renderHTML({ HTMLAttributes }) {
-        return ['video', mergeAttributes(HTMLAttributes, { style: 'max-width:100%;border-radius:8px;display:block;margin:1em auto' }), 0];
+        return ['video', mergeAttributes(HTMLAttributes, { style: 'max-width:100%;border-radius:8px;display:block;margin:1em auto', controls: 'controls' })];
     },
 });
 
