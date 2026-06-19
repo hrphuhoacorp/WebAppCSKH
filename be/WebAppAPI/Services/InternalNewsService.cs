@@ -294,23 +294,51 @@ public class InternalNewsService : IInternalNewsService
 
     public async Task<string> UploadVideoAsync(IFormFile file)
     {
-        var allowedExts = new[] { ".mp4", ".webm", ".ogg", ".mov" };
-        var ext = Path.GetExtension(file.FileName).ToLower();
-
-        if (!allowedExts.Contains(ext))
-            throw new BadRequestException($"File {file.FileName} không đúng định dạng video");
-
-        var saveFolder = Path.Combine(_mediaSettings.RootPath, "news-videos");
-        Directory.CreateDirectory(saveFolder);
-
-        var fileName = $"{Guid.NewGuid():N}{ext}";
-        var savePath = Path.Combine(saveFolder, fileName);
-
-        await using (var stream = new FileStream(savePath, FileMode.Create))
+        try
         {
-            await file.CopyToAsync(stream);
-        }
+            if (file == null || file.Length == 0)
+                throw new BadRequestException("File trống hoặc không có file");
 
-        return $"{_mediaSettings.BaseUrl}/media/news-videos/{fileName}";
+            var allowedExts = new[] { ".mp4", ".webm", ".ogg", ".mov" };
+            var ext = Path.GetExtension(file.FileName).ToLower();
+
+            if (!allowedExts.Contains(ext))
+                throw new BadRequestException($"Định dạng {ext} không hỗ trợ. Dùng: .mp4, .webm, .ogg, .mov");
+
+            var saveFolder = Path.Combine(_mediaSettings.RootPath, "news-videos");
+            try
+            {
+                Directory.CreateDirectory(saveFolder);
+            }
+            catch (Exception ex)
+            {
+                throw new BadRequestException($"Không thể tạo folder lưu trữ: {ex.Message}");
+            }
+
+            var fileName = $"{Guid.NewGuid():N}{ext}";
+            var savePath = Path.Combine(saveFolder, fileName);
+
+            try
+            {
+                await using (var stream = new FileStream(savePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new BadRequestException($"Lỗi lưu file: {ex.Message}");
+            }
+
+            return $"{_mediaSettings.BaseUrl}/media/news-videos/{fileName}";
+        }
+        catch (BadRequestException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new BadRequestException($"Lỗi upload video: {ex.Message}");
+        }
     }
 }
