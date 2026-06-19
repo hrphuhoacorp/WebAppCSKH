@@ -118,11 +118,11 @@ namespace WebAppAPI.Controllers
         public async Task<ResponseValue<ImportStaffResultDTO>> ImportStaff(IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return new ResponseValue<ImportStaffResultDTO> { StatusCode = 400, Message = "File không hợp lệ" };
+                throw new BadRequestException("File không hợp lệ");
 
             var ext = Path.GetExtension(file.FileName).ToLower();
             if (ext != ".xlsx" && ext != ".xls")
-                return new ResponseValue<ImportStaffResultDTO> { StatusCode = 400, Message = "Chỉ chấp nhận file Excel (.xlsx, .xls)" };
+                throw new BadRequestException("Chỉ chấp nhận file Excel (.xlsx, .xls)");
 
             var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims
                 .FirstOrDefault(c => c.Type == "Id");

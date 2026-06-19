@@ -48,115 +48,87 @@ namespace WebAppAPI.Controllers
             [FromQuery] GiftBasketFilterDTO filter
         )
         {
-            try
-            {
-                var result = await _service.GetBasketsAsync(filter);
-                return new ResponseValue<PagedResult<GiftBasketDTO>>
-                {
-                    StatusCode = 200,
-                    Data = result,
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<PagedResult<GiftBasketDTO>>
-                {
-                    StatusCode = 500,
-                    Message = ex.Message,
-                };
-            }
+            var result = await _service.GetBasketsAsync(filter);
+            return new ResponseValue<PagedResult<GiftBasketDTO>>(
+                result,
+                "Lấy danh sách thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpPost("Create")]
         public async Task<ResponseValue<GiftBasketDTO>> Create([FromBody] CreateGiftBasketDTO dto)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var result = await _service.CreateBasketAsync(dto, userId);
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    "CREATE_BASKET",
-                    "gift_baskets",
-                    result.Id,
-                    null,
-                    JsonSerializer.Serialize(result)
-                );
-                await _hub.Clients.All.SendAsync(
-                    "GiftBasketChanged",
-                    new { table = "change_requests" }
-                );
-                return new ResponseValue<GiftBasketDTO> { StatusCode = 200, Data = result };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<GiftBasketDTO> { StatusCode = 500, Message = ex.Message };
-            }
+            var userId = GetCurrentUserId();
+            var result = await _service.CreateBasketAsync(dto, userId);
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                "CREATE_BASKET",
+                "gift_baskets",
+                result.Id,
+                null,
+                JsonSerializer.Serialize(result)
+            );
+            await _hub.Clients.All.SendAsync(
+                "GiftBasketChanged",
+                new { table = "change_requests" }
+            );
+            return new ResponseValue<GiftBasketDTO>(
+                result,
+                "Tạo thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpPut("Update")]
         public async Task<ResponseValue<GiftBasketDTO>> Update([FromBody] UpdateGiftBasketDTO dto)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var result = await _service.UpdateBasketAsync(dto, userId);
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    "UPDATE_BASKET",
-                    "gift_baskets",
-                    result.Id,
-                    JsonSerializer.Serialize(new { dto.Id }),
-                    JsonSerializer.Serialize(result)
-                );
-                await _hub.Clients.All.SendAsync(
-                    "GiftBasketChanged",
-                    new { table = "change_requests" }
-                );
+            var userId = GetCurrentUserId();
+            var result = await _service.UpdateBasketAsync(dto, userId);
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                "UPDATE_BASKET",
+                "gift_baskets",
+                result.Id,
+                JsonSerializer.Serialize(new { dto.Id }),
+                JsonSerializer.Serialize(result)
+            );
+            await _hub.Clients.All.SendAsync(
+                "GiftBasketChanged",
+                new { table = "change_requests" }
+            );
 
-                return new ResponseValue<GiftBasketDTO> { StatusCode = 200, Data = result };
-            }
-            catch (NotFoundException ex)
-            {
-                return new ResponseValue<GiftBasketDTO> { StatusCode = 404, Message = ex.Message };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<GiftBasketDTO> { StatusCode = 500, Message = ex.Message };
-            }
+            return new ResponseValue<GiftBasketDTO>(
+                result,
+                "Cập nhật thành công",
+                StatusReponse.Success
+            );
         }
 
         [HttpPost("UploadImage")]
         [Consumes("multipart/form-data")]
         public async Task<ResponseValue<string>> UploadImage(IFormFile file)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var url = await _service.UploadBasketImageAsync(file, userId);
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    "UPLOAD_IMAGE",
-                    "gift_baskets",
-                    0,
-                    null,
-                    JsonSerializer.Serialize(new { url, fileName = file.FileName })
-                );
-                return new ResponseValue<string> { StatusCode = 200, Data = url };
-            }
-            catch (BadRequestException ex)
-            {
-                return new ResponseValue<string> { StatusCode = 400, Message = ex.Message };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<string> { StatusCode = 500, Message = ex.Message };
-            }
+            var userId = GetCurrentUserId();
+            var url = await _service.UploadBasketImageAsync(file, userId);
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                "UPLOAD_IMAGE",
+                "gift_baskets",
+                0,
+                null,
+                JsonSerializer.Serialize(new { url, fileName = file.FileName })
+            );
+            return new ResponseValue<string>(
+                url,
+                "Tải ảnh thành công",
+                StatusReponse.Success
+            );
         }
 
         // ─── CODE CHANGE REQUESTS ─────────────────────────────────────────────
@@ -170,29 +142,18 @@ namespace WebAppAPI.Controllers
             [FromQuery] bool? isActive = null
         )
         {
-            try
-            {
-                var result = await _service.GetCodeChangeRequestsAsync(
-                    page,
-                    pageSize,
-                    status,
-                    branchId,
-                    isActive
-                );
-                return new ResponseValue<PagedResult<GiftCodeChangeRequestDTO>>
-                {
-                    StatusCode = 200,
-                    Data = result,
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<PagedResult<GiftCodeChangeRequestDTO>>
-                {
-                    StatusCode = 500,
-                    Message = ex.Message,
-                };
-            }
+            var result = await _service.GetCodeChangeRequestsAsync(
+                page,
+                pageSize,
+                status,
+                branchId,
+                isActive
+            );
+            return new ResponseValue<PagedResult<GiftCodeChangeRequestDTO>>(
+                result,
+                "Lấy danh sách thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift,Gói Quà,Bán Hàng")]
@@ -201,42 +162,31 @@ namespace WebAppAPI.Controllers
             [FromBody] CreateCodeChangeRequestDTO dto
         )
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var result = await _service.CreateCodeChangeRequestAsync(dto, userId);
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    "CREATE_CHANGE_REQUEST",
-                    "gift_code_change_requests",
-                    result.Id,
-                    null,
-                    JsonSerializer.Serialize(result)
-                );
-                await _hub.Clients.All.SendAsync(
-                    "GiftBasketChanged",
-                    new
-                    {
-                        action = "created",
-                        table = "change_requests",
-                        data = result,
-                    }
-                );
-                return new ResponseValue<GiftCodeChangeRequestDTO>
+            var userId = GetCurrentUserId();
+            var result = await _service.CreateCodeChangeRequestAsync(dto, userId);
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                "CREATE_CHANGE_REQUEST",
+                "gift_code_change_requests",
+                result.Id,
+                null,
+                JsonSerializer.Serialize(result)
+            );
+            await _hub.Clients.All.SendAsync(
+                "GiftBasketChanged",
+                new
                 {
-                    StatusCode = 200,
-                    Data = result,
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<GiftCodeChangeRequestDTO>
-                {
-                    StatusCode = 500,
-                    Message = ex.Message,
-                };
-            }
+                    action = "created",
+                    table = "change_requests",
+                    data = result,
+                }
+            );
+            return new ResponseValue<GiftCodeChangeRequestDTO>(
+                result,
+                "Tạo yêu cầu thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
@@ -245,55 +195,36 @@ namespace WebAppAPI.Controllers
             [FromBody] HandleCodeChangeRequestDTO dto
         )
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var before = await _service.GetCodeChangeRequestByIdAsync(dto.Id);
-                var result = await _service.HandleCodeChangeRequestAsync(dto, userId);
-                var action =
-                    dto.Status?.ToUpper() == "DONE"
-                        ? "APPROVE_CHANGE_REQUEST"
-                        : "REJECT_CHANGE_REQUEST";
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    action,
-                    "gift_code_change_requests",
-                    result.Id,
-                    before != null ? JsonSerializer.Serialize(before) : null,
-                    JsonSerializer.Serialize(result)
-                );
-                await _hub.Clients.All.SendAsync(
-                    "GiftBasketChanged",
-                    new
-                    {
-                        action = "handled",
-                        table = "change_requests",
-                        data = result,
-                    }
-                );
-                return new ResponseValue<GiftCodeChangeRequestDTO>
+            var userId = GetCurrentUserId();
+            var before = await _service.GetCodeChangeRequestByIdAsync(dto.Id);
+            var result = await _service.HandleCodeChangeRequestAsync(dto, userId);
+            var action =
+                dto.Status?.ToUpper() == "DONE"
+                    ? "APPROVE_CHANGE_REQUEST"
+                    : "REJECT_CHANGE_REQUEST";
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                action,
+                "gift_code_change_requests",
+                result.Id,
+                before != null ? JsonSerializer.Serialize(before) : null,
+                JsonSerializer.Serialize(result)
+            );
+            await _hub.Clients.All.SendAsync(
+                "GiftBasketChanged",
+                new
                 {
-                    StatusCode = 200,
-                    Data = result,
-                };
-            }
-            catch (NotFoundException ex)
-            {
-                return new ResponseValue<GiftCodeChangeRequestDTO>
-                {
-                    StatusCode = 404,
-                    Message = ex.Message,
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<GiftCodeChangeRequestDTO>
-                {
-                    StatusCode = 500,
-                    Message = ex.Message,
-                };
-            }
+                    action = "handled",
+                    table = "change_requests",
+                    data = result,
+                }
+            );
+            return new ResponseValue<GiftCodeChangeRequestDTO>(
+                result,
+                "Xử lý yêu cầu thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
@@ -303,40 +234,33 @@ namespace WebAppAPI.Controllers
             [FromBody] bool isActive
         )
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var before = await _service.GetCodeChangeRequestByIdAsync(id);
-                await _service.SetChangeRequestActiveAsync(id, isActive);
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    isActive ? "ACTIVATE_CHANGE_REQUEST" : "DEACTIVATE_CHANGE_REQUEST",
-                    "gift_code_change_requests",
+            var userId = GetCurrentUserId();
+            var before = await _service.GetCodeChangeRequestByIdAsync(id);
+            await _service.SetChangeRequestActiveAsync(id, isActive);
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                isActive ? "ACTIVATE_CHANGE_REQUEST" : "DEACTIVATE_CHANGE_REQUEST",
+                "gift_code_change_requests",
+                id,
+                before != null ? JsonSerializer.Serialize(before) : null,
+                null
+            );
+            await _hub.Clients.All.SendAsync(
+                "GiftBasketChanged",
+                new
+                {
+                    action = "activeChanged",
+                    table = "change_requests",
                     id,
-                    before != null ? JsonSerializer.Serialize(before) : null,
-                    null
-                );
-                await _hub.Clients.All.SendAsync(
-                    "GiftBasketChanged",
-                    new
-                    {
-                        action = "activeChanged",
-                        table = "change_requests",
-                        id,
-                        isActive,
-                    }
-                );
-                return new ResponseValue<bool> { StatusCode = 200, Data = true };
-            }
-            catch (NotFoundException ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
-            }
+                    isActive,
+                }
+            );
+            return new ResponseValue<bool>(
+                true,
+                isActive ? "Kích hoạt thành công" : "Vô hiệu hóa thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
@@ -346,78 +270,64 @@ namespace WebAppAPI.Controllers
             [FromBody] ActivateCodeChangeRequestDTO dto
         )
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                var before = await _service.GetCodeChangeRequestByIdAsync(id);
-                var result = await _service.UpdateAndActivateAsync(id, dto);
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    dto.IsActive ? "ACTIVATE_CHANGE_REQUEST" : "DEACTIVATE_CHANGE_REQUEST",
-                    "gift_code_change_requests",
+            var userId = GetCurrentUserId();
+            var before = await _service.GetCodeChangeRequestByIdAsync(id);
+            var result = await _service.UpdateAndActivateAsync(id, dto);
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                dto.IsActive ? "ACTIVATE_CHANGE_REQUEST" : "DEACTIVATE_CHANGE_REQUEST",
+                "gift_code_change_requests",
+                id,
+                before != null ? JsonSerializer.Serialize(before) : null,
+                JsonSerializer.Serialize(result)
+            );
+            await _hub.Clients.All.SendAsync(
+                "GiftBasketChanged",
+                new
+                {
+                    action = "activeChanged",
+                    table = "change_requests",
                     id,
-                    before != null ? JsonSerializer.Serialize(before) : null,
-                    JsonSerializer.Serialize(result)
-                );
-                await _hub.Clients.All.SendAsync(
-                    "GiftBasketChanged",
-                    new
-                    {
-                        action = "activeChanged",
-                        table = "change_requests",
-                        id,
-                        isActive = dto.IsActive,
-                    }
-                );
-                return new ResponseValue<bool> { StatusCode = 200, Data = true };
-            }
-            catch (NotFoundException ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
-            }
+                    isActive = dto.IsActive,
+                }
+            );
+            return new ResponseValue<bool>(
+                true,
+                dto.IsActive ? "Kích hoạt thành công" : "Vô hiệu hóa thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
         [HttpDelete("ChangeRequest/{id}")]
         public async Task<ResponseValue<bool>> DeleteChangeRequest(int id)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                await _service.DeleteChangeRequestAsync(id);
-                await _activityService.SaveLogAsync(
-                    userId,
-                    GetCurrentStaffCode(),
-                    "DELETE_CHANGE_REQUEST",
-                    "gift_code_change_requests",
+            var userId = GetCurrentUserId();
+            await _service.DeleteChangeRequestAsync(id);
+            await _activityService.SaveLogAsync(
+                userId,
+                GetCurrentStaffCode(),
+                "DELETE_CHANGE_REQUEST",
+                "gift_code_change_requests",
+                id,
+                null,
+                null
+            );
+            await _hub.Clients.All.SendAsync(
+                "GiftBasketChanged",
+                new
+                {
+                    action = "deleted",
+                    table = "change_requests",
                     id,
-                    null,
-                    null
-                );
-                await _hub.Clients.All.SendAsync(
-                    "GiftBasketChanged",
-                    new
-                    {
-                        action = "deleted",
-                        table = "change_requests",
-                        id,
-                    }
-                );
-                return new ResponseValue<bool> { StatusCode = 200, Data = true };
-            }
-            catch (NotFoundException ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 404, Message = ex.Message };
-            }
-            catch (Exception ex)
-            {
-                return new ResponseValue<bool> { StatusCode = 500, Message = ex.Message };
-            }
+                }
+            );
+            return new ResponseValue<bool>(
+                true,
+                "Xóa thành công",
+                StatusReponse.Success
+            );
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Gift")]
