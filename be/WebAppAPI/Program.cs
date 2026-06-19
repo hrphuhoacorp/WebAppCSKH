@@ -57,9 +57,10 @@ builder.WebHost.ConfigureKestrel(options =>
 // Cấu hình giới hạn cho Form Options khi upload Multipart (1000MB)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
-    options.ValueLengthLimit = 1048576000;
-    options.MultipartBodyLengthLimit = 1048576000;
-    options.MultipartHeadersLengthLimit = 1048576000;
+    options.ValueLengthLimit = 104857600; // 100MB
+    options.MultipartBodyLengthLimit = 104857600; // 100MB
+    options.MultipartHeadersLengthLimit = 1048576; // 1MB
+    options.BufferBody = true;
 });
 
 //cotroller

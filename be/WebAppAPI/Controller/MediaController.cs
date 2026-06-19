@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebAppInfractor.Models;
+using Microsoft.AspNetCore.Http.Features;
 
 //using WebAppAPI.Models;
 
@@ -118,7 +119,10 @@ namespace WebAppAPI.Controllers
         }
 
         [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
+        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Bán Hàng")]
         [HttpPost("Upload")]
+        [RequestSizeLimit(100 * 1024 * 1024)] // 100MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 100 * 1024 * 1024)]
         public async Task<ResponseValue<List<MediaUploadResultDto>>> UploadAsync(
             [FromForm] int folderId,
             [FromForm] List<IFormFile> files
