@@ -14,7 +14,7 @@ using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
 using WebAppInfractor.Data;
 
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
 
 var builder = WebApplication.CreateBuilder(args);
 
