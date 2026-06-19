@@ -380,16 +380,16 @@ function BarSection({
 // ── SectionHeader ─────────────────────────────────────────────────────────────
 function SectionHeader({ label, sub }: { label: string; sub?: string }) {
     return (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.4, mb: 2, mt: 3.2, flexWrap: 'wrap' }}>
-            <Box sx={{ width: 4, height: 30, borderRadius: 99, background: GRADIENT_GREEN, flexShrink: 0 }} />
-            <Box>
+        <Box sx={{ mb: 2, mt: 3.2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.4 }}>
+                <Box sx={{ width: 4, height: 30, borderRadius: 99, background: GRADIENT_GREEN, flexShrink: 0 }} />
                 <Typography sx={{ fontWeight: 850, fontSize: 16, color: GREEN_DARK, lineHeight: 1.2 }}>{label}</Typography>
-                {sub && (
-                    <Typography sx={{ fontSize: 12.5, color: '#94a3b8', fontWeight: 500, mt: 0.2 }}>
-                        {sub}
-                    </Typography>
-                )}
             </Box>
+            {sub && (
+                <Typography sx={{ fontSize: 13, color: '#64748b', fontWeight: 500, mt: 1, lineHeight: 1.6, ml: 5.4 }}>
+                    {sub}
+                </Typography>
+            )}
         </Box>
     );
 }
@@ -508,19 +508,29 @@ export default function SapoDashboardPage() {
 
     async function handleDownloadImport(importId: number, fileName: string) {
         try {
+            setLoading(true);
             const res = await fetch(`/api/sapo/import/${importId}/download`);
-            if (!res.ok) throw new Error('Tải file thất bại');
+            if (!res.ok) {
+                if (res.status === 404) {
+                    toast.error('Tệp gốc không còn khả dụng');
+                    return;
+                }
+                throw new Error('Tải file thất bại');
+            }
             const blob = await res.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = fileName;
+            a.download = fileName || 'sapo-report.xlsx';
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+            toast.success('Tải file thành công');
         } catch (e: any) {
             toast.error(e.message ?? 'Không thể tải file');
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -574,6 +584,12 @@ export default function SapoDashboardPage() {
         big: 'Theo mã giỏ, không theo khách',
         text: analysis.dataReadiness?.repeatCustomer ?? 'Đếm số ngày mã giỏ phát sinh bán trong kỳ xem.',
         icon: <InfoIcon />
+    });
+    analysisCards.push({
+        title: 'Khuyến nghị điều chỉnh',
+        big: 'Tối ưu cơ cấu bán hàng',
+        text: 'Xem xét loại bỏ mã doanh thu thấp, tăng tỷ trọng mã bán chạy và phân khúc giá chính.',
+        icon: <CalculateIcon />
     });
 
     const METRICS = data
