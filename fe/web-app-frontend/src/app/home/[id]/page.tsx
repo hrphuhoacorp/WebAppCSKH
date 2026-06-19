@@ -158,11 +158,7 @@ export default function NewsDetailPage() {
         return () => container.removeEventListener('click', handler);
     }, [item]);
 
-    if (loading) return (
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-            <DetailSkeleton />
-        </Box>
-    );
+    if (loading) return <DetailSkeleton />;
 
     if (notFound || !item) {
         return (
@@ -179,15 +175,7 @@ export default function NewsDetailPage() {
     const mins = readingMinutes(item.content);
 
     return (
-        <Box sx={{
-            flex: 1,
-            bgcolor: '#fff',
-            animation: 'fadeInUp 0.5s ease-out',
-            '@keyframes fadeInUp': {
-                from: { opacity: 0, transform: 'translateY(20px)' },
-                to: { opacity: 1, transform: 'translateY(0)' }
-            }
-        }}>
+        <Box sx={{ flex: 1, bgcolor: '#fff' }}>
             {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
             {/* ── Breadcrumb bar ── */}
             <Box sx={{ px: { xs: 2.5, md: 6, lg: 10 }, py: 1.5, borderBottom: '1px solid rgba(13,43,30,0.07)', display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -430,7 +418,7 @@ function BackBtn({ router }: { router: ReturnType<typeof useRouter> }) {
 
 function DetailSkeleton() {
     return (
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{ flex: 1, bgcolor: '#fff' }}>
             <Box sx={{ px: { xs: 2.5, md: 6, lg: 10 }, py: 1.5, borderBottom: '1px solid rgba(13,43,30,0.07)' }}>
                 <Skeleton width={130} height={18} animation="wave" />
             </Box>
