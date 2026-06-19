@@ -48,11 +48,11 @@ namespace WebAppAPI.Controllers
                 .FirstOrDefaultAsync(h => h.Id == id);
 
             if (history == null || string.IsNullOrEmpty(history.FilePath))
-                return NotFound("File không tồn tại hoặc chưa được lưu.");
+                throw new NotFoundException("File không tồn tại hoặc chưa được lưu.");
 
             var fullPath = Path.Combine(_mediaSettings.RootPath, history.FilePath);
             if (!System.IO.File.Exists(fullPath))
-                return NotFound("File đã bị xóa khỏi server.");
+                throw new NotFoundException("File đã bị xóa khỏi server.");
 
             var fileBytes = await System.IO.File.ReadAllBytesAsync(fullPath);
             var mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

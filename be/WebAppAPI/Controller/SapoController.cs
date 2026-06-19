@@ -82,11 +82,11 @@ public class SapoController : ControllerBase
     }
 
     [HttpPost("admin/verify")]
-    public IActionResult VerifyAdmin([FromBody] AdminCodeDto dto)
+    public ResponseValue<object> VerifyAdmin([FromBody] AdminCodeDto dto)
     {
         if (dto?.AdminCode != ADMIN_CODE)
             throw new BadRequestException("Sai mã xác nhận.");
-        return Ok(new { ok = true });
+        return new ResponseValue<object>(new { ok = true }, "Xác nhận thành công", StatusReponse.Success);
     }
 
     [HttpGet("import/{importId}/download")]

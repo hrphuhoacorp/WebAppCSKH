@@ -34,8 +34,7 @@ export default function LoginForm() {
         try {
             const response = await authApi.login(data);
 
-
-            toast.success(response.message);
+            toast.success(response.Message ?? 'Đăng nhập thành công');
             localStorage.setItem('isLoggedIn', '1');
             window.location.href = '/home';
 

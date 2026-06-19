@@ -74,8 +74,9 @@ async function uploadAndInsertImage(view: any, file: File) {
         const node = view.state.schema.nodes.image.create({ src: url });
         view.dispatch(view.state.tr.replaceSelectionWith(node));
         toast.success('Đã chèn ảnh', { id: tid });
-    } catch {
-        toast.error('Upload ảnh thất bại', { id: tid });
+    } catch (error: any) {
+        const errMsg = error?.response?.data?.Message || error?.message || 'Upload ảnh thất bại';
+        toast.error(errMsg, { id: tid });
     }
 }
 
@@ -167,7 +168,7 @@ export default function NewsEditor({ value, onChange }: NewsEditorProps) {
             toast.success('Upload video thành công', { id: tid });
         } catch (error: any) {
             console.error('Video upload error:', error);
-            const errMsg = error?.response?.data?.message || error?.message || 'Upload video thất bại';
+            const errMsg = error?.response?.data?.Message || error?.response?.data?.message || error?.message || 'Upload video thất bại';
             toast.error(errMsg, { id: tid });
         } finally { e.target.value = ''; }
     };

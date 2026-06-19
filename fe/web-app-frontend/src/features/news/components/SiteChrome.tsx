@@ -43,11 +43,11 @@ export function SiteHeader() {
     const handleLogout = async () => {
         try {
             const res = await authApi.logout();
-            toast.success(res.message);
+            toast.success(res.Message ?? 'Đăng xuất thành công');
             localStorage.removeItem('isLoggedIn');
             router.replace('/login');
-        } catch {
-            toast.error('Đăng xuất thất bại');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.Message ?? 'Đăng xuất thất bại');
         }
     };
 

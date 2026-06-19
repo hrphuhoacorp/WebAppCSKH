@@ -32,7 +32,8 @@ export function AuthProvider({
             if (!silent) setLoading(true);
             const res = await authApi.getProfile();
             setProfile(res.content);
-        } catch {
+        } catch (error: any) {
+            console.error('Failed to load profile:', error?.response?.data?.Message || error?.message);
             setProfile(null);
         } finally {
             if (!silent) setLoading(false);

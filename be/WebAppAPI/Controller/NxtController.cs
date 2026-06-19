@@ -22,15 +22,15 @@ namespace WebAppAPI.Controllers
         // ─── ROWS ─────────────────────────────────────────────────────────────
 
         [HttpGet("rows")]
-        public async Task<IActionResult> GetRows()
+        public async Task<ResponseValue<IEnumerable<object>>> GetRows()
         {
             var rows = await _db.NxtRows.OrderBy(r => r.CloseDate).ThenBy(r => r.Branch).ThenBy(r => r.ItemCode).ToListAsync();
             var result = rows.Select(r => ToDto(r));
-            return Ok(result);
+            return new ResponseValue<IEnumerable<object>>(result, "Lấy danh sách thành công", StatusReponse.Success);
         }
 
         [HttpPost("rows/upsert")]
-        public async Task<IActionResult> UpsertRow([FromBody] NxtRowDto dto)
+        public async Task<ResponseValue<object>> UpsertRow([FromBody] NxtRowDto dto)
         {
             var existing = await _db.NxtRows.FirstOrDefaultAsync(r =>
                 r.CloseDate == dto.CloseDate && r.Branch == dto.Branch && r.ItemCode == dto.ItemCode);
@@ -60,11 +60,11 @@ namespace WebAppAPI.Controllers
             }
 
             await _db.SaveChangesAsync();
-            return Ok(new { success = true });
+            return new ResponseValue<object>(new { success = true }, "Lưu dữ liệu thành công", StatusReponse.Success);
         }
 
         [HttpPost("rows/batch")]
-        public async Task<IActionResult> BatchRows([FromBody] List<NxtRowDto> dtos)
+        public async Task<ResponseValue<object>> BatchRows([FromBody] List<NxtRowDto> dtos)
         {
             var incoming = dtos.Select(d => (d.CloseDate, d.Branch, d.ItemCode)).ToHashSet();
 
@@ -104,20 +104,20 @@ namespace WebAppAPI.Controllers
             }
 
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, count = dtos.Count });
+            return new ResponseValue<object>(new { success = true, count = dtos.Count }, "Cập nhật dữ liệu thành công", StatusReponse.Success);
         }
 
         // ─── LOGS (dùng activity_logs) ────────────────────────────────────────
 
         [HttpGet("logs")]
-        public async Task<IActionResult> GetLogs()
+        public async Task<ResponseValue<IEnumerable<object>>> GetLogs()
         {
             var logs = await _db.ActivityLogs
                 .Where(l => l.TableName == "nxt_rows")
                 .OrderByDescending(l => l.CreatedAt)
                 .ToListAsync();
 
-            return Ok(logs.Select(l =>
+            var result = logs.Select(l =>
             {
                 var d = l.NewData != null
                     ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(l.NewData)
@@ -138,11 +138,12 @@ namespace WebAppAPI.Controllers
                     status = d?.GetValueOrDefault("status").GetString() ?? "",
                     detail = d?.GetValueOrDefault("detail").GetString() ?? ""
                 };
-            }));
+            });
+            return new ResponseValue<IEnumerable<object>>(result, "Lấy danh sách thành công", StatusReponse.Success);
         }
 
         [HttpPost("logs")]
-        public async Task<IActionResult> AddLog([FromBody] NxtLogDto dto)
+        public async Task<ResponseValue<object>> AddLog([FromBody] NxtLogDto dto)
         {
             var log = new ActivityLog
             {
@@ -165,16 +166,16 @@ namespace WebAppAPI.Controllers
             };
             _db.ActivityLogs.Add(log);
             await _db.SaveChangesAsync();
-            return Ok(new { success = true, id = log.Id });
+            return new ResponseValue<object>(new { success = true, id = log.Id }, "Tạo log thành công", StatusReponse.Success);
         }
 
         [HttpDelete("logs")]
-        public async Task<IActionResult> ClearLogs()
+        public async Task<ResponseValue<object>> ClearLogs()
         {
             var logs = _db.ActivityLogs.Where(l => l.TableName == "nxt_rows");
             _db.ActivityLogs.RemoveRange(logs);
             await _db.SaveChangesAsync();
-            return Ok(new { success = true });
+            return new ResponseValue<object>(new { success = true }, "Xóa log thành công", StatusReponse.Success);
         }
 
         // ─── HELPERS ──────────────────────────────────────────────────────────

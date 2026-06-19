@@ -30,7 +30,7 @@ export default function ResetPasswordDialog({ open, user, onClose }: Props) {
             const response = await authApi.resetPassword(user.id);
 
             toast.success(
-                response?.message ??
+                response?.Message ??
                 'Reset mật khẩu thành công. Mật khẩu mới là số điện thoại.'
             );
 

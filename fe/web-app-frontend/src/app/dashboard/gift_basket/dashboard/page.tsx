@@ -444,7 +444,7 @@ export default function SapoDashboardPage() {
     async function apiCall(url: string, options?: RequestInit) {
         const res = await fetch(url, options);
         const json = await res.json();
-        if (!res.ok || json.ok === false) throw new Error(json.message ?? 'Có lỗi xảy ra');
+        if (!res.ok) throw new Error(json.Message ?? json.message ?? 'Có lỗi xảy ra');
         return json;
     }
 
@@ -479,7 +479,7 @@ export default function SapoDashboardPage() {
             const mappingFile = mappingFileRef.current?.files?.[0];
             if (mappingFile) fd.append('mappingFile', mappingFile);
             const result = await apiCall('/api/sapo/import', { method: 'POST', body: fd });
-            setImportMsg({ text: result.message ?? 'Đã nạp xong', err: false });
+            setImportMsg({ text: result.Message ?? 'Đã nạp xong', err: false });
             await loadDashboard();
         } catch (e: any) {
             setImportMsg({ text: e.message, err: true });
@@ -512,7 +512,7 @@ export default function SapoDashboardPage() {
             const res = await fetch(`/api/sapo/import/${importId}/download`);
             if (!res.ok) {
                 const errData = await res.json().catch(() => null);
-                const errMsg = errData?.message || res.statusText;
+                const errMsg = errData?.Message || errData?.message || res.statusText;
                 if (res.status === 404) {
                     toast.error(`Không tìm thấy: ${errMsg}`);
                 } else if (res.status === 400) {

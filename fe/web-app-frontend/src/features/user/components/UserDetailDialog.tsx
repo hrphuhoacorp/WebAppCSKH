@@ -24,8 +24,9 @@ function UserDetailDialog({ open, userId, onClose }: any) {
 
                 const res = await userApi.getUserById(userId);
                 setUser(res.content);
-            } catch (error) {
+            } catch (error: any) {
                 console.error(error);
+                toast.error(error?.response?.data?.Message ?? 'Không tải được thông tin nhân sự');
             } finally {
                 setLoading(false);
             }

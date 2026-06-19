@@ -36,8 +36,8 @@ export default function LoyalCustomerDetailDialog({ customer, onClose, badge = '
                 setLoading(true);
                 const res = await customerApi.getCustomerById(customer.id);
                 setDetail(res.content);
-            } catch {
-                toast.error('Không tải được chi tiết khách hàng');
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được chi tiết khách hàng');
             } finally {
                 setLoading(false);
             }

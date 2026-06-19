@@ -98,9 +98,9 @@ export default function EditUserDialog({
                     fetchUserById()
                 ]);
             }
-            catch (error) {
+            catch (error: any) {
                 console.error(error);
-                toast.error("Không tải được dữ liệu");
+                toast.error(error?.response?.data?.Message ?? "Không tải được dữ liệu");
             }
             finally {
                 setLoading(false);
