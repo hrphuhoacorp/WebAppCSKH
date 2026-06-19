@@ -22,6 +22,26 @@ import { useRef } from 'react';
 import { newsApi } from '../api/news.api';
 import toast from 'react-hot-toast';
 
+// ── Custom extension: Video ───────────────────────────────────────────────────
+const Video = Node.create({
+    name: 'video',
+    group: 'block',
+    selectable: true,
+    atom: true,
+    addAttributes() {
+        return {
+            src: { default: null },
+            controls: { default: true },
+        };
+    },
+    parseHTML() {
+        return [{ tag: 'video' }];
+    },
+    renderHTML({ HTMLAttributes }) {
+        return ['video', mergeAttributes(HTMLAttributes, { style: 'max-width:100%;border-radius:8px;display:block;margin:1em auto' }), 0];
+    },
+});
+
 // ── Custom extension: Callout/Bordered Box ──────────────────────────────────
 const CalloutBox = Node.create({
     name: 'calloutBox',
@@ -79,6 +99,7 @@ export default function NewsEditor({ value, onChange }: NewsEditorProps) {
             Color,
             Highlight.configure({ multicolor: true }),
             CalloutBox,
+            Video,
             Image.configure({ inline: false, allowBase64: false }),
             Link.configure({ openOnClick: false }),
             TextAlign.configure({ types: ['heading', 'paragraph', 'calloutBox'] }),
@@ -130,9 +151,10 @@ export default function NewsEditor({ value, onChange }: NewsEditorProps) {
         try {
             const response = await newsApi.uploadVideo(file);
             const src = response.content;
-            editor.chain().focus().insertContent(
-                `<video src="${src}" controls style="max-width:100%;border-radius:8px;display:block;margin:1em auto"></video>`
-            ).run();
+            editor.chain().focus().insertContent({
+                type: 'video',
+                attrs: { src, controls: true },
+            }).run();
             toast.success('Upload video thành công', { id: tid });
         } catch {
             toast.error('Upload video thất bại', { id: tid });
