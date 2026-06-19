@@ -610,7 +610,7 @@ export default function SapoDashboardPage() {
                 backgroundImage: 'radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)',
             }}
         >
-            <LoadingOverlay open={loading} text="Đang tải dữ liệu..." />
+            <LoadingOverlay open={loading} text="Đang tải dữ liệu..." fullScreen />
 
             <PageHeader
                 title="Dashboard Sapo"

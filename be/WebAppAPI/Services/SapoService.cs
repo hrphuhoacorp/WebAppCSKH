@@ -993,4 +993,63 @@ public class SapoService
         public string? Message { get; set; }
         public ImportResultInfo? ImportResult { get; set; }
     }
+
+    public async Task<(byte[] fileBytes, string fileName)> ExportImportDataAsync(int importId)
+    {
+        var batch = await _db.SapoImportBatches.FindAsync(importId);
+        if (batch == null)
+            throw new InvalidOperationException("Import batch không tìm thấy");
+
+        var rows = await _db.SapoSalesRows
+            .Where(r => r.Date >= batch.DateRange.Split(" ")[0])
+            .OrderBy(r => r.Date).ThenBy(r => r.Branch).ThenBy(r => r.SapoCode)
+            .ToListAsync();
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("Sapo Sales");
+
+        ws.Cell("A1").Value = "Ngày";
+        ws.Cell("B1").Value = "Chi nhánh";
+        ws.Cell("C1").Value = "Mã Sapo";
+        ws.Cell("D1").Value = "Tên sản phẩm";
+        ws.Cell("E1").Value = "Loại";
+        ws.Cell("F1").Value = "SKU";
+        ws.Cell("G1").Value = "Giá";
+        ws.Cell("H1").Value = "Số lượng";
+        ws.Cell("I1").Value = "Số đơn";
+        ws.Cell("J1").Value = "Doanh thu";
+        ws.Cell("K1").Value = "Doanh thu thuần";
+        ws.Cell("L1").Value = "Mã báo cáo";
+
+        int row = 2;
+        foreach (var r in rows)
+        {
+            ws.Cell($"A{row}").Value = r.Date;
+            ws.Cell($"B{row}").Value = r.Branch;
+            ws.Cell($"C{row}").Value = r.SapoCode;
+            ws.Cell($"D{row}").Value = r.ProductName;
+            ws.Cell($"E{row}").Value = r.ProductType;
+            ws.Cell($"F{row}").Value = r.Sku;
+            ws.Cell($"G{row}").Value = r.Price;
+            ws.Cell($"H{row}").Value = r.Qty;
+            ws.Cell($"I{row}").Value = r.Orders;
+            ws.Cell($"J{row}").Value = r.Revenue;
+            ws.Cell($"K{row}").Value = r.NetRevenue;
+            ws.Cell($"L{row}").Value = r.ReportCode;
+            row++;
+        }
+
+        ws.Columns().AdjustToContents();
+        var header = ws.Range("A1:L1");
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.FromArgb(8, 104, 57);
+        header.Style.Font.FontColor = XLColor.White;
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        ms.Position = 0;
+
+        var fileName = $"sapo-{batch.BatchId}-{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+        return (ms.ToArray(), fileName);
+    }
 }

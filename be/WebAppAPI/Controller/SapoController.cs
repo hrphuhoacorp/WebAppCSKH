@@ -103,6 +103,23 @@ public class SapoController : ControllerBase
         return Ok(new { ok = false, message = "Sai mã xác nhận." });
     }
 
+    [HttpGet("import/{importId}/download")]
+    public async Task<IActionResult> DownloadImport(int importId)
+    {
+        try
+        {
+            var result = await _sapo.ExportImportDataAsync(importId);
+            if (result.fileBytes == null || result.fileBytes.Length == 0)
+                return NotFound(new { ok = false, message = "Dữ liệu không tìm thấy" });
+
+            return File(result.fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", result.fileName);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { ok = false, message = ex.Message });
+        }
+    }
+
     [HttpPost("admin/delete-latest")]
     public async Task<IActionResult> DeleteLatest([FromBody] AdminCodeDto dto)
     {
