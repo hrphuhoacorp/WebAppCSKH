@@ -121,8 +121,8 @@ namespace WebAppAPI.Controllers
         [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
         [Authorize(Roles = "Super_Admin,Admin_Media,Online,Bán Hàng")]
         [HttpPost("Upload")]
-        [RequestSizeLimit(100 * 1024 * 1024)] // 100MB
-        [RequestFormLimits(MultipartBodyLengthLimit = 100 * 1024 * 1024)]
+        [RequestSizeLimit(1024 * 1024 * 1024)] // 1GB
+        [RequestFormLimits(MultipartBodyLengthLimit = 1024 * 1024 * 1024)]
         public async Task<ResponseValue<List<MediaUploadResultDto>>> UploadAsync(
             [FromForm] int folderId,
             [FromForm] List<IFormFile> files
