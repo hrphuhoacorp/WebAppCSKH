@@ -254,7 +254,7 @@ export default function NewsDetailPage() {
                                         <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a', lineHeight: 1.1 }}>{item.createdByName}</Typography>
                                         {item.createdAt && (
                                             <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.2 }}>
-                                                {new Date(fixVnDate(item.createdAt)).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                {new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(item.createdAt))}
                                             </Typography>
                                         )}
                                     </Box>
@@ -320,7 +320,7 @@ export default function NewsDetailPage() {
                         <BackBtn router={router} />
                         {(item.updatedAt || item.createdAt) && (
                             <Typography sx={{ fontSize: 12, color: '#cbd5e1' }}>
-                                Cập nhật {new Date(fixVnDate(item.updatedAt ?? item.createdAt ?? '')).toLocaleDateString('vi-VN')}
+                                Cập nhật {new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(item.updatedAt ?? item.createdAt ?? ''))}
                             </Typography>
                         )}
                     </Box>
