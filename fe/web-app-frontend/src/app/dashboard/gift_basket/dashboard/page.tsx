@@ -511,13 +511,22 @@ export default function SapoDashboardPage() {
             setLoading(true);
             const res = await fetch(`/api/sapo/import/${importId}/download`);
             if (!res.ok) {
+                const errData = await res.json().catch(() => null);
+                const errMsg = errData?.message || res.statusText;
                 if (res.status === 404) {
-                    toast.error('Tệp gốc không còn khả dụng');
-                    return;
+                    toast.error(`Không tìm thấy: ${errMsg}`);
+                } else if (res.status === 400) {
+                    toast.error(`Lỗi: ${errMsg}`);
+                } else {
+                    toast.error(`Tải file thất bại (${res.status}): ${errMsg}`);
                 }
-                throw new Error('Tải file thất bại');
+                return;
             }
             const blob = await res.blob();
+            if (blob.size === 0) {
+                toast.error('File trống, không thể tải');
+                return;
+            }
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -526,9 +535,10 @@ export default function SapoDashboardPage() {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-            toast.success('Tải file thành công');
+            toast.success('✓ Tải file thành công');
         } catch (e: any) {
-            toast.error(e.message ?? 'Không thể tải file');
+            toast.error(`Lỗi: ${e.message ?? 'Không thể tải file'}`);
+            console.error('Download error:', e);
         } finally {
             setLoading(false);
         }

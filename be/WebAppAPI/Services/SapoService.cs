@@ -998,12 +998,23 @@ public class SapoService
     {
         var batch = await _db.SapoImportBatches.FindAsync(importId);
         if (batch == null)
-            throw new InvalidOperationException("Import batch không tìm thấy");
+            throw new InvalidOperationException($"Import batch ID {importId} không tìm thấy");
+
+        var dateRange = batch.DateRange ?? "";
+        var fromDate = dateRange.Contains("đến")
+            ? dateRange.Split("đến")[0].Trim()
+            : dateRange;
+
+        if (string.IsNullOrEmpty(fromDate))
+            throw new InvalidOperationException("Không thể xác định ngày của import batch");
 
         var rows = await _db.SapoSalesRows
-            .Where(r => r.Date >= batch.DateRange.Split(" ")[0])
+            .Where(r => r.BatchId == batch.BatchId)
             .OrderBy(r => r.Date).ThenBy(r => r.Branch).ThenBy(r => r.SapoCode)
             .ToListAsync();
+
+        if (rows.Count == 0)
+            throw new InvalidOperationException($"Không có dữ liệu cho batch này (ID: {batch.BatchId})");
 
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Sapo Sales");
