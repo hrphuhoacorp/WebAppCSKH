@@ -305,6 +305,7 @@ export default function NewsDetailPage() {
                             '& em': { fontStyle: 'italic' },
                             '& blockquote': { borderLeft: '3px solid #086839', paddingLeft: '1.25em', marginLeft: 0, marginRight: 0, marginTop: '1.5em', marginBottom: '1.5em', color: '#475569', fontStyle: 'italic' },
                             '& img': { maxWidth: '100%', borderRadius: '8px', display: 'block', marginTop: '1.8em', marginBottom: '1.8em', marginLeft: 'auto', marginRight: 'auto', boxShadow: '0 2px 20px rgba(0,0,0,0.1)', cursor: 'zoom-in' },
+                            '& video': { maxWidth: '100%', borderRadius: '8px', display: 'block', marginTop: '1.8em', marginBottom: '1.8em', marginLeft: 'auto', marginRight: 'auto', boxShadow: '0 2px 20px rgba(0,0,0,0.1)' },
                             '& pre': { bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1em 1.25em', overflow: 'auto', fontSize: '0.83em', lineHeight: 1.65, marginTop: '1.5em', marginBottom: '1.5em' },
                             '& code': { bgcolor: '#f1f5f9', paddingLeft: '0.4em', paddingRight: '0.4em', paddingTop: '0.15em', paddingBottom: '0.15em', borderRadius: '4px', fontSize: '0.86em', fontFamily: 'ui-monospace, monospace' },
                             '& table': { width: '100%', borderCollapse: 'collapse', marginTop: '1.5em', marginBottom: '1.5em', fontSize: '0.9em' },
