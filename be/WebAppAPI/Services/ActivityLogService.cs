@@ -84,9 +84,10 @@ public class ActivityService : IActivityService
         {
             query = query.Where(al =>
                 (
-                    al.User.Name != null && al.User.Name.ToLower().Contains(filter.Search.ToLower())
-                    || al.User.StaffCode != null
-                        && al.User.StaffCode.ToLower().Contains(filter.Search.ToLower())
+                    (al.User != null && al.User.Name != null && al.User.Name.ToLower().Contains(filter.Search.ToLower()))
+                    || (al.User != null && al.User.StaffCode != null
+                        && al.User.StaffCode.ToLower().Contains(filter.Search.ToLower()))
+                    || al.StaffCode != null && al.StaffCode.ToLower().Contains(filter.Search.ToLower())
                     || al.Action != null && al.Action.ToLower().Contains(filter.Search.ToLower())
                 )
             );
@@ -121,7 +122,7 @@ public class ActivityService : IActivityService
             {
                 Id = al.Id,
                 UserId = al.UserId,
-                StaffCode = al.User.StaffCode,
+                StaffCode = al.User != null ? al.User.StaffCode : al.StaffCode,
                 Action = al.Action,
                 TableName = al.TableName,
                 RecordId = al.RecordId,
@@ -130,7 +131,7 @@ public class ActivityService : IActivityService
                 IpAddress = al.IpAddress,
                 UserAgent = al.UserAgent,
                 CreatedAt = al.CreatedAt,
-                Name = al.User.Name,
+                Name = al.User != null ? al.User.Name : "[System]",
             })
             .ToListAsync();
         return new PagedResult<ActivityLogDTO>

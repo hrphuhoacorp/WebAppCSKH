@@ -32,7 +32,6 @@ import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import CategoryIcon from '@mui/icons-material/Category';
@@ -428,6 +427,20 @@ export default function SapoDashboardPage() {
     const sapoFileRef = useRef<HTMLInputElement>(null);
     const mappingFileRef = useRef<HTMLInputElement>(null);
 
+    useEffect(() => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+        if (filterMode === 'month' && !selectedMonth) {
+            setSelectedMonth(`${yyyy}-${mm}`);
+        } else if (filterMode === 'range' && !fromDate && !toDate) {
+            setFromDate(dateStr);
+            setToDate(dateStr);
+        }
+    }, []);
+
     async function apiCall(url: string, options?: RequestInit) {
         const res = await fetch(url, options);
         const json = await res.json();
@@ -490,6 +503,24 @@ export default function SapoDashboardPage() {
             toast.error(e.message);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleDownloadImport(importId: number, fileName: string) {
+        try {
+            const res = await fetch(`/api/sapo/import/${importId}/download`);
+            if (!res.ok) throw new Error('Tải file thất bại');
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (e: any) {
+            toast.error(e.message ?? 'Không thể tải file');
         }
     }
 
@@ -571,25 +602,6 @@ export default function SapoDashboardPage() {
                 icon={<BarChartIcon />}
                 gradient="linear-gradient(135deg, #086839 0%, #0a9e4a 100%)"
                 shadowColor="rgba(8,104,57,0.28)"
-                actions={
-                    <Tooltip title="Làm mới dữ liệu">
-                        <IconButton
-                            onClick={loadDashboard}
-                            disabled={loading}
-                            sx={{
-                                width: 42,
-                                height: 42,
-                                bgcolor: '#fff',
-                                borderRadius: '13px',
-                                border: `1px solid ${BORDER}`,
-                                boxShadow: '0 2px 10px rgba(8,104,57,0.08)',
-                                '&:hover': { bgcolor: GREEN_LIGHT, borderColor: GREEN }
-                            }}
-                        >
-                            <RefreshIcon sx={{ color: GREEN }} />
-                        </IconButton>
-                    </Tooltip>
-                }
             />
 
             {/* ── Import Section ── */}
@@ -893,7 +905,7 @@ export default function SapoDashboardPage() {
                     </Box>
 
                     {/* ── Sales structure ── */}
-                    <SectionHeader label="Cơ cấu bán hàng" sub="Nhóm giỏ và phân khúc giá" />
+                    <SectionHeader label="Cơ cấu bán hàng" sub="Phân tích nhóm giỏ quà và phân khúc giá bán · Giúp nhận diện mã bán chạy và tối ưu chiến lược" />
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5, mb: 3.5 }}>
                         <BarSection
                             title="Số lượng giỏ bán ra theo nhóm"
@@ -1118,7 +1130,8 @@ export default function SapoDashboardPage() {
                                                             <IconButton
                                                                 size="small"
                                                                 sx={{ color: '#0284c7', '&:hover': { bgcolor: '#e0f2fe' } }}
-                                                                onClick={() => toast.success('Chức năng download sẽ được bổ sung')}
+                                                                onClick={() => handleDownloadImport(r.id, r.sapoFileName)}
+                                                                disabled={loading}
                                                             >
                                                                 <DownloadIcon sx={{ fontSize: 16 }} />
                                                             </IconButton>
