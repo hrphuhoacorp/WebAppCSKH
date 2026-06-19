@@ -30,29 +30,15 @@ public class SapoController : ControllerBase
     [HttpGet("dashboard/range")]
     public async Task<IActionResult> GetDashboardRange([FromQuery] string fromDate, [FromQuery] string toDate)
     {
-        try
-        {
-            var result = await _sapo.GetDashboardByRangeAsync(fromDate, toDate);
-            return Ok(result);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { ok = false, message = ex.Message });
-        }
+        var result = await _sapo.GetDashboardByRangeAsync(fromDate, toDate);
+        return Ok(result);
     }
 
     [HttpGet("dashboard/month")]
     public async Task<IActionResult> GetDashboardMonth([FromQuery] string month)
     {
-        try
-        {
-            var result = await _sapo.GetDashboardByMonthAsync(month);
-            return Ok(result);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { ok = false, message = ex.Message });
-        }
+        var result = await _sapo.GetDashboardByMonthAsync(month);
+        return Ok(result);
     }
 
     [HttpPost("import")]
@@ -61,7 +47,7 @@ public class SapoController : ControllerBase
     public async Task<IActionResult> Import([FromForm] ImportFormDto form)
     {
         if (form.SapoFile == null || form.SapoFile.Length == 0)
-            return BadRequest(new { ok = false, message = "Chưa có file Sapo." });
+            throw new BadRequestException("Chưa có file Sapo.");
 
         using var sapoMs = new MemoryStream();
         await form.SapoFile.CopyToAsync(sapoMs);
@@ -98,43 +84,29 @@ public class SapoController : ControllerBase
     [HttpPost("admin/verify")]
     public IActionResult VerifyAdmin([FromBody] AdminCodeDto dto)
     {
-        if (dto?.AdminCode == ADMIN_CODE)
-            return Ok(new { ok = true });
-        return Ok(new { ok = false, message = "Sai mã xác nhận." });
+        if (dto?.AdminCode != ADMIN_CODE)
+            throw new BadRequestException("Sai mã xác nhận.");
+        return Ok(new { ok = true });
     }
 
     [HttpGet("import/{importId}/download")]
     public async Task<IActionResult> DownloadImport(int importId)
     {
-        try
-        {
-            var result = await _sapo.ExportImportDataAsync(importId);
-            if (result.fileBytes == null || result.fileBytes.Length == 0)
-                return NotFound(new { ok = false, message = "Dữ liệu không tìm thấy" });
+        var result = await _sapo.ExportImportDataAsync(importId);
+        if (result.fileBytes == null || result.fileBytes.Length == 0)
+            throw new NotFoundException("Dữ liệu không tìm thấy");
 
-            return File(result.fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", result.fileName);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { ok = false, message = ex.Message });
-        }
+        return File(result.fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", result.fileName);
     }
 
     [HttpPost("admin/delete-latest")]
     public async Task<IActionResult> DeleteLatest([FromBody] AdminCodeDto dto)
     {
         if (dto?.AdminCode != ADMIN_CODE)
-            return Ok(new { ok = false, message = "Sai mã xác nhận." });
-        try
-        {
-            var result = await _sapo.DeleteLatestUploadAsync();
-            await _activity.SaveLogAsync(null, null, "SAPO_DELETE_LATEST", "sapo_import_batches", null);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Ok(new { ok = false, message = ex.Message });
-        }
+            throw new BadRequestException("Sai mã xác nhận.");
+        var result = await _sapo.DeleteLatestUploadAsync();
+        await _activity.SaveLogAsync(null, null, "SAPO_DELETE_LATEST", "sapo_import_batches", null);
+        return Ok(result);
     }
 
     public class AdminCodeDto

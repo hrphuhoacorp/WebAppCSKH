@@ -653,9 +653,9 @@ public class SapoService
         var from = NormalizeDate(fromDate);
         var to = NormalizeDate(toDate);
         if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
-            throw new ArgumentException("Vui lòng chọn đủ Từ ngày và Đến ngày.");
+            throw new BadRequestException("Vui lòng chọn đủ Từ ngày và Đến ngày.");
         if (string.Compare(from, to) > 0)
-            throw new ArgumentException("Từ ngày không được lớn hơn Đến ngày.");
+            throw new BadRequestException("Từ ngày không được lớn hơn Đến ngày.");
         var allRows = await _db.SapoSalesRows.ToListAsync();
         var reportRows = allRows.Where(IsDashboardReportRow).ToList();
         var filtered = reportRows.Where(r => string.Compare(r.Date, from) >= 0 && string.Compare(r.Date, to) <= 0).ToList();
@@ -667,7 +667,7 @@ public class SapoService
         var ym = (month ?? "").Trim();
         if (ym.Length >= 7) ym = ym[..7];
         if (!System.Text.RegularExpressions.Regex.IsMatch(ym, @"^\d{4}-\d{2}$"))
-            throw new ArgumentException("Vui lòng chọn tháng hợp lệ.");
+            throw new BadRequestException("Vui lòng chọn tháng hợp lệ.");
         var parts = ym.Split('-');
         int y = int.Parse(parts[0]), m = int.Parse(parts[1]);
         int lastDay = DateTime.DaysInMonth(y, m);
