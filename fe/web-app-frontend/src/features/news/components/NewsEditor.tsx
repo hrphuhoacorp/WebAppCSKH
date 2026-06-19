@@ -147,17 +147,26 @@ export default function NewsEditor({ value, onChange }: NewsEditorProps) {
     const handleUploadVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !editor) return;
+        if (!file.type.startsWith('video/')) {
+            toast.error('Chỉ hỗ trợ file video (.mp4, .webm, .ogg, .mov)');
+            return;
+        }
         const tid = toast.loading('Đang upload video...');
         try {
             const response = await newsApi.uploadVideo(file);
+            if (!response?.content) {
+                throw new Error('Không nhận được URL video từ server');
+            }
             const src = response.content;
             editor.chain().focus().insertContent({
                 type: 'video',
                 attrs: { src, controls: true },
             }).run();
             toast.success('Upload video thành công', { id: tid });
-        } catch {
-            toast.error('Upload video thất bại', { id: tid });
+        } catch (error: any) {
+            console.error('Video upload error:', error);
+            const errMsg = error?.response?.data?.message || error?.message || 'Upload video thất bại';
+            toast.error(errMsg, { id: tid });
         } finally { e.target.value = ''; }
     };
 
