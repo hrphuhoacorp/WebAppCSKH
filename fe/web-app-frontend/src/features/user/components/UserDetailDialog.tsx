@@ -6,6 +6,7 @@ import { Box, Dialog, DialogContent, DialogTitle, Table, TableBody, TableCell, T
 import CloseIcon from '@mui/icons-material/Close';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { sidebarMenu } from '../../../components/layout/sidebar-menu';
+import toast from 'react-hot-toast';
 
 function UserDetailDialog({ open, userId, onClose }: any) {
     const [user, setUser] = useState<any>(null);
