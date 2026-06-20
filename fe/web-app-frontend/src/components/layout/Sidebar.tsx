@@ -43,7 +43,6 @@ export default function Sidebar() {
         try {
             const response = await authApi.logout();
             toast.success(response.Message ?? 'Đăng xuất thành công');
-            localStorage.removeItem('isLoggedIn');
             router.replace('/login');
         } catch (error: any) {
             toast.error(error?.response?.data?.Message ?? 'Đăng xuất thất bại');

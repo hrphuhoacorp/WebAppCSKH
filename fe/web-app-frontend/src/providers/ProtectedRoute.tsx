@@ -9,21 +9,19 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     const router = useRouter();
 
     useEffect(() => {
-        // Check localStorage flag ngay lập tức — không chờ API
-        const hasFlag = typeof window !== 'undefined' && localStorage.getItem('isLoggedIn') === '1';
-        if (!hasFlag) {
-            router.replace('/login');
-            return;
-        }
-        // Có flag nhưng API xác thực thất bại (token hết hạn) → xóa flag và về login
+        // ✓ Chỉ check profile từ AuthProvider (token được gửi auto via cookie)
+        // Middleware đã check token cookie server-side rồi
         if (!loading && !profile) {
-            localStorage.removeItem('isLoggedIn');
             router.replace('/login');
         }
     }, [profile, loading, router]);
 
-    if (!profile) {
+    if (loading) {
         return <LoadingOverlay open text="Đang xác thực tài khoản" />;
+    }
+
+    if (!profile) {
+        return null; // Middleware sẽ redirect nếu không có token
     }
 
     return <>{children}</>;

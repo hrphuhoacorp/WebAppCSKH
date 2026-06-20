@@ -80,7 +80,9 @@ public class GlobalExceptionMiddleware
                 error = new ErrorResponse
                 {
                     StatusCode = context.Response.StatusCode,
-                    Message = "Dữ liệu bị trùng hoặc vi phạm ràng buộc: " + (dbEx.InnerException?.Message ?? dbEx.Message),
+                    Message =
+                        "Dữ liệu bị trùng hoặc vi phạm ràng buộc: "
+                        + (dbEx.InnerException?.Message ?? dbEx.Message),
                     Error = "Conflict",
                 };
                 break;

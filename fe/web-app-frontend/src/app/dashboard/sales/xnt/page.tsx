@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import Script from 'next/script';
 import {
     Box, Button, GlobalStyles, Paper,
@@ -180,6 +181,7 @@ export default function NxtPage() {
     const bootedRef = useRef(false);
     const profileRef = useRef(profile);
     const [pageLoading, setPageLoading] = useState(true);
+    const [filterLoading, setFilterLoading] = useState(false);
 
     useEffect(() => { profileRef.current = profile; }, [profile]);
 
@@ -208,9 +210,18 @@ export default function NxtPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [profile, loading]);
 
-    /* Auto-filter: khi user đổi filter → click nút refresh ẩn */
+    /* Auto-filter: khi user đổi filter → show spinner → click nút refresh ẩn */
     const triggerRefresh = () => {
-        (document.getElementById('btnRefreshOverview') as HTMLButtonElement | null)?.click();
+        // flushSync: force React render loading=true ngay lập tức, không batch
+        flushSync(() => setFilterLoading(true));
+        // rAF đầu: chờ browser paint frame loading
+        // rAF thứ hai: sau paint đó mới chạy filter và tắt loading
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                (document.getElementById('btnRefreshOverview') as HTMLButtonElement | null)?.click();
+                setFilterLoading(false);
+            });
+        });
     };
 
     /* MutationObserver: tự động tính tổng SL khi app.js cập nhật tbody */
@@ -374,6 +385,8 @@ export default function NxtPage() {
 
                 {/* Overview table */}
                 <PT>Chi tiết dữ liệu</PT>
+                <Box sx={{ position: 'relative' }}>
+                <LoadingOverlay open={filterLoading} text="Đang lọc..." />
                 <TableContainer sx={{ borderRadius: '14px', border: '1px solid #e5e7eb', maxHeight: 460 }}>
                     <Table stickyHeader size="small">
                         <TableHead>
@@ -396,6 +409,7 @@ export default function NxtPage() {
                         </TableBody>
                     </Table>
                 </TableContainer>
+                </Box>
             </Paper>
 
             {/* ── GÓI RA ── */}

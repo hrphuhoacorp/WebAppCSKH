@@ -29,22 +29,26 @@ function rowToDto(row) {
 }
 
 function dbSaveRow(row) {
-  return fetch(`${NXT_API}/rows/upsert`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rowToDto(row)) }).catch(() => { });
+  return fetch(`${NXT_API}/rows/upsert`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(rowToDto(row)) })
+    .then(res => { if (!res.ok) res.text().then(t => console.error("[NXT] upsert lỗi", res.status, t)); })
+    .catch(err => console.error("[NXT] upsert network error", err));
 }
 
 function dbSyncBatch() {
-  return fetch(`${NXT_API}/rows/batch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dashboardRows.map(rowToDto)) }).catch(() => { });
+  return fetch(`${NXT_API}/rows/batch`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(dashboardRows.map(rowToDto)) })
+    .then(res => { if (!res.ok) res.text().then(t => { console.error("[NXT] batch lỗi", res.status, t); appNotify("Lưu dữ liệu thất bại! Xem Console (F12) để biết lỗi chi tiết.", "error", true); }); })
+    .catch(err => { console.error("[NXT] batch network error", err); appNotify("Không kết nối được API để lưu dữ liệu.", "error", true); });
 }
 
 function dbSaveLog(entry) {
   return fetch(`${NXT_API}/logs`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({
       closeDate: entry.closeDate, branch: entry.branch, type: entry.type,
       source: entry.source || null, wrongCode: entry.wrongCode, rightCode: entry.rightCode,
       qty: Number(entry.qty) || 0, note: entry.note || null, user: entry.user,
       status: entry.status, detail: entry.detail || null
     })
-  }).catch(() => { });
+  }).catch(err => console.error("[NXT] log error", err));
 }
 
 function dbClearLogs() {
@@ -794,7 +798,7 @@ function upsertDashboardRow({ closeDate, branch, itemCode, patch }) {
   Object.keys(patch).forEach(key => { row[key] = number(row[key]) + number(patch[key]); });
   if (Object.keys(patch).some(key => number(patch[key]) !== 0)) row.inactive = false;
   cleanupZeroFields(row);
-  dbSaveRow(row);
+  // dbSaveRow bỏ ở đây — mọi operation đều gọi dbSyncBatch() ở cuối, tránh concurrent INSERT conflict
 }
 
 function setDashboardStock({ closeDate, branch, itemCode, actualStock, soldNotPicked, stockStatus }) {
@@ -803,7 +807,7 @@ function setDashboardStock({ closeDate, branch, itemCode, actualStock, soldNotPi
   row.actualStock = number(actualStock);
   row.soldNotPicked = number(soldNotPicked);
   row.stockStatus = stockStatus || "Tồn bình thường";
-  dbSaveRow(row);
+  // dbSaveRow bỏ ở đây — dbSyncBatch() ở cuối operation sẽ save toàn bộ
 
   // Nguyên tắc vận hành: tồn đầu ngày sau lấy theo Tồn thực tế cuối ngày trước.
   // DTT dùng để trừ khi so lệch trong ngày; CTT chỉ gắn nhãn trong tồn thực tế. Tồn đầu ngày sau lấy theo tồn thực tế.
@@ -1743,8 +1747,9 @@ window.bootNxt = async function (user) {
       fetch(`${NXT_API}/rows`, { credentials: "include" }),
       fetch(`${NXT_API}/logs`, { credentials: "include" })
     ]);
-    if (rowsRes.ok) dashboardRows = await rowsRes.json();
-    if (logsRes.ok) adjustmentsLog = await logsRes.json();
+    if (rowsRes.ok) { const r = await rowsRes.json(); console.log("[NXT] rows raw:", r); dashboardRows = Array.isArray(r) ? r : (r?.content ?? []); console.log("[NXT] dashboardRows:", dashboardRows, "dòng"); }
+    if (logsRes.ok) { const l = await logsRes.json(); adjustmentsLog = Array.isArray(l) ? l : (l?.content ?? []); }
+
   } catch (e) {
     console.warn("Không kết nối được API, dùng dữ liệu rỗng.", e);
   }
