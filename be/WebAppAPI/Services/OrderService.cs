@@ -200,7 +200,7 @@ public class OrderService : IOrderService
                             dateCell,
                             "dd/MM/yyyy",
                             CultureInfo.InvariantCulture,
-                            DateTimeStyles.None,
+                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
                             out var orderDate
                         )
                     )
