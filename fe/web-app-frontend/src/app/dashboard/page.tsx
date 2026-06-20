@@ -1,34 +1,43 @@
 'use client';
-import { useAuth } from "@/providers/AuthProviders";
-import { redirect } from "next/navigation";
-import { UserRole } from '../../features/user/schemas/user-profile';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/providers/AuthProviders';
+
+const REDIRECT_PRIORITY = [
+    { permission: 'cskh.dashboard.view', href: '/dashboard/customer_care/revenue_report' },
+    { permission: 'sales.dashboard.view', href: '/dashboard/sales/revenue_report' },
+    { permission: 'cskh.order.view_list', href: '/dashboard/customer_care/orders' },
+    { permission: 'sales.order.view_list', href: '/dashboard/sales/orders' },
+    { permission: 'gift.basket.view', href: '/dashboard/gift_basket/gifts' },
+    { permission: 'gift.change_request.view', href: '/dashboard/gift_basket/change_requests' },
+    { permission: 'staff.view_list', href: '/dashboard/staff/staff_list' },
+    { permission: 'news.create', href: '/dashboard/news' },
+    { permission: 'sales.nxt.view', href: '/dashboard/sales/xnt' },
+];
 
 export default function DashboardPage() {
-    const { profile } = useAuth();
-    const userRoles = profile?.roles.map(r => r.name) ?? [];
+    const { profile, loading } = useAuth();
+    const router = useRouter();
 
-    if (userRoles.includes('Super_Admin')) {
-        redirect('/dashboard/customer_care/revenue_report');
-    }
+    useEffect(() => {
+        if (loading) return;
 
-    if (userRoles.includes('Admin_Online')) {
-        redirect('/dashboard/customer_care/revenue_report');
-    }
+        if (!profile) {
+            router.replace('/login');
+            return;
+        }
 
-    if (userRoles.includes('Online')) {
-        redirect('/dashboard/customer_care/orders');
-    }
+        const permissions = profile.permissions ?? [];
 
-    if (userRoles.includes('Bán Hàng')) {
-        redirect('/dashboard/gift_basket/gifts');
-    }
+        for (const { permission, href } of REDIRECT_PRIORITY) {
+            if (permissions.includes(permission)) {
+                router.replace(href);
+                return;
+            }
+        }
 
-    if (userRoles.includes('Admin_Gift')) {
-        redirect('/dashboard/gift_basket/baskets');
-    }
-    if (userRoles.includes('Gói Quà')) {
-        redirect('/dashboard/gift_basket/change_requests');
-    }
+        router.replace('/dashboard/profile');
+    }, [loading, profile]);
 
-    redirect('/login')
+    return null;
 }
