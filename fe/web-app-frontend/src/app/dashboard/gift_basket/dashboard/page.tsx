@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { usePermission } from '@/hooks/usePermission';
 import {
     Alert,
     Box,
@@ -413,6 +414,8 @@ interface DashState {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function SapoDashboardPage() {
+    const canViewSapo = usePermission('sales.sapo.view');
+
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<DashState | null>(null);
     const [filterMode, setFilterMode] = useState<'month' | 'range'>('month');
@@ -527,7 +530,7 @@ export default function SapoDashboardPage() {
         }
     }
 
-    useEffect(() => { loadDashboard(); }, [filterMode, selectedMonth, fromDate, toDate]);
+    useEffect(() => { if (canViewSapo) loadDashboard(); }, [canViewSapo, filterMode, selectedMonth, fromDate, toDate]);
 
     const q = data?.quickInsights ?? {};
     const analysis = data?.usefulAnalysis ?? {};
@@ -593,6 +596,16 @@ export default function SapoDashboardPage() {
             { label: 'Đơn giá TB/giỏ', value: money(data.metrics.aov), sub: 'Doanh thu / SL', icon: <CalculateIcon />, color: '#388e3c' },
         ]
         : [];
+
+    if (!canViewSapo) {
+        return (
+            <Box sx={{ p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+                <Alert severity="warning" sx={{ borderRadius: '14px', maxWidth: 480 }}>
+                    Bạn không có quyền xem dashboard này. Liên hệ Admin để được cấp quyền <strong>sales.sapo.view</strong>.
+                </Alert>
+            </Box>
+        );
+    }
 
     return (
         <Box
