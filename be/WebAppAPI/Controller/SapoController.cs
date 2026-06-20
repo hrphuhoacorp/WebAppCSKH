@@ -1,4 +1,3 @@
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebAppAPI.Services;
@@ -7,18 +6,31 @@ namespace WebAppAPI.Controllers;
 
 [Route("api/sapo")]
 [ApiController]
-[AllowAnonymous]
+[Authorize]
 public class SapoController : ControllerBase
 {
     private readonly SapoService _sapo;
     private readonly IActivityService _activity;
-    private const string ADMIN_CODE = "phf2025";
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public SapoController(SapoService sapo, IActivityService activity)
+    public SapoController(SapoService sapo, IActivityService activity, IHttpContextAccessor httpContextAccessor)
     {
         _sapo = sapo;
         _activity = activity;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    private int? GetCurrentUserId()
+    {
+        var val = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value;
+        return int.TryParse(val, out var id) ? id : null;
+    }
+
+    private string GetCurrentStaffCode() =>
+        _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "StaffCode")?.Value ?? "";
+
+    private string GetCurrentUserName() =>
+        _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "name")?.Value ?? "Unknown";
 
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard([FromQuery] string filter = "last7")
@@ -49,6 +61,10 @@ public class SapoController : ControllerBase
         if (form.SapoFile == null || form.SapoFile.Length == 0)
             throw new BadRequestException("Chưa có file Sapo.");
 
+        var userId = GetCurrentUserId();
+        var staffCode = GetCurrentStaffCode();
+        var uploadedBy = GetCurrentUserName();
+
         using var sapoMs = new MemoryStream();
         await form.SapoFile.CopyToAsync(sapoMs);
         var sapoBytes = sapoMs.ToArray();
@@ -66,10 +82,10 @@ public class SapoController : ControllerBase
         var result = await _sapo.ImportDashboardFilesAsync(
             sapoBytes, form.SapoFile.FileName,
             mappingBytes, mappingFileName,
-            form.UploadedBy ?? "webapp.user");
+            uploadedBy);
 
-        await _activity.SaveLogAsync(null, null, "SAPO_IMPORT", "sapo_import_batches", null,
-            newData: new { fileName = form.SapoFile.FileName, uploadedBy = form.UploadedBy, message = result.Message });
+        await _activity.SaveLogAsync(userId, staffCode, "SAPO_IMPORT", "sapo_import_batches", null,
+            newData: new { fileName = form.SapoFile.FileName, uploadedBy, message = result.Message });
 
         return Ok(result);
     }
@@ -78,15 +94,6 @@ public class SapoController : ControllerBase
     {
         public IFormFile SapoFile { get; set; } = null!;
         public IFormFile? MappingFile { get; set; }
-        public string? UploadedBy { get; set; }
-    }
-
-    [HttpPost("admin/verify")]
-    public ResponseValue<object> VerifyAdmin([FromBody] AdminCodeDto dto)
-    {
-        if (dto?.AdminCode != ADMIN_CODE)
-            throw new BadRequestException("Sai mã xác nhận.");
-        return new ResponseValue<object>(new { ok = true }, "Xác nhận thành công", StatusReponse.Success);
     }
 
     [HttpGet("import/{importId}/download")]
@@ -97,21 +104,5 @@ public class SapoController : ControllerBase
             throw new NotFoundException("Dữ liệu không tìm thấy");
 
         return File(result.fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", result.fileName);
-    }
-
-    [HttpPost("admin/delete-latest")]
-    public async Task<IActionResult> DeleteLatest([FromBody] AdminCodeDto dto)
-    {
-        if (dto?.AdminCode != ADMIN_CODE)
-            throw new BadRequestException("Sai mã xác nhận.");
-        var result = await _sapo.DeleteLatestUploadAsync();
-        await _activity.SaveLogAsync(null, null, "SAPO_DELETE_LATEST", "sapo_import_batches", null);
-        return Ok(result);
-    }
-
-    public class AdminCodeDto
-    {
-        [JsonPropertyName("adminCode")]
-        public string? AdminCode { get; set; }
     }
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import Script from 'next/script';
 import {
     Box, Button, GlobalStyles, Paper,
@@ -210,18 +209,12 @@ export default function NxtPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [profile, loading]);
 
-    /* Auto-filter: khi user đổi filter → show spinner → click nút refresh ẩn */
     const triggerRefresh = () => {
-        // flushSync: force React render loading=true ngay lập tức, không batch
-        flushSync(() => setFilterLoading(true));
-        // rAF đầu: chờ browser paint frame loading
-        // rAF thứ hai: sau paint đó mới chạy filter và tắt loading
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                (document.getElementById('btnRefreshOverview') as HTMLButtonElement | null)?.click();
-                setFilterLoading(false);
-            });
-        });
+        setFilterLoading(true);
+        setTimeout(() => {
+            (document.getElementById('btnRefreshOverview') as HTMLButtonElement | null)?.click();
+            setFilterLoading(false);
+        }, 0);
     };
 
     /* MutationObserver: tự động tính tổng SL khi app.js cập nhật tbody */
@@ -311,9 +304,15 @@ export default function NxtPage() {
                 </FG>
 
                 {/* nút refresh ẩn — app.js gắn listener, filter onChange click nó */}
-                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
                     <button id="btnRefreshOverview" type="button" style={{ display: 'none' }} />
                     <Button id="btnExportCsv" variant="outlined" size="small" sx={ghostBtn}>Xuất Excel</Button>
+                    {filterLoading && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#086839', fontSize: 12, fontWeight: 600 }}>
+                            <Box sx={{ width: 14, height: 14, border: '2px solid rgba(8,104,57,0.2)', borderTopColor: '#086839', borderRadius: '50%', animation: 'nxt-spin .8s linear infinite', flexShrink: 0 }} />
+                            Đang lọc...
+                        </Box>
+                    )}
                 </Box>
 
                 <Box sx={hintSx}>Nguyên tắc dễ nhớ: so số giỏ đếm thực tế với số giỏ hệ thống đang tính là còn lại.</Box>
@@ -385,8 +384,6 @@ export default function NxtPage() {
 
                 {/* Overview table */}
                 <PT>Chi tiết dữ liệu</PT>
-                <Box sx={{ position: 'relative' }}>
-                <LoadingOverlay open={filterLoading} text="Đang lọc..." />
                 <TableContainer sx={{ borderRadius: '14px', border: '1px solid #e5e7eb', maxHeight: 460 }}>
                     <Table stickyHeader size="small">
                         <TableHead>
@@ -409,7 +406,6 @@ export default function NxtPage() {
                         </TableBody>
                     </Table>
                 </TableContainer>
-                </Box>
             </Paper>
 
             {/* ── GÓI RA ── */}

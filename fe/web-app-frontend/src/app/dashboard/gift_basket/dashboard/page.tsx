@@ -38,7 +38,6 @@ import CategoryIcon from '@mui/icons-material/Category';
 import HistoryIcon from '@mui/icons-material/History';
 import InfoIcon from '@mui/icons-material/Info';
 import DownloadIcon from '@mui/icons-material/Download';
-import UndoIcon from '@mui/icons-material/Undo';
 import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import toast from 'react-hot-toast';
@@ -412,8 +411,6 @@ interface DashState {
     imports: any[];
 }
 
-const ADMIN_CODE = 'phf2025';
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function SapoDashboardPage() {
     const [loading, setLoading] = useState(false);
@@ -483,24 +480,6 @@ export default function SapoDashboardPage() {
             await loadDashboard();
         } catch (e: any) {
             setImportMsg({ text: e.message, err: true });
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleRollback(importId: number) {
-        if (!confirm('Bạn chắc chắn muốn hoàn tác upload này?')) return;
-        try {
-            setLoading(true);
-            await apiCall('/api/sapo/admin/delete-latest', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ adminCode: ADMIN_CODE }),
-            });
-            toast.success('Đã hoàn tác upload');
-            await loadDashboard();
-        } catch (e: any) {
-            toast.error(e.message);
         } finally {
             setLoading(false);
         }
@@ -1162,18 +1141,6 @@ export default function SapoDashboardPage() {
                                                                 <DownloadIcon sx={{ fontSize: 16 }} />
                                                             </IconButton>
                                                         </Tooltip>
-                                                        {i === 0 && (
-                                                            <Tooltip title="Hoàn tác upload này">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    sx={{ color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' } }}
-                                                                    onClick={() => handleRollback(r.id)}
-                                                                    disabled={loading}
-                                                                >
-                                                                    <UndoIcon sx={{ fontSize: 16 }} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        )}
                                                     </Box>
                                                 </TableCell>
                                             </TableRow>

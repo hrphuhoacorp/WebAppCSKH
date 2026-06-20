@@ -145,11 +145,16 @@ namespace WebAppAPI.Controllers
         [HttpPost("logs")]
         public async Task<ResponseValue<object>> AddLog([FromBody] NxtLogDto dto)
         {
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.StaffCode == dto.LoginCode);
+
             var log = new ActivityLog
             {
+                UserId = user?.Id,
+                StaffCode = dto.LoginCode,
                 Action = dto.Type,
                 TableName = "nxt_rows",
-                StaffCode = dto.User,
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                UserAgent = Request.Headers.UserAgent.ToString(),
                 NewData = JsonSerializer.Serialize(new
                 {
                     closeDate = dto.CloseDate,
@@ -159,6 +164,7 @@ namespace WebAppAPI.Controllers
                     rightCode = dto.RightCode,
                     qty = dto.Qty,
                     note = dto.Note ?? "",
+                    userName = dto.UserName ?? "",
                     status = dto.Status,
                     detail = dto.Detail ?? ""
                 }),
@@ -256,7 +262,8 @@ namespace WebAppAPI.Controllers
         public string RightCode { get; set; } = null!;
         public decimal Qty { get; set; }
         public string? Note { get; set; }
-        public string User { get; set; } = null!;
+        public string LoginCode { get; set; } = null!;
+        public string? UserName { get; set; }
         public string Status { get; set; } = null!;
         public string? Detail { get; set; }
     }

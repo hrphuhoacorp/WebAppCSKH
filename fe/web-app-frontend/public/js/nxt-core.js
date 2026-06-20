@@ -45,7 +45,9 @@ function dbSaveLog(entry) {
     method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({
       closeDate: entry.closeDate, branch: entry.branch, type: entry.type,
       source: entry.source || null, wrongCode: entry.wrongCode, rightCode: entry.rightCode,
-      qty: Number(entry.qty) || 0, note: entry.note || null, user: entry.user,
+      qty: Number(entry.qty) || 0, note: entry.note || null,
+      loginCode: currentUser?.loginCode || "",
+      userName: entry.user,
       status: entry.status, detail: entry.detail || null
     })
   }).catch(err => console.error("[NXT] log error", err));
