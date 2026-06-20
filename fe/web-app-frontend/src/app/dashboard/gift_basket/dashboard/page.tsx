@@ -439,10 +439,14 @@ export default function SapoDashboardPage() {
     }, []);
 
     async function apiCall(url: string, options?: RequestInit) {
-        const res = await fetch(url, options);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.Message ?? json.message ?? 'Có lỗi xảy ra');
-        return json;
+        const res = await fetch(url, { credentials: 'include', ...options });
+        if (!res.ok) {
+            const text = await res.text();
+            let msg = `Lỗi ${res.status}`;
+            try { const j = JSON.parse(text); msg = j.Message ?? j.message ?? msg; } catch {}
+            throw new Error(msg);
+        }
+        return res.json();
     }
 
     async function loadDashboard() {
@@ -488,7 +492,7 @@ export default function SapoDashboardPage() {
     async function handleDownloadImport(importId: number, fileName: string) {
         try {
             setLoading(true);
-            const res = await fetch(`/api/sapo/import/${importId}/download`);
+            const res = await fetch(`/api/sapo/import/${importId}/download`, { credentials: 'include' });
             if (!res.ok) {
                 const errData = await res.json().catch(() => null);
                 const errMsg = errData?.Message || errData?.message || res.statusText;

@@ -13,7 +13,11 @@ public class SapoController : ControllerBase
     private readonly IActivityService _activity;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public SapoController(SapoService sapo, IActivityService activity, IHttpContextAccessor httpContextAccessor)
+    public SapoController(
+        SapoService sapo,
+        IActivityService activity,
+        IHttpContextAccessor httpContextAccessor
+    )
     {
         _sapo = sapo;
         _activity = activity;
@@ -22,15 +26,20 @@ public class SapoController : ControllerBase
 
     private int? GetCurrentUserId()
     {
-        var val = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "Id")?.Value;
+        var val = _httpContextAccessor
+            .HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "Id")
+            ?.Value;
         return int.TryParse(val, out var id) ? id : null;
     }
 
     private string GetCurrentStaffCode() =>
-        _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "StaffCode")?.Value ?? "";
+        _httpContextAccessor
+            .HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "StaffCode")
+            ?.Value ?? "";
 
     private string GetCurrentUserName() =>
-        _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "name")?.Value ?? "Unknown";
+        _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c => c.Type == "name")?.Value
+        ?? "Unknown";
 
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard([FromQuery] string filter = "last7")
@@ -40,7 +49,10 @@ public class SapoController : ControllerBase
     }
 
     [HttpGet("dashboard/range")]
-    public async Task<IActionResult> GetDashboardRange([FromQuery] string fromDate, [FromQuery] string toDate)
+    public async Task<IActionResult> GetDashboardRange(
+        [FromQuery] string fromDate,
+        [FromQuery] string toDate
+    )
     {
         var result = await _sapo.GetDashboardByRangeAsync(fromDate, toDate);
         return Ok(result);
@@ -80,12 +92,26 @@ public class SapoController : ControllerBase
         }
 
         var result = await _sapo.ImportDashboardFilesAsync(
-            sapoBytes, form.SapoFile.FileName,
-            mappingBytes, mappingFileName,
-            uploadedBy);
+            sapoBytes,
+            form.SapoFile.FileName,
+            mappingBytes,
+            mappingFileName,
+            uploadedBy
+        );
 
-        await _activity.SaveLogAsync(userId, staffCode, "SAPO_IMPORT", "sapo_import_batches", null,
-            newData: new { fileName = form.SapoFile.FileName, uploadedBy, message = result.Message });
+        await _activity.SaveLogAsync(
+            userId,
+            staffCode,
+            "SAPO_IMPORT",
+            "sapo_import_batches",
+            null,
+            newData: new
+            {
+                fileName = form.SapoFile.FileName,
+                uploadedBy,
+                message = result.Message,
+            }
+        );
 
         return Ok(result);
     }
@@ -103,6 +129,10 @@ public class SapoController : ControllerBase
         if (result.fileBytes == null || result.fileBytes.Length == 0)
             throw new NotFoundException("Dữ liệu không tìm thấy");
 
-        return File(result.fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", result.fileName);
+        return File(
+            result.fileBytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            result.fileName
+        );
     }
 }
