@@ -33,6 +33,7 @@ public interface IGiftBasketService
     Task<GiftCodeChangeRequestDTO> UpdateAndActivateAsync(int id, ActivateCodeChangeRequestDTO dto);
     Task DeleteChangeRequestAsync(int id);
     Task<string> UploadBasketImageAsync(IFormFile file, int userId);
+
     // Task<byte[]> ExportChangeRequestsExcelAsync(string? month, bool? isActive);
     Task<byte[]> ExportChangeRequestsCsvAsync(string? month, bool? isActive);
 }

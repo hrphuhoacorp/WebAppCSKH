@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+    [Authorize]
     public class MessageReportController : ControllerBase
     {
         private readonly IMessageReportService _service;
@@ -23,6 +24,7 @@ namespace WebAppAPI.Controllers
             return int.Parse(claim!.Value);
         }
 
+        [RequirePermission("cskh.message_report.view")]
         [HttpGet("GetList")]
         public async Task<ResponseValue<List<MessageReportDTO>>> GetList([FromQuery] MessageReportFilter filter)
         {
@@ -30,6 +32,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<List<MessageReportDTO>>(result, "Lấy danh sách thành công", StatusReponse.Success);
         }
 
+        [RequirePermission("cskh.message_report.create")]
         [HttpPost("Create")]
         public async Task<ResponseValue<MessageReportDTO>> Create([FromBody] MessageReportCreateDTO dto)
         {
@@ -37,6 +40,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<MessageReportDTO>(result, "Thêm bản ghi thành công", StatusReponse.Success);
         }
 
+        [RequirePermission("cskh.message_report.delete")]
         [HttpDelete("Delete/{id}")]
         public async Task<ResponseValue<object>> Delete(int id)
         {

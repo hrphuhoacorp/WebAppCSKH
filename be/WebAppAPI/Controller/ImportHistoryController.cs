@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using WebAppAPI.Authorization;
 using WebAppInfractor.Data;
 
 namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Super_Admin")]
+    [Authorize]
     public class ImportHistoryController : ControllerBase
     {
         private readonly IImportHistoryService _importHistoryService;
@@ -26,6 +27,7 @@ namespace WebAppAPI.Controllers
             _mediaSettings = mediaOptions.Value;
         }
 
+        [RequirePermission("staff.import_history.view")]
         [HttpGet("GetAllImportHistoryAsync")]
         public async Task<ResponseValue<PagedResult<ImportHistoryDTO>>> GetAllImportHistoryAsync(
             [FromQuery] ImportHistoryFilterDTO filter
@@ -39,6 +41,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("staff.import_history.download")]
         [HttpGet("{id}/Download")]
         public async Task<IActionResult> DownloadFile(int id)
         {

@@ -4,13 +4,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-//using WebAppAPI.Models;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class InternalNewsController : ControllerBase
     {
         private readonly IInternalNewsService _internalNewsService;
@@ -31,11 +31,10 @@ namespace WebAppAPI.Controllers
                 c.Type == "Id"
             );
 
-            return int.Parse(userIdClaim.Value);
+            return int.Parse(userIdClaim!.Value);
         }
 
-        // Lấy danh sách - tất cả role đều xem được
-        // [Authorize(Roles = "Super_Admin,Admin_Media,Online,Staff")]
+        [RequirePermission("news.view")]
         [HttpGet("GetPaged")]
         public async Task<ResponseValue<PagedResult<InternalNewsDTO>>> GetPaged(
             [FromQuery] InternalNewsFilter filter
@@ -49,8 +48,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Xem chi tiết - tất cả role
-        // [Authorize(Roles = "Super_Admin,Admin_Media,Online,Staff")]
+        [RequirePermission("news.view")]
         [HttpGet("GetById/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> GetById(int id)
         {
@@ -62,8 +60,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Tạo mới - chỉ Admin
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.create")]
         [HttpPost("Create")]
         public async Task<ResponseValue<InternalNewsDTO>> Create(
             [FromBody] InternalNewsCreateDTO dto
@@ -78,8 +75,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Cập nhật - chỉ Admin
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.edit")]
         [HttpPut("Update/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> Update(
             int id,
@@ -94,8 +90,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Xóa - chỉ Admin
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.delete")]
         [HttpDelete("Delete/{id}")]
         public async Task<ResponseValue<object>> Delete(int id)
         {
@@ -107,8 +102,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Ghim / bỏ ghim
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.toggle_pin")]
         [HttpPatch("TogglePin/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> TogglePin(int id)
         {
@@ -120,8 +114,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Đăng bài
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.publish")]
         [HttpPatch("Publish/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> Publish(int id)
         {
@@ -133,8 +126,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Hủy đăng
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.publish")]
         [HttpPatch("Unpublish/{id}")]
         public async Task<ResponseValue<InternalNewsDTO>> Unpublish(int id)
         {
@@ -146,8 +138,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        // Upload ảnh cho editor
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.upload_media")]
         [HttpPost("UploadImage")]
         public async Task<ResponseValue<string>> UploadImage(IFormFile file)
         {
@@ -155,8 +146,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<string>(url, "Upload ảnh thành công", StatusReponse.Success);
         }
 
-        // Upload video cho editor
-        [Authorize(Roles = "Super_Admin,Admin_Online")]
+        [RequirePermission("news.upload_media")]
         [HttpPost("UploadVideo")]
         public async Task<ResponseValue<string>> UploadVideo(IFormFile file)
         {

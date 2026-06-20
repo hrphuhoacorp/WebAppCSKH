@@ -19,3 +19,8 @@ public class MoveFileRequest
 {
     public int FolderId { get; set; }
 }
+
+public class RenameFolderRequest
+{
+    public string NewName { get; set; } = string.Empty;
+}

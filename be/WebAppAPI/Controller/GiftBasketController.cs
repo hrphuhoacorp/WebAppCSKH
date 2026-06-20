@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers
 {
@@ -43,6 +44,7 @@ namespace WebAppAPI.Controllers
 
         // ─── BASKETS ──────────────────────────────────────────────────────────
 
+        [RequirePermission("gift.basket.view")]
         [HttpGet("List")]
         public async Task<ResponseValue<PagedResult<GiftBasketDTO>>> GetList(
             [FromQuery] GiftBasketFilterDTO filter
@@ -56,7 +58,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [RequirePermission("gift.basket.create")]
         [HttpPost("Create")]
         public async Task<ResponseValue<GiftBasketDTO>> Create([FromBody] CreateGiftBasketDTO dto)
         {
@@ -82,7 +84,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [RequirePermission("gift.basket.edit")]
         [HttpPut("Update")]
         public async Task<ResponseValue<GiftBasketDTO>> Update([FromBody] UpdateGiftBasketDTO dto)
         {
@@ -109,6 +111,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("gift.basket.upload_image")]
         [HttpPost("UploadImage")]
         [Consumes("multipart/form-data")]
         public async Task<ResponseValue<string>> UploadImage(IFormFile file)
@@ -124,15 +127,12 @@ namespace WebAppAPI.Controllers
                 null,
                 JsonSerializer.Serialize(new { url, fileName = file.FileName })
             );
-            return new ResponseValue<string>(
-                url,
-                "Tải ảnh thành công",
-                StatusReponse.Success
-            );
+            return new ResponseValue<string>(url, "Tải ảnh thành công", StatusReponse.Success);
         }
 
         // ─── CODE CHANGE REQUESTS ─────────────────────────────────────────────
 
+        [RequirePermission("gift.change_request.view")]
         [HttpGet("ChangeRequests")]
         public async Task<ResponseValue<PagedResult<GiftCodeChangeRequestDTO>>> GetChangeRequests(
             [FromQuery] int page = 1,
@@ -156,7 +156,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift,Gói Quà,Bán Hàng")]
+        [RequirePermission("gift.change_request.create")]
         [HttpPost("ChangeRequest/Create")]
         public async Task<ResponseValue<GiftCodeChangeRequestDTO>> CreateChangeRequest(
             [FromBody] CreateCodeChangeRequestDTO dto
@@ -189,7 +189,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [RequirePermission("gift.change_request.handle")]
         [HttpPut("ChangeRequest/Handle")]
         public async Task<ResponseValue<GiftCodeChangeRequestDTO>> HandleChangeRequest(
             [FromBody] HandleCodeChangeRequestDTO dto
@@ -227,7 +227,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [RequirePermission("gift.change_request.toggle_active")]
         [HttpPut("ChangeRequest/{id}/Active")]
         public async Task<ResponseValue<bool>> SetChangeRequestActive(
             int id,
@@ -263,7 +263,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [RequirePermission("gift.change_request.toggle_active")]
         [HttpPut("ChangeRequest/{id}/Activate")]
         public async Task<ResponseValue<bool>> ActivateChangeRequest(
             int id,
@@ -299,7 +299,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [RequirePermission("gift.change_request.delete")]
         [HttpDelete("ChangeRequest/{id}")]
         public async Task<ResponseValue<bool>> DeleteChangeRequest(int id)
         {
@@ -323,14 +323,10 @@ namespace WebAppAPI.Controllers
                     id,
                 }
             );
-            return new ResponseValue<bool>(
-                true,
-                "Xóa thành công",
-                StatusReponse.Success
-            );
+            return new ResponseValue<bool>(true, "Xóa thành công", StatusReponse.Success);
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Gift")]
+        [RequirePermission("gift.change_request.export")]
         [HttpGet("ChangeRequests/Export")]
         public async Task<IActionResult> ExportChangeRequests(
             [FromQuery] string? month,

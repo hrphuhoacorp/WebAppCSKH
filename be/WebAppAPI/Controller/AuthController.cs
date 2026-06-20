@@ -4,8 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-//using WebAppAPI.Models;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers
 {
@@ -53,8 +52,12 @@ namespace WebAppAPI.Controllers
                 c.Type == "Id"
             );
 
-            int userId = int.Parse(userIdClaim.Value);
+            int userId = int.Parse(userIdClaim!.Value);
             var profile = await _authService.GetProfile(userId);
+            profile.Permissions = httpContextAccessor.HttpContext!.User.Claims
+                .Where(c => c.Type == "perm")
+                .Select(c => c.Value)
+                .ToList();
 
             return new ResponseValue<UserDTO>(
                 profile,
@@ -72,7 +75,7 @@ namespace WebAppAPI.Controllers
             return Ok(new { Status = "Success", Message = "Đăng xuất thành công" });
         }
 
-        [Authorize(Roles = "Super_Admin")]
+        [RequirePermission("staff.create_account")]
         [HttpPost("CreateAccount")]
         public async Task<ResponseValue<string>> CreateAccount(AuthCreateDTO createDTO)
         {
@@ -122,7 +125,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize]
+        [RequirePermission("staff.reset_password")]
         [HttpPost("ResetPassword")]
         public async Task<ResponseValue<string>> ResetPassword(int userId)
         {
@@ -134,7 +137,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize]
+        [RequirePermission("staff.delete_account")]
         [HttpDelete("DeleteAccount")]
         public async Task<ResponseValue<string>> DeleteAccount(
             int userId,
@@ -161,6 +164,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("staff.restore_account")]
         [HttpPost("RestoreAccount/{userId}")]
         public async Task<ResponseValue<string>> RestoreAccount(int userId)
         {

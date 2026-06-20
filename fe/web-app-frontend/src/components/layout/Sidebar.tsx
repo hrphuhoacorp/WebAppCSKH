@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -49,15 +49,15 @@ export default function Sidebar() {
         }
     };
 
-    const userRoles = profile?.roles.map(role => role.name) ?? [];
+    const userPermissions = profile?.permissions ?? [];
 
     const filteredSidebarMenu = sidebarMenu.map((group) => ({
         ...group,
         children: group.children.filter((item) => {
-            if (!item.roles || item.roles.length === 0) return true;
-            return item.roles.some(role => userRoles.includes(role));
+            if (item.isExternal) return true;
+            if (!item.permissions || item.permissions.length === 0) return true;
+            return item.permissions.some(p => userPermissions.includes(p));
         }),
-
     })).filter((group) => group.children.length > 0);
 
     // Nội dung Sidebar được bóc tách riêng để tái sử dụng cho cả giao diện Desktop và Mobile

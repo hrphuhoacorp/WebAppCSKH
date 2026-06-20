@@ -14,7 +14,6 @@ import LoadingOverlay from '@/components/common/LoadingOverlay';
 import toast from 'react-hot-toast';
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
-const NXT_ADMIN_ROLES = ['Super_Admin', 'Admin_Gift'];
 const NXT_KNOWN_BRANCHES = ['Phú Lợi', 'Ngô Quyền', 'Lái Thiêu'];
 const BRANCHES = ['Phú Lợi', 'Ngô Quyền', 'Lái Thiêu'];
 
@@ -191,8 +190,7 @@ export default function NxtPage() {
             window.NXT_API = (process.env.NEXT_PUBLIC_DOTNET_API_URL ?? 'http://localhost:5109/api') + '/nxt';
             window.nxtToast = toast;
             const p = profileRef.current;
-            const roles = p.roles.map((r: { name: string }) => r.name);
-            const role = roles.some((r: string) => NXT_ADMIN_ROLES.includes(r)) ? 'admin' : 'employee';
+            const role = p.permissions?.includes('sales.nxt.edit') ? 'admin' : 'employee';
             const branch = NXT_KNOWN_BRANCHES.includes(p.branchesName) ? p.branchesName : 'ALL';
             await window.bootNxt?.({ loginCode: p.staffCode, displayName: p.name, role, branch });
         } finally {

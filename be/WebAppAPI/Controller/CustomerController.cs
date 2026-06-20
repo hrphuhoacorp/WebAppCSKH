@@ -4,15 +4,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 using WebAppInfractor.Models;
-
-//using WebAppAPI.Models;
 
 namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+    [Authorize]
     public class CustomerController : ControllerBase
     {
         private readonly ICustomerService _customerService;
@@ -27,6 +26,7 @@ namespace WebAppAPI.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
+        [RequirePermission("cskh.customer.view_list")]
         [HttpGet("GetAllCustomersAsync")]
         public async Task<ResponseValue<PagedResult<CustomerDTO>>> GetAllCustomersAsync(
             [FromQuery] CustomerFilterDTO filter
@@ -40,6 +40,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("cskh.customer.view_detail")]
         [HttpGet("GetCustomerByIdAsync/{id}")]
         public async Task<ResponseValue<CustomerDTO>> GetCustomerByIdAsync(int id)
         {
@@ -51,6 +52,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("cskh.customer.edit")]
         [HttpPut("UpdateCustomerAsync/{id}")]
         public async Task<ResponseValue<string>> UpdateCustomerAsync(
             int id,
@@ -62,7 +64,7 @@ namespace WebAppAPI.Controllers
             );
 
             var result = await _customerService.UpdateCustomerAsync(
-                int.Parse(userIdClaim.Value),
+                int.Parse(userIdClaim!.Value),
                 id,
                 updateDTO
             );
@@ -73,6 +75,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("cskh.customer.delete")]
         [HttpDelete("DeleteCustomerAsync/{id}")]
         public async Task<ResponseValue<string>> DeleteCustomerAsync(int id, DateTime updatedAt)
         {
@@ -80,7 +83,7 @@ namespace WebAppAPI.Controllers
                 c.Type == "Id"
             );
             var result = await _customerService.DeleteCustomerAsync(
-                int.Parse(userIdClaim.Value),
+                int.Parse(userIdClaim!.Value),
                 id,
                 updatedAt
             );
@@ -91,6 +94,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("cskh.customer.return_rate")]
         [HttpGet("GetReturnRateStats")]
         public async Task<ResponseValue<ReturnRateStatsDTO>> GetReturnRateStats([FromQuery] int months = 12)
         {
@@ -98,6 +102,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<ReturnRateStatsDTO>(result, "Lấy thống kê thành công", StatusReponse.Success);
         }
 
+        [RequirePermission("cskh.customer.segment")]
         [HttpGet("GetCustomersBySegment")]
         public async Task<ResponseValue<PagedResult<SegmentCustomerDTO>>> GetCustomersBySegment(
             [FromQuery] string segment = "loyal",

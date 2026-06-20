@@ -75,7 +75,7 @@ public class AuthService : IAuthService
             throw new BadRequestException("Mật khẩu không đúng");
         }
 
-        var token = _jwtAuthService.GenerateToken(user);
+        var token = await _jwtAuthService.GenerateTokenAsync(user);
 
         await _auditLogService.SaveLogAsync(
             userId: user.Id,

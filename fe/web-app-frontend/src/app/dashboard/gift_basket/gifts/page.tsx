@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { usePermission } from '@/hooks/usePermission';
 import {
     Box,
     Button,
@@ -59,6 +60,10 @@ import { MediaFileDto } from '@/features/media/schemas/media_file.schemas';
 import RenameFolderDialog from '@/features/media/components/RenameFolderDialog';
 
 export default function MediaGalleryPage() {
+    const canUpload = usePermission('gift.basket.upload_image');
+    const canDeleteFiles = usePermission('media.file.delete');
+    const canDeleteFolders = usePermission('media.folder.delete');
+
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -340,13 +345,13 @@ export default function MediaGalleryPage() {
                     selectedFolderId={selectedFolderId}
                     copiedFolderId={copiedFolder?.id ?? null}
                     onSelect={handleFolderSelect}
-                    onDeleteFolder={handleDeleteFolder}
+                    onDeleteFolder={canDeleteFolders ? handleDeleteFolder : undefined}
                     onRenameFolder={handleRenameFolder}
                     onCopyFolder={handleCopyFolder}
                 />
             </Box>
             <Box sx={{ p: 1.5, borderTop: '1px solid #e0e0e0' }}>
-                <Button
+                {canUpload && <Button
                     fullWidth
                     size="small"
                     startIcon={<DriveFolderUpload sx={{ fontSize: 16 }} />}
@@ -363,7 +368,7 @@ export default function MediaGalleryPage() {
                     variant="outlined"
                 >
                     Tạo thư mục
-                </Button>
+                </Button>}
                 <Button
                     fullWidth
                     size="small"
@@ -457,7 +462,7 @@ export default function MediaGalleryPage() {
                 <Box sx={{ flex: 1 }} />
 
                 <Stack direction="row" spacing={{ xs: 0.6, md: 1 }} sx={{ flexShrink: '0' }}>
-                    {!isMobile && (
+                    {canUpload && !isMobile && (
                         <Button
                             variant="outlined"
                             size="small"
@@ -478,7 +483,7 @@ export default function MediaGalleryPage() {
                             Tạo thư mục
                         </Button>
                     )}
-                    <Button
+                    {canUpload && <Button
                         variant="contained"
                         size="small"
                         startIcon={<CloudUpload sx={{ fontSize: 16 }} />}
@@ -497,7 +502,7 @@ export default function MediaGalleryPage() {
                         }}
                     >
                         {isMobile ? 'Upload' : 'Upload ảnh'}
-                    </Button>
+                    </Button>}
                 </Stack>
             </Box>
 
@@ -694,24 +699,26 @@ export default function MediaGalleryPage() {
                             >
                                 Bỏ chọn
                             </Button>
-                            <Button
-                                size="small"
-                                variant="outlined"
-                                color="error"
-                                startIcon={<Delete sx={{ fontSize: 14 }} />}
-                                onClick={() => {
-                                    setDeleteTarget({
-                                        type: 'files',
-                                        id: 0,
-                                        name: `${selectedIds.length} file`,
-                                    });
-                                    setDeleteConfirmOpen(true);
-                                }}
-                                disabled={isLoading}
-                                sx={{ fontSize: 12, textTransform: 'none' }}
-                            >
-                                Xóa ({selectedIds.length})
-                            </Button>
+                            {canDeleteFiles && (
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    startIcon={<Delete sx={{ fontSize: 14 }} />}
+                                    onClick={() => {
+                                        setDeleteTarget({
+                                            type: 'files',
+                                            id: 0,
+                                            name: `${selectedIds.length} file`,
+                                        });
+                                        setDeleteConfirmOpen(true);
+                                    }}
+                                    disabled={isLoading}
+                                    sx={{ fontSize: 12, textTransform: 'none' }}
+                                >
+                                    Xóa ({selectedIds.length})
+                                </Button>
+                            )}
                         </Box>
                     )}
 
@@ -820,22 +827,24 @@ export default function MediaGalleryPage() {
                         gap: 1,
                     }}
                 >
-                    <Fab
-                        color="error"
-                        size="medium"
-                        onClick={() => {
-                            setDeleteTarget({
-                                type: 'files',
-                                id: 0,
-                                name: `${selectedIds.length} file`,
-                            });
-                            setDeleteConfirmOpen(true);
-                        }}
-                        disabled={isLoading}
-                        sx={{ boxShadow: '0 4px 12px rgba(244,67,54,0.4)' }}
-                    >
-                        <Delete />
-                    </Fab>
+                    {canDeleteFiles && (
+                        <Fab
+                            color="error"
+                            size="medium"
+                            onClick={() => {
+                                setDeleteTarget({
+                                    type: 'files',
+                                    id: 0,
+                                    name: `${selectedIds.length} file`,
+                                });
+                                setDeleteConfirmOpen(true);
+                            }}
+                            disabled={isLoading}
+                            sx={{ boxShadow: '0 4px 12px rgba(244,67,54,0.4)' }}
+                        >
+                            <Delete />
+                        </Fab>
+                    )}
                     <Fab
                         variant="extended"
                         onClick={handleShareSelected}

@@ -4,9 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 using WebAppInfractor.Models;
-
-//using WebAppAPI.Models;
 
 namespace WebAppAPI.Controllers
 {
@@ -30,7 +29,7 @@ namespace WebAppAPI.Controllers
             _activityService = activityService;
         }
 
-        [Authorize(Roles = "Super_Admin")]
+        [RequirePermission("staff.view_list")]
         [HttpGet("GetAllUsersAsync")]
         public async Task<ResponseValue<PagedResult<UserGetAllDTO>>> GetAllUsersAsync(
             [FromQuery] string? search,
@@ -62,6 +61,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("staff.view_detail")]
         [HttpGet("GetUserByIdAsync/{id}")]
         public async Task<ResponseValue<UserDTO>> GetUserByIdAsync(int id)
         {
@@ -74,6 +74,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("staff.update")]
         [HttpPut("UpdateUserAsync/{id}")]
         public async Task<ResponseValue<UserDTO>> UpdateUserAsync(int id, UserUpdateDTO dto)
         {
@@ -86,6 +87,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("staff.view_roles")]
         [HttpGet("GetAllRolesAsync")]
         public async Task<ResponseValue<List<RoleDTO>>> GetAllRolesAsync()
         {
@@ -98,6 +100,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("staff.view_activity_log")]
         [HttpGet("GetAllActivityLogAsync")]
         public async Task<ResponseValue<PagedResult<ActivityLogDTO>>> GetAllActivityLogAsync(
             [FromQuery] ActivityFilter filter
@@ -112,7 +115,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin")]
+        [RequirePermission("staff.import")]
         [HttpPost("ImportStaff")]
         [Consumes("multipart/form-data")]
         public async Task<ResponseValue<ImportStaffResultDTO>> ImportStaff(IFormFile file)
@@ -132,7 +135,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<ImportStaffResultDTO>(result, "Import hoàn tất", StatusReponse.Success);
         }
 
-        [Authorize(Roles = "Super_Admin")]
+        [RequirePermission("staff.import")]
         [HttpGet("ImportStaffTemplate")]
         public IActionResult DownloadImportTemplate()
         {

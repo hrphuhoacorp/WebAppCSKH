@@ -33,6 +33,7 @@ export interface UserProfile {
     deletedAt?: string | null;
 
     roles: UserRole[];
+    permissions: string[];
 
     importHistories: ImportHistory[];
 }

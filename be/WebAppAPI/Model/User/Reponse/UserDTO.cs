@@ -41,6 +41,7 @@ public class UserDTO
     public string? BranchesName { get; set; }
     public DateOnly? DayOfBirth { get; set; }
     public List<RoleDTO> Roles { get; set; } = new();
+    public List<string> Permissions { get; set; } = new();
 
     public List<ImportHistoryDTO> ImportHistories { get; set; } = new();
 

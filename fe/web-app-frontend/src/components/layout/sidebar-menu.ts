@@ -20,13 +20,14 @@ export interface SidebarSubItem {
     href: string;
     icon: React.ComponentType<any>;
     isExternal?: boolean;
-    roles?: string[];
+    permissions?: string[]; // show if user has ANY of these; empty = show always
 }
 
 export interface SidebarGroup {
     title: string;
     children: SidebarSubItem[];
 }
+
 export const sidebarMenu: SidebarGroup[] = [
     {
         title: 'Chăm sóc khách hàng',
@@ -35,22 +36,20 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Dashboard',
                 href: '/dashboard/customer_care/revenue_report',
                 icon: LayoutDashboard,
-                roles: ['Super_Admin', 'Admin_Online', 'Online'],
+                permissions: ['cskh.dashboard.view'],
             },
             {
                 title: 'Danh sách đơn hàng',
                 href: '/dashboard/customer_care/orders',
                 icon: ShoppingCart,
-                roles: ['Super_Admin', 'Admin_Online', 'Online'],
+                permissions: ['cskh.order.view_list'],
             },
             {
                 title: 'Danh sách khách hàng',
                 href: '/dashboard/customer_care/customers',
                 icon: Users,
-                roles: ['Super_Admin', 'Admin_Online', 'Online'],
+                permissions: ['cskh.customer.view_list'],
             },
-
-
         ],
     },
     {
@@ -60,30 +59,31 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Dashboard',
                 href: '/dashboard/gift_basket/dashboard',
                 icon: LayoutDashboard,
-                // roles: ['Super_Admin', 'Admin_Online', 'Online', 'Staff'],
+                permissions: ['gift.basket.view', 'gift.change_request.view'],
             },
             {
                 title: 'Kho Ảnh Giỏ Quà',
                 href: '/dashboard/gift_basket/gifts',
                 icon: GiftIcon,
-                // roles: ['Super_Admin', 'Admin_Online', 'Online', 'Staff'],
+                permissions: ['gift.basket.view'],
             },
             {
                 title: 'Danh sách quy đổi mã',
                 href: '/dashboard/gift_basket/baskets',
                 icon: Library,
+                permissions: ['gift.basket.view'],
             },
             {
                 title: 'Yêu cầu đổi mã',
                 href: '/dashboard/gift_basket/change_requests',
                 icon: ArrowLeftRight,
-                roles: ['Super_Admin', 'Admin_Gift', 'Gói Quà', 'Bán Hàng'],
+                permissions: ['gift.change_request.view'],
             },
             {
                 title: 'Duyệt mã cần đổi',
                 href: '/dashboard/gift_basket/code_mappings',
                 icon: Checklist,
-                roles: ['Super_Admin', 'Admin_Gift'],
+                permissions: ['gift.change_request.handle'],
             },
         ],
     },
@@ -94,27 +94,26 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Dashboard',
                 href: '/dashboard/sales/revenue_report',
                 icon: LayoutDashboard,
-                roles: ['Super_Admin', 'Bán Hàng'],
+                permissions: ['sales.dashboard.view'],
             },
             {
                 title: 'Danh sách đơn hàng',
                 href: '/dashboard/sales/orders',
                 icon: ShoppingCart,
-                roles: ['Super_Admin', 'Bán Hàng'],
+                permissions: ['sales.order.view_list'],
             },
             {
                 title: 'Kiểm Giỏ Quà',
                 href: '/dashboard/sales/xnt',
                 icon: Import,
-                roles: ['Super_Admin', 'Bán Hàng'],
+                permissions: ['sales.nxt.view'],
             },
             {
                 title: 'Tỉ lệ quay lại',
                 href: '/dashboard/sales/return_rate',
                 icon: TrendingUp,
-                roles: ['Super_Admin', 'Admin_Online', 'Online'],
+                permissions: ['cskh.customer.return_rate'],
             },
-
         ],
     },
     {
@@ -124,19 +123,16 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Danh sách nhân viên',
                 href: '/dashboard/staff/staff_list',
                 icon: Users,
-                roles: ['Super_Admin'],
-
+                permissions: ['staff.view_list'],
             },
             {
                 title: 'Lịch Sử Thao Tác',
                 href: '/dashboard/staff/history',
                 icon: History,
-                roles: ['Super_Admin'],
-            }
+                permissions: ['staff.view_activity_log'],
+            },
         ],
     },
-
-
     {
         title: 'Tiện Ích',
         children: [
@@ -151,7 +147,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: 'https://script.google.com/macros/s/AKfycbyHFuZlHGDkPN1Be44vgGNxsm5cijRn8RbpQHA3hBj8a6ZmbAe_A7LXkDrStJTtSoDA/exec',
                 icon: MailCheck,
                 isExternal: true,
-                roles: ['Super_Admin'],
+                permissions: ['staff.view_list']
             },
             {
                 title: 'Tổng hợp link',
@@ -167,9 +163,9 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Quản lý tin nội bộ',
                 href: '/dashboard/news',
                 icon: CampaignRounded,
-                roles: ['Super_Admin', 'Admin_Media'],
-            }
-        ]
+                permissions: ['news.create'],
+            },
+        ],
     },
     {
         title: 'Thông tin cá nhân',

@@ -63,6 +63,7 @@ import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
 import { useAuth } from '@/providers/AuthProviders';
 import ImportHistoryDialog from '@/features/orders/components/ImportHistoryDialog';
 import ReportMessageDialog from '@/features/orders/components/ReportMessageDialog';
+import { usePermission } from '@/hooks/usePermission';
 import { Color } from '@tiptap/extension-text-style';
 
 const branchColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
@@ -136,6 +137,8 @@ const itemColumnConfig = [
 ];
 
 export default function OrdersPage() {
+    const canReport = usePermission('cskh.message_report.create');
+
     const [orders, setOrders] = useState<any[]>([]);
     const [total, setTotal] = useState(0);
     const [openRow, setOpenRow] = useState<number | null>(null);
@@ -155,15 +158,11 @@ export default function OrdersPage() {
     const [sortBy, setSortBy] = useState('purchaseDate');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [loading, setLoading] = useState(false);
-    const [importing, setImporting] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
     const [orderDetailOpen, setOrderDetailOpen] = useState(false);
-    const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [messageModalOpen, setMessageModalOpen] = useState(false);
-    const [importResult, setImportResult] = useState<{ totalRows: number; successfulImports: number; skippedImports: number; failedImports: number; errorMessages: string[]; skippedMessages: string[] } | null>(null);
-    const [importGuideOpen, setImportGuideOpen] = useState(false);
 
     // ── Auth ──
     const { profile, loadProfile } = useAuth();
@@ -180,26 +179,7 @@ export default function OrdersPage() {
 
     const hasFilter = search || fromDate || toDate || status || branch || source;
 
-    // ── SignalR ──
-    useEffect(() => {
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl(`${process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN}/hubs/import`, { withCredentials: true })
-            .withAutomaticReconnect()
-            .configureLogging({
-                log(level: signalR.LogLevel, msg: string) {
-                    if (msg.includes('stopped during negotiation')) return;
-                    if (level >= signalR.LogLevel.Error) console.error('[SignalR]', msg);
-                    else if (level >= signalR.LogLevel.Warning) console.warn('[SignalR]', msg);
-                },
-            })
-            .build();
-        connection.on('ImportProgress', (data) => setProgress({ current: data.current, total: data.total }));
-        connection.start().catch((e) => {
-            if (e?.message?.includes('stopped during negotiation')) return;
-            console.error('SignalR error:', e);
-        });
-        return () => { connection.stop().catch(() => { }); };
-    }, []);
+
 
     useEffect(() => {
         const t = setTimeout(() => { setDebouncedSearch(search); setPage(0); }, 500);
@@ -240,31 +220,7 @@ export default function OrdersPage() {
         fetchStatus(); fetchBranch();
     }, []);
 
-    const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            setProgress({ current: 0, total: 0 });
-            setImporting(true);
-            const response = await ordersApi.importExcel(file);
-            setImportResult({
-                totalRows: response.content.totalRows,
-                successfulImports: response.content.successfulImports,
-                skippedImports: response.content.skippedImports ?? 0,
-                failedImports: response.content.failedImports,
-                errorMessages: response.content.errorMessages ?? [],
-                skippedMessages: response.content.skippedMessages ?? [],
-            });
-            // Refresh ngầm, silent=true để không bật loading overlay che dialog
-            fetchOrders(true);
-            loadProfile(true);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message ?? 'Có lỗi xảy ra khi import');
-        } finally {
-            setImporting(false);
-            if (e.target) e.target.value = '';
-        }
-    };
+
 
     const handleResetFilter = () => {
         setSearch(''); setFromDate(''); setToDate('');
@@ -287,275 +243,27 @@ export default function OrdersPage() {
         >
             <LoadingOverlay open={loading} text="Đang tải đơn hàng..." />
 
-            {/* Dialog hướng dẫn cột Excel */}
-            <Dialog
-                open={importGuideOpen}
-                onClose={() => setImportGuideOpen(false)}
-                maxWidth="md"
-                fullWidth
-                slotProps={{ paper: { sx: { borderRadius: '20px', p: 1 } } }}
-            >
-                <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha('#086839', 0.1), color: '#086839', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <TableChartRounded sx={{ fontSize: 20 }} />
-                        </Box>
-                        <Box>
-                            <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>Cấu trúc file Excel nhập đơn hàng</Typography>
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>Đảm bảo file của bạn có đúng thứ tự cột bên dưới</Typography>
-                        </Box>
-                    </Box>
-                    <IconButton onClick={() => setImportGuideOpen(false)} sx={{ color: '#94a3b8', '&:hover': { color: '#475569', bgcolor: '#f1f5f9' } }}>
-                        <Close sx={{ fontSize: 18 }} />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ pt: 0 }}>
-                    <Box sx={{ bgcolor: alpha('#f59e0b', 0.08), border: `1px solid ${alpha('#f59e0b', 0.3)}`, borderRadius: '10px', p: 1.5, mb: 2, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                        <InfoOutlined sx={{ color: '#f59e0b', fontSize: 18, mt: 0.1, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: 12.5, color: '#92400e' }}>
-                            Các cột đánh dấu <b style={{ color: '#dc2626' }}>(*)</b> là bắt buộc. Dòng đầu tiên trong file sẽ được bỏ qua (tiêu đề).
-                            Hệ thống sẽ bỏ qua các dòng trùng hoàn toàn (mã đơn + ngày + doanh thu + số lượng).
-                        </Typography>
-                    </Box>
-                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px', maxHeight: 360, overflow: 'auto', '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 2 } }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    {['Cột', 'Tên cột', 'Bắt buộc', 'Ghi chú'].map(h => (
-                                        <TableCell key={h} sx={{ bgcolor: '#f8fafc', fontWeight: 700, fontSize: 12, color: '#475569', py: 1.2 }}>{h}</TableCell>
-                                    ))}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {[
-                                    { col: 'A (1)', name: 'Ngày mua', required: false, note: 'Định dạng dd/MM/yyyy' },
-                                    { col: 'B (2)', name: 'Tên khách hàng', required: false, note: '' },
-                                    { col: 'C (3)', name: 'Số điện thoại', required: false, note: '' },
-                                    { col: 'D (4)', name: 'Mã khách hàng', required: false, note: '' },
-                                    { col: 'E (5)', name: 'Phân loại sản phẩm', required: false, note: '' },
-                                    { col: 'F (6)', name: 'Tên sản phẩm', required: false, note: '' },
-                                    { col: 'G (7)', name: 'SKU', required: false, note: '' },
-                                    { col: 'H (8)', name: 'Đơn giá', required: false, note: 'Số thực' },
-                                    { col: 'I (9)', name: 'Dịch vụ đi kèm', required: false, note: '' },
-                                    { col: 'J (10)', name: 'Đơn vị tính', required: false, note: '' },
-                                    { col: 'K (11)', name: 'Mã đơn hàng', required: true, note: 'Dùng để nhận diện đơn hàng' },
-                                    { col: 'L (12)', name: 'Trạng thái', required: true, note: 'Phải trùng tên trạng thái trong hệ thống' },
-                                    { col: 'M (13)', name: 'Chi nhánh', required: true, note: 'Phải trùng tên chi nhánh trong hệ thống' },
-                                    { col: 'N (14)', name: 'Nguồn', required: false, note: '' },
-                                    { col: 'O (15)', name: 'Số lượng', required: false, note: 'Có thể âm (hoàn trả)' },
-                                    { col: 'U (21)', name: 'Thuế', required: false, note: 'Số thực' },
-                                    { col: 'V (22)', name: 'Phí vận chuyển', required: false, note: 'Số thực' },
-                                    { col: 'W (23)', name: 'Doanh thu', required: false, note: 'Số thực, có thể âm' },
-                                    { col: 'X (24)', name: 'Lợi nhuận gộp', required: false, note: 'Số thực' },
-                                ].map(({ col, name, required, note }) => (
-                                    <TableRow key={col} sx={{ '&:nth-of-type(odd)': { bgcolor: '#fafafa' }, '&:hover': { bgcolor: '#f0fdf4' } }}>
-                                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#086839', whiteSpace: 'nowrap' }}>{col}</TableCell>
-                                        <TableCell sx={{ fontWeight: required ? 700 : 400, fontSize: 13, color: '#1e293b' }}>
-                                            {name}{required && <Box component="span" sx={{ color: '#dc2626', ml: 0.5 }}>*</Box>}
-                                        </TableCell>
-                                        <TableCell>
-                                            {required
-                                                ? <Chip label="Bắt buộc" size="small" sx={{ bgcolor: '#fee2e2', color: '#991b1b', fontWeight: 700, fontSize: 11, borderRadius: '6px' }} />
-                                                : <Chip label="Tùy chọn" size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 600, fontSize: 11, borderRadius: '6px' }} />}
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: 12, color: '#64748b', fontStyle: note ? 'normal' : 'italic' }}>{note || '—'}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 2.5 }}>
-                        <Button onClick={() => setImportGuideOpen(false)} variant="outlined" sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, borderColor: '#cbd5e1', color: '#64748b', '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' } }}>
-                            Đóng
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<FileUpload />}
-                            onClick={() => { setImportGuideOpen(false); fileInputRef.current?.click(); }}
-                            sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#086839', '&:hover': { bgcolor: '#064e2b' } }}
-                        >
-                            Chọn file Excel
-                        </Button>
-                    </Box>
-                </DialogContent>
-            </Dialog>
-
-            {/* Dialog kết quả import */}
-            <Dialog
-                open={!!importResult}
-                onClose={() => setImportResult(null)}
-                maxWidth="sm"
-                fullWidth
-                slotProps={{ paper: { sx: { borderRadius: '20px', p: 1 } } }}
-            >
-                <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        {importResult && importResult.successfulImports === 0 ? (
-                            <ErrorRounded sx={{ color: '#ef4444', fontSize: 28 }} />
-                        ) : importResult && importResult.failedImports > 0 ? (
-                            <WarningAmberRounded sx={{ color: '#f59e0b', fontSize: 28 }} />
-                        ) : (
-                            <CheckCircleRounded sx={{ color: '#10b981', fontSize: 28 }} />
-                        )}
-                        <Typography sx={{ fontWeight: 800, fontSize: 17, color: '#1e293b' }}>
-                            Kết quả Import Excel
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={() => setImportResult(null)} size="small" sx={{ color: '#94a3b8' }}>
-                        <Close fontSize="small" />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ pt: 0 }}>
-                    {importResult && (
-                        <>
-                            {/* Thống kê */}
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <Box sx={{ flex: 1, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: '12px', p: 1.5, border: '1px solid #e2e8f0' }}>
-                                    <Typography sx={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tổng dòng</Typography>
-                                    <Typography sx={{ fontSize: 24, fontWeight: 800, color: '#1e293b' }}>{importResult.totalRows}</Typography>
-                                </Box>
-                                <Box sx={{ flex: 1, textAlign: 'center', bgcolor: '#f0fdf4', borderRadius: '12px', p: 1.5, border: '1px solid #bbf7d0' }}>
-                                    <Typography sx={{ fontSize: 11, color: '#16a34a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Thành công</Typography>
-                                    <Typography sx={{ fontSize: 24, fontWeight: 800, color: '#15803d' }}>{importResult.successfulImports}</Typography>
-                                </Box>
-                                <Box sx={{ flex: 1, textAlign: 'center', bgcolor: importResult.skippedImports > 0 ? '#fffbeb' : '#f8fafc', borderRadius: '12px', p: 1.5, border: `1px solid ${importResult.skippedImports > 0 ? '#fde68a' : '#e2e8f0'}` }}>
-                                    <Typography sx={{ fontSize: 11, color: importResult.skippedImports > 0 ? '#d97706' : '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Trùng/Bỏ qua</Typography>
-                                    <Typography sx={{ fontSize: 24, fontWeight: 800, color: importResult.skippedImports > 0 ? '#d97706' : '#94a3b8' }}>{importResult.skippedImports}</Typography>
-                                </Box>
-                                <Box sx={{ flex: 1, textAlign: 'center', bgcolor: importResult.failedImports > 0 ? '#fef2f2' : '#f8fafc', borderRadius: '12px', p: 1.5, border: `1px solid ${importResult.failedImports > 0 ? '#fecaca' : '#e2e8f0'}` }}>
-                                    <Typography sx={{ fontSize: 11, color: importResult.failedImports > 0 ? '#dc2626' : '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Lỗi</Typography>
-                                    <Typography sx={{ fontSize: 24, fontWeight: 800, color: importResult.failedImports > 0 ? '#dc2626' : '#94a3b8' }}>{importResult.failedImports}</Typography>
-                                </Box>
-                            </Box>
-
-                            {/* Danh sách lỗi */}
-                            {importResult.errorMessages.length > 0 && (
-                                <Box>
-                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#475569', mb: 1 }}>
-                                        Chi tiết lỗi ({importResult.errorMessages.length} dòng):
-                                    </Typography>
-                                    <Box sx={{
-                                        maxHeight: 280,
-                                        overflowY: 'auto',
-                                        borderRadius: '10px',
-                                        border: '1px solid #fecaca',
-                                        bgcolor: '#fff',
-                                        '&::-webkit-scrollbar': { width: 4 },
-                                        '&::-webkit-scrollbar-thumb': { bgcolor: '#fca5a5', borderRadius: 2 },
-                                    }}>
-                                        {importResult.errorMessages.map((msg, i) => (
-                                            <Box key={i} sx={{
-                                                display: 'flex', alignItems: 'flex-start', gap: 1.5, px: 2, py: 1,
-                                                borderBottom: i < importResult.errorMessages.length - 1 ? '1px solid #fff1f2' : 'none',
-                                                '&:hover': { bgcolor: '#fff5f5' },
-                                            }}>
-                                                <ErrorRounded sx={{ fontSize: 14, color: '#f87171', mt: '2px', flexShrink: 0 }} />
-                                                <Typography sx={{ fontSize: 12.5, color: '#7f1d1d' }}>{msg}</Typography>
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                </Box>
-                            )}
-
-                            {/* Danh sách dòng bỏ qua */}
-                            {importResult.skippedMessages.length > 0 && (
-                                <Box sx={{ mt: importResult.errorMessages.length > 0 ? 2 : 0 }}>
-                                    <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#92400e', mb: 1 }}>
-                                        Dòng bị bỏ qua ({importResult.skippedMessages.length} dòng trùng):
-                                    </Typography>
-                                    <Box sx={{
-                                        maxHeight: 200,
-                                        overflowY: 'auto',
-                                        borderRadius: '10px',
-                                        border: '1px solid #fde68a',
-                                        bgcolor: '#fff',
-                                        '&::-webkit-scrollbar': { width: 4 },
-                                        '&::-webkit-scrollbar-thumb': { bgcolor: '#fcd34d', borderRadius: 2 },
-                                    }}>
-                                        {importResult.skippedMessages.map((msg, i) => (
-                                            <Box key={i} sx={{
-                                                display: 'flex', alignItems: 'flex-start', gap: 1.5, px: 2, py: 0.8,
-                                                borderBottom: i < importResult.skippedMessages.length - 1 ? '1px solid #fef3c7' : 'none',
-                                                '&:hover': { bgcolor: '#fffbeb' },
-                                            }}>
-                                                <WarningAmberRounded sx={{ fontSize: 14, color: '#f59e0b', mt: '2px', flexShrink: 0 }} />
-                                                <Typography sx={{ fontSize: 12, color: '#78350f' }}>{msg}</Typography>
-                                            </Box>
-                                        ))}
-                                    </Box>
-                                </Box>
-                            )}
-
-                            {importResult.failedImports === 0 && importResult.skippedImports === 0 && (
-                                <Typography sx={{ fontSize: 13, color: '#16a34a', fontWeight: 600, textAlign: 'center', mt: 1 }}>
-                                    Tất cả dòng đã được import thành công!
-                                </Typography>
-                            )}
-                        </>
-                    )}
-                </DialogContent>
-            </Dialog>
-
             <PageHeader
                 title="Danh Sách Đơn Hàng"
                 subtitle="Theo dõi, quản lý doanh thu và trạng thái đơn hàng thời gian thực"
                 icon={<ReceiptLongRounded />}
                 actions={<Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                    {importing && progress.total > 0 && (
-                        <Box sx={{ minWidth: 200, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
-                            <Typography sx={{ fontSize: 12, color: '#64748b', mb: 0.5 }}>
-                                Đã import {progress.current} / {progress.total} dòng
-                            </Typography>
-                            <LinearProgress
-                                variant="determinate"
-                                value={(progress.current / progress.total) * 100}
-                                sx={{ height: 6, borderRadius: 99, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#086839', borderRadius: 99 } }}
-                            />
-                        </Box>
+                    {canReport && (
+                        <Tooltip title="Nhập số lượng tin nhắn mỗi ngày" arrow>
+                            <Button
+                                variant="outlined"
+                                startIcon={<Message sx={{ fontSize: 18 }} />}
+                                onClick={() => setMessageModalOpen(true)}
+                                sx={{
+                                    borderColor: '#5d7ca7', color: '#4873af', borderWidth: '1.5px',
+                                    fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
+                                    '&:hover': { borderWidth: '1.5px', borderColor: '#365c99', bgcolor: '#a2bdd8' },
+                                }}
+                            >
+                                Báo cáo số lượng tin nhắn
+                            </Button>
+                        </Tooltip>
                     )}
-
-                    <input type="file" hidden ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls" />
-                    <Button
-                        variant="outlined"
-                        startIcon={importing ? <CircularProgress size={16} color="inherit" /> : <FileUpload sx={{ fontSize: 18 }} />}
-                        disabled={importing}
-                        onClick={() => !importing && setImportGuideOpen(true)}
-                        sx={{
-                            borderColor: '#086839', color: '#086839', borderWidth: '1.5px',
-                            fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
-                            '&:hover': { borderWidth: '1.5px', borderColor: '#064e2b', bgcolor: alpha('#086839', 0.06) },
-                        }}
-                    >
-                        {importing ? 'Đang xử lý...' : 'Nhập Excel'}
-                    </Button>
-                    <Tooltip title="Xem lịch sử các file Excel đã tải lên của bản thân" arrow>
-                        <Button
-                            variant="outlined"
-                            startIcon={<HistoryToggleOffRounded sx={{ fontSize: 18 }} />}
-                            onClick={() => setHistoryModalOpen(true)}
-                            sx={{
-                                borderColor: '#475569', color: '#475569', borderWidth: '1.5px',
-                                fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
-                                '&:hover': { borderWidth: '1.5px', borderColor: '#1e293b', bgcolor: '#f1f5f9' },
-                            }}
-                        >
-                            Lịch sử nhập File
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title="Nhập số lượng tin nhắn mỗi ngày" arrow>
-                        <Button
-                            variant="outlined"
-                            startIcon={<Message sx={{ fontSize: 18 }} />}
-                            onClick={() => setMessageModalOpen(true)}
-                            sx={{
-                                borderColor: '#5d7ca7', color: '#4873af', borderWidth: '1.5px',
-                                fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
-                                '&:hover': { borderWidth: '1.5px', borderColor: '#365c99', bgcolor: '#a2bdd8' },
-                            }}
-                        >
-                            Báo cáo số lượng tin nhắn
-                        </Button>
-                    </Tooltip>
                     <Tooltip title="Xóa tất cả bộ lọc" arrow>
                         <Button
                             variant="contained"
@@ -988,12 +696,6 @@ export default function OrdersPage() {
                 open={orderDetailOpen}
                 orderId={selectedOrderId}
                 onClose={() => { setOrderDetailOpen(false); setSelectedOrderId(null); }}
-            />
-            <ImportHistoryDialog
-                open={historyModalOpen}
-                onClose={() => setHistoryModalOpen(false)}
-                historyData={profile?.importHistories ?? []}
-                onRefresh={loadProfile}
             />
             <ReportMessageDialog
                 open={messageModalOpen}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -49,6 +49,8 @@ import ResetPasswordDialog from '@/features/staff/components/ResetPasswordDialog
 import CreateUserDialog from '@/features/staff/components/CreateUserDialog';
 import RestoreUserDialog from '@/features/staff/components/RestoreUserDialog';
 import ImportStaffDialog from '@/features/staff/components/ImportStaffDialog';
+import PermissionDialog from '@/features/staff/components/PermissionDialog';
+import { usePermission } from '@/hooks/usePermission';
 
 type UserRow = {
     id: number;
@@ -107,6 +109,14 @@ export default function UsersPage() {
     const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
+    const [permOpen, setPermOpen] = useState(false);
+    const canManagePermissions = usePermission('staff.manage_permissions');
+    const canImport = usePermission('staff.import');
+    const canCreate = usePermission('staff.create_account');
+    const canUpdate = usePermission('staff.update');
+    const canDelete = usePermission('staff.delete_account');
+    const canRestore = usePermission('staff.restore_account');
+    const canResetPassword = usePermission('staff.reset_password');
 
     const formatDate = (value?: string | null) => {
         if (!value) return '-';
@@ -197,43 +207,47 @@ export default function UsersPage() {
                 gradient="linear-gradient(135deg, #086839 0%, #059669 100%)"
                 shadowColor="rgba(8,104,57,0.28)"
                 actions={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<FileUploadRounded />}
-                        onClick={() => setImportOpen(true)}
-                        sx={{
-                            borderColor: '#086839',
-                            color: '#086839',
-                            borderRadius: '12px',
-                            fontWeight: 700,
-                            textTransform: 'none',
-                            px: 2,
-                            '&:hover': {
-                                bgcolor: alpha('#086839', 0.06),
+                    {canImport && (
+                        <Button
+                            variant="outlined"
+                            startIcon={<FileUploadRounded />}
+                            onClick={() => setImportOpen(true)}
+                            sx={{
                                 borderColor: '#086839',
-                            },
-                        }}
-                    >
-                        Import nhân sự
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddCircleRounded />}
-                        onClick={() => setCreateOpen(true)}
-                        sx={{
-                            bgcolor: '#086839',
-                            borderRadius: '12px',
-                            fontWeight: 700,
-                            textTransform: 'none',
-                            px: 2,
-                            boxShadow: '0 1px 6px rgba(8,104,57,0.18)',
-                            '&:hover': {
-                                bgcolor: '#0e4837',
-                            },
-                        }}
-                    >
-                        Thêm nhân sự
-                    </Button>
+                                color: '#086839',
+                                borderRadius: '12px',
+                                fontWeight: 700,
+                                textTransform: 'none',
+                                px: 2,
+                                '&:hover': {
+                                    bgcolor: alpha('#086839', 0.06),
+                                    borderColor: '#086839',
+                                },
+                            }}
+                        >
+                            Import nhân sự
+                        </Button>
+                    )}
+                    {canCreate && (
+                        <Button
+                            variant="contained"
+                            startIcon={<AddCircleRounded />}
+                            onClick={() => setCreateOpen(true)}
+                            sx={{
+                                bgcolor: '#086839',
+                                borderRadius: '12px',
+                                fontWeight: 700,
+                                textTransform: 'none',
+                                px: 2,
+                                boxShadow: '0 1px 6px rgba(8,104,57,0.18)',
+                                '&:hover': {
+                                    bgcolor: '#0e4837',
+                                },
+                            }}
+                        >
+                            Thêm nhân sự
+                        </Button>
+                    )}
 
 
                     <Box
@@ -566,87 +580,115 @@ export default function UsersPage() {
                                                 </IconButton>
                                             </Tooltip>
 
-                                            <Tooltip title="Chỉnh sửa" arrow>
-                                                <IconButton
-                                                    size="small"
-                                                    className="action-btn"
-                                                    disabled={isDeleted}
-                                                    sx={{
-                                                        color: '#94a3b8',
-                                                        width: 30,
-                                                        height: 30,
-                                                        borderRadius: '8px',
-                                                        '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) },
-                                                        transition: 'all 0.15s',
-                                                    }}
-                                                    onClick={() => { setSelectedUser(user); setEditOpen(true); }}
-                                                >
-                                                    <Edit sx={{ fontSize: 16 }} />
-                                                </IconButton>
-                                            </Tooltip>
-
-                                            {isDeleted ? (
-                                                <Tooltip title="Khôi phục tài khoản" arrow>
+                                            {canUpdate && (
+                                                <Tooltip title="Chỉnh sửa" arrow>
                                                     <IconButton
                                                         size="small"
                                                         className="action-btn"
-                                                        sx={{
-                                                            color: '#2563eb',
-                                                            width: 30,
-                                                            height: 30,
-                                                            borderRadius: '8px',
-                                                            bgcolor: alpha('#2563eb', 0.06),
-                                                            '&:hover': { color: '#1d4ed8', bgcolor: alpha('#2563eb', 0.15) },
-                                                        }}
-                                                        onClick={() => { setSelectedUser(user); setRestoreOpen(true); }}
-                                                    >
-                                                        <RestorePageRounded sx={{ fontSize: 18 }} />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            ) : (
-                                                <Tooltip title="Xóa" arrow>
-                                                    <IconButton
-                                                        size="small"
-                                                        className="action-btn"
+                                                        disabled={isDeleted}
                                                         sx={{
                                                             color: '#94a3b8',
                                                             width: 30,
                                                             height: 30,
                                                             borderRadius: '8px',
-                                                            '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) },
+                                                            '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) },
                                                             transition: 'all 0.15s',
                                                         }}
-                                                        onClick={() => { setSelectedUser(user); setDeleteOpen(true); }}
+                                                        onClick={() => { setSelectedUser(user); setEditOpen(true); }}
                                                     >
-                                                        <Delete sx={{ fontSize: 16 }} />
+                                                        <Edit sx={{ fontSize: 16 }} />
                                                     </IconButton>
                                                 </Tooltip>
                                             )}
 
-                                            <Tooltip title="Reset mật khẩu" arrow>
-                                                <IconButton
-                                                    size="small"
-                                                    className="action-btn"
-                                                    disabled={isDeleted}
-                                                    sx={{
-                                                        color: '#94a3b8',
-                                                        width: 30,
-                                                        height: 30,
-                                                        borderRadius: '8px',
-                                                        '&:hover': {
-                                                            color: '#f59e0b',
-                                                            bgcolor: alpha('#f59e0b', 0.1),
-                                                        },
-                                                        transition: 'all 0.15s',
-                                                    }}
-                                                    onClick={() => {
-                                                        setSelectedUser(user);
-                                                        setResetPasswordOpen(true);
-                                                    }}
-                                                >
-                                                    <LockReset sx={{ fontSize: 16 }} />
-                                                </IconButton>
-                                            </Tooltip>
+                                            {isDeleted ? (
+                                                canRestore && (
+                                                    <Tooltip title="Khôi phục tài khoản" arrow>
+                                                        <IconButton
+                                                            size="small"
+                                                            className="action-btn"
+                                                            sx={{
+                                                                color: '#2563eb',
+                                                                width: 30,
+                                                                height: 30,
+                                                                borderRadius: '8px',
+                                                                bgcolor: alpha('#2563eb', 0.06),
+                                                                '&:hover': { color: '#1d4ed8', bgcolor: alpha('#2563eb', 0.15) },
+                                                            }}
+                                                            onClick={() => { setSelectedUser(user); setRestoreOpen(true); }}
+                                                        >
+                                                            <RestorePageRounded sx={{ fontSize: 18 }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )
+                                            ) : (
+                                                canDelete && (
+                                                    <Tooltip title="Xóa" arrow>
+                                                        <IconButton
+                                                            size="small"
+                                                            className="action-btn"
+                                                            sx={{
+                                                                color: '#94a3b8',
+                                                                width: 30,
+                                                                height: 30,
+                                                                borderRadius: '8px',
+                                                                '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) },
+                                                                transition: 'all 0.15s',
+                                                            }}
+                                                            onClick={() => { setSelectedUser(user); setDeleteOpen(true); }}
+                                                        >
+                                                            <Delete sx={{ fontSize: 16 }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )
+                                            )}
+
+                                            {canResetPassword && (
+                                                <Tooltip title="Reset mật khẩu" arrow>
+                                                    <IconButton
+                                                        size="small"
+                                                        className="action-btn"
+                                                        disabled={isDeleted}
+                                                        sx={{
+                                                            color: '#94a3b8',
+                                                            width: 30,
+                                                            height: 30,
+                                                            borderRadius: '8px',
+                                                            '&:hover': {
+                                                                color: '#f59e0b',
+                                                                bgcolor: alpha('#f59e0b', 0.1),
+                                                            },
+                                                            transition: 'all 0.15s',
+                                                        }}
+                                                        onClick={() => {
+                                                            setSelectedUser(user);
+                                                            setResetPasswordOpen(true);
+                                                        }}
+                                                    >
+                                                        <LockReset sx={{ fontSize: 16 }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                            {canManagePermissions && (
+                                                <Tooltip title="Phân quyền" arrow>
+                                                    <IconButton
+                                                        size="small"
+                                                        className="action-btn"
+                                                        disabled={isDeleted}
+                                                        sx={{
+                                                            color: '#94a3b8',
+                                                            width: 30,
+                                                            height: 30,
+                                                            borderRadius: '8px',
+                                                            '&:hover': { color: '#7c3aed', bgcolor: alpha('#7c3aed', 0.08) },
+                                                            transition: 'all 0.15s',
+                                                        }}
+                                                        onClick={() => { setSelectedUser(user); setPermOpen(true); }}
+                                                    >
+                                                        <Settings sx={{ fontSize: 16 }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
                                         </Stack>
                                     </TableCell>
                                 </TableRow>
@@ -756,6 +798,13 @@ export default function UsersPage() {
                 onClose={() => setImportOpen(false)}
                 onSuccess={fetchUsers}
             />
+            <PermissionDialog
+                open={permOpen}
+                userId={selectedUser?.id ?? null}
+                userName={selectedUser?.name ?? ''}
+                onClose={() => { setPermOpen(false); setSelectedUser(null); }}
+            />
         </Box>
     );
 }
+

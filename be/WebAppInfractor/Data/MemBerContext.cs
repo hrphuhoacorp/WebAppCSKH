@@ -50,6 +50,10 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<SapoSalesRow> SapoSalesRows { get; set; }
     public virtual DbSet<SapoCodeMapping> SapoCodeMappings { get; set; }
 
+    public virtual DbSet<Permission> Permissions { get; set; }
+    public virtual DbSet<RolePermission> RolePermissions { get; set; }
+    public virtual DbSet<UserPermission> UserPermissions { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -902,6 +906,59 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.UploadedAt).HasMaxLength(30).HasColumnName("uploaded_at");
             entity.Property(e => e.Source).HasMaxLength(100).HasColumnName("source");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<Permission>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("permissions_pkey");
+            entity.ToTable("permissions");
+            entity.HasIndex(e => e.Code, "permissions_code_key").IsUnique();
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Code).HasMaxLength(100).HasColumnName("code");
+            entity.Property(e => e.Name).HasMaxLength(255).HasColumnName("name");
+            entity.Property(e => e.Module).HasMaxLength(100).HasColumnName("module");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("role_permissions_pkey");
+            entity.ToTable("role_permissions");
+            entity.HasIndex(e => new { e.RoleId, e.PermissionId }, "role_permissions_role_id_permission_id_key").IsUnique();
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RoleId).HasColumnName("role_id");
+            entity.Property(e => e.PermissionId).HasColumnName("permission_id");
+
+            entity.HasOne(d => d.Role)
+                .WithMany(p => p.RolePermissions)
+                .HasForeignKey(d => d.RoleId)
+                .HasConstraintName("role_permissions_role_id_fkey");
+
+            entity.HasOne(d => d.Permission)
+                .WithMany(p => p.RolePermissions)
+                .HasForeignKey(d => d.PermissionId)
+                .HasConstraintName("role_permissions_permission_id_fkey");
+        });
+
+        modelBuilder.Entity<UserPermission>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("user_permissions_pkey");
+            entity.ToTable("user_permissions");
+            entity.HasIndex(e => new { e.UserId, e.PermissionId }, "user_permissions_user_id_permission_id_key").IsUnique();
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.PermissionId).HasColumnName("permission_id");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+
+            entity.HasOne(d => d.User)
+                .WithMany(p => p.UserPermissions)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("user_permissions_user_id_fkey");
+
+            entity.HasOne(d => d.Permission)
+                .WithMany(p => p.UserPermissions)
+                .HasForeignKey(d => d.PermissionId)
+                .HasConstraintName("user_permissions_permission_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

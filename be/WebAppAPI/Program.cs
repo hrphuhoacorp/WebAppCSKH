@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using GymManagementProject_Api.Middlewares;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -252,6 +253,14 @@ builder.Services.AddHttpContextAccessor();
 
 //jwt service
 builder.Services.AddScoped<JwtAuthService>();
+builder.Services.AddSingleton<
+    IAuthorizationPolicyProvider,
+    WebAppAPI.Authorization.PermissionPolicyProvider
+>();
+builder.Services.AddScoped<
+    IAuthorizationHandler,
+    WebAppAPI.Authorization.PermissionAuthorizationHandler
+>();
 builder.Services.AddAuthorization();
 
 var app = builder.Build();

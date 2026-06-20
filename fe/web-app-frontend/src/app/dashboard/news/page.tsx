@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePermission } from '@/hooks/usePermission';
 import {
     Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
     DialogTitle, IconButton, MenuItem, Paper, TablePagination,
@@ -61,6 +62,12 @@ function StatusBadge({ status }: { status?: string }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function NewsManagePage() {
+    const canCreate = usePermission('news.create');
+    const canEdit = usePermission('news.edit');
+    const canDelete = usePermission('news.delete');
+    const canPin = usePermission('news.toggle_pin');
+    const canPublish = usePermission('news.publish');
+
     const [loading, setLoading] = useState(false);
     const [newsList, setNewsList] = useState<NewsItem[]>([]);
     const [total, setTotal] = useState(0);
@@ -211,7 +218,7 @@ export default function NewsManagePage() {
                 title="Quản Lý Tin Nội Bộ"
                 subtitle="Soạn thảo và quản lý thông báo, tin tức nội bộ"
                 icon={<CampaignRounded />}
-                actions={
+                actions={canCreate ? (
                     <Button
                         variant="contained"
                         startIcon={<AddRounded />}
@@ -224,7 +231,7 @@ export default function NewsManagePage() {
                     >
                         Soạn bài mới
                     </Button>
-                }
+                ) : undefined}
             />
 
             {/* ── Stats row ── */}
@@ -429,35 +436,43 @@ export default function NewsManagePage() {
                                 gap: 0.5, px: 1.5, borderLeft: '1px solid #f1f5f9',
                                 flexShrink: 0,
                             }}>
-                                <Tooltip title={item.isPinned ? 'Bỏ ghim' : 'Ghim bài'}>
-                                    <IconButton size="small" onClick={() => handleTogglePin(item.id)}
-                                        sx={{ color: item.isPinned ? '#7c3aed' : '#cbd5e1', '&:hover': { bgcolor: '#ede9fe', color: '#7c3aed' } }}>
-                                        <PushPinRounded sx={{ fontSize: 17 }} />
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title={item.status === 'published' ? 'Hủy đăng' : 'Đăng bài'}>
-                                    <IconButton size="small" onClick={() => handlePublish(item.id, item.status ?? '')}
-                                        sx={{
-                                            color: item.status === 'published' ? '#f59e0b' : '#15803d',
-                                            '&:hover': { bgcolor: item.status === 'published' ? '#fef3c7' : '#dcfce7' },
-                                        }}>
-                                        {item.status === 'published'
-                                            ? <UnpublishedRounded sx={{ fontSize: 17 }} />
-                                            : <SendRounded sx={{ fontSize: 17 }} />}
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Chỉnh sửa">
-                                    <IconButton size="small" onClick={() => openEdit(item)}
-                                        sx={{ color: '#93c5fd', '&:hover': { bgcolor: '#dbeafe', color: '#2563eb' } }}>
-                                        <EditRounded sx={{ fontSize: 17 }} />
-                                    </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Xóa">
-                                    <IconButton size="small" onClick={() => handleDelete(item.id)}
-                                        sx={{ color: '#fca5a5', '&:hover': { bgcolor: '#fee2e2', color: '#ef4444' } }}>
-                                        <DeleteRounded sx={{ fontSize: 17 }} />
-                                    </IconButton>
-                                </Tooltip>
+                                {canPin && (
+                                    <Tooltip title={item.isPinned ? 'Bỏ ghim' : 'Ghim bài'}>
+                                        <IconButton size="small" onClick={() => handleTogglePin(item.id)}
+                                            sx={{ color: item.isPinned ? '#7c3aed' : '#cbd5e1', '&:hover': { bgcolor: '#ede9fe', color: '#7c3aed' } }}>
+                                            <PushPinRounded sx={{ fontSize: 17 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
+                                {canPublish && (
+                                    <Tooltip title={item.status === 'published' ? 'Hủy đăng' : 'Đăng bài'}>
+                                        <IconButton size="small" onClick={() => handlePublish(item.id, item.status ?? '')}
+                                            sx={{
+                                                color: item.status === 'published' ? '#f59e0b' : '#15803d',
+                                                '&:hover': { bgcolor: item.status === 'published' ? '#fef3c7' : '#dcfce7' },
+                                            }}>
+                                            {item.status === 'published'
+                                                ? <UnpublishedRounded sx={{ fontSize: 17 }} />
+                                                : <SendRounded sx={{ fontSize: 17 }} />}
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
+                                {canEdit && (
+                                    <Tooltip title="Chỉnh sửa">
+                                        <IconButton size="small" onClick={() => openEdit(item)}
+                                            sx={{ color: '#93c5fd', '&:hover': { bgcolor: '#dbeafe', color: '#2563eb' } }}>
+                                            <EditRounded sx={{ fontSize: 17 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
+                                {canDelete && (
+                                    <Tooltip title="Xóa">
+                                        <IconButton size="small" onClick={() => handleDelete(item.id)}
+                                            sx={{ color: '#fca5a5', '&:hover': { bgcolor: '#fee2e2', color: '#ef4444' } }}>
+                                            <DeleteRounded sx={{ fontSize: 17 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                             </Box>
                         </Paper>
                     );

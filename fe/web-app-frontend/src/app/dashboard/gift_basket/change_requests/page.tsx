@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useHasAnyPermission, usePermission } from '@/hooks/usePermission';
 import {
     Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions,
     DialogContent, DialogTitle, Divider, FormControl, FormControlLabel,
@@ -82,6 +83,12 @@ function parseBulk(text: string): BulkRow[] {
 
 /* ══════════════════════════════════════════════════════════════ */
 export default function ChangeRequestsPage() {
+    const canCreate = usePermission('gift.change_request.create');
+    const canHandle = usePermission('gift.change_request.handle');
+    const canToggleActive = usePermission('gift.change_request.toggle_active');
+    const canDeleteReq = usePermission('gift.change_request.delete');
+    const canBulkAct = useHasAnyPermission(['gift.change_request.toggle_active', 'gift.change_request.delete']);
+
     const [rows, setRows] = useState<GiftCodeChangeRequestDTO[]>([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(0);
@@ -297,7 +304,7 @@ export default function ChangeRequestsPage() {
                 icon={<SwapHoriz />}
                 title="Yêu cầu đổi mã"
                 subtitle={pendingCount > 0 ? `${pendingCount} yêu cầu đang chờ duyệt` : 'Quản lý yêu cầu đổi mã giỏ quà'}
-                actions={
+                actions={canCreate ? (
                     <Box sx={{ display: 'flex', gap: 1 }}>
                         <Button variant="outlined" startIcon={<FormatListBulleted />}
                             onClick={() => { setBulkText(''); setBulkPreviewed(false); setBulkOpen(true); }}
@@ -310,7 +317,7 @@ export default function ChangeRequestsPage() {
                             Gửi yêu cầu
                         </Button>
                     </Box>
-                }
+                ) : undefined}
             />
 
             {/* ── Scrolling ticker: 3 yêu cầu duyệt gần nhất ── */}
@@ -393,21 +400,25 @@ export default function ChangeRequestsPage() {
             </Paper>
 
             {/* Bulk action bar */}
-            <Collapse in={selectedIds.size >= 2}>
+            <Collapse in={canBulkAct && selectedIds.size >= 2}>
                 <Paper elevation={0} sx={{ p: 1.5, mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, borderRadius: '16px', border: '1.5px solid #fbbf24', bgcolor: '#fffbeb', boxShadow: '0 2px 8px rgba(180,83,9,0.08)' }}>
                     <Chip label={`${selectedIds.size} đã chọn`} size="small" sx={{ bgcolor: '#b45309', color: '#fff', fontWeight: 700 }} />
-                    <Button size="small" variant="outlined" startIcon={bulkActing ? <CircularProgress size={13} /> : <BlockRounded />}
-                        disabled={bulkActing}
-                        onClick={handleBulkDeactivate}
-                        sx={{ borderColor: '#f59e0b', color: '#92400e', borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}>
-                        Vô hiệu tất cả
-                    </Button>
-                    <Button size="small" variant="outlined" startIcon={bulkActing ? <CircularProgress size={13} /> : <DeleteOutlineRounded />}
-                        disabled={bulkActing}
-                        onClick={handleBulkDelete}
-                        sx={{ borderColor: '#ef4444', color: '#dc2626', borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}>
-                        Xóa tất cả
-                    </Button>
+                    {canToggleActive && (
+                        <Button size="small" variant="outlined" startIcon={bulkActing ? <CircularProgress size={13} /> : <BlockRounded />}
+                            disabled={bulkActing}
+                            onClick={handleBulkDeactivate}
+                            sx={{ borderColor: '#f59e0b', color: '#92400e', borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}>
+                            Vô hiệu tất cả
+                        </Button>
+                    )}
+                    {canDeleteReq && (
+                        <Button size="small" variant="outlined" startIcon={bulkActing ? <CircularProgress size={13} /> : <DeleteOutlineRounded />}
+                            disabled={bulkActing}
+                            onClick={handleBulkDelete}
+                            sx={{ borderColor: '#ef4444', color: '#dc2626', borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}>
+                            Xóa tất cả
+                        </Button>
+                    )}
                     <Box sx={{ flex: 1 }} />
                     <Button size="small" color="inherit" onClick={() => setSelectedIds(new Set())}>Bỏ chọn</Button>
                 </Paper>
@@ -419,13 +430,15 @@ export default function ChangeRequestsPage() {
                     <Table size="small">
                         <TableHead>
                             <TableRow sx={{ bgcolor: alpha('#086839', 0.06) }}>
-                                <TableCell padding="checkbox" sx={{ pl: 1.5 }}>
-                                    <Checkbox size="small"
-                                        checked={filtered.length > 0 && selectedIds.size === filtered.length}
-                                        indeterminate={selectedIds.size > 0 && selectedIds.size < filtered.length}
-                                        onChange={toggleSelectAll}
-                                        sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' }, '&.MuiCheckbox-indeterminate': { color: '#086839' } }} />
-                                </TableCell>
+                                {canBulkAct && (
+                                    <TableCell padding="checkbox" sx={{ pl: 1.5 }}>
+                                        <Checkbox size="small"
+                                            checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                                            indeterminate={selectedIds.size > 0 && selectedIds.size < filtered.length}
+                                            onChange={toggleSelectAll}
+                                            sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' }, '&.MuiCheckbox-indeterminate': { color: '#086839' } }} />
+                                    </TableCell>
+                                )}
                                 {['Mã YC', 'Chi nhánh', 'Nhóm giỏ', 'Mã / Tên giỏ', 'Giá', 'Zalo', 'Ưu tiên', 'Trạng thái', 'Người tạo', 'Ngày', ''].map(h => (
                                     <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, color: '#374151', py: 1.2 }}>{h}</TableCell>
                                 ))}
@@ -439,10 +452,12 @@ export default function ChangeRequestsPage() {
                             ) : filtered.map(row => (
                                 <TableRow key={row.id} hover selected={selectedIds.has(row.id)}
                                     sx={{ '&:hover': { bgcolor: alpha('#086839', 0.03) }, '&.Mui-selected': { bgcolor: alpha('#086839', 0.06), '&:hover': { bgcolor: alpha('#086839', 0.09) } } }}>
-                                    <TableCell padding="checkbox" sx={{ pl: 1.5 }}>
-                                        <Checkbox size="small" checked={selectedIds.has(row.id)} onChange={() => toggleSelect(row.id)}
-                                            sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' } }} />
-                                    </TableCell>
+                                    {canBulkAct && (
+                                        <TableCell padding="checkbox" sx={{ pl: 1.5 }}>
+                                            <Checkbox size="small" checked={selectedIds.has(row.id)} onChange={() => toggleSelect(row.id)}
+                                                sx={{ color: '#086839', '&.Mui-checked': { color: '#086839' } }} />
+                                        </TableCell>
+                                    )}
                                     <TableCell><Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#3b82f6', fontWeight: 600 }}>{row.requestUid}</Typography></TableCell>
                                     <TableCell><Typography variant="caption">{row.branchName ?? '—'}</Typography></TableCell>
                                     <TableCell>
@@ -464,6 +479,7 @@ export default function ChangeRequestsPage() {
                                     <TableCell><Typography variant="caption">{row.createdByName ?? '—'}</Typography></TableCell>
                                     <TableCell><Typography variant="caption">{fmtDate(row.createdAt)}</Typography></TableCell>
                                     <TableCell sx={{ pr: 1 }}>
+                                        {canHandle && (
                                         <Tooltip title="Sửa & cập nhật hiệu lực">
                                             <Button size="small" variant="outlined"
                                                 color={row.isActive ? 'primary' : 'warning'}
@@ -477,6 +493,7 @@ export default function ChangeRequestsPage() {
                                                         color: row.isActive ? '#166534' : '#991b1b' }} />
                                             </Button>
                                         </Tooltip>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}

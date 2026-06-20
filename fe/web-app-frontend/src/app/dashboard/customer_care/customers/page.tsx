@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePermission } from '@/hooks/usePermission';
 import * as React from 'react';
 import { InputAdornment } from '@mui/material';
 import {
@@ -109,6 +110,8 @@ const metaCardConfig = [
 ];
 
 export default function CustomerPage() {
+    const canEdit = usePermission('cskh.customer.edit');
+
     const [customers, setCustomers] = useState<CustomerSchema[]>([]);
     const [total, setTotal] = useState(100);
     const [openRow, setOpenRow] = useState<number | null>(null);
@@ -481,31 +484,33 @@ export default function CustomerPage() {
                                                             Thông tin nền tảng khách hàng
                                                         </Typography>
                                                     </Box>
-                                                    <Tooltip title="Chỉnh sửa thông tin" arrow>
-                                                        <IconButton
-                                                            size="small"
-                                                            sx={{
-                                                                color: '#fff',
-                                                                bgcolor: '#086839',
-                                                                borderRadius: '8px',
-                                                                width: 30,
-                                                                height: 30,
-                                                                '&:hover': {
-                                                                    bgcolor: '#065f2e',
-                                                                    transform: 'translateY(-1px)',
-                                                                    boxShadow: '0 4px 12px rgba(8,104,57,0.3)',
-                                                                },
-                                                                transition: 'all 0.2s',
-                                                            }}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setEditingCustomer(customer);
-                                                                setEditOpen(true);
-                                                            }}
-                                                        >
-                                                            <LucideEdit size={13} />
-                                                        </IconButton>
-                                                    </Tooltip>
+                                                    {canEdit && (
+                                                        <Tooltip title="Chỉnh sửa thông tin" arrow>
+                                                            <IconButton
+                                                                size="small"
+                                                                sx={{
+                                                                    color: '#fff',
+                                                                    bgcolor: '#086839',
+                                                                    borderRadius: '8px',
+                                                                    width: 30,
+                                                                    height: 30,
+                                                                    '&:hover': {
+                                                                        bgcolor: '#065f2e',
+                                                                        transform: 'translateY(-1px)',
+                                                                        boxShadow: '0 4px 12px rgba(8,104,57,0.3)',
+                                                                    },
+                                                                    transition: 'all 0.2s',
+                                                                }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingCustomer(customer);
+                                                                    setEditOpen(true);
+                                                                }}
+                                                            >
+                                                                <LucideEdit size={13} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    )}
                                                 </Box>
 
                                                 {/* Meta info — 3 cards màu khác nhau, dễ phân biệt */}

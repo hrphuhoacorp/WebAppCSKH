@@ -4,14 +4,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-//using WebAppAPI.Models;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+    [Authorize]
     public class DashboardController : ControllerBase
     {
         private readonly IDashboardService _dashboardService;
@@ -21,6 +20,7 @@ namespace WebAppAPI.Controllers
             _dashboardService = dashboardService;
         }
 
+        [RequirePermission("cskh.dashboard.view")]
         [HttpGet("GetDashboardForOnlineAsync")]
         public async Task<ResponseValue<DashboardDTO>> GetDashboardForOnlineAsync(
             [FromQuery] DashboardFilter filter
@@ -34,6 +34,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
+        [RequirePermission("sales.dashboard.view")]
         [HttpGet("GetDashboardForSalesAsync")]
         public async Task<ResponseValue<DashboardDTO>> GetDashboardForSalesAsync(
             [FromQuery] DashboardFilter filter

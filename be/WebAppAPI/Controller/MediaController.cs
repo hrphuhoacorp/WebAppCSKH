@@ -4,11 +4,10 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using WebAppInfractor.Models;
 using Microsoft.AspNetCore.Http.Features;
-
-//using WebAppAPI.Models;
+using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
+using WebAppInfractor.Models;
 
 namespace WebAppAPI.Controllers
 {
@@ -32,12 +31,12 @@ namespace WebAppAPI.Controllers
                 c.Type == "Id"
             );
 
-            int userId = int.Parse(userIdClaim.Value);
+            int userId = int.Parse(userIdClaim!.Value);
 
             return userId;
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Bán Hàng")]
+        [RequirePermission("media.folder.view")]
         [HttpGet("GetFolder")]
         public async Task<ResponseValue<List<MediaFolderDto>>> GetFolderAsync()
         {
@@ -49,39 +48,27 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [RequirePermission("media.folder.create")]
         [HttpPost("CreateFolder")]
         public async Task<ResponseValue<MediaFolderDto>> CreateFolder(
             [FromBody] CreateFolderRequest request
         )
         {
-            try
-            {
-                var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
-                    c.Type == "Id"
-                );
+            var userId = GetCurrentUserId();
+            var result = await _mediaService.CreateFolderAsync(
+                request.Name,
+                request.ParentId,
+                userId
+            );
 
-                int userId = int.Parse(userIdClaim.Value);
-
-                var result = await _mediaService.CreateFolderAsync(
-                    request.Name,
-                    request.ParentId,
-                    userId
-                );
-
-                return new ResponseValue<MediaFolderDto>(
-                    result,
-                    "Tạo thư mục thành công",
-                    StatusReponse.Success
-                );
-            }
-            catch
-            {
-                throw new ForbiddenException("Bạn không có quyền tạo thư mục");
-            }
+            return new ResponseValue<MediaFolderDto>(
+                result,
+                "Tạo thư mục thành công",
+                StatusReponse.Success
+            );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [RequirePermission("media.folder.restore")]
         [HttpPut("RestoreFolder/{id}")]
         public async Task<ResponseValue<bool>> RestoreFolderAsync(int id)
         {
@@ -94,7 +81,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [RequirePermission("media.folder.delete")]
         [HttpDelete("DeleteFolder/{id}")]
         public async Task<ResponseValue<bool>> DeleteFolderAsync(int id)
         {
@@ -103,7 +90,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<bool>(result, "Xóa thư mục thành công", StatusReponse.Success);
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Bán Hàng")]
+        [RequirePermission("media.file.view")]
         [HttpGet("GetFiles")]
         public async Task<ResponseValue<List<MediaFileDto>>> GetFiles(
             [FromQuery] int? folderId,
@@ -118,8 +105,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online,Bán Hàng")]
+        [RequirePermission("media.file.upload")]
         [HttpPost("Upload")]
         [RequestSizeLimit(1024 * 1024 * 1024)] // 1GB
         [RequestFormLimits(MultipartBodyLengthLimit = 1024 * 1024 * 1024)]
@@ -128,12 +114,7 @@ namespace WebAppAPI.Controllers
             [FromForm] List<IFormFile> files
         )
         {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
-                c.Type == "Id"
-            );
-
-            int userId = int.Parse(userIdClaim.Value);
-
+            var userId = GetCurrentUserId();
             var result = await _mediaService.UploadAsync(folderId, files, userId);
             return new ResponseValue<List<MediaUploadResultDto>>(
                 result,
@@ -142,7 +123,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
+        [RequirePermission("media.file.move")]
         [HttpPut("MoveFile")]
         public async Task<ResponseValue<bool>> MoveFileAsync(
             int id,
@@ -158,7 +139,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
+        [RequirePermission("media.file.delete")]
         [HttpPost("DeleteFiles")]
         public async Task<ResponseValue<bool>> DeleteFiles([FromBody] List<int> ids)
         {
@@ -167,7 +148,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<bool>(result, "Xóa file thành công", StatusReponse.Success);
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
+        [RequirePermission("media.file.restore")]
         [HttpPut("RestoreFile/{id}")]
         public async Task<ResponseValue<bool>> RestoreFileAsync(int id)
         {
@@ -180,7 +161,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media,Online")]
+        [RequirePermission("media.recycle_bin.view")]
         [HttpGet("RecycleBin")]
         public async Task<ResponseValue<List<RecycleItemDto>>> GetRecycleBin()
         {
@@ -194,18 +175,23 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [RequirePermission("media.folder.copy")]
         [HttpPost("CopyFolder/{id}")]
         public async Task<ResponseValue<MediaFolderDto>> CopyFolderAsync(
             int id,
-            [FromQuery] int? targetParentId)
+            [FromQuery] int? targetParentId
+        )
         {
             var userId = GetCurrentUserId();
             var result = await _mediaService.CopyFolderAsync(id, targetParentId, userId);
-            return new ResponseValue<MediaFolderDto>(result, "Sao chép thư mục thành công", StatusReponse.Success);
+            return new ResponseValue<MediaFolderDto>(
+                result,
+                "Sao chép thư mục thành công",
+                StatusReponse.Success
+            );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Media")]
+        [RequirePermission("media.folder.rename")]
         [HttpPut("RenameFolder/{id}")]
         public async Task<ResponseValue<bool>> RenameFolderAsync(
             int id,
@@ -223,9 +209,4 @@ namespace WebAppAPI.Controllers
             );
         }
     }
-}
-
-public class RenameFolderRequest
-{
-    public string NewName { get; set; } = string.Empty;
 }

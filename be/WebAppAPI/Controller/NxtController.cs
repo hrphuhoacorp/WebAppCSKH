@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using WebAppAPI.Authorization;
 using WebAppInfractor.Data;
 using WebAppInfractor.Models;
 
@@ -9,7 +10,7 @@ namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AllowAnonymous]
+    [Authorize]
     public class NxtController : ControllerBase
     {
         private readonly MemBerContext _db;
@@ -21,6 +22,7 @@ namespace WebAppAPI.Controllers
 
         // ─── ROWS ─────────────────────────────────────────────────────────────
 
+        [RequirePermission("sales.nxt.view")]
         [HttpGet("rows")]
         public async Task<ResponseValue<IEnumerable<object>>> GetRows()
         {
@@ -29,6 +31,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<IEnumerable<object>>(result, "Lấy danh sách thành công", StatusReponse.Success);
         }
 
+        [RequirePermission("sales.nxt.edit")]
         [HttpPost("rows/upsert")]
         public async Task<ResponseValue<object>> UpsertRow([FromBody] NxtRowDto dto)
         {
@@ -63,6 +66,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<object>(new { success = true }, "Lưu dữ liệu thành công", StatusReponse.Success);
         }
 
+        [RequirePermission("sales.nxt.edit")]
         [HttpPost("rows/batch")]
         public async Task<ResponseValue<object>> BatchRows([FromBody] List<NxtRowDto> dtos)
         {
@@ -109,6 +113,7 @@ namespace WebAppAPI.Controllers
 
         // ─── LOGS (dùng activity_logs) ────────────────────────────────────────
 
+        [RequirePermission("sales.nxt.manage_logs")]
         [HttpGet("logs")]
         public async Task<ResponseValue<IEnumerable<object>>> GetLogs()
         {
@@ -142,6 +147,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<IEnumerable<object>>(result, "Lấy danh sách thành công", StatusReponse.Success);
         }
 
+        [RequirePermission("sales.nxt.manage_logs")]
         [HttpPost("logs")]
         public async Task<ResponseValue<object>> AddLog([FromBody] NxtLogDto dto)
         {
@@ -175,6 +181,7 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<object>(new { success = true, id = log.Id }, "Tạo log thành công", StatusReponse.Success);
         }
 
+        [RequirePermission("sales.nxt.manage_logs")]
         [HttpDelete("logs")]
         public async Task<ResponseValue<object>> ClearLogs()
         {

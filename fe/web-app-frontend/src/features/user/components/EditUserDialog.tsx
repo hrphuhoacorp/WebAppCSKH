@@ -4,14 +4,9 @@ import { useEffect, useState } from 'react';
 import {
     Box,
     Button,
-    Checkbox,
     Dialog,
     DialogContent,
     DialogTitle,
-    FormControl,
-    FormControlLabel,
-    FormGroup,
-    FormLabel,
     IconButton,
     MenuItem,
     TextField,
@@ -19,6 +14,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import toast from 'react-hot-toast';
 import { userApi } from '@/features/user/api/user.api';
+import { permissionApi } from '@/features/staff/api/permission.api';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 
 type Props = {
@@ -29,7 +25,6 @@ type Props = {
     onSuccess: () => void;
 };
 
-// Định nghĩa kiểu dữ liệu cho Role từ DB
 type RoleOption = {
     id: number;
     name: string;
@@ -48,40 +43,35 @@ export default function EditUserDialog({
     const [phone, setPhone] = useState('');
     const [dayOfBirth, setDayOfBirth] = useState('');
     const [branchesId, setBranchesId] = useState<number | ''>('');
-    const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
-    const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]); // Lưu danh sách roles từ DB
+    const [selectedRoleId, setSelectedRoleId] = useState<number | ''>('');
+    const [originalRoleId, setOriginalRoleId] = useState<number | ''>('');
+    const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // 1. Gọi API lấy toàn bộ danh sách Roles khi mở Dialog
     const fetchAllRoles = async () => {
         const response = await userApi.getRoles();
         setRoleOptions(response.content || response.data || []);
     };
-    const formatDate = (value?: string | null) => {
-        if (!value) return '-';
-        return new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
-    };
+
     const fetchUserById = async () => {
         const res = await userApi.getUserById(userId);
         const currentUser = res.content;
-
-        console.log('currentUser', currentUser);
-
         setUser(currentUser);
         setName(currentUser.name ?? '');
         setEmail(currentUser.email ?? '');
         setPhone(currentUser.phone ?? '');
         setBranchesId(currentUser.branchesId ?? '');
-        setSelectedRoleIds(currentUser.roles.map((role: any) => role.id) ?? []);
+        const roleId = currentUser.roles?.[0]?.id ?? '';
+        setSelectedRoleId(roleId);
+        setOriginalRoleId(roleId);
         setDayOfBirth(
             currentUser.dayOfBirth
-                ? new Date(currentUser.dayOfBirth)
-                    .toISOString()
-                    .split('T')[0]
+                ? new Date(currentUser.dayOfBirth).toISOString().split('T')[0]
                 : ''
         );
     };
+
     useEffect(() => {
         if (!open || !userId) {
             setUser(null);
@@ -92,17 +82,10 @@ export default function EditUserDialog({
         const loadData = async () => {
             try {
                 setLoading(true);
-
-                await Promise.all([
-                    fetchAllRoles(),
-                    fetchUserById()
-                ]);
-            }
-            catch (error: any) {
-                console.error(error);
-                toast.error(error?.response?.data?.Message ?? "Không tải được dữ liệu");
-            }
-            finally {
+                await Promise.all([fetchAllRoles(), fetchUserById()]);
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được dữ liệu');
+            } finally {
                 setLoading(false);
             }
         };
@@ -110,21 +93,11 @@ export default function EditUserDialog({
         loadData();
     }, [open, userId]);
 
-
-
-    // 3. Xử lý khi click vào Checkbox để chọn/bỏ chọn Role
-    const handleRoleChange = (roleId: number, checked: boolean) => {
-        if (checked) {
-            setSelectedRoleIds((prev) =>
-                prev.includes(roleId) ? prev : [...prev, roleId]
-            );
-        } else {
-            setSelectedRoleIds((prev) => prev.filter((id) => id !== roleId));
-        }
-    };
-
     const handleSubmit = async () => {
-        if (!user) return;
+        if (!user || selectedRoleId === '') {
+            toast.error('Vui lòng chọn vai trò');
+            return;
+        }
 
         try {
             setSaving(true);
@@ -135,18 +108,20 @@ export default function EditUserDialog({
                 phone,
                 branchesId,
                 updatedAt: user.updatedAt,
-                roleIds: selectedRoleIds, // Gửi mảng ID mới đã chọn lên server
+                roleIds: [selectedRoleId as number],
                 dayOfBirth: dayOfBirth ?? null,
             });
+
+            // Khi đổi role → xóa toàn bộ quyền bổ sung, reset về mặc định của role mới
+            if (selectedRoleId !== originalRoleId) {
+                await permissionApi.updateUser(user.id, []);
+            }
 
             toast.success('Cập nhật nhân sự thành công');
             onSuccess();
             onClose();
         } catch (error: any) {
-            toast.error(
-                error?.response?.data?.Message ??
-                'Cập nhật nhân sự thất bại'
-            );
+            toast.error(error?.response?.data?.Message ?? 'Cập nhật nhân sự thất bại');
         } finally {
             setSaving(false);
         }
@@ -164,7 +139,6 @@ export default function EditUserDialog({
                 }}
             >
                 Sửa thông tin nhân sự
-
                 <IconButton onClick={onClose} size="small">
                     <CloseIcon />
                 </IconButton>
@@ -195,6 +169,7 @@ export default function EditUserDialog({
                         onChange={(e) => setPhone(e.target.value)}
                         fullWidth
                     />
+
                     <TextField
                         label="Ngày sinh"
                         type="date"
@@ -202,11 +177,7 @@ export default function EditUserDialog({
                         value={dayOfBirth}
                         onChange={(e) => setDayOfBirth(e.target.value)}
                         fullWidth
-                        slotProps={{
-                            inputLabel: {
-                                shrink: true,
-                            },
-                        }}
+                        slotProps={{ inputLabel: { shrink: true } }}
                     />
 
                     <TextField
@@ -224,66 +195,45 @@ export default function EditUserDialog({
                         ))}
                     </TextField>
 
-                    {/* KHU VỰC CẢI TIẾN: DANH SÁCH CHECKBOX VAI TRÒ */}
-                    <FormControl component="fieldset" variant="standard" sx={{ mt: 1 }}>
-                        <FormLabel
-                            component="legend"
-                            sx={{
-                                fontWeight: 700,
-                                color: '#334155',
-                                fontSize: '0.875rem',
-                                mb: 1,
-                                '&.Mui-focused': { color: '#086839' }
-                            }}
-                        >
-                            Vai trò chức vụ
-                        </FormLabel>
-                        <FormGroup
-                            row
-                            sx={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                                gap: 1
-                            }}
-                        >
-                            {roleOptions.map((role) => (
-                                <FormControlLabel
-                                    key={role.id}
-                                    control={
-                                        <Checkbox
-                                            size="small"
-                                            checked={selectedRoleIds.includes(role.id)}
-                                            onChange={(e) => handleRoleChange(role.id, e.target.checked)}
-                                            sx={{
-                                                color: '#086839',
-                                                '&.Mui-checked': { color: '#086839' },
-                                            }}
-                                        />
-                                    }
-                                    label={role.name}
-                                    sx={{
-                                        '& .MuiFormControlLabel-label': {
-                                            fontSize: '0.9rem',
-                                            fontWeight: 500
-                                        }
-                                    }}
-                                />
-                            ))}
-                        </FormGroup>
-                    </FormControl>
-
-                    <Box
+                    <TextField
+                        select
+                        label="Vai trò chức vụ"
+                        size="small"
+                        value={selectedRoleId}
+                        onChange={(e) => setSelectedRoleId(Number(e.target.value))}
+                        fullWidth
                         sx={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            gap: 1.5,
-                            mt: 1,
+                            '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#086839' },
+                            '& label.Mui-focused': { color: '#086839' },
                         }}
                     >
+                        {roleOptions.map((role) => (
+                            <MenuItem key={role.id} value={role.id}>
+                                {role.name}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+
+                    {selectedRoleId !== originalRoleId && originalRoleId !== '' && (
+                        <Box
+                            sx={{
+                                px: 2,
+                                py: 1,
+                                bgcolor: '#fff7ed',
+                                border: '1px solid #fed7aa',
+                                borderRadius: '10px',
+                                fontSize: 13,
+                                color: '#c2410c',
+                            }}
+                        >
+                            ⚠️ Đổi vai trò sẽ xóa toàn bộ quyền bổ sung. Quyền mặc định của vai trò mới sẽ được áp dụng khi nhân viên đăng nhập lại.
+                        </Box>
+                    )}
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 1 }}>
                         <Button onClick={onClose} disabled={saving}>
                             Hủy
                         </Button>
-
                         <Button
                             variant="contained"
                             disabled={saving}

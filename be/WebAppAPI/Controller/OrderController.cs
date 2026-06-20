@@ -4,14 +4,14 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 using WebAppInfractor.Models;
-
-//using WebAppAPI.Models;
 
 namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
@@ -23,7 +23,7 @@ namespace WebAppAPI.Controllers
             _httpContextAccessor = httpContextAccessor;
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+        [RequirePermission("cskh.order.import")]
         [HttpPost("ImportExcel")]
         public async Task<ResponseValue<ImportResultDTO>> ImportExcelAsync(IFormFile file)
         {
@@ -31,7 +31,7 @@ namespace WebAppAPI.Controllers
                 c.Type == "Id"
             );
 
-            var result = await _orderService.ImportExcelAsync(file, int.Parse(userIdClaim.Value));
+            var result = await _orderService.ImportExcelAsync(file, int.Parse(userIdClaim!.Value));
 
             return new ResponseValue<ImportResultDTO>(
                 result,
@@ -40,7 +40,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+        [RequirePermission("cskh.order.rollback")]
         [HttpPost("RollbackImportAsync/{importHistoryId}")]
         public async Task<ResponseValue<bool>> RollbackImportAsync(int importHistoryId)
         {
@@ -50,7 +50,7 @@ namespace WebAppAPI.Controllers
 
             var result = await _orderService.RollbackImportAsync(
                 importHistoryId,
-                int.Parse(userIdClaim.Value)
+                int.Parse(userIdClaim!.Value)
             );
 
             return new ResponseValue<bool>(
@@ -60,7 +60,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+        [RequirePermission("cskh.order.restore")]
         [HttpPost("RestoreImportAsync/{importHistoryId}")]
         public async Task<ResponseValue<bool>> RestoreImportAsync(int importHistoryId)
         {
@@ -70,7 +70,7 @@ namespace WebAppAPI.Controllers
 
             var result = await _orderService.RestoreImportAsync(
                 importHistoryId,
-                int.Parse(userIdClaim.Value)
+                int.Parse(userIdClaim!.Value)
             );
 
             return new ResponseValue<bool>(
@@ -80,7 +80,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+        [RequirePermission("cskh.order.view_list")]
         [HttpGet("GetAllOrdersForOnlineAsync")]
         public async Task<ResponseValue<PagedResult<OrderDTO>>> GetAllOrdersForOnlineAsync(
             [FromQuery] OrderFilterDTO filter
@@ -94,7 +94,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+        [RequirePermission("sales.order.view_list")]
         [HttpGet("GetAllOrdersForSalesAsync")]
         public async Task<ResponseValue<PagedResult<OrderDTO>>> GetAllOrdersForSalesAsync(
             [FromQuery] OrderFilterDTO filter
@@ -108,7 +108,7 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [Authorize(Roles = "Super_Admin,Admin_Online,Online")]
+        [RequirePermission("cskh.order.view_detail")]
         [HttpGet("GetOrderByIdAsync/{id}")]
         public async Task<ResponseValue<OrderDTO>> GetOrderByIdAsync(int id)
         {
