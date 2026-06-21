@@ -1,7 +1,7 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using WebAppAPI.Authorization;
 using WebAppInfractor.Data;
 using WebAppInfractor.Models;
@@ -26,9 +26,17 @@ namespace WebAppAPI.Controllers
         [HttpGet("rows")]
         public async Task<ResponseValue<IEnumerable<object>>> GetRows()
         {
-            var rows = await _db.NxtRows.OrderBy(r => r.CloseDate).ThenBy(r => r.Branch).ThenBy(r => r.ItemCode).ToListAsync();
+            var rows = await _db
+                .NxtRows.OrderBy(r => r.CloseDate)
+                .ThenBy(r => r.Branch)
+                .ThenBy(r => r.ItemCode)
+                .ToListAsync();
             var result = rows.Select(r => ToDto(r));
-            return new ResponseValue<IEnumerable<object>>(result, "Lấy danh sách thành công", StatusReponse.Success);
+            return new ResponseValue<IEnumerable<object>>(
+                result,
+                "Lấy danh sách thành công",
+                StatusReponse.Success
+            );
         }
 
         [RequirePermission("sales.nxt.edit")]
@@ -36,7 +44,8 @@ namespace WebAppAPI.Controllers
         public async Task<ResponseValue<object>> UpsertRow([FromBody] NxtRowDto dto)
         {
             var existing = await _db.NxtRows.FirstOrDefaultAsync(r =>
-                r.CloseDate == dto.CloseDate && r.Branch == dto.Branch && r.ItemCode == dto.ItemCode);
+                r.CloseDate == dto.CloseDate && r.Branch == dto.Branch && r.ItemCode == dto.ItemCode
+            );
 
             if (existing == null)
             {
@@ -57,13 +66,18 @@ namespace WebAppAPI.Controllers
                 existing.SoldNotPicked = dto.SoldNotPicked;
                 existing.Revenue = dto.Revenue;
                 existing.OrderCount = dto.OrderCount;
-                existing.TransferNotes = dto.TransferNotes != null ? JsonSerializer.Serialize(dto.TransferNotes) : null;
+                existing.TransferNotes =
+                    dto.TransferNotes != null ? JsonSerializer.Serialize(dto.TransferNotes) : null;
                 existing.Inactive = dto.Inactive;
                 existing.UpdatedAt = DateTime.UtcNow;
             }
 
             await _db.SaveChangesAsync();
-            return new ResponseValue<object>(new { success = true }, "Lưu dữ liệu thành công", StatusReponse.Success);
+            return new ResponseValue<object>(
+                new { success = true },
+                "Lưu dữ liệu thành công",
+                StatusReponse.Success
+            );
         }
 
         [RequirePermission("sales.nxt.edit")]
@@ -82,7 +96,11 @@ namespace WebAppAPI.Controllers
 
             foreach (var dto in dtos)
             {
-                var ex = existing.FirstOrDefault(r => r.CloseDate == dto.CloseDate && r.Branch == dto.Branch && r.ItemCode == dto.ItemCode);
+                var ex = existing.FirstOrDefault(r =>
+                    r.CloseDate == dto.CloseDate
+                    && r.Branch == dto.Branch
+                    && r.ItemCode == dto.ItemCode
+                );
                 if (ex == null)
                 {
                     _db.NxtRows.Add(FromDto(dto));
@@ -101,14 +119,21 @@ namespace WebAppAPI.Controllers
                     ex.SoldNotPicked = dto.SoldNotPicked;
                     ex.Revenue = dto.Revenue;
                     ex.OrderCount = dto.OrderCount;
-                    ex.TransferNotes = dto.TransferNotes != null ? JsonSerializer.Serialize(dto.TransferNotes) : null;
+                    ex.TransferNotes =
+                        dto.TransferNotes != null
+                            ? JsonSerializer.Serialize(dto.TransferNotes)
+                            : null;
                     ex.Inactive = dto.Inactive;
                     ex.UpdatedAt = DateTime.UtcNow;
                 }
             }
 
             await _db.SaveChangesAsync();
-            return new ResponseValue<object>(new { success = true, count = dtos.Count }, "Cập nhật dữ liệu thành công", StatusReponse.Success);
+            return new ResponseValue<object>(
+                new { success = true, count = dtos.Count },
+                "Cập nhật dữ liệu thành công",
+                StatusReponse.Success
+            );
         }
 
         // ─── LOGS (dùng activity_logs) ────────────────────────────────────────
@@ -117,16 +142,17 @@ namespace WebAppAPI.Controllers
         [HttpGet("logs")]
         public async Task<ResponseValue<IEnumerable<object>>> GetLogs()
         {
-            var logs = await _db.ActivityLogs
-                .Where(l => l.TableName == "nxt_rows")
+            var logs = await _db
+                .ActivityLogs.Where(l => l.TableName == "nxt_rows")
                 .OrderByDescending(l => l.CreatedAt)
                 .ToListAsync();
 
             var result = logs.Select(l =>
             {
-                var d = l.NewData != null
-                    ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(l.NewData)
-                    : null;
+                var d =
+                    l.NewData != null
+                        ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(l.NewData)
+                        : null;
                 return new
                 {
                     id = l.Id,
@@ -141,10 +167,14 @@ namespace WebAppAPI.Controllers
                     note = d?.GetValueOrDefault("note").GetString() ?? "",
                     user = l.StaffCode ?? "",
                     status = d?.GetValueOrDefault("status").GetString() ?? "",
-                    detail = d?.GetValueOrDefault("detail").GetString() ?? ""
+                    detail = d?.GetValueOrDefault("detail").GetString() ?? "",
                 };
             });
-            return new ResponseValue<IEnumerable<object>>(result, "Lấy danh sách thành công", StatusReponse.Success);
+            return new ResponseValue<IEnumerable<object>>(
+                result,
+                "Lấy danh sách thành công",
+                StatusReponse.Success
+            );
         }
 
         [RequirePermission("sales.nxt.manage_logs")]
@@ -161,81 +191,94 @@ namespace WebAppAPI.Controllers
                 TableName = "nxt_rows",
                 IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
                 UserAgent = Request.Headers.UserAgent.ToString(),
-                NewData = JsonSerializer.Serialize(new
-                {
-                    closeDate = dto.CloseDate,
-                    branch = dto.Branch,
-                    source = dto.Source ?? "",
-                    wrongCode = dto.WrongCode,
-                    rightCode = dto.RightCode,
-                    qty = dto.Qty,
-                    note = dto.Note ?? "",
-                    userName = dto.UserName ?? "",
-                    status = dto.Status,
-                    detail = dto.Detail ?? ""
-                }),
-                CreatedAt = DateTime.UtcNow
+                NewData = JsonSerializer.Serialize(
+                    new
+                    {
+                        closeDate = dto.CloseDate,
+                        branch = dto.Branch,
+                        source = dto.Source ?? "",
+                        wrongCode = dto.WrongCode,
+                        rightCode = dto.RightCode,
+                        qty = dto.Qty,
+                        note = dto.Note ?? "",
+                        userName = dto.UserName ?? "",
+                        status = dto.Status,
+                        detail = dto.Detail ?? "",
+                    }
+                ),
+                CreatedAt = DateTime.UtcNow,
             };
             _db.ActivityLogs.Add(log);
             await _db.SaveChangesAsync();
-            return new ResponseValue<object>(new { success = true, id = log.Id }, "Tạo log thành công", StatusReponse.Success);
+            return new ResponseValue<object>(
+                new { success = true, id = log.Id },
+                "Tạo log thành công",
+                StatusReponse.Success
+            );
         }
 
-        [RequirePermission("sales.nxt.manage_logs")]
+        [RequirePermission("sales.nxt.delete_logs")]
         [HttpDelete("logs")]
         public async Task<ResponseValue<object>> ClearLogs()
         {
             var logs = _db.ActivityLogs.Where(l => l.TableName == "nxt_rows");
             _db.ActivityLogs.RemoveRange(logs);
             await _db.SaveChangesAsync();
-            return new ResponseValue<object>(new { success = true }, "Xóa log thành công", StatusReponse.Success);
+            return new ResponseValue<object>(
+                new { success = true },
+                "Xóa log thành công",
+                StatusReponse.Success
+            );
         }
 
         // ─── HELPERS ──────────────────────────────────────────────────────────
 
-        private static object ToDto(NxtRow r) => new
-        {
-            closeDate = r.CloseDate,
-            branch = r.Branch,
-            itemCode = r.ItemCode,
-            openingStock = r.OpeningStock,
-            openingSource = r.OpeningSource ?? "",
-            giftIn = r.GiftIn,
-            receiveBranch = r.ReceiveBranch,
-            transferBranch = r.TransferBranch,
-            cancelBasket = r.CancelBasket,
-            sapoSold = r.SapoSold,
-            adjustment = r.Adjustment,
-            actualStock = r.ActualStock,
-            soldNotPicked = r.SoldNotPicked,
-            revenue = r.Revenue,
-            orderCount = r.OrderCount,
-            transferNotes = r.TransferNotes != null
-                ? JsonSerializer.Deserialize<object>(r.TransferNotes)
-                : new object[0],
-            inactive = r.Inactive
-        };
+        private static object ToDto(NxtRow r) =>
+            new
+            {
+                closeDate = r.CloseDate,
+                branch = r.Branch,
+                itemCode = r.ItemCode,
+                openingStock = r.OpeningStock,
+                openingSource = r.OpeningSource ?? "",
+                giftIn = r.GiftIn,
+                receiveBranch = r.ReceiveBranch,
+                transferBranch = r.TransferBranch,
+                cancelBasket = r.CancelBasket,
+                sapoSold = r.SapoSold,
+                adjustment = r.Adjustment,
+                actualStock = r.ActualStock,
+                soldNotPicked = r.SoldNotPicked,
+                revenue = r.Revenue,
+                orderCount = r.OrderCount,
+                transferNotes = r.TransferNotes != null
+                    ? JsonSerializer.Deserialize<object>(r.TransferNotes)
+                    : new object[0],
+                inactive = r.Inactive,
+            };
 
-        private static NxtRow FromDto(NxtRowDto dto) => new NxtRow
-        {
-            CloseDate = dto.CloseDate,
-            Branch = dto.Branch,
-            ItemCode = dto.ItemCode,
-            OpeningStock = dto.OpeningStock,
-            OpeningSource = dto.OpeningSource,
-            GiftIn = dto.GiftIn,
-            ReceiveBranch = dto.ReceiveBranch,
-            TransferBranch = dto.TransferBranch,
-            CancelBasket = dto.CancelBasket,
-            SapoSold = dto.SapoSold,
-            Adjustment = dto.Adjustment,
-            ActualStock = dto.ActualStock,
-            SoldNotPicked = dto.SoldNotPicked,
-            Revenue = dto.Revenue,
-            OrderCount = dto.OrderCount,
-            TransferNotes = dto.TransferNotes != null ? JsonSerializer.Serialize(dto.TransferNotes) : null,
-            Inactive = dto.Inactive
-        };
+        private static NxtRow FromDto(NxtRowDto dto) =>
+            new NxtRow
+            {
+                CloseDate = dto.CloseDate,
+                Branch = dto.Branch,
+                ItemCode = dto.ItemCode,
+                OpeningStock = dto.OpeningStock,
+                OpeningSource = dto.OpeningSource,
+                GiftIn = dto.GiftIn,
+                ReceiveBranch = dto.ReceiveBranch,
+                TransferBranch = dto.TransferBranch,
+                CancelBasket = dto.CancelBasket,
+                SapoSold = dto.SapoSold,
+                Adjustment = dto.Adjustment,
+                ActualStock = dto.ActualStock,
+                SoldNotPicked = dto.SoldNotPicked,
+                Revenue = dto.Revenue,
+                OrderCount = dto.OrderCount,
+                TransferNotes =
+                    dto.TransferNotes != null ? JsonSerializer.Serialize(dto.TransferNotes) : null,
+                Inactive = dto.Inactive,
+            };
     }
 
     public class NxtRowDto

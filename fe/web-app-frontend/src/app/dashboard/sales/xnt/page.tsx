@@ -437,7 +437,9 @@ export default function NxtPage() {
                 </FG>
                 <BR>
                     <Button id="btnPreviewGiftIn" variant="contained" size="small" sx={primaryBtn}>Xem trước</Button>
-                    <Button id="btnAddGiftInToSample" variant="contained" size="small" sx={{ ...primaryBtn, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }}>Lưu gói ra</Button>
+                    {profile?.permissions?.includes('sales.nxt.edit') && (
+                        <Button id="btnAddGiftInToSample" variant="contained" size="small" sx={{ ...primaryBtn, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }}>Lưu gói ra</Button>
+                    )}
                     <Button id="btnClearGiftIn" variant="outlined" size="small" sx={ghostBtn}>Xóa</Button>
                 </BR>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 0.5 }}>
@@ -496,7 +498,9 @@ export default function NxtPage() {
                 </FG>
                 <BR>
                     <Button id="btnPreviewStock" variant="contained" size="small" sx={primaryBtn}>Xem trước</Button>
-                    <Button id="btnApplyStockToSample" variant="contained" size="small" sx={{ ...primaryBtn, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }}>Lưu tồn CN</Button>
+                    {profile?.permissions?.includes('sales.nxt.edit') && (
+                        <Button id="btnApplyStockToSample" variant="contained" size="small" sx={{ ...primaryBtn, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }}>Lưu tồn CN</Button>
+                    )}
                     <Button id="btnClearStock" variant="outlined" size="small" sx={ghostBtn}>Xóa</Button>
                 </BR>
                 <Box sx={hintSx}>
@@ -556,7 +560,9 @@ export default function NxtPage() {
                 </FG>
                 <BR>
                     <Button id="btnPreviewCancel" variant="contained" size="small" sx={primaryBtn}>Xem trước</Button>
-                    <Button id="btnApplyCancelToSample" variant="contained" size="small" sx={{ ...primaryBtn, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }}>Lưu hủy giỏ</Button>
+                    {profile?.permissions?.includes('sales.nxt.edit') && (
+                        <Button id="btnApplyCancelToSample" variant="contained" size="small" sx={{ ...primaryBtn, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }}>Lưu hủy giỏ</Button>
+                    )}
                 </BR>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 0.5 }}>
                     <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#1e293b' }}>Kết quả phân tích</Typography>
@@ -671,7 +677,9 @@ export default function NxtPage() {
                 <BR>
                     <Button id="btnCheckTempCode" variant="outlined" size="small" sx={ghostBtn}>Kiểm tra mã / CN</Button>
                     <Button id="btnApplyWrongCode" variant="contained" size="small" sx={primaryBtn}>Áp dụng điều chỉnh</Button>
-                    <Button id="btnClearAdjustments" variant="outlined" size="small" sx={ghostBtn}>Xóa log</Button>
+                    {profile?.permissions?.includes('sales.nxt.delete_logs') && (
+                        <Button id="btnClearAdjustments" variant="outlined" size="small" sx={ghostBtn}>Xóa log</Button>
+                    )}
                 </BR>
                 <Box id="tempCodeCheckResult" sx={hintSx}>
                     Bấm <b>Kiểm tra mã / CN</b> trước khi áp dụng để biết mã đang nằm đúng CN, nhiều CN hay sai CN.

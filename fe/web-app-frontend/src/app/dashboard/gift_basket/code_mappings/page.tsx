@@ -20,6 +20,7 @@ import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import * as signalR from '@microsoft/signalr';
 import { playBeep, unlockAudio } from '@/features/gift-basket/sounds/beep';
+import { usePermission } from '@/hooks/usePermission';
 
 const fmtDate = (s?: string) =>
     s ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(s)) : '—';
@@ -518,6 +519,9 @@ export default function ApprovePage() {
         fileInputRef.current?.click();
     };
 
+    const canHandle = usePermission('gift.change_request.handle');
+    const canExport = usePermission('gift.change_request.export');
+
     const pendingCount = rows.length;
 
     return (
@@ -534,31 +538,39 @@ export default function ApprovePage() {
                 subtitle={`${pendingCount} yêu cầu đang chờ duyệt`}
                 actions={
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Button variant="outlined" startIcon={<BoltRounded />}
-                            onClick={openQuickApprove}
-                            disabled={rows.length === 0}
-                            sx={{ borderColor: '#b45309', color: '#b45309', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
-                            Duyệt nhanh
-                            {pendingCount > 0 && (
-                                <Chip size="small" label={pendingCount}
-                                    sx={{ ml: 1, height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#b45309', color: '#fff', pointerEvents: 'none' }} />
-                            )}
-                        </Button>
-                        <Button variant="outlined" startIcon={<FormatListBulleted />}
-                            onClick={() => { setBulkText(''); setBulkPreviewed(false); setBulkDefaultDate(todayStr()); setBulkOpen(true); }}
-                            sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
-                            Tạo hàng loạt
-                        </Button>
-                        <Button variant="contained" startIcon={<Add />}
-                            onClick={() => { setAdminForm({ approvedDate: todayStr() }); setAdminCreateOpen(true); }}
-                            sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
-                            Tạo mã mới
-                        </Button>
-                        <Button variant="outlined" startIcon={<FileDownload />}
-                            onClick={() => setExportOpen(true)}
-                            sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
-                            Xuất Excel
-                        </Button>
+                        {canHandle && (
+                            <Button variant="outlined" startIcon={<BoltRounded />}
+                                onClick={openQuickApprove}
+                                disabled={rows.length === 0}
+                                sx={{ borderColor: '#b45309', color: '#b45309', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
+                                Duyệt nhanh
+                                {pendingCount > 0 && (
+                                    <Chip size="small" label={pendingCount}
+                                        sx={{ ml: 1, height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#b45309', color: '#fff', pointerEvents: 'none' }} />
+                                )}
+                            </Button>
+                        )}
+                        {canHandle && (
+                            <Button variant="outlined" startIcon={<FormatListBulleted />}
+                                onClick={() => { setBulkText(''); setBulkPreviewed(false); setBulkDefaultDate(todayStr()); setBulkOpen(true); }}
+                                sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
+                                Tạo hàng loạt
+                            </Button>
+                        )}
+                        {canHandle && (
+                            <Button variant="contained" startIcon={<Add />}
+                                onClick={() => { setAdminForm({ approvedDate: todayStr() }); setAdminCreateOpen(true); }}
+                                sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
+                                Tạo mã mới
+                            </Button>
+                        )}
+                        {canExport && (
+                            <Button variant="outlined" startIcon={<FileDownload />}
+                                onClick={() => setExportOpen(true)}
+                                sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}>
+                                Xuất Excel
+                            </Button>
+                        )}
                     </Box>
                 }
             />
@@ -637,11 +649,13 @@ export default function ApprovePage() {
                                                     <Visibility fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
-                                            <Button size="small" variant="contained"
-                                                onClick={() => openApprove(row)}
-                                                sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '8px', textTransform: 'none', fontSize: 11, px: 1.5 }}>
-                                                Duyệt
-                                            </Button>
+                                            {canHandle && (
+                                                <Button size="small" variant="contained"
+                                                    onClick={() => openApprove(row)}
+                                                    sx={{ bgcolor: '#086839', '&:hover': { bgcolor: '#065f2d' }, borderRadius: '8px', textTransform: 'none', fontSize: 11, px: 1.5 }}>
+                                                    Duyệt
+                                                </Button>
+                                            )}
                                         </Box>
                                     </Box>
                                 </Box>
@@ -894,7 +908,7 @@ export default function ApprovePage() {
                 </DialogContent>
                 <DialogActions sx={{ px: 3, py: 1.5 }}>
                     <Button onClick={() => setDetailOpen(false)} color="inherit">Đóng</Button>
-                    {selected?.status === 'pending' && (
+                    {selected?.status === 'pending' && canHandle && (
                         <Button variant="contained" onClick={() => { setDetailOpen(false); openApprove(selected!); }}
                             sx={{ bgcolor: '#086839', borderRadius: '10px', textTransform: 'none' }}>
                             Duyệt ngay

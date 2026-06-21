@@ -44,6 +44,7 @@ import LoadingOverlay from '@/components/common/LoadingOverlay';
 import PageHeader from '@/components/common/PageHeader';
 import { userApi } from '@/features/user/api/user.api';
 import ConfirmRollbackDialog from '@/features/staff/components/ConfirmRollbackDialog';
+import { usePermission } from '@/hooks/usePermission';
 
 type LogRow = {
     id: number;
@@ -208,6 +209,10 @@ export default function SystemHistoryPage() {
             closeConfirmDialog();
         }
     };
+
+    const canRollback = usePermission('cskh.order.rollback');
+    const canRestore = usePermission('cskh.order.restore');
+    const canDownload = usePermission('staff.import_history.download');
 
     const hasActiveFilter = !!debouncedSearch || !!fromDate || !!toDate || !!status;
 
@@ -431,7 +436,7 @@ export default function SystemHistoryPage() {
                                     <TableCell sx={{ fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDateTime(file.rollbackAt)}</TableCell>
                                     <TableCell sx={{ fontSize: 13, color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>{file.rollbackBy || '-'}</TableCell>
                                     <TableCell>
-                                        {file.fileUrl ? (
+                                        {file.fileUrl && canDownload ? (
                                             <Tooltip title="Tải xuống file Excel gốc" arrow>
                                                 <Button
                                                     component="a"
@@ -451,27 +456,31 @@ export default function SystemHistoryPage() {
                                     </TableCell>
                                     <TableCell>
                                         {file.status === 'Imported' ? (
-                                            <Button
-                                                variant="outlined"
-                                                color="warning"
-                                                size="small"
-                                                startIcon={<SettingsBackupRestoreRounded />}
-                                                onClick={() => openConfirmDialog(file, 'rollback')}
-                                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}
-                                            >
-                                                Rollback
-                                            </Button>
+                                            canRollback && (
+                                                <Button
+                                                    variant="outlined"
+                                                    color="warning"
+                                                    size="small"
+                                                    startIcon={<SettingsBackupRestoreRounded />}
+                                                    onClick={() => openConfirmDialog(file, 'rollback')}
+                                                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}
+                                                >
+                                                    Rollback
+                                                </Button>
+                                            )
                                         ) : (
-                                            <Button
-                                                variant="outlined"
-                                                color="success"
-                                                size="small"
-                                                startIcon={<CloudUploadRounded />}
-                                                onClick={() => openConfirmDialog(file, 'restore')}
-                                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}
-                                            >
-                                                Khôi phục file
-                                            </Button>
+                                            canRestore && (
+                                                <Button
+                                                    variant="outlined"
+                                                    color="success"
+                                                    size="small"
+                                                    startIcon={<CloudUploadRounded />}
+                                                    onClick={() => openConfirmDialog(file, 'restore')}
+                                                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}
+                                                >
+                                                    Khôi phục file
+                                                </Button>
+                                            )
                                         )}
                                     </TableCell>
                                 </TableRow>
