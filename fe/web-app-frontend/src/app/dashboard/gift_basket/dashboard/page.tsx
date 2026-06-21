@@ -44,6 +44,7 @@ import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
+import { api } from '@/services/axios';
 
 // ── format helpers ────────────────────────────────────────────────────────────
 const fmt = (n: unknown) => Math.round(Number(n ?? 0)).toLocaleString('vi-VN');
@@ -441,32 +442,21 @@ export default function SapoDashboardPage() {
         }
     }, []);
 
-    async function apiCall(url: string, options?: RequestInit) {
-        const res = await fetch(url, { credentials: 'include', ...options });
-        if (!res.ok) {
-            const text = await res.text();
-            let msg = `Lỗi ${res.status}`;
-            try { const j = JSON.parse(text); msg = j.Message ?? j.message ?? msg; } catch {}
-            throw new Error(msg);
-        }
-        return res.json();
-    }
-
     async function loadDashboard() {
         try {
             setLoading(true);
-            let url = '/api/sapo/dashboard';
+            let result;
             if (filterMode === 'month' && selectedMonth) {
-                url = `/api/sapo/dashboard/month?month=${selectedMonth}`;
+                result = await api.get('/sapo/dashboard/month', { params: { month: selectedMonth } });
             } else if (filterMode === 'range' && fromDate && toDate) {
-                url = `/api/sapo/dashboard/range?fromDate=${fromDate}&toDate=${toDate}`;
+                result = await api.get('/sapo/dashboard/range', { params: { fromDate, toDate } });
             } else {
-                url = `/api/sapo/dashboard?filter=latest_month`;
+                result = await api.get('/sapo/dashboard', { params: { filter: 'latest_month' } });
             }
-            const result = await apiCall(url);
-            setData(result);
+            setData(result.data);
         } catch (e: any) {
-            toast.error(e.message ?? 'Có lỗi xảy ra');
+            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Có lỗi xảy ra';
+            toast.error(msg);
         } finally {
             setLoading(false);
         }
@@ -482,11 +472,14 @@ export default function SapoDashboardPage() {
             fd.append('sapoFile', sapoFile);
             const mappingFile = mappingFileRef.current?.files?.[0];
             if (mappingFile) fd.append('mappingFile', mappingFile);
-            const result = await apiCall('/api/sapo/import', { method: 'POST', body: fd });
-            setImportMsg({ text: result.Message ?? 'Đã nạp xong', err: false });
+            const result = await api.post('/sapo/import', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            setImportMsg({ text: result.data.Message ?? 'Đã nạp xong', err: false });
             await loadDashboard();
         } catch (e: any) {
-            setImportMsg({ text: e.message, err: true });
+            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message;
+            setImportMsg({ text: msg, err: true });
         } finally {
             setLoading(false);
         }
@@ -495,20 +488,8 @@ export default function SapoDashboardPage() {
     async function handleDownloadImport(importId: number, fileName: string) {
         try {
             setLoading(true);
-            const res = await fetch(`/api/sapo/import/${importId}/download`, { credentials: 'include' });
-            if (!res.ok) {
-                const errData = await res.json().catch(() => null);
-                const errMsg = errData?.Message || errData?.message || res.statusText;
-                if (res.status === 404) {
-                    toast.error(`Không tìm thấy: ${errMsg}`);
-                } else if (res.status === 400) {
-                    toast.error(`Lỗi: ${errMsg}`);
-                } else {
-                    toast.error(`Tải file thất bại (${res.status}): ${errMsg}`);
-                }
-                return;
-            }
-            const blob = await res.blob();
+            const res = await api.get(`/sapo/import/${importId}/download`, { responseType: 'blob' });
+            const blob = new Blob([res.data]);
             if (blob.size === 0) {
                 toast.error('File trống, không thể tải');
                 return;
@@ -523,8 +504,8 @@ export default function SapoDashboardPage() {
             document.body.removeChild(a);
             toast.success('✓ Tải file thành công');
         } catch (e: any) {
-            toast.error(`Lỗi: ${e.message ?? 'Không thể tải file'}`);
-            console.error('Download error:', e);
+            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Không thể tải file';
+            toast.error(`Lỗi: ${msg}`);
         } finally {
             setLoading(false);
         }

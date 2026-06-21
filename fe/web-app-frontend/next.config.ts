@@ -9,8 +9,8 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/:path*",
-        destination: `${BACKEND_URL}/api/:path*`,
+        source: "/api/sapo/:path*",
+        destination: `${BACKEND_URL}/api/sapo/:path*`,
       },
     ];
   },
