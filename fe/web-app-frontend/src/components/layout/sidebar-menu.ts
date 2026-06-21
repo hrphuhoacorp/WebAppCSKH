@@ -153,7 +153,6 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Tổng hợp link',
                 href: '/dashboard/links',
                 icon: Link2,
-                permissions: ['staff.view_list'],
             },
         ],
     },

@@ -54,7 +54,6 @@ export default function Sidebar() {
     const filteredSidebarMenu = sidebarMenu.map((group) => ({
         ...group,
         children: group.children.filter((item) => {
-            if (item.isExternal) return true;
             if (!item.permissions || item.permissions.length === 0) return true;
             return item.permissions.some(p => userPermissions.includes(p));
         }),
