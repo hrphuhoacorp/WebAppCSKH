@@ -130,7 +130,7 @@ export default function PermissionDialog({ open, userId, userName, onClose }: Pr
         <Dialog
             open={open}
             onClose={handleClose}
-            maxWidth="md"
+            maxWidth="lg"
             fullWidth
             slotProps={{
                 paper: {
