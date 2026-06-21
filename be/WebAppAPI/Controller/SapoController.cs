@@ -141,4 +141,31 @@ public class SapoController : ControllerBase
             result.fileName
         );
     }
+
+    [RequirePermission("sales.sapo.import")]
+    [HttpPost("admin/verify")]
+    public IActionResult AdminVerify()
+    {
+        return Ok(new { ok = true, message = "Xác thực thành công." });
+    }
+
+    [RequirePermission("sales.sapo.import")]
+    [HttpPost("admin/delete-latest")]
+    public async Task<IActionResult> DeleteLatest()
+    {
+        var userId = GetCurrentUserId();
+        var staffCode = GetCurrentStaffCode();
+        var result = await _sapo.DeleteLatestUploadAsync();
+
+        await _activity.SaveLogAsync(
+            userId,
+            staffCode,
+            "SAPO_DELETE_LATEST",
+            "sapo_import_batches",
+            null,
+            newData: new { deletedBy = GetCurrentUserName() }
+        );
+
+        return Ok(result);
+    }
 }

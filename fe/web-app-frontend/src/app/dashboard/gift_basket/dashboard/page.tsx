@@ -8,6 +8,10 @@ import {
     Button,
     Chip,
     Collapse,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
     Divider,
     Paper,
     Table,
@@ -39,6 +43,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import HistoryIcon from '@mui/icons-material/History';
 import InfoIcon from '@mui/icons-material/Info';
 import DownloadIcon from '@mui/icons-material/Download';
+import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import toast from 'react-hot-toast';
@@ -416,6 +421,7 @@ interface DashState {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function SapoDashboardPage() {
     const canViewSapo = usePermission('sales.sapo.view');
+    const canImport = usePermission('sales.sapo.import');
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<DashState | null>(null);
@@ -425,6 +431,7 @@ export default function SapoDashboardPage() {
     const [toDate, setToDate] = useState('');
     const [importMsg, setImportMsg] = useState<{ text: string; err: boolean } | null>(null);
     const [expandedImportId, setExpandedImportId] = useState<number | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const sapoFileRef = useRef<HTMLInputElement>(null);
     const mappingFileRef = useRef<HTMLInputElement>(null);
 
@@ -476,7 +483,9 @@ export default function SapoDashboardPage() {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setImportMsg({ text: result.data.Message ?? 'Đã nạp xong', err: false });
-            await loadDashboard();
+            // Reload với latest_month để luôn hiển thị dữ liệu mới nhất, không phụ thuộc filter hiện tại
+            const dashResult = await api.get('/sapo/dashboard', { params: { filter: 'latest_month' } });
+            setData(dashResult.data);
         } catch (e: any) {
             const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message;
             setImportMsg({ text: msg, err: true });
@@ -506,6 +515,22 @@ export default function SapoDashboardPage() {
         } catch (e: any) {
             const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Không thể tải file';
             toast.error(`Lỗi: ${msg}`);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleDeleteLatest() {
+        try {
+            setLoading(true);
+            await api.post('/sapo/admin/delete-latest');
+            toast.success('Đã xóa lượt import gần nhất');
+            setShowDeleteConfirm(false);
+            const dashResult = await api.get('/sapo/dashboard', { params: { filter: 'latest_month' } });
+            setData(dashResult.data);
+        } catch (e: any) {
+            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Xóa thất bại';
+            toast.error(msg);
         } finally {
             setLoading(false);
         }
@@ -634,30 +659,74 @@ export default function SapoDashboardPage() {
                             File có ngày nào cập nhật ngày đó · phần xử lý dữ liệu giữ nguyên như hiện tại
                         </Typography>
                     </Box>
-                    <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<UploadFileIcon />}
-                        onClick={handleImport}
-                        disabled={loading}
-                        sx={{
-                            height: 42,
-                            px: 2.8,
-                            fontSize: 13.5,
-                            fontWeight: 800,
-                            borderRadius: '12px',
-                            background: GRADIENT_GREEN,
-                            boxShadow: '0 10px 24px rgba(8,104,57,0.18)',
-                            '&:hover': {
-                                background: 'linear-gradient(135deg, #064a27 0%, #16a34a 100%)',
-                                boxShadow: '0 12px 28px rgba(8,104,57,0.24)',
-                            },
-                            flexShrink: 0,
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        Nhập báo cáo
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <Button
+                            component="a"
+                            href="/templates/mau-report-gio-qua.xlsx"
+                            download
+                            variant="outlined"
+                            startIcon={<DownloadIcon />}
+                            sx={{
+                                height: 42,
+                                px: 2,
+                                fontSize: 13,
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                borderColor: '#bbf7d0',
+                                color: GREEN_DARK,
+                                bgcolor: '#f0fdf4',
+                                whiteSpace: 'nowrap',
+                                '&:hover': { borderColor: GREEN, bgcolor: '#dcfce7' },
+                            }}
+                        >
+                            Mẫu báo cáo Sapo
+                        </Button>
+                        <Button
+                            component="a"
+                            href="/templates/mau-doi-ma-gio-qua.xlsx"
+                            download
+                            variant="outlined"
+                            startIcon={<DownloadIcon />}
+                            sx={{
+                                height: 42,
+                                px: 2,
+                                fontSize: 13,
+                                fontWeight: 700,
+                                borderRadius: '12px',
+                                borderColor: '#bfdbfe',
+                                color: '#1e40af',
+                                bgcolor: '#eff6ff',
+                                whiteSpace: 'nowrap',
+                                '&:hover': { borderColor: '#3b82f6', bgcolor: '#dbeafe' },
+                            }}
+                        >
+                            Mẫu đổi mã
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<UploadFileIcon />}
+                            onClick={handleImport}
+                            disabled={loading}
+                            sx={{
+                                height: 42,
+                                px: 2.8,
+                                fontSize: 13.5,
+                                fontWeight: 800,
+                                borderRadius: '12px',
+                                background: GRADIENT_GREEN,
+                                boxShadow: '0 10px 24px rgba(8,104,57,0.18)',
+                                '&:hover': {
+                                    background: 'linear-gradient(135deg, #064a27 0%, #16a34a 100%)',
+                                    boxShadow: '0 12px 28px rgba(8,104,57,0.24)',
+                                },
+                                flexShrink: 0,
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            Nhập báo cáo
+                        </Button>
+                    </Box>
                 </Box>
 
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
@@ -1139,6 +1208,18 @@ export default function SapoDashboardPage() {
                                                                 <DownloadIcon sx={{ fontSize: 16 }} />
                                                             </IconButton>
                                                         </Tooltip>
+                                                        {i === 0 && canImport && (
+                                                            <Tooltip title="Xóa lượt import này (hoàn tác)">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    sx={{ color: '#dc2626', '&:hover': { bgcolor: '#fee2e2' } }}
+                                                                    onClick={() => setShowDeleteConfirm(true)}
+                                                                    disabled={loading}
+                                                                >
+                                                                    <DeleteForeverOutlinedIcon sx={{ fontSize: 16 }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
                                                     </Box>
                                                 </TableCell>
                                             </TableRow>
@@ -1230,6 +1311,39 @@ export default function SapoDashboardPage() {
                     </TableContainer>
                 </>
             )}
+
+            <Dialog
+                open={showDeleteConfirm}
+                onClose={loading ? undefined : () => setShowDeleteConfirm(false)}
+                maxWidth="xs"
+                fullWidth
+                slotProps={{ paper: { sx: { borderRadius: '20px', p: 1 } } }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>
+                    Xóa lượt import gần nhất?
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ bgcolor: '#fff7ed', border: '1px dashed #fed7aa', borderRadius: '12px', p: 2 }}>
+                        <Typography sx={{ fontSize: 13.5, color: '#c2410c', lineHeight: 1.6 }}>
+                            Toàn bộ dữ liệu của lượt import gần nhất sẽ bị xóa. Thao tác này <b>không thể hoàn tác</b>. Sau khi xóa hãy import lại file đúng.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
+                    <Button
+                        fullWidth variant="outlined" onClick={() => setShowDeleteConfirm(false)} disabled={loading}
+                        sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: '#e2e8f0', color: '#64748b' }}
+                    >
+                        Hủy
+                    </Button>
+                    <Button
+                        fullWidth variant="contained" color="error" onClick={handleDeleteLatest} disabled={loading}
+                        sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}
+                    >
+                        {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

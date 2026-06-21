@@ -362,6 +362,9 @@ public class SapoService
         return ParseCsvSmart(Encoding.UTF8.GetString(bytes));
     }
 
+    private static readonly System.Globalization.CultureInfo _viVN =
+        new System.Globalization.CultureInfo("vi-VN");
+
     private static List<List<string>> ParseXlsx(byte[] bytes)
     {
         var result = new List<List<string>>();
@@ -374,7 +377,17 @@ public class SapoService
         {
             var row = new List<string>();
             for (int c = 1; c <= lastCol; c++)
-                row.Add((ws.Cell(r, c).GetString() ?? "").Trim());
+            {
+                var cell = ws.Cell(r, c);
+                string val;
+                if (cell.DataType == XLDataType.Number)
+                    // GetString() uses InvariantCulture (. as decimal) which breaks Number().
+                    // Use vi-VN format (, as decimal) so Number() can parse correctly.
+                    val = cell.GetValue<decimal>().ToString("0.##########", _viVN);
+                else
+                    val = (cell.GetString() ?? "").Trim();
+                row.Add(val.Trim());
+            }
             if (row.Any(v => !string.IsNullOrWhiteSpace(v)))
                 result.Add(row);
         }
@@ -1573,8 +1586,8 @@ public class SapoService
             .ToListAsync();
 
         if (rows.Count == 0)
-            throw new InvalidOperationException(
-                $"Không có dữ liệu cho batch này (ID: {batch.BatchId})"
+            throw new NotFoundException(
+                $"Import #{importId} không còn dữ liệu (đã bị ghi đè bởi import mới hơn cùng khoảng ngày)."
             );
 
         using var wb = new XLWorkbook();
