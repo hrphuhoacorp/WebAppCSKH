@@ -50,6 +50,11 @@ function dbSaveLog(entry) {
       userName: entry.user,
       status: entry.status, detail: entry.detail || null
     })
+  }).then(async res => {
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data?.content?.id) entry.id = data.content.id;
+    }
   }).catch(err => console.error("[NXT] log error", err));
 }
 
@@ -79,6 +84,8 @@ let adjustmentsLog = [];
 let checkDayMeta = {};
 
 let dashboardRows = [];
+let overviewEditKey = null;
+let overviewEditDraft = {};
 
 const sapoSampleRows = [
   { closeDate: "15/06/2026", branch: "Phú Lợi", itemCode: "H1144", sapoSold: 1, orderCount: 1, revenue: 650000, note: "Bán thường" },
@@ -300,6 +307,36 @@ function hideAppPopup() {
   if (overlay) overlay.classList.remove("show");
 }
 
+function nxtConfirm({ title, message, onConfirm, danger = true }) {
+  let overlay = document.getElementById("nxtConfirmOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "nxtConfirmOverlay";
+    document.body.appendChild(overlay);
+  }
+  const btnColor = danger ? "#dc2626" : "#065f2d";
+  const btnShadow = danger ? "rgba(220,38,38,.25)" : "rgba(6,95,45,.25)";
+  const iconColor = danger ? "#ea580c" : "#065f2d";
+  const iconBg = danger ? "#fff7ed" : "#f0fdf4";
+  const iconBorder = danger ? "#fed7aa" : "#bbf7d0";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `<div style="background:#fff;border-radius:24px;padding:32px 28px 24px;max-width:380px;width:90%;box-shadow:0 20px 40px rgba(0,0,0,.14);text-align:center;font-family:inherit;">
+    <div style="width:60px;height:60px;border-radius:18px;background:${iconBg};border:1px solid ${iconBorder};display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 8px 20px -6px ${danger ? "rgba(234,88,12,.35)" : "rgba(6,95,45,.3)"};">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <p style="font-weight:800;font-size:16px;color:#1e293b;margin:0 0 10px;letter-spacing:-.2px;">${title}</p>
+    <p style="font-size:13.5px;color:#64748b;margin:0 0 24px;line-height:1.65;">${message}</p>
+    <div style="display:flex;gap:12px;">
+      <button id="nxtConfirmCancel" style="flex:1;padding:12px;border-radius:14px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;">Hủy bỏ</button>
+      <button id="nxtConfirmOk" style="flex:1;padding:12px;border-radius:14px;border:none;background:${btnColor};color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px ${btnShadow};transition:all .15s;">Xác nhận</button>
+    </div>
+  </div>`;
+  const close = () => { overlay.style.display = "none"; overlay.innerHTML = ""; };
+  document.getElementById("nxtConfirmCancel").onclick = close;
+  document.getElementById("nxtConfirmOk").onclick = () => { close(); onConfirm(); };
+  overlay.onclick = e => { if (e.target === overlay) close(); };
+}
+
 function setupAppPopup() {
   const { overlay, ok } = appPopupElements();
   ok?.addEventListener("click", hideAppPopup);
@@ -334,6 +371,14 @@ function setupAppPopup() {
 
 function isAdminUser() {
   return currentUser?.role === "admin";
+}
+
+function userCanDeleteLogs() {
+  return currentUser?.canDeleteLogs === true;
+}
+
+function userCanEditQty() {
+  return currentUser?.canEditQty === true;
 }
 
 function roleLabel(role) {
@@ -375,6 +420,18 @@ function syncPermissionUi() {
   if (!admin && document.getElementById("screen-sapoImport")?.classList.contains("active")) {
     document.querySelector('.tab[data-tab="overview"]')?.click();
   }
+
+  const canEQ = userCanEditQty();
+  console.log("[NXT perm] canEditQty:", canEQ, "| currentUser.canEditQty:", currentUser?.canEditQty, "| role:", currentUser?.role);
+  const editQtyTab = document.getElementById("tabEditQty");
+  if (editQtyTab) {
+    editQtyTab.classList.toggle("app-hidden", !canEQ);
+    if (!canEQ && document.getElementById("screen-editQty")?.classList.contains("active")) {
+      document.querySelector('.tab[data-tab="overview"]')?.click();
+    }
+  }
+  const suraTh = document.getElementById("overviewSuraTh");
+  if (suraTh) suraTh.style.display = canEQ ? "" : "none";
 }
 
 function setDefaultBranchForUser() {
@@ -585,6 +642,8 @@ function maybeDeactivateRow(row) {
   if (shouldHideInactive(row)) row.inactive = true;
 }
 
+const IE_INPUT_SX = 'type="number" style="width:58px;text-align:right;border:1px solid #bfdbfe;border-radius:6px;padding:2px 5px;font-size:12px;font-family:inherit;outline:none;background:#eff6ff;-moz-appearance:textfield;"';
+
 function renderDashboardRows(rows) {
   const tbody = document.getElementById("dashboardRows");
   if (!tbody) return;
@@ -593,19 +652,114 @@ function renderDashboardRows(rows) {
     updateKpis([]);
     return;
   }
+  const canEQ = userCanEditQty();
   tbody.innerHTML = rows.map(row => {
     const expected = calcExpectedStock(row);
     const compare = calcCompareStock(row);
     const diff = calcDiff(row);
     const d = escapeHtml(row.closeDate), b = escapeHtml(row.branch), c = escapeHtml(row.itemCode);
+    const rowKey = `${row.closeDate}||${row.branch}||${row.itemCode}`;
+    const isEditing = overviewEditKey === rowKey;
+
+    if (isEditing) {
+      const dr = overviewEditDraft;
+      return `<tr style="background:#f0f9ff;outline:2px solid #3b82f6;outline-offset:-1px;">
+        <td>${row.closeDate}</td><td>${row.branch}</td><td><b>${row.itemCode}</b></td><td>${renderRowLabels(row)}</td>
+        <td class="right">${number(row.openingStock)}</td>
+        <td class="right"><input id="ie_giftIn" ${IE_INPUT_SX} value="${number(dr.giftIn)}"></td>
+        <td class="right"><input id="ie_receiveBranch" ${IE_INPUT_SX} value="${number(dr.receiveBranch)}"></td>
+        <td class="right"><input id="ie_transferBranch" ${IE_INPUT_SX} value="${number(dr.transferBranch)}"></td>
+        <td class="right"><input id="ie_cancelBasket" ${IE_INPUT_SX} value="${number(dr.cancelBasket)}"></td>
+        <td class="right">${number(row.sapoSold)}</td>
+        <td class="right"><input id="ie_adjustment" ${IE_INPUT_SX} value="${number(dr.adjustment)}"></td>
+        <td class="right"><input id="ie_actualStock" ${IE_INPUT_SX} value="${number(dr.actualStock)}"></td>
+        <td class="right"><input id="ie_soldNotPicked" ${IE_INPUT_SX} value="${number(dr.soldNotPicked)}"></td>
+        <td class="right">${compare}</td><td class="right">${expected}</td><td>${getDiffBadge(diff)}</td>
+        <td>${escapeHtml(guessDiffReason(row))}</td>
+        <td style="white-space:nowrap;">
+          <button onclick="confirmInlineEdit()" style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-right:3px;">Lưu</button>
+          <button onclick="cancelInlineEdit()" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">✕</button>
+        </td>
+      </tr>`;
+    }
+
+    const editBtn = canEQ
+      ? `<button onclick="startInlineEdit('${d}','${b}','${c}')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Chỉnh sửa trực tiếp dòng này">Sửa</button>`
+      : "";
     return `<tr>
       <td>${row.closeDate}</td><td>${row.branch}</td><td><b>${row.itemCode}</b></td><td>${renderRowLabels(row)}</td>
       <td class="right">${number(row.openingStock)}</td><td class="right">${number(row.giftIn)}</td><td class="right">${number(row.receiveBranch)}</td>
       <td class="right">${number(row.transferBranch)}</td><td class="right">${number(row.cancelBasket)}</td><td class="right">${number(row.sapoSold)}</td>
       <td class="right">${number(row.adjustment)}</td><td class="right">${renderActualStockCell(row)}</td><td class="right">${renderSoldNotPickedCell(row)}</td>
       <td class="right">${compare}</td><td class="right">${expected}</td><td>${getDiffBadge(diff)}</td><td>${escapeHtml(guessDiffReason(row))}</td>
+      <td>${editBtn}</td>
     </tr>`;
   }).join("");
+}
+
+function startInlineEdit(closeDate, branch, itemCode) {
+  if (overviewEditKey) cancelInlineEdit();
+  const row = findDashboardRow(closeDate, branch, itemCode);
+  if (!row) return;
+  overviewEditKey = `${closeDate}||${branch}||${itemCode}`;
+  overviewEditDraft = { ...row };
+  renderDashboardByPermission();
+}
+
+function cancelInlineEdit() {
+  overviewEditKey = null;
+  overviewEditDraft = {};
+  renderDashboardByPermission();
+}
+
+function readInlineEditDraft() {
+  ["giftIn", "receiveBranch", "transferBranch", "cancelBasket", "adjustment", "actualStock", "soldNotPicked"].forEach(f => {
+    const el = document.getElementById(`ie_${f}`);
+    if (el) overviewEditDraft[f] = number(el.value);
+  });
+}
+
+function confirmInlineEdit() {
+  readInlineEditDraft();
+  const dr = overviewEditDraft;
+  const compareNew = number(dr.actualStock) - number(dr.soldNotPicked);
+  const expectedNew = number(dr.openingStock) + number(dr.giftIn) + number(dr.receiveBranch)
+    - number(dr.transferBranch) - number(dr.sapoSold) - number(dr.cancelBasket) + number(dr.adjustment);
+  const diffNew = compareNew - expectedNew;
+  const diffLabel = diffNew === 0 ? `<span style="color:#16a34a;font-weight:700;">✓ Khớp</span>` : `<span style="color:#dc2626;font-weight:700;">${diffNew > 0 ? "+" : ""}${diffNew}</span>`;
+
+  nxtConfirm({
+    title: "Xác nhận lưu chỉnh sửa?",
+    message: `<span style="font-size:12px;color:#94a3b8;">${escapeHtml(currentUser?.loginCode || "")} — ${escapeHtml(currentUser?.displayName || "")}</span><br><br>Mã <b>${escapeHtml(dr.itemCode)}</b> · ${escapeHtml(dr.branch)} · ${escapeHtml(dr.closeDate)}<br>Tồn so sánh mới: <b>${compareNew}</b> &nbsp;·&nbsp; Lệch mới: ${diffLabel}`,
+    danger: false,
+    onConfirm: async () => {
+      const row = findDashboardRow(dr.closeDate, dr.branch, dr.itemCode);
+      if (row) {
+        row.giftIn = number(dr.giftIn);
+        row.receiveBranch = number(dr.receiveBranch);
+        row.transferBranch = number(dr.transferBranch);
+        row.cancelBasket = number(dr.cancelBasket);
+        row.adjustment = number(dr.adjustment);
+        row.actualStock = number(dr.actualStock);
+        row.soldNotPicked = number(dr.soldNotPicked);
+        cleanupZeroFields(row);
+      }
+      overviewEditKey = null;
+      overviewEditDraft = {};
+      const saveRes = await fetch(`${NXT_API}/rows/inline`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(row),
+      });
+      if (!saveRes.ok) {
+        const msg = await saveRes.text().catch(() => "");
+        appNotify("Lưu thất bại: " + (msg || saveRes.status), "error");
+        return;
+      }
+      renderDashboardByPermission();
+      appNotify("Đã lưu chỉnh sửa thành công.", "success");
+    }
+  });
 }
 
 function updateKpis(rows) {
@@ -825,7 +979,7 @@ function renderPreview(tbodyId, rows, columns, emptyText) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   if (!rows.length) { tbody.innerHTML = `<tr><td colspan="${columns.length}">${emptyText}</td></tr>`; return; }
-  tbody.innerHTML = rows.map(row => "<tr>" + columns.map(col => `<td${col.right ? ' class="right"' : ""}>${col.render ? col.render(row) : (row[col.key] ?? "")}</td>`).join("") + "</tr>").join("");
+  tbody.innerHTML = rows.map((row, idx) => "<tr>" + columns.map(col => `<td${col.right ? ' class="right"' : ""}>${col.render ? col.render(row, idx) : (row[col.key] ?? "")}</td>`).join("") + "</tr>").join("");
 }
 
 function setupOverview() {
@@ -1590,7 +1744,9 @@ function getInternalMoveFields(source) {
 }
 
 function renderAdjustments() {
-  renderPreview("adjustmentRows", adjustmentsLog, [
+  const canDelete = userCanDeleteLogs();
+  const ROLLBACK_TYPES = ["Nạp Gói ra", "Nạp Hủy giỏ", "Nạp Sapo", "Nạp Tồn CN", "Sửa SL"];
+  const cols = [
     { key: "createdAt", render: r => r.createdAt || "" },
     { key: "closeDate" },
     { key: "branch" },
@@ -1601,8 +1757,110 @@ function renderAdjustments() {
     { key: "user", render: r => r.user || "" },
     { key: "status", render: r => r.status || "" },
     { key: "note" }
-  ], "Chưa có điều chỉnh/đề xuất.");
+  ];
+  if (canDelete) {
+    cols.push({ key: "_action", render: (r, idx) => ROLLBACK_TYPES.includes(r.type) ? `<button onclick="rollbackLog(${idx})" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Hoàn tác và xóa thao tác này">Hoàn tác</button>` : "" });
+  }
+  const thEl = document.getElementById("adjustmentThaoTacTh");
+  if (thEl) thEl.style.display = canDelete ? "" : "none";
+  renderPreview("adjustmentRows", adjustmentsLog, cols, "Chưa có điều chỉnh/đề xuất.");
 }
+
+function parseLogDetail(detail) {
+  return (detail || "").split(",").map(s => s.trim()).filter(Boolean).map(s => {
+    const m = s.match(/^(.+):(-?[\d.]+)$/);
+    return m ? { code: m[1].trim(), qty: Number(m[2]) } : null;
+  }).filter(Boolean);
+}
+
+async function rollbackLog(idx) {
+  const log = adjustmentsLog[idx];
+  if (!log) return;
+
+  const SUPPORTED = ["Nạp Gói ra", "Nạp Hủy giỏ", "Nạp Sapo", "Nạp Tồn CN", "Sửa SL"];
+  if (!SUPPORTED.includes(log.type)) {
+    appNotify("Loại thao tác này không hỗ trợ hoàn tác.", "error");
+    return;
+  }
+
+  const logUserLine = log.user ? `<span style="font-size:12px;color:#94a3b8;">Thao tác của: <b>${escapeHtml(log.user)}</b></span><br>` : "";
+  const myLine = `<span style="font-size:12px;color:#94a3b8;">Người hoàn tác: <b>${escapeHtml(currentUser?.loginCode || "")}</b> — ${escapeHtml(currentUser?.displayName || "")}</span>`;
+
+  nxtConfirm({
+    title: "Xác nhận hoàn tác?",
+    message: `${logUserLine}${myLine}<br><br>Sẽ hoàn tác và <b>XÓA</b> thao tác <b>${escapeHtml(log.type)}</b><br>Ngày <b>${escapeHtml(log.closeDate)}</b> · <b>${escapeHtml(log.branch)}</b><br><br>Hành động này <b>KHÔNG thể phục hồi</b>.`,
+    onConfirm: async () => {
+      try {
+        const branches = log.branch.split("/").map(b => b.trim()).filter(Boolean);
+        const items = parseLogDetail(log.detail);
+
+        if (log.type === "Nạp Gói ra") {
+          items.forEach(({ code, qty }) =>
+            branches.forEach(br => upsertDashboardRow({ closeDate: log.closeDate, branch: br, itemCode: code, patch: { giftIn: -qty } })));
+        } else if (log.type === "Nạp Hủy giỏ") {
+          items.forEach(({ code, qty }) =>
+            branches.forEach(br => upsertDashboardRow({ closeDate: log.closeDate, branch: br, itemCode: code, patch: { cancelBasket: -qty } })));
+        } else if (log.type === "Nạp Sapo") {
+          items.forEach(({ code, qty }) =>
+            branches.forEach(br => upsertDashboardRow({ closeDate: log.closeDate, branch: br, itemCode: code, patch: { sapoSold: -qty } })));
+        } else if (log.type === "Nạp Tồn CN") {
+          items.forEach(({ code }) =>
+            branches.forEach(br => {
+              const row = findDashboardRow(log.closeDate, br, code);
+              if (row) { row.actualStock = 0; row.soldNotPicked = 0; row.stockStatus = ""; }
+            }));
+        } else if (log.type === "Sửa SL") {
+          const m = (log.detail || "").match(/^(.+):\s*([-\d.]+)\s*→\s*([-\d.]+)/);
+          if (m && log.rightCode) {
+            const labelToField = { "Gói ra": "giftIn", "Nhận CN": "receiveBranch", "Chuyển CN": "transferBranch", "Hủy giỏ": "cancelBasket", "Tồn thực tế": "actualStock", "Bán chưa lấy": "soldNotPicked", "Điều chỉnh": "adjustment", "Sapo bán": "sapoSold" };
+            const fieldKey = labelToField[m[1].trim()];
+            const oldVal = Number(m[2]);
+            if (fieldKey) {
+              branches.forEach(br => {
+                const row = findDashboardRow(log.closeDate, br, log.rightCode);
+                if (row) row[fieldKey] = oldVal;
+              });
+            }
+          }
+        }
+
+        // Giai đoạn 1: lưu dữ liệu đã đảo ngược — nếu fail thì dừng toàn bộ
+        const batchRes = await fetch(`${NXT_API}/rows/batch`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify(dashboardRows.map(rowToDto))
+        });
+        if (!batchRes.ok) {
+          const errText = await batchRes.text().catch(() => "");
+          throw new Error(`Lưu dữ liệu thất bại (${batchRes.status}). ${errText}`);
+        }
+
+        // Giai đoạn 2: xóa log — fail thì vẫn cập nhật UI nhưng báo lỗi riêng
+        let logDeleteError = null;
+        if (log.id) {
+          const delRes = await fetch(`${NXT_API}/logs/${log.id}`, { method: "DELETE", credentials: "include" });
+          if (!delRes.ok) {
+            logDeleteError = delRes.status === 403
+              ? "Bạn không có quyền xóa log (cần sales.nxt.delete_logs)."
+              : `Xóa log thất bại (${delRes.status}).`;
+          }
+        }
+
+        adjustmentsLog.splice(idx, 1);
+        renderDashboardByPermission();
+        renderAdjustments();
+
+        if (logDeleteError) {
+          appNotify(`Dữ liệu đã hoàn tác, nhưng: ${logDeleteError}`, "error", true);
+        } else {
+          appNotify("Đã hoàn tác và xóa thao tác thành công.", "success");
+        }
+      } catch (e) {
+        appNotify("Lỗi khi hoàn tác: " + (e.message || e), "error");
+      }
+    }
+  });
+}
+
 
 function formatSourceName(source) {
   const map = {

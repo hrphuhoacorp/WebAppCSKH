@@ -16,26 +16,51 @@ namespace WebAppInfractor.Migrations
                 name: "permissions",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    code = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    module = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true, defaultValueSql: "now()")
+                    id = table
+                        .Column<int>(type: "integer", nullable: false)
+                        .Annotation(
+                            "Npgsql:ValueGenerationStrategy",
+                            NpgsqlValueGenerationStrategy.IdentityByDefaultColumn
+                        ),
+                    code = table.Column<string>(
+                        type: "character varying(100)",
+                        maxLength: 100,
+                        nullable: false
+                    ),
+                    name = table.Column<string>(
+                        type: "character varying(255)",
+                        maxLength: 255,
+                        nullable: false
+                    ),
+                    module = table.Column<string>(
+                        type: "character varying(100)",
+                        maxLength: 100,
+                        nullable: false
+                    ),
+                    created_at = table.Column<DateTime>(
+                        type: "timestamp with time zone",
+                        nullable: true,
+                        defaultValueSql: "now()"
+                    ),
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("permissions_pkey", x => x.id);
-                });
+                }
+            );
 
             migrationBuilder.CreateTable(
                 name: "role_permissions",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id = table
+                        .Column<int>(type: "integer", nullable: false)
+                        .Annotation(
+                            "Npgsql:ValueGenerationStrategy",
+                            NpgsqlValueGenerationStrategy.IdentityByDefaultColumn
+                        ),
                     role_id = table.Column<int>(type: "integer", nullable: false),
-                    permission_id = table.Column<int>(type: "integer", nullable: false)
+                    permission_id = table.Column<int>(type: "integer", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -45,24 +70,35 @@ namespace WebAppInfractor.Migrations
                         column: x => x.permission_id,
                         principalTable: "permissions",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Cascade
+                    );
                     table.ForeignKey(
                         name: "role_permissions_role_id_fkey",
                         column: x => x.role_id,
                         principalTable: "roles",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                        onDelete: ReferentialAction.Cascade
+                    );
+                }
+            );
 
             migrationBuilder.CreateTable(
                 name: "user_permissions",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id = table
+                        .Column<int>(type: "integer", nullable: false)
+                        .Annotation(
+                            "Npgsql:ValueGenerationStrategy",
+                            NpgsqlValueGenerationStrategy.IdentityByDefaultColumn
+                        ),
                     user_id = table.Column<int>(type: "integer", nullable: false),
                     permission_id = table.Column<int>(type: "integer", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true, defaultValueSql: "now()")
+                    created_at = table.Column<DateTime>(
+                        type: "timestamp with time zone",
+                        nullable: true,
+                        defaultValueSql: "now()"
+                    ),
                 },
                 constraints: table =>
                 {
@@ -72,45 +108,54 @@ namespace WebAppInfractor.Migrations
                         column: x => x.permission_id,
                         principalTable: "permissions",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Cascade
+                    );
                     table.ForeignKey(
                         name: "user_permissions_user_id_fkey",
                         column: x => x.user_id,
                         principalTable: "users",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                        onDelete: ReferentialAction.Cascade
+                    );
+                }
+            );
 
             migrationBuilder.CreateIndex(
                 name: "permissions_code_key",
                 table: "permissions",
                 column: "code",
-                unique: true);
+                unique: true
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_role_permissions_permission_id",
                 table: "role_permissions",
-                column: "permission_id");
+                column: "permission_id"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "role_permissions_role_id_permission_id_key",
                 table: "role_permissions",
                 columns: new[] { "role_id", "permission_id" },
-                unique: true);
+                unique: true
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_user_permissions_permission_id",
                 table: "user_permissions",
-                column: "permission_id");
+                column: "permission_id"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "user_permissions_user_id_permission_id_key",
                 table: "user_permissions",
                 columns: new[] { "user_id", "permission_id" },
-                unique: true);
+                unique: true
+            );
 
             // ── Seed: 65 permissions ────────────────────────────────────────────
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO permissions (code, name, module) VALUES
 ('cskh.dashboard.view',           'Xem dashboard CSKH',              'CSKH'),
 ('cskh.order.view_list',          'Xem danh sach don hang',          'CSKH'),
@@ -178,10 +223,12 @@ INSERT INTO permissions (code, name, module) VALUES
 ('staff.import_history.view',     'Xem lich su import',              'Nhan Su'),
 ('staff.import_history.download', 'Tai file lich su import',         'Nhan Su')
 ON CONFLICT (code) DO NOTHING;
-");
+"
+            );
 
             // ── Seed: new roles ──────────────────────────────────────────────────
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO roles (name, description) VALUES
 ('Admin',               'Quan tri vien he thong'),
 ('Ban Hang',            'Nhan vien ban hang'),
@@ -197,17 +244,21 @@ INSERT INTO roles (name, description) VALUES
 ('Thu Mua',             'Nhan vien thu mua'),
 ('Marketing',           'Nhan vien marketing')
 ON CONFLICT (name) DO NOTHING;
-");
+"
+            );
 
             // ── Seed: role_permissions ───────────────────────────────────────────
             // Admin gets ALL permissions
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p WHERE r.name = 'Admin'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Ban Hang'
@@ -221,9 +272,11 @@ WHERE r.name = 'Ban Hang'
     'news.view'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Truong Ca Ban Hang'
@@ -239,9 +292,11 @@ WHERE r.name = 'Truong Ca Ban Hang'
     'news.view'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Goi Qua'
@@ -252,9 +307,11 @@ WHERE r.name = 'Goi Qua'
     'news.view'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Online'
@@ -269,9 +326,11 @@ WHERE r.name = 'Online'
     'news.view'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name IN ('Giam Sat', 'Van Hanh')
@@ -295,9 +354,11 @@ WHERE r.name IN ('Giam Sat', 'Van Hanh')
     'news.toggle_pin','news.publish','news.upload_media'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Ke Toan'
@@ -311,9 +372,11 @@ WHERE r.name = 'Ke Toan'
     'staff.view_list','staff.view_detail'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Giam Doc'
@@ -329,9 +392,11 @@ WHERE r.name = 'Giam Doc'
     'staff.view_list','staff.view_detail'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Nhan Su'
@@ -346,16 +411,20 @@ WHERE r.name = 'Nhan Su'
     'staff.reset_password','staff.import'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Thu Mua' AND p.code = 'news.view'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
 
-            migrationBuilder.Sql(@"
+            migrationBuilder.Sql(
+                @"
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
 WHERE r.name = 'Marketing'
@@ -369,7 +438,8 @@ WHERE r.name = 'Marketing'
     'news.view','news.create','news.edit','news.delete','news.toggle_pin','news.publish','news.upload_media'
   )
 ON CONFLICT (role_id, permission_id) DO NOTHING;
-");
+"
+            );
         }
 
         /// <inheritdoc />

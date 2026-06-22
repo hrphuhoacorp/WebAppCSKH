@@ -19,7 +19,7 @@ const BRANCHES = ['Phú Lợi', 'Ngô Quyền', 'Lái Thiêu'];
 
 declare global {
     interface Window {
-        bootNxt: (user: { loginCode: string; displayName: string; role: string; branch: string }) => void;
+        bootNxt: (user: { loginCode: string; displayName: string; role: string; branch: string; canDeleteLogs: boolean; canEditQty: boolean }) => void;
         NXT_API: string;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         nxtToast: any;
@@ -192,7 +192,9 @@ export default function NxtPage() {
             const p = profileRef.current;
             const role = p.permissions?.includes('sales.nxt.edit') ? 'admin' : 'employee';
             const branch = NXT_KNOWN_BRANCHES.includes(p.branchesName) ? p.branchesName : 'ALL';
-            await window.bootNxt?.({ loginCode: p.staffCode, displayName: p.name, role, branch });
+            const canDeleteLogs = !!p.permissions?.includes('sales.nxt.delete_logs');
+            const canEditQty = !!p.permissions?.includes('sales.nxt.edit_quatity_nxt');
+            await window.bootNxt?.({ loginCode: p.staffCode, displayName: p.name, role, branch, canDeleteLogs, canEditQty });
         } finally {
             setPageLoading(false);
         }
@@ -266,7 +268,7 @@ export default function NxtPage() {
                     <button className="tab" data-tab="cancelBasket" data-roles="admin,employee">Hủy giỏ</button>
                     <button className="tab" data-tab="sapoImport" data-roles="admin">Nạp Sapo</button>
                     <button className="tab" data-tab="wrongCode" data-roles="admin,employee">Sai mã</button>
-                    <button className="tab" data-tab="editQty" data-roles="admin">Sửa SL</button>
+                    <button id="tabEditQty" className="tab" data-tab="editQty" data-roles="admin,employee">Sửa SL</button>
                 </Box>
             </Paper>
 
@@ -393,11 +395,12 @@ export default function NxtPage() {
                                 {['Tồn đầu', 'Gói ra', 'Nhận CN', 'Chuyển CN', 'Hủy', 'Sapo bán', 'Điều chỉnh', 'Tồn thực tế', 'DTT/chưa lấy', 'Tồn so sánh', 'Tồn còn lại theo app', 'Lệch'].map(h =>
                                     <TableCell key={h} sx={thSx}>{h}</TableCell>)}
                                 <TableCell sx={{ ...thLSx, minWidth: 200 }}>Gợi ý kiểm tra</TableCell>
+                                <TableCell id="overviewSuraTh" sx={thSx}>Sửa</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody id="dashboardRows">
                             <TableRow>
-                                <TableCell colSpan={17} sx={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, py: 3 }}>
+                                <TableCell colSpan={18} sx={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, py: 3 }}>
                                     Đang tải dữ liệu...
                                 </TableCell>
                             </TableRow>
@@ -702,9 +705,10 @@ export default function NxtPage() {
                             <TableCell sx={thSx}>User</TableCell>
                             <TableCell sx={thSx}>Trạng thái</TableCell>
                             <TableCell sx={thLSx}>Ghi chú</TableCell>
+                            <TableCell id="adjustmentThaoTacTh" sx={thSx}>Thao tác</TableCell>
                         </TableRow></TableHead>
                         <TableBody id="adjustmentRows">
-                            <TableRow><TableCell colSpan={10} sx={{ textAlign: 'center', color: '#94a3b8', py: 3 }}>Chưa có điều chỉnh/đề xuất.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={11} sx={{ textAlign: 'center', color: '#94a3b8', py: 3 }}>Chưa có điều chỉnh/đề xuất.</TableCell></TableRow>
                         </TableBody>
                     </Table>
                 </TableContainer>

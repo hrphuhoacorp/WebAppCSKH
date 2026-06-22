@@ -84,7 +84,13 @@ namespace WebAppAPI.Controllers
         [HttpPost("rows/batch")]
         public async Task<ResponseValue<object>> BatchRows([FromBody] List<NxtRowDto> dtos)
         {
-            var incoming = dtos.Select(d => (d.CloseDate, d.Branch, d.ItemCode)).ToHashSet();
+            // Deduplicate — giữ entry cuối cùng nếu FE gửi trùng key
+            var dedupedDtos = dtos
+                .GroupBy(d => (d.CloseDate, d.Branch, d.ItemCode))
+                .Select(g => g.Last())
+                .ToList();
+
+            var incoming = dedupedDtos.Select(d => (d.CloseDate, d.Branch, d.ItemCode)).ToHashSet();
 
             var existing = await _db.NxtRows.ToListAsync();
 
@@ -94,7 +100,7 @@ namespace WebAppAPI.Controllers
                     _db.NxtRows.Remove(row);
             }
 
-            foreach (var dto in dtos)
+            foreach (var dto in dedupedDtos)
             {
                 var ex = existing.FirstOrDefault(r =>
                     r.CloseDate == dto.CloseDate
@@ -138,6 +144,28 @@ namespace WebAppAPI.Controllers
 
         // ─── LOGS (dùng activity_logs) ────────────────────────────────────────
 
+        [RequirePermission("sales.nxt.edit_quatity_nxt")]
+        [HttpPost("rows/inline")]
+        public async Task<ResponseValue<object>> InlineEditRow([FromBody] NxtRowDto dto)
+        {
+            var existing = await _db.NxtRows.FirstOrDefaultAsync(r =>
+                r.CloseDate == dto.CloseDate && r.Branch == dto.Branch && r.ItemCode == dto.ItemCode
+            );
+            if (existing == null)
+                return new ResponseValue<object>(null, "Không tìm thấy dòng dữ liệu", StatusReponse.Error);
+
+            existing.GiftIn = dto.GiftIn;
+            existing.ReceiveBranch = dto.ReceiveBranch;
+            existing.TransferBranch = dto.TransferBranch;
+            existing.CancelBasket = dto.CancelBasket;
+            existing.Adjustment = dto.Adjustment;
+            existing.ActualStock = dto.ActualStock;
+            existing.SoldNotPicked = dto.SoldNotPicked;
+            existing.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return new ResponseValue<object>(new { success = true }, "Đã lưu chỉnh sửa", StatusReponse.Success);
+        }
+
         [RequirePermission("sales.nxt.manage_logs")]
         [HttpGet("logs")]
         public async Task<ResponseValue<IEnumerable<object>>> GetLogs()
@@ -156,7 +184,7 @@ namespace WebAppAPI.Controllers
                 return new
                 {
                     id = l.Id,
-                    createdAt = l.CreatedAt?.ToString("dd/MM/yyyy HH:mm:ss"),
+                    createdAt = l.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss"),
                     closeDate = d?.GetValueOrDefault("closeDate").GetString() ?? "",
                     branch = d?.GetValueOrDefault("branch").GetString() ?? "",
                     type = l.Action,
@@ -213,6 +241,22 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<object>(
                 new { success = true, id = log.Id },
                 "Tạo log thành công",
+                StatusReponse.Success
+            );
+        }
+
+        [RequirePermission("sales.nxt.delete_logs")]
+        [HttpDelete("logs/{id:long}")]
+        public async Task<ResponseValue<object>> DeleteLog(long id)
+        {
+            var log = await _db.ActivityLogs.FindAsync(id);
+            if (log == null || log.TableName != "nxt_rows")
+                return new ResponseValue<object>(null, "Không tìm thấy log", StatusReponse.Error);
+            _db.ActivityLogs.Remove(log);
+            await _db.SaveChangesAsync();
+            return new ResponseValue<object>(
+                new { success = true },
+                "Đã xóa log",
                 StatusReponse.Success
             );
         }
