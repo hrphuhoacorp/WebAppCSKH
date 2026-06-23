@@ -1087,6 +1087,35 @@ function renderPreview(tbodyId, rows, columns, emptyText) {
   tbody.innerHTML = rows.map((row, idx) => "<tr>" + columns.map(col => `<td${col.right ? ' class="right"' : ""}>${col.render ? col.render(row, idx) : (row[col.key] ?? "")}</td>`).join("") + "</tr>").join("");
 }
 
+function checkPreviewDups(rows, applyBtnId, warningElId) {
+  const counts = {};
+  rows.forEach(r => {
+    const key = `${r.date}|${r.branch || ""}|${r.itemCode}`;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const dups = Object.entries(counts)
+    .filter(([, n]) => n > 1)
+    .map(([key, n]) => ({ code: key.split("|")[2], n }));
+
+  const btn = document.getElementById(applyBtnId);
+  let warnEl = document.getElementById(warningElId);
+
+  if (dups.length > 0) {
+    if (!warnEl) {
+      warnEl = document.createElement("div");
+      warnEl.id = warningElId;
+      btn?.parentNode?.insertBefore(warnEl, btn);
+    }
+    const msgs = dups.map(d => `Mã <b>${d.code}</b> xuất hiện <b>${d.n} lần</b>`).join(", ");
+    warnEl.innerHTML = `⚠️ ${msgs} — vui lòng kiểm tra lại trước khi lưu.`;
+    warnEl.style.cssText = "color:#dc2626;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin:0 0 8px;display:block;";
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed"; }
+  } else {
+    if (warnEl) { warnEl.innerHTML = ""; warnEl.style.display = "none"; }
+    if (btn) { btn.disabled = false; btn.style.opacity = ""; btn.style.cursor = ""; }
+  }
+}
+
 function setupOverview() {
   ["dateFrom", "dateTo", "overviewBranchFilter", "overviewStatusFilter"].forEach(id => document.getElementById(id)?.addEventListener("change", renderDashboardByPermission));
   document.getElementById("btnRefreshOverview")?.addEventListener("click", renderDashboardByPermission);
@@ -1169,6 +1198,7 @@ function setupGiftIn() {
   previewBtn?.addEventListener("click", () => {
     lastGiftInPreview = parseCodeQtyText(document.getElementById("giftInText").value, { date: document.getElementById("giftInDate").value, branch: document.getElementById("giftInBranch").value, codeType: document.getElementById("giftInCodeType").value });
     renderPreview("giftInPreviewRows", lastGiftInPreview, [{ key: "date" }, { key: "branch" }, { key: "itemCode", render: r => `<b>${r.itemCode}</b>` }, { key: "qty", right: true }, { key: "codeType" }, { key: "raw" }], "Chưa đọc được dòng hợp lệ.");
+    checkPreviewDups(lastGiftInPreview, "btnAddGiftInToSample", "giftInDupWarning");
   });
   document.getElementById("btnAddGiftInToSample")?.addEventListener("click", async () => {
     if (!lastGiftInPreview.length) previewBtn?.click();
@@ -1180,7 +1210,7 @@ function setupGiftIn() {
     renderAdjustments();
     appNotify("Đã cộng Gói ra vào Tổng quan.", "success");
   });
-  document.getElementById("btnClearGiftIn")?.addEventListener("click", () => { document.getElementById("giftInText").value = ""; lastGiftInPreview = []; renderPreview("giftInPreviewRows", [], [{}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); });
+  document.getElementById("btnClearGiftIn")?.addEventListener("click", () => { document.getElementById("giftInText").value = ""; lastGiftInPreview = []; renderPreview("giftInPreviewRows", [], [{}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnAddGiftInToSample", "giftInDupWarning"); });
 }
 
 function setupStock() {
@@ -1188,6 +1218,7 @@ function setupStock() {
   previewBtn?.addEventListener("click", () => {
     lastStockPreview = parseCodeQtyText(document.getElementById("stockText").value, { date: document.getElementById("stockDate").value, branch: document.getElementById("stockBranch").value }).map(row => ({ ...row, status: inferStockStatus(row.raw, document.getElementById("stockDefaultStatus").value), transferToBranch: parseTransferToBranch(row.raw, "") }));
     renderPreview("stockPreviewRows", lastStockPreview, [{ key: "date" }, { key: "branch" }, { key: "itemCode", render: r => `<b>${r.itemCode}</b>` }, { key: "qty", right: true }, { key: "status" }, { key: "transferToBranch" }, { key: "raw" }], "Chưa đọc được dòng tồn hợp lệ.");
+    checkPreviewDups(lastStockPreview, "btnApplyStockToSample", "stockDupWarning");
   });
   document.getElementById("btnApplyStockToSample")?.addEventListener("click", async () => {
     if (!lastStockPreview.length) previewBtn?.click();
@@ -1206,7 +1237,7 @@ function setupStock() {
     renderAdjustments();
     appNotify("Đã cập nhật Tồn CN / Chuyển CN vào Tổng quan.", "success");
   });
-  document.getElementById("btnClearStock")?.addEventListener("click", () => { document.getElementById("stockText").value = ""; lastStockPreview = []; renderPreview("stockPreviewRows", [], [{}, {}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); });
+  document.getElementById("btnClearStock")?.addEventListener("click", () => { document.getElementById("stockText").value = ""; lastStockPreview = []; renderPreview("stockPreviewRows", [], [{}, {}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnApplyStockToSample", "stockDupWarning"); });
 }
 
 function setupCancel() {
@@ -1214,6 +1245,7 @@ function setupCancel() {
   previewBtn?.addEventListener("click", () => {
     lastCancelPreview = parseCodeQtyText(document.getElementById("cancelText").value, { date: document.getElementById("cancelDate").value, branch: document.getElementById("cancelBranch").value, reason: document.getElementById("cancelReason").value });
     renderPreview("cancelPreviewRows", lastCancelPreview, [{ key: "date" }, { key: "branch" }, { key: "itemCode", render: r => `<b>${r.itemCode}</b>` }, { key: "qty", right: true }, { key: "reason" }, { key: "raw" }], "Chưa đọc được dòng hủy hợp lệ.");
+    checkPreviewDups(lastCancelPreview, "btnApplyCancelToSample", "cancelDupWarning");
   });
   document.getElementById("btnApplyCancelToSample")?.addEventListener("click", async () => {
     if (!lastCancelPreview.length) previewBtn?.click();
