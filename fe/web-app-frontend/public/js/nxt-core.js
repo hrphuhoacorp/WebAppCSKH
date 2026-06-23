@@ -963,6 +963,8 @@ function setDashboardStock({ closeDate, branch, itemCode, actualStock, soldNotPi
   row.actualStock = number(actualStock);
   row.soldNotPicked = number(soldNotPicked);
   row.stockStatus = stockStatus || "Tồn bình thường";
+  // Row có thể đang inactive từ session cũ — phải kích hoạt lại khi ghi tồn thực tế
+  row.inactive = false;
   // dbSaveRow bỏ ở đây — dbSyncBatch() ở cuối operation sẽ save toàn bộ
 
   // Nguyên tắc vận hành: tồn đầu ngày sau lấy theo Tồn thực tế cuối ngày trước.
@@ -1051,7 +1053,11 @@ function makeOpLog(type, rows, detail) {
     closeDate: dates, branch: branches, type,
     source: "", wrongCode: "", rightCode: "",
     qty, note: `${rows.length} dòng`, user: getCurrentUserName(), status: "Đã áp dụng",
-    detail: detail || rows.slice(0, 6).map(r => `${r.itemCode}:${r.qty ?? r.sapoSold}`).join(", ")
+    detail: detail || rows.map(r => {
+      const cd = r.date ? isoToDisplay(r.date) : (r.closeDate || "");
+      const qty = r.qty ?? r.sapoSold ?? 0;
+      return cd ? `${cd}|${r.itemCode}:${qty}` : `${r.itemCode}:${qty}`;
+    }).join(", ")
   };
 }
 
@@ -1768,8 +1774,12 @@ function renderAdjustments() {
 
 function parseLogDetail(detail) {
   return (detail || "").split(",").map(s => s.trim()).filter(Boolean).map(s => {
-    const m = s.match(/^(.+):(-?[\d.]+)$/);
-    return m ? { code: m[1].trim(), qty: Number(m[2]) } : null;
+    // New format (v2): "DD/MM/YYYY|CODE:QTY"
+    const v2 = s.match(/^(\d{2}\/\d{2}\/\d{4})\|(.+):(-?[\d.]+)$/);
+    if (v2) return { closeDate: v2[1], code: v2[2].trim(), qty: Number(v2[3]) };
+    // Old format (v1): "CODE:QTY"
+    const v1 = s.match(/^(.+):(-?[\d.]+)$/);
+    return v1 ? { code: v1[1].trim(), qty: Number(v1[2]), closeDate: null } : null;
   }).filter(Boolean);
 }
 
@@ -1793,22 +1803,46 @@ async function rollbackLog(idx) {
       try {
         const branches = log.branch.split("/").map(b => b.trim()).filter(Boolean);
         const items = parseLogDetail(log.detail);
+        // fallbackDates dùng cho log cũ (v1) không có date trong detail
+        const fallbackDates = log.closeDate.split(",").map(d => d.trim()).filter(Boolean);
+        const getCDs = (item) => (item.closeDate ? [item.closeDate] : fallbackDates);
 
         if (log.type === "Nạp Gói ra") {
-          items.forEach(({ code, qty }) =>
-            branches.forEach(br => upsertDashboardRow({ closeDate: log.closeDate, branch: br, itemCode: code, patch: { giftIn: -qty } })));
+          items.forEach(item =>
+            branches.forEach(br =>
+              getCDs(item).forEach(cd => {
+                const row = findDashboardRow(cd, br, item.code);
+                if (row) { row.giftIn = number(row.giftIn) - item.qty; cleanupZeroFields(row); }
+              })
+            )
+          );
         } else if (log.type === "Nạp Hủy giỏ") {
-          items.forEach(({ code, qty }) =>
-            branches.forEach(br => upsertDashboardRow({ closeDate: log.closeDate, branch: br, itemCode: code, patch: { cancelBasket: -qty } })));
+          items.forEach(item =>
+            branches.forEach(br =>
+              getCDs(item).forEach(cd => {
+                const row = findDashboardRow(cd, br, item.code);
+                if (row) { row.cancelBasket = number(row.cancelBasket) - item.qty; cleanupZeroFields(row); }
+              })
+            )
+          );
         } else if (log.type === "Nạp Sapo") {
-          items.forEach(({ code, qty }) =>
-            branches.forEach(br => upsertDashboardRow({ closeDate: log.closeDate, branch: br, itemCode: code, patch: { sapoSold: -qty } })));
+          items.forEach(item =>
+            branches.forEach(br =>
+              getCDs(item).forEach(cd => {
+                const row = findDashboardRow(cd, br, item.code);
+                if (row) { row.sapoSold = number(row.sapoSold) - item.qty; cleanupZeroFields(row); }
+              })
+            )
+          );
         } else if (log.type === "Nạp Tồn CN") {
-          items.forEach(({ code }) =>
-            branches.forEach(br => {
-              const row = findDashboardRow(log.closeDate, br, code);
-              if (row) { row.actualStock = 0; row.soldNotPicked = 0; row.stockStatus = ""; }
-            }));
+          items.forEach(item =>
+            branches.forEach(br =>
+              getCDs(item).forEach(cd => {
+                const row = findDashboardRow(cd, br, item.code);
+                if (row) { row.actualStock = 0; row.soldNotPicked = 0; row.stockStatus = ""; }
+              })
+            )
+          );
         } else if (log.type === "Sửa SL") {
           const m = (log.detail || "").match(/^(.+):\s*([-\d.]+)\s*→\s*([-\d.]+)/);
           if (m && log.rightCode) {
