@@ -1753,6 +1753,7 @@ function renderAdjustments() {
   const canDelete = userCanDeleteLogs();
   const ROLLBACK_TYPES = ["Nạp Gói ra", "Nạp Hủy giỏ", "Nạp Sapo", "Nạp Tồn CN", "Sửa SL"];
   const cols = [
+    { key: "_view", render: (r, idx) => `<button onclick="showLogDetail(${idx})" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Xem chi tiết nhập liệu">Xem</button>` },
     { key: "createdAt", render: r => r.createdAt || "" },
     { key: "closeDate" },
     { key: "branch" },
@@ -1781,6 +1782,67 @@ function parseLogDetail(detail) {
     const v1 = s.match(/^(.+):(-?[\d.]+)$/);
     return v1 ? { code: v1[1].trim(), qty: Number(v1[2]), closeDate: null } : null;
   }).filter(Boolean);
+}
+
+function showLogDetail(idx) {
+  const log = adjustmentsLog[idx];
+  if (!log) return;
+
+  const items = parseLogDetail(log.detail || "");
+  let bodyHtml = "";
+
+  if (log.type === "Sửa SL") {
+    bodyHtml = `<div style="padding:12px 16px;background:#f8fafc;border-radius:10px;font-size:13.5px;color:#334155;">${escapeHtml(log.detail || "Không có chi tiết")}</div>`;
+  } else if (log.type === "Đổi mã" || log.type === "Đề xuất đổi mã") {
+    bodyHtml = `<div style="padding:12px 16px;background:#f8fafc;border-radius:10px;font-size:13.5px;color:#334155;">
+      Mã sai: <b>${escapeHtml(log.wrongCode || "")}</b> → Mã đúng: <b>${escapeHtml(log.rightCode || "")}</b>
+      ${log.detail ? `<br><span style="color:#64748b;font-size:12px;">${escapeHtml(log.detail)}</span>` : ""}
+    </div>`;
+  } else if (items.length > 0) {
+    const totalQty = items.reduce((s, i) => s + Math.abs(i.qty), 0);
+    const rowsHtml = items.map(item => `
+      <tr>
+        <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">${escapeHtml(item.closeDate || log.closeDate)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-weight:700;">${escapeHtml(item.code)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;text-align:right;">${item.qty}</td>
+      </tr>`).join("");
+    bodyHtml = `
+      <div style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr style="background:#f8fafc;">
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Ngày</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Mã</th>
+            <th style="padding:8px 10px;text-align:right;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">SL</th>
+          </tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:6px;font-size:12px;color:#94a3b8;text-align:right;">${items.length} mã · Tổng SL: <b>${totalQty}</b></div>`;
+  } else if (log.detail) {
+    bodyHtml = `<div style="padding:12px 16px;background:#f8fafc;border-radius:10px;font-size:13.5px;color:#334155;word-break:break-all;">${escapeHtml(log.detail)}</div>`;
+  } else {
+    bodyHtml = `<div style="color:#94a3b8;font-size:13px;padding:10px 0;">Không có chi tiết nhập liệu.</div>`;
+  }
+
+  let overlay = document.getElementById("nxtDetailOverlay");
+  if (!overlay) { overlay = document.createElement("div"); overlay.id = "nxtDetailOverlay"; document.body.appendChild(overlay); }
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:26px 22px 20px;max-width:480px;width:92%;box-shadow:0 20px 40px rgba(0,0,0,.14);font-family:inherit;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-weight:800;font-size:15px;color:#1e293b;">${escapeHtml(log.type)}</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:3px;">${escapeHtml(log.createdAt || "")} · <b>${escapeHtml(log.branch)}</b> · ${escapeHtml(log.user || "")}</div>
+        </div>
+        <button id="nxtDetailClose" style="background:none;border:none;cursor:pointer;font-size:22px;color:#94a3b8;line-height:1;padding:0 2px;">×</button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Chi tiết nhập liệu</div>
+      ${bodyHtml}
+      ${log.note ? `<div style="margin-top:10px;font-size:12px;color:#64748b;">Ghi chú: ${escapeHtml(log.note)}</div>` : ""}
+    </div>`;
+  const close = () => { overlay.style.display = "none"; overlay.innerHTML = ""; };
+  document.getElementById("nxtDetailClose").onclick = close;
+  overlay.onclick = e => { if (e.target === overlay) close(); };
 }
 
 async function rollbackLog(idx) {

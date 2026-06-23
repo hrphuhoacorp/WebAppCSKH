@@ -695,6 +695,7 @@ export default function NxtPage() {
                 <TableContainer sx={{ borderRadius: '14px', border: '1px solid #e5e7eb', maxHeight: 360 }}>
                     <Table stickyHeader size="small">
                         <TableHead><TableRow>
+                            <TableCell sx={thSx}></TableCell>
                             <TableCell sx={thLSx}>Thời gian</TableCell>
                             <TableCell sx={thSx}>Ngày</TableCell>
                             <TableCell sx={thSx}>CN</TableCell>
@@ -708,7 +709,7 @@ export default function NxtPage() {
                             <TableCell id="adjustmentThaoTacTh" sx={thSx}>Thao tác</TableCell>
                         </TableRow></TableHead>
                         <TableBody id="adjustmentRows">
-                            <TableRow><TableCell colSpan={11} sx={{ textAlign: 'center', color: '#94a3b8', py: 3 }}>Chưa có điều chỉnh/đề xuất.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={12} sx={{ textAlign: 'center', color: '#94a3b8', py: 3 }}>Chưa có điều chỉnh/đề xuất.</TableCell></TableRow>
                         </TableBody>
                     </Table>
                 </TableContainer>
