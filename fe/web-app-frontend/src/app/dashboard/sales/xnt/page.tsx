@@ -307,7 +307,7 @@ export default function NxtPage() {
                 <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
                     <button id="btnRefreshOverview" type="button" style={{ display: 'none' }} />
                     <Button id="btnExportCsv" variant="outlined" size="small" sx={ghostBtn}>Xuất Excel</Button>
-                    <button id="btnDeleteSelected" type="button" style={{ display: 'none', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 8, padding: '4px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Xóa đã chọn</button>
+
                     {filterLoading && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#086839', fontSize: 12, fontWeight: 600 }}>
                             <Box sx={{ width: 14, height: 14, border: '2px solid rgba(8,104,57,0.2)', borderTopColor: '#086839', borderRadius: '50%', animation: 'nxt-spin .8s linear infinite', flexShrink: 0 }} />
@@ -384,7 +384,35 @@ export default function NxtPage() {
                 </Box>
 
                 {/* Overview table */}
-                <PT>Chi tiết dữ liệu</PT>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}
+                >
+                    <PT>Chi tiết dữ liệu</PT>
+
+                    <button
+                        id="btnDeleteSelected"
+                        type="button"
+                        style={{
+                            display: 'none',
+                            background: '#fee2e2',
+                            color: '#dc2626',
+                            border: '1px solid #fecaca',
+                            borderRadius: 8,
+                            padding: '4px 14px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'inherit'
+                        }}
+                    >
+                        Xóa đã chọn
+                    </button>
+                </Box>
+
                 <TableContainer sx={{ borderRadius: '14px', border: '1px solid #e5e7eb', maxHeight: 460 }}>
                     <Table stickyHeader size="small">
                         <TableHead>
