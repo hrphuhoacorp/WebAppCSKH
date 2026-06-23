@@ -431,7 +431,7 @@ function syncPermissionUi() {
     }
   }
   const suraTh = document.getElementById("overviewSuraTh");
-  if (suraTh) suraTh.style.display = canEQ ? "" : "none";
+  if (suraTh) suraTh.style.display = (canEQ || userCanDeleteLogs()) ? "" : "none";
 }
 
 function setDefaultBranchForUser() {
@@ -653,6 +653,7 @@ function renderDashboardRows(rows) {
     return;
   }
   const canEQ = userCanEditQty();
+  const canDel = userCanDeleteLogs();
   tbody.innerHTML = rows.map(row => {
     const expected = calcExpectedStock(row);
     const compare = calcCompareStock(row);
@@ -686,13 +687,16 @@ function renderDashboardRows(rows) {
     const editBtn = canEQ
       ? `<button onclick="startInlineEdit('${d}','${b}','${c}')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Chỉnh sửa trực tiếp dòng này">Sửa</button>`
       : "";
+    const delBtn = canDel
+      ? `<button onclick="deleteOverviewRow('${d}','${b}','${c}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:3px;" title="Xóa mềm dòng này">Xóa</button>`
+      : "";
     return `<tr>
       <td>${row.closeDate}</td><td>${row.branch}</td><td><b>${row.itemCode}</b></td><td>${renderRowLabels(row)}</td>
       <td class="right">${number(row.openingStock)}</td><td class="right">${number(row.giftIn)}</td><td class="right">${number(row.receiveBranch)}</td>
       <td class="right">${number(row.transferBranch)}</td><td class="right">${number(row.cancelBasket)}</td><td class="right">${number(row.sapoSold)}</td>
       <td class="right">${number(row.adjustment)}</td><td class="right">${renderActualStockCell(row)}</td><td class="right">${renderSoldNotPickedCell(row)}</td>
       <td class="right">${compare}</td><td class="right">${expected}</td><td>${getDiffBadge(diff)}</td><td>${escapeHtml(guessDiffReason(row))}</td>
-      <td>${editBtn}</td>
+      <td style="white-space:nowrap;">${editBtn}${delBtn}</td>
     </tr>`;
   }).join("");
 }
@@ -710,6 +714,52 @@ function cancelInlineEdit() {
   overviewEditKey = null;
   overviewEditDraft = {};
   renderDashboardByPermission();
+}
+
+function deleteOverviewRow(closeDate, branch, itemCode) {
+  const row = findDashboardRow(closeDate, branch, itemCode);
+  if (!row) return;
+  nxtConfirm({
+    title: "Xác nhận xóa dòng?",
+    message: `Xóa mềm <b>${escapeHtml(itemCode)}</b> · ${escapeHtml(branch)} · ${escapeHtml(closeDate)}<br><br>Tất cả số liệu về 0, ẩn khỏi tổng quan.<br>Tồn đầu ngày sau sẽ được xóa nếu liên quan.<br><br>Hành động này <b>KHÔNG thể phục hồi tự động</b>.`,
+    onConfirm: async () => {
+      try {
+        const prevActualStock = number(row.actualStock);
+        // Zero toàn bộ field, mark inactive
+        ["openingStock", "giftIn", "receiveBranch", "transferBranch", "cancelBasket", "sapoSold", "adjustment", "actualStock", "soldNotPicked"].forEach(f => { row[f] = 0; });
+        row.openingSource = ""; row.stockStatus = ""; row.inactive = true;
+
+        // Nếu có actualStock → xóa tồn đầu ngày sau nếu được tạo từ dòng này
+        if (prevActualStock !== 0) {
+          const nextDate = addDaysToDisplayDate(closeDate, 1);
+          const nextRow = findDashboardRow(nextDate, branch, itemCode);
+          if (nextRow && nextRow.openingSource === `Tự lấy từ tồn thực tế cuối ngày ${closeDate}`) {
+            nextRow.openingStock = 0; nextRow.openingSource = "";
+            cleanupZeroFields(nextRow); maybeDeactivateRow(nextRow);
+          }
+        }
+
+        // Ghi log xóa
+        const logEntry = {
+          createdAt: new Date().toLocaleString("vi-VN"),
+          closeDate, branch, type: "Xóa dòng",
+          source: "", wrongCode: itemCode, rightCode: "",
+          qty: prevActualStock, note: "Xóa mềm từ Tổng quan",
+          user: getCurrentUserName(), status: "Đã xóa",
+          detail: `${closeDate}|${itemCode}:${prevActualStock}`
+        };
+        adjustmentsLog.unshift(logEntry);
+        dbSaveLog(logEntry);
+
+        await dbSyncBatch();
+        renderDashboardByPermission();
+        renderAdjustments();
+        appNotify(`Đã xóa dòng ${itemCode} · ${branch} · ${closeDate}`, "success");
+      } catch (e) {
+        appNotify("Lỗi khi xóa: " + (e.message || e), "error");
+      }
+    }
+  });
 }
 
 function readInlineEditDraft() {
