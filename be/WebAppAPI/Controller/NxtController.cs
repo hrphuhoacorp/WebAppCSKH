@@ -193,7 +193,7 @@ namespace WebAppAPI.Controllers
                     rightCode = d?.GetValueOrDefault("rightCode").GetString() ?? "",
                     qty = d?.GetValueOrDefault("qty").GetDecimal() ?? 0,
                     note = d?.GetValueOrDefault("note").GetString() ?? "",
-                    user = l.StaffCode ?? "",
+                    user = d?.GetValueOrDefault("userName").GetString() is { Length: > 0 } uname ? uname : (l.StaffCode ?? ""),
                     status = d?.GetValueOrDefault("status").GetString() ?? "",
                     detail = d?.GetValueOrDefault("detail").GetString() ?? "",
                 };
