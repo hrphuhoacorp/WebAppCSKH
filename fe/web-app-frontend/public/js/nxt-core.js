@@ -1788,16 +1788,28 @@ function showLogDetail(idx) {
   const log = adjustmentsLog[idx];
   if (!log) return;
 
-  const items = parseLogDetail(log.detail || "");
+  const FIELD_LABEL = { actualStock: "Tồn thực tế", giftIn: "Gói ra", receiveBranch: "Nhận CN", transferBranch: "Chuyển CN", cancelBasket: "Hủy giỏ", openingStock: "Tồn đầu", soldNotPicked: "Bán chưa lấy", adjustment: "Điều chỉnh", nextOpeningStock: "Tồn đầu ngày sau", sapoSold: "Sapo bán" };
+  const CODE_TYPES = ["Nạp Gói ra", "Nạp Hủy giỏ", "Nạp Sapo", "Nạp Tồn CN"];
+  const WRONG_CODE_TYPES = ["Đổi mã", "Đề xuất đổi mã", "Đổi mã tạm / nhập nhầm", "Sai mã Sapo / check đơn"];
+
+  const items = CODE_TYPES.includes(log.type) ? parseLogDetail(log.detail || "") : [];
   let bodyHtml = "";
 
   if (log.type === "Sửa SL") {
     bodyHtml = `<div style="padding:12px 16px;background:#f8fafc;border-radius:10px;font-size:13.5px;color:#334155;">${escapeHtml(log.detail || "Không có chi tiết")}</div>`;
-  } else if (log.type === "Đổi mã" || log.type === "Đề xuất đổi mã") {
-    bodyHtml = `<div style="padding:12px 16px;background:#f8fafc;border-radius:10px;font-size:13.5px;color:#334155;">
+  } else if (WRONG_CODE_TYPES.includes(log.type)) {
+    const [fieldsPart, syncNote] = (log.detail || "").split("|").map(s => s.trim());
+    const fieldRows = (fieldsPart || "").split(",").map(s => s.trim()).filter(Boolean).map(s => {
+      const m = s.match(/^(\w+):(-?[\d.]+)$/);
+      return m ? `<tr><td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;">${FIELD_LABEL[m[1]] || m[1]}</td><td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;">${m[2]}</td></tr>` : null;
+    }).filter(Boolean).join("");
+    bodyHtml = `<div style="padding:10px 14px;background:#fafafa;border-radius:10px;margin-bottom:8px;font-size:13.5px;">
       Mã sai: <b>${escapeHtml(log.wrongCode || "")}</b> → Mã đúng: <b>${escapeHtml(log.rightCode || "")}</b>
-      ${log.detail ? `<br><span style="color:#64748b;font-size:12px;">${escapeHtml(log.detail)}</span>` : ""}
-    </div>`;
+    </div>
+    ${fieldRows ? `<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="background:#f8fafc;"><th style="padding:7px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Trường</th><th style="padding:7px 10px;text-align:right;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">SL dịch chuyển</th></tr></thead>
+      <tbody>${fieldRows}</tbody></table></div>` : ""}
+    ${syncNote ? `<div style="margin-top:8px;font-size:12px;color:#64748b;">↳ ${escapeHtml(syncNote)}</div>` : ""}`;
   } else if (items.length > 0) {
     const totalQty = items.reduce((s, i) => s + Math.abs(i.qty), 0);
     const rowsHtml = items.map(item => `
