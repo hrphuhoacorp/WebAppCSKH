@@ -431,7 +431,13 @@ function syncPermissionUi() {
     }
   }
   const suraTh = document.getElementById("overviewSuraTh");
-  if (suraTh) suraTh.style.display = (canEQ || userCanDeleteLogs()) ? "" : "none";
+  if (suraTh) suraTh.style.display = canEQ ? "" : "none";
+  const cbTh = document.getElementById("overviewCbTh");
+  if (cbTh) cbTh.style.display = userCanDeleteLogs() ? "" : "none";
+  const delSelBtn = document.getElementById("btnDeleteSelected");
+  if (delSelBtn && !delSelBtn._nxtBound) { delSelBtn.addEventListener("click", deleteSelectedRows); delSelBtn._nxtBound = true; }
+  const selAll = document.getElementById("overviewSelectAll");
+  if (selAll && !selAll._nxtBound) { selAll.addEventListener("change", e => toggleAllOverviewRows(e.target.checked)); selAll._nxtBound = true; }
 }
 
 function setDefaultBranchForUser() {
@@ -648,8 +654,9 @@ function renderDashboardRows(rows) {
   const tbody = document.getElementById("dashboardRows");
   if (!tbody) return;
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="18">Không có dữ liệu theo bộ lọc hiện tại.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="19">Không có dữ liệu theo bộ lọc hiện tại.</td></tr>';
     updateKpis([]);
+    updateDeleteSelectedBtn();
     return;
   }
   const canEQ = userCanEditQty();
@@ -687,18 +694,21 @@ function renderDashboardRows(rows) {
     const editBtn = canEQ
       ? `<button onclick="startInlineEdit('${d}','${b}','${c}')" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Chỉnh sửa trực tiếp dòng này">Sửa</button>`
       : "";
-    const delBtn = canDel
-      ? `<button onclick="deleteOverviewRow('${d}','${b}','${c}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:3px;" title="Xóa mềm dòng này">Xóa</button>`
-      : "";
+    const cbTd = canDel
+      ? `<td style="padding:4px 8px;"><input type="checkbox" class="overviewRowCb" data-key="${rowKey}" onchange="toggleOverviewRow('${rowKey}', this.checked)" ${selectedOverviewRows.has(rowKey) ? "checked" : ""} style="cursor:pointer;"></td>`
+      : `<td></td>`;
     return `<tr>
+      ${cbTd}
       <td>${row.closeDate}</td><td>${row.branch}</td><td><b>${row.itemCode}</b></td><td>${renderRowLabels(row)}</td>
       <td class="right">${number(row.openingStock)}</td><td class="right">${number(row.giftIn)}</td><td class="right">${number(row.receiveBranch)}</td>
       <td class="right">${number(row.transferBranch)}</td><td class="right">${number(row.cancelBasket)}</td><td class="right">${number(row.sapoSold)}</td>
       <td class="right">${number(row.adjustment)}</td><td class="right">${renderActualStockCell(row)}</td><td class="right">${renderSoldNotPickedCell(row)}</td>
       <td class="right">${compare}</td><td class="right">${expected}</td><td>${getDiffBadge(diff)}</td><td>${escapeHtml(guessDiffReason(row))}</td>
-      <td style="white-space:nowrap;">${editBtn}${delBtn}</td>
+      <td style="white-space:nowrap;">${editBtn}</td>
     </tr>`;
   }).join("");
+  updateOverviewSelectAll();
+  updateDeleteSelectedBtn();
 }
 
 function startInlineEdit(closeDate, branch, itemCode) {
@@ -716,45 +726,88 @@ function cancelInlineEdit() {
   renderDashboardByPermission();
 }
 
-function deleteOverviewRow(closeDate, branch, itemCode) {
+let selectedOverviewRows = new Set();
+
+function toggleOverviewRow(key, checked) {
+  if (checked) selectedOverviewRows.add(key);
+  else selectedOverviewRows.delete(key);
+  updateOverviewSelectAll();
+  updateDeleteSelectedBtn();
+}
+
+function toggleAllOverviewRows(checked) {
+  document.querySelectorAll(".overviewRowCb").forEach(cb => {
+    cb.checked = checked;
+    if (checked) selectedOverviewRows.add(cb.dataset.key);
+    else selectedOverviewRows.delete(cb.dataset.key);
+  });
+  updateDeleteSelectedBtn();
+}
+
+function updateOverviewSelectAll() {
+  const all = document.querySelectorAll(".overviewRowCb");
+  const n = [...all].filter(cb => cb.checked).length;
+  const el = document.getElementById("overviewSelectAll");
+  if (!el) return;
+  el.checked = n > 0 && n === all.length;
+  el.indeterminate = n > 0 && n < all.length;
+}
+
+function updateDeleteSelectedBtn() {
+  const btn = document.getElementById("btnDeleteSelected");
+  if (!btn) return;
+  const n = selectedOverviewRows.size;
+  btn.style.display = n > 0 ? "" : "none";
+  btn.textContent = `Xóa ${n} dòng đã chọn`;
+}
+
+function _applyRowSoftDelete(closeDate, branch, itemCode) {
   const row = findDashboardRow(closeDate, branch, itemCode);
-  if (!row) return;
+  if (!row) return 0;
+  const prevActual = number(row.actualStock);
+  ["openingStock", "giftIn", "receiveBranch", "transferBranch", "cancelBasket", "sapoSold", "adjustment", "actualStock", "soldNotPicked"].forEach(f => { row[f] = 0; });
+  row.openingSource = ""; row.stockStatus = ""; row.inactive = true;
+  if (prevActual !== 0) {
+    const nextDate = addDaysToDisplayDate(closeDate, 1);
+    const nextRow = findDashboardRow(nextDate, branch, itemCode);
+    if (nextRow && nextRow.openingSource === `Tự lấy từ tồn thực tế cuối ngày ${closeDate}`) {
+      nextRow.openingStock = 0; nextRow.openingSource = "";
+      cleanupZeroFields(nextRow); maybeDeactivateRow(nextRow);
+    }
+  }
+  return prevActual;
+}
+
+function deleteSelectedRows() {
+  const keys = [...selectedOverviewRows];
+  if (!keys.length) return;
+  const n = keys.length;
   nxtConfirm({
-    title: "Xác nhận xóa dòng?",
-    message: `Xóa mềm <b>${escapeHtml(itemCode)}</b> · ${escapeHtml(branch)} · ${escapeHtml(closeDate)}<br><br>Tất cả số liệu về 0, ẩn khỏi tổng quan.<br>Tồn đầu ngày sau sẽ được xóa nếu liên quan.<br><br>Hành động này <b>KHÔNG thể phục hồi tự động</b>.`,
+    title: `Xóa ${n} dòng đã chọn?`,
+    message: `Sẽ xóa mềm <b>${n} dòng</b>.<br>Tất cả số liệu về 0, tồn đầu ngày sau liên quan sẽ được xóa.<br><br>Hành động này <b>KHÔNG thể phục hồi tự động</b>.`,
     onConfirm: async () => {
       try {
-        const prevActualStock = number(row.actualStock);
-        // Zero toàn bộ field, mark inactive
-        ["openingStock", "giftIn", "receiveBranch", "transferBranch", "cancelBasket", "sapoSold", "adjustment", "actualStock", "soldNotPicked"].forEach(f => { row[f] = 0; });
-        row.openingSource = ""; row.stockStatus = ""; row.inactive = true;
-
-        // Nếu có actualStock → xóa tồn đầu ngày sau nếu được tạo từ dòng này
-        if (prevActualStock !== 0) {
-          const nextDate = addDaysToDisplayDate(closeDate, 1);
-          const nextRow = findDashboardRow(nextDate, branch, itemCode);
-          if (nextRow && nextRow.openingSource === `Tự lấy từ tồn thực tế cuối ngày ${closeDate}`) {
-            nextRow.openingStock = 0; nextRow.openingSource = "";
-            cleanupZeroFields(nextRow); maybeDeactivateRow(nextRow);
-          }
-        }
-
-        // Ghi log xóa
+        const deleted = keys.map(key => {
+          const [cd, br, ic] = key.split("||");
+          const prev = _applyRowSoftDelete(cd, br, ic);
+          return { cd, ic, prev };
+        });
         const logEntry = {
           createdAt: new Date().toLocaleString("vi-VN"),
-          closeDate, branch, type: "Xóa dòng",
-          source: "", wrongCode: itemCode, rightCode: "",
-          qty: prevActualStock, note: "Xóa mềm từ Tổng quan",
+          closeDate: [...new Set(deleted.map(d => d.cd))].join(", ").slice(0, 40),
+          branch: [...new Set(keys.map(k => k.split("||")[1]))].join("/"),
+          type: "Xóa dòng", source: "", wrongCode: "", rightCode: "",
+          qty: n, note: `Xóa mềm ${n} dòng từ Tổng quan`,
           user: getCurrentUserName(), status: "Đã xóa",
-          detail: `${closeDate}|${itemCode}:${prevActualStock}`
+          detail: deleted.map(d => `${d.cd}|${d.ic}:${d.prev}`).join(", ")
         };
         adjustmentsLog.unshift(logEntry);
         dbSaveLog(logEntry);
-
+        selectedOverviewRows.clear();
         await dbSyncBatch();
         renderDashboardByPermission();
         renderAdjustments();
-        appNotify(`Đã xóa dòng ${itemCode} · ${branch} · ${closeDate}`, "success");
+        appNotify(`Đã xóa ${n} dòng.`, "success");
       } catch (e) {
         appNotify("Lỗi khi xóa: " + (e.message || e), "error");
       }
