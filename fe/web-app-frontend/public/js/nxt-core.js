@@ -1886,7 +1886,7 @@ async function rollbackLog(idx) {
             branches.forEach(br =>
               getCDs(item).forEach(cd => {
                 const row = findDashboardRow(cd, br, item.code);
-                if (row) { row.giftIn = number(row.giftIn) - item.qty; cleanupZeroFields(row); }
+                if (row) { row.giftIn = number(row.giftIn) - item.qty; cleanupZeroFields(row); maybeDeactivateRow(row); }
               })
             )
           );
@@ -1895,7 +1895,7 @@ async function rollbackLog(idx) {
             branches.forEach(br =>
               getCDs(item).forEach(cd => {
                 const row = findDashboardRow(cd, br, item.code);
-                if (row) { row.cancelBasket = number(row.cancelBasket) - item.qty; cleanupZeroFields(row); }
+                if (row) { row.cancelBasket = number(row.cancelBasket) - item.qty; cleanupZeroFields(row); maybeDeactivateRow(row); }
               })
             )
           );
@@ -1904,7 +1904,7 @@ async function rollbackLog(idx) {
             branches.forEach(br =>
               getCDs(item).forEach(cd => {
                 const row = findDashboardRow(cd, br, item.code);
-                if (row) { row.sapoSold = number(row.sapoSold) - item.qty; cleanupZeroFields(row); }
+                if (row) { row.sapoSold = number(row.sapoSold) - item.qty; cleanupZeroFields(row); maybeDeactivateRow(row); }
               })
             )
           );
@@ -1913,7 +1913,17 @@ async function rollbackLog(idx) {
             branches.forEach(br =>
               getCDs(item).forEach(cd => {
                 const row = findDashboardRow(cd, br, item.code);
-                if (row) { row.actualStock = 0; row.soldNotPicked = 0; row.stockStatus = ""; }
+                if (row) {
+                  row.actualStock = 0; row.soldNotPicked = 0; row.stockStatus = "";
+                  cleanupZeroFields(row); maybeDeactivateRow(row);
+                  // Xóa luôn tồn đầu ngày sau nếu được tạo tự động từ thao tác này
+                  const nextDate = addDaysToDisplayDate(cd, 1);
+                  const nextRow = findDashboardRow(nextDate, br, item.code);
+                  if (nextRow && nextRow.openingSource === `Tự lấy từ tồn thực tế cuối ngày ${cd}`) {
+                    nextRow.openingStock = 0; nextRow.openingSource = "";
+                    cleanupZeroFields(nextRow); maybeDeactivateRow(nextRow);
+                  }
+                }
               })
             )
           );
@@ -1926,7 +1936,7 @@ async function rollbackLog(idx) {
             if (fieldKey) {
               branches.forEach(br => {
                 const row = findDashboardRow(log.closeDate, br, log.rightCode);
-                if (row) row[fieldKey] = oldVal;
+                if (row) { row[fieldKey] = oldVal; cleanupZeroFields(row); maybeDeactivateRow(row); }
               });
             }
           }
