@@ -625,7 +625,7 @@ export default function SapoDashboardPage() {
             <LoadingOverlay open={loading} text="Đang tải dữ liệu..." fullScreen />
 
             <PageHeader
-                title="Dashboard Sapo"
+                title="Tổng Quan Giỏ Quà"
                 subtitle="Theo dõi doanh thu gói quà · bám sát số liệu từng ngày"
                 icon={<BarChartIcon />}
                 gradient="linear-gradient(135deg, #086839 0%, #0a9e4a 100%)"

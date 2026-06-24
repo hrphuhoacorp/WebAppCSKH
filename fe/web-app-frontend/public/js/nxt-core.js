@@ -358,6 +358,27 @@ function nxtConfirm({ title, message, onConfirm, danger = true }) {
   overlay.onclick = e => { if (e.target === overlay) close(); };
 }
 
+function appConfirm(title, message, onConfirm, { confirmLabel = "Xác nhận", variant = "danger" } = {}) {
+  const overlay = document.getElementById("appConfirmOverlay");
+  const titleEl = document.getElementById("appConfirmTitle");
+  const msgEl = document.getElementById("appConfirmMsg");
+  const okBtn = document.getElementById("appConfirmOk");
+  const cancelBtn = document.getElementById("appConfirmCancel");
+  if (!overlay || !titleEl || !msgEl || !okBtn || !cancelBtn) {
+    if (window._nativeConfirm ? window._nativeConfirm(`${title}\n\n${message}`) : confirm(`${title}\n\n${message}`)) onConfirm();
+    return;
+  }
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+  okBtn.textContent = confirmLabel;
+  okBtn.className = "app-confirm-btn-ok" + (variant === "safe" ? " green" : "");
+  overlay.classList.add("show");
+  const close = () => overlay.classList.remove("show");
+  okBtn.onclick = () => { close(); onConfirm(); };
+  cancelBtn.onclick = close;
+  overlay.onclick = e => { if (e.target === overlay) close(); };
+}
+
 function setupAppPopup() {
   const { overlay, ok } = appPopupElements();
   ok?.addEventListener("click", hideAppPopup);
@@ -365,7 +386,7 @@ function setupAppPopup() {
     if (event.target === overlay && !overlay.classList.contains("loading")) hideAppPopup();
   });
 
-  // Bỏ alert mặc định của trình duyệt để toàn bộ thông báo đi qua popup nội bộ.
+  window._nativeConfirm = window.confirm;
   window.alert = function (message) { appNotify(message, "info"); };
 
   const loadingMap = {
@@ -2545,15 +2566,21 @@ async function confirmSapoPending(id) {
 async function deleteSapoPending(id) {
   const record = sapoPendingList.find(r => r.id === id);
   if (!record) return;
-  if (!confirm(`Hủy treo "${record.itemCode}" ngày ${record.closeDate}?\n\nLưu ý: Điều chỉnh âm đã ghi vào tổng quan sẽ KHÔNG tự hoàn tác. Bạn cần sửa thủ công nếu cần.`)) return;
-  try {
-    const res = await fetch(`${SAPO_PENDING_API}/${id}`, { method: "DELETE", credentials: "include" });
-    if (!res.ok) { appNotify("Lỗi khi hủy treo.", "error", true); return; }
-    await loadSapoPending();
-    renderSapoPendingCards();
-    renderSapoPendingBanner();
-    appNotify("Đã hủy treo.", "success");
-  } catch (e) { appNotify("Lỗi kết nối.", "error", true); }
+  appConfirm(
+    `Hủy treo "${record.itemCode}"?`,
+    `Ngày ra: ${record.closeDate}\n\nLưu ý: Điều chỉnh âm đã ghi vào tổng quan sẽ không tự hoàn tác. Bạn cần sửa thủ công nếu cần.`,
+    async () => {
+      try {
+        const res = await fetch(`${SAPO_PENDING_API}/${id}`, { method: "DELETE", credentials: "include" });
+        if (!res.ok) { appNotify("Lỗi khi hủy treo.", "error", true); return; }
+        await loadSapoPending();
+        renderSapoPendingCards();
+        renderSapoPendingBanner();
+        appNotify("Đã hủy treo.", "success");
+      } catch (e) { appNotify("Lỗi kết nối.", "error", true); }
+    },
+    { confirmLabel: "Hủy treo", variant: "danger" }
+  );
 }
 
 function setupSapoPending() {

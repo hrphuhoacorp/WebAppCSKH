@@ -11,6 +11,10 @@ import {
     ArrowLeftRight,
     Library,
     Import,
+    Briefcase,
+    UserSearch,
+    Mail,
+    Settings,
 } from 'lucide-react';
 import React from 'react';
 
@@ -33,19 +37,19 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Chăm sóc khách hàng',
         children: [
             {
-                title: 'Dashboard',
+                title: 'Tổng Quan CSKH',
                 href: '/dashboard/customer_care/revenue_report',
                 icon: LayoutDashboard,
                 permissions: ['cskh.dashboard.view'],
             },
             {
-                title: 'Danh sách đơn hàng',
+                title: 'Danh Sách Đơn Hàng',
                 href: '/dashboard/customer_care/orders',
                 icon: ShoppingCart,
                 permissions: ['cskh.order.view_list'],
             },
             {
-                title: 'Danh sách khách hàng',
+                title: 'Danh Sách Khách Hàng',
                 href: '/dashboard/customer_care/customers',
                 icon: Users,
                 permissions: ['cskh.customer.view_list'],
@@ -56,7 +60,7 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Giỏ Quà',
         children: [
             {
-                title: 'Dashboard',
+                title: 'Tổng Quan Giỏ Quà',
                 href: '/dashboard/gift_basket/dashboard',
                 icon: LayoutDashboard,
                 permissions: ['gift.basket.view', 'gift.change_request.view'],
@@ -68,19 +72,19 @@ export const sidebarMenu: SidebarGroup[] = [
                 permissions: ['gift.basket.view'],
             },
             {
-                title: 'Danh sách quy đổi mã',
+                title: 'Danh Sách Quy Đổi Mã',
                 href: '/dashboard/gift_basket/baskets',
                 icon: Library,
                 permissions: ['gift.basket.view'],
             },
             {
-                title: 'Yêu cầu đổi mã',
+                title: 'Yêu Cầu Đổi Mã',
                 href: '/dashboard/gift_basket/change_requests',
                 icon: ArrowLeftRight,
                 permissions: ['gift.change_request.view'],
             },
             {
-                title: 'Duyệt mã cần đổi',
+                title: 'Duyệt Mã Cần Đổi',
                 href: '/dashboard/gift_basket/code_mappings',
                 icon: Checklist,
                 permissions: ['gift.change_request.handle'],
@@ -91,13 +95,13 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Bán Hàng',
         children: [
             {
-                title: 'Dashboard',
+                title: 'Tổng Quan Bán Hàng',
                 href: '/dashboard/sales/revenue_report',
                 icon: LayoutDashboard,
                 permissions: ['sales.dashboard.view'],
             },
             {
-                title: 'Danh sách đơn hàng',
+                title: 'Danh Sách Đơn Hàng',
                 href: '/dashboard/sales/orders',
                 icon: ShoppingCart,
                 permissions: ['sales.order.view_list'],
@@ -109,7 +113,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 permissions: ['sales.nxt.view'],
             },
             {
-                title: 'Tỉ lệ quay lại',
+                title: 'Tỉ Lệ Quay Lại',
                 href: '/dashboard/sales/return_rate',
                 icon: TrendingUp,
                 permissions: ['cskh.customer.return_rate'],
@@ -117,10 +121,45 @@ export const sidebarMenu: SidebarGroup[] = [
         ],
     },
     {
-        title: 'Nhân sự',
+        title: 'Tuyển Dụng',
         children: [
             {
-                title: 'Danh sách nhân viên',
+                title: 'Tổng Quan Tuyển Dụng',
+                href: '/dashboard/recruitment/dashboard',
+                icon: LayoutDashboard,
+                permissions: ['recruitment.view'],
+            },
+            {
+                title: 'Chiến Dịch',
+                href: '/dashboard/recruitment/campaigns',
+                icon: Briefcase,
+                permissions: ['recruitment.view'],
+            },
+            {
+                title: 'Ứng Viên',
+                href: '/dashboard/recruitment/candidates',
+                icon: UserSearch,
+                permissions: ['recruitment.view'],
+            },
+            {
+                title: 'Soạn Thảo Email',
+                href: '/dashboard/recruitment/compose_mail',
+                icon: Mail,
+                permissions: ['recruitment.edit'],
+            },
+            {
+                title: 'Cài Đặt Tuyển Dụng',
+                href: '/dashboard/recruitment/settings',
+                icon: Settings,
+                permissions: ['recruitment.settings'],
+            },
+        ],
+    },
+    {
+        title: 'Quản Trị Nhân sự',
+        children: [
+            {
+                title: 'Danh Sách Nhân Viên',
                 href: '/dashboard/staff/staff_list',
                 icon: Users,
                 permissions: ['staff.view_list'],
@@ -150,7 +189,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 permissions: ['staff.view_list']
             },
             {
-                title: 'Tổng hợp link',
+                title: 'Tổng Hợp Link',
                 href: '/dashboard/links',
                 icon: Link2,
             },
@@ -160,7 +199,7 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Nội Bộ',
         children: [
             {
-                title: 'Quản lý tin nội bộ',
+                title: 'Quản Lý Tin Nội Bộ',
                 href: '/dashboard/news',
                 icon: CampaignRounded,
                 permissions: ['news.create'],
@@ -168,10 +207,10 @@ export const sidebarMenu: SidebarGroup[] = [
         ],
     },
     {
-        title: 'Thông tin cá nhân',
+        title: 'Thông Tin Cá Nhân',
         children: [
             {
-                title: 'Thông tin cá nhân',
+                title: 'Thông Tin Cá Nhân',
                 href: '/dashboard/profile',
                 icon: User,
             },

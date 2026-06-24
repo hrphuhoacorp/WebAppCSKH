@@ -98,7 +98,7 @@ export default function DashboardPage() {
             <LoadingOverlay open={loading} fullScreen text="Đang tải dashboard..." />
 
             <PageHeader
-                title="Dashboard"
+                title="Tổng Quan Bán Hàng"
                 subtitle="Báo cáo kinh doanh tổng quan theo thời gian thực"
                 icon={<InsightsRounded />}
                 gradient="linear-gradient(135deg, #086839 0%, #16a34a 100%)"

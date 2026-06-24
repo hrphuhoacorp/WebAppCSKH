@@ -45,6 +45,12 @@ builder.Services.AddScoped<IGiftBasketRepository, GiftBasketRepository>();
 builder.Services.AddScoped<IGiftCodeMappingRepository, GiftCodeMappingRepository>();
 builder.Services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
 builder.Services.AddScoped<IMessageReportRepository, MessageReportRepository>();
+builder.Services.AddScoped<IRecruitmentCampaignRepository, RecruitmentCampaignRepository>();
+builder.Services.AddScoped<IRecruitmentCandidateRepository, RecruitmentCandidateRepository>();
+builder.Services.AddScoped<IRecruitmentCandidateHistoryRepository, RecruitmentCandidateHistoryRepository>();
+builder.Services.AddScoped<IRecruitmentSettingsRepository, RecruitmentSettingsRepository>();
+builder.Services.AddScoped<IRecruitmentCategoryRepository, RecruitmentCategoryRepository>();
+builder.Services.AddScoped<IRecruitmentMailTemplateRepository, RecruitmentMailTemplateRepository>();
 
 //Cache
 builder.Services.AddMemoryCache();
@@ -54,6 +60,8 @@ builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 1048576000;
 });
+
+// sent email
 
 // Cấu hình giới hạn cho Form Options khi upload Multipart (1000MB)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
@@ -237,6 +245,7 @@ builder
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
@@ -246,6 +255,9 @@ builder.Services.AddScoped<IMediaService, MediaService>();
 builder.Services.AddScoped<IInternalNewsService, InternalNewsService>();
 builder.Services.AddScoped<IGiftBasketService, GiftBasketService>();
 builder.Services.AddScoped<IMessageReportService, MessageReportService>();
+builder.Services.AddScoped<IRecruitmentCampaignService, RecruitmentCampaignService>();
+builder.Services.AddScoped<IRecruitmentCandidateService, RecruitmentCandidateService>();
+builder.Services.AddScoped<IRecruitmentSettingsService, RecruitmentSettingsService>();
 builder.Services.AddScoped<WebAppAPI.Services.SapoService>();
 
 //context

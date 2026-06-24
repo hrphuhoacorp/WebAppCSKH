@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Models;
+using WebAppInfractor.Models.Recruitment;
 
 namespace WebAppInfractor.Data;
 
@@ -54,6 +55,13 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<Permission> Permissions { get; set; }
     public virtual DbSet<RolePermission> RolePermissions { get; set; }
     public virtual DbSet<UserPermission> UserPermissions { get; set; }
+
+    public virtual DbSet<RecruitmentSettings> RecruitmentSettings { get; set; }
+    public virtual DbSet<RecruitmentCampaign> RecruitmentCampaigns { get; set; }
+    public virtual DbSet<RecruitmentCandidate> RecruitmentCandidates { get; set; }
+    public virtual DbSet<RecruitmentCandidateHistory> RecruitmentCandidateHistories { get; set; }
+    public virtual DbSet<RecruitmentCategory> RecruitmentCategories { get; set; }
+    public virtual DbSet<RecruitmentMailTemplate> RecruitmentMailTemplates { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
@@ -987,6 +995,114 @@ public partial class MemBerContext : DbContext
                 .WithMany(p => p.UserPermissions)
                 .HasForeignKey(d => d.PermissionId)
                 .HasConstraintName("user_permissions_permission_id_fkey");
+        });
+
+        modelBuilder.Entity<RecruitmentSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("recruitment_settings_pkey");
+            entity.ToTable("recruitment_settings");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.DefaultContact).HasMaxLength(200).HasColumnName("default_contact");
+            entity.Property(e => e.DefaultPhone).HasMaxLength(50).HasColumnName("default_phone");
+            entity.Property(e => e.DefaultLocation).HasMaxLength(500).HasColumnName("default_location");
+            entity.Property(e => e.Signature).HasColumnName("signature");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<RecruitmentCampaign>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("recruitment_campaigns_pkey");
+            entity.ToTable("recruitment_campaigns");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasMaxLength(300).HasColumnName("name");
+            entity.Property(e => e.Position).HasMaxLength(200).HasColumnName("position");
+            entity.Property(e => e.QuantityNeeded).HasColumnName("quantity_needed");
+            entity.Property(e => e.StartDate).HasMaxLength(20).HasColumnName("start_date");
+            entity.Property(e => e.EndDate).HasMaxLength(20).HasColumnName("end_date");
+            entity.Property(e => e.PostContent).HasColumnName("post_content");
+            entity.Property(e => e.Requirements).HasColumnName("requirements");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("open").HasColumnName("status");
+            entity.Property(e => e.CreatedBy).HasMaxLength(100).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<RecruitmentCandidate>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("recruitment_candidates_pkey");
+            entity.ToTable("recruitment_candidates");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CampaignId).HasColumnName("campaign_id");
+            entity.Property(e => e.CandidateName).HasMaxLength(300).HasColumnName("candidate_name");
+            entity.Property(e => e.Phone).HasMaxLength(50).HasColumnName("phone");
+            entity.Property(e => e.Email).HasMaxLength(300).HasColumnName("email");
+            entity.Property(e => e.Position).HasMaxLength(200).HasColumnName("position");
+            entity.Property(e => e.Source).HasMaxLength(100).HasColumnName("source");
+            entity.Property(e => e.SourceOtherNote).HasMaxLength(500).HasColumnName("source_other_note");
+            entity.Property(e => e.CvLink).HasMaxLength(1000).HasColumnName("cv_link");
+            entity.Property(e => e.CvFileName).HasMaxLength(300).HasColumnName("cv_file_name");
+            entity.Property(e => e.CvFilePath).HasMaxLength(1000).HasColumnName("cv_file_path");
+            entity.Property(e => e.CvNote).HasColumnName("cv_note");
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("new").HasColumnName("status");
+            entity.Property(e => e.WaitingFor).HasMaxLength(200).HasColumnName("waiting_for");
+            entity.Property(e => e.InterviewTime).HasMaxLength(100).HasColumnName("interview_time");
+            entity.Property(e => e.InterviewNote).HasColumnName("interview_note");
+            entity.Property(e => e.Result).HasMaxLength(100).HasColumnName("result");
+            entity.Property(e => e.OfferNote).HasColumnName("offer_note");
+            entity.Property(e => e.OnboardDate).HasMaxLength(20).HasColumnName("onboard_date");
+            entity.Property(e => e.MailInviteSent).HasDefaultValue(false).HasColumnName("mail_invite_sent");
+            entity.Property(e => e.MailResultSent).HasDefaultValue(false).HasColumnName("mail_result_sent");
+            entity.Property(e => e.CreatedBy).HasMaxLength(100).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+
+            entity.HasOne<RecruitmentCampaign>()
+                .WithMany()
+                .HasForeignKey(e => e.CampaignId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("recruitment_candidates_campaign_id_fkey");
+        });
+
+        modelBuilder.Entity<RecruitmentCandidateHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("recruitment_candidate_history_pkey");
+            entity.ToTable("recruitment_candidate_history");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CandidateId).HasColumnName("candidate_id");
+            entity.Property(e => e.ActedAt).HasDefaultValueSql("now()").HasColumnName("acted_at");
+            entity.Property(e => e.ActedBy).HasMaxLength(100).HasColumnName("acted_by");
+            entity.Property(e => e.Action).HasMaxLength(200).HasColumnName("action");
+            entity.Property(e => e.Note).HasColumnName("note");
+
+            entity.HasOne<RecruitmentCandidate>()
+                .WithMany()
+                .HasForeignKey(e => e.CandidateId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("recruitment_candidate_history_candidate_id_fkey");
+        });
+
+        modelBuilder.Entity<RecruitmentCategory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("recruitment_categories_pkey");
+            entity.ToTable("recruitment_categories");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Type).HasMaxLength(100).HasColumnName("type");
+            entity.Property(e => e.Value).HasMaxLength(300).HasColumnName("value");
+            entity.Property(e => e.SortOrder).HasDefaultValue(0).HasColumnName("sort_order");
+        });
+
+        modelBuilder.Entity<RecruitmentMailTemplate>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("recruitment_mail_templates_pkey");
+            entity.ToTable("recruitment_mail_templates");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.TemplateType).HasMaxLength(100).HasColumnName("template_type");
+            entity.Property(e => e.Subject).HasMaxLength(500).HasColumnName("subject");
+            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
         });
 
         OnModelCreatingPartial(modelBuilder);

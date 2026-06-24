@@ -125,6 +125,36 @@ const dynamicStyles = {
     '.nxt .app-popup-ok': { display: 'none' },
     '.nxt .app-popup-overlay.error .app-popup-spinner': { borderTopColor: '#dc2626', borderColor: 'rgba(220,38,38,0.2)' },
     '@keyframes nxt-spin': { to: { transform: 'rotate(360deg)' } },
+    /* ── CONFIRM DIALOG ── */
+    '.nxt .app-confirm-overlay': {
+        position: 'fixed', inset: 0,
+        background: 'rgba(15,23,42,0.5)',
+        backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+        display: 'none', alignItems: 'center', justifyContent: 'center',
+        zIndex: 10000, padding: '20px',
+    },
+    '.nxt .app-confirm-overlay.show': { display: 'flex' },
+    '.nxt .app-confirm-dialog': {
+        background: '#fff', borderRadius: '20px',
+        padding: '28px 28px 24px', maxWidth: '400px', width: '100%',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
+    },
+    '.nxt .app-confirm-title': { fontWeight: 800, fontSize: 16, color: '#0f172a', marginBottom: '8px' },
+    '.nxt .app-confirm-msg': { fontSize: 13, color: '#64748b', lineHeight: '1.65', marginBottom: '24px', whiteSpace: 'pre-wrap' },
+    '.nxt .app-confirm-actions': { display: 'flex', gap: '10px', justifyContent: 'flex-end' },
+    '.nxt .app-confirm-btn-cancel': {
+        background: '#f1f5f9', color: '#475569', border: 'none',
+        borderRadius: '10px', padding: '8px 18px', fontSize: 13,
+        fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+    },
+    '.nxt .app-confirm-btn-ok': {
+        background: '#dc2626', color: '#fff', border: 'none',
+        borderRadius: '10px', padding: '8px 20px', fontSize: 13,
+        fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+    },
+    '.nxt .app-confirm-btn-ok.green': {
+        background: '#086839',
+    },
     '@media (max-width:900px)': { '.nxt .check-day-board': { gridTemplateColumns: '1fr' } },
 };
 
@@ -914,6 +944,18 @@ export default function NxtPage() {
                     <div className="app-popup-message" id="appPopupMessage">Vui lòng chờ trong giây lát.</div>
                     <div className="app-popup-actions">
                         <button className="app-popup-ok" id="appPopupOk" type="button">Đã hiểu</button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── CONFIRM DIALOG ── */}
+            <div className="app-confirm-overlay" id="appConfirmOverlay" role="alertdialog" aria-modal="true">
+                <div className="app-confirm-dialog">
+                    <div id="appConfirmTitle" className="app-confirm-title"></div>
+                    <div id="appConfirmMsg" className="app-confirm-msg"></div>
+                    <div className="app-confirm-actions">
+                        <button id="appConfirmCancel" className="app-confirm-btn-cancel" type="button">Hủy</button>
+                        <button id="appConfirmOk" className="app-confirm-btn-ok" type="button">Xác nhận</button>
                     </div>
                 </div>
             </div>
