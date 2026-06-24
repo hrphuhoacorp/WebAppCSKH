@@ -669,9 +669,14 @@ function renderDashboardRows(rows) {
     const rowKey = `${row.closeDate}||${row.branch}||${row.itemCode}`;
     const isEditing = overviewEditKey === rowKey;
 
+    const cbTdEdit = canDel
+      ? `<td style="padding:4px 8px;"></td>`
+      : `<td style="display:none;"></td>`;
+
     if (isEditing) {
       const dr = overviewEditDraft;
       return `<tr style="background:#f0f9ff;outline:2px solid #3b82f6;outline-offset:-1px;">
+        ${cbTdEdit}
         <td>${row.closeDate}</td><td>${row.branch}</td><td><b>${row.itemCode}</b></td><td>${renderRowLabels(row)}</td>
         <td class="right">${number(row.openingStock)}</td>
         <td class="right"><input id="ie_giftIn" ${IE_INPUT_SX} value="${number(dr.giftIn)}"></td>
