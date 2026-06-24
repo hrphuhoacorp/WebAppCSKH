@@ -23,6 +23,7 @@ function rowToDto(row) {
     transferBranch: Number(row.transferBranch) || 0, cancelBasket: Number(row.cancelBasket) || 0,
     sapoSold: Number(row.sapoSold) || 0, adjustment: Number(row.adjustment) || 0,
     actualStock: Number(row.actualStock) || 0, soldNotPicked: Number(row.soldNotPicked) || 0,
+    stockStatus: row.stockStatus || null,
     revenue: Number(row.revenue) || 0, orderCount: Number(row.orderCount) || 0,
     transferNotes: row.transferNotes || [], inactive: !!row.inactive
   };
@@ -34,10 +35,21 @@ function dbSaveRow(row) {
     .catch(err => console.error("[NXT] upsert network error", err));
 }
 
-function dbSyncBatch() {
-  return fetch(`${NXT_API}/rows/batch`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(dashboardRows.map(rowToDto)) })
-    .then(res => { if (!res.ok) res.text().then(t => { console.error("[NXT] batch lỗi", res.status, t); appNotify("Lưu dữ liệu thất bại! Xem Console (F12) để biết lỗi chi tiết.", "error", true); }); })
-    .catch(err => { console.error("[NXT] batch network error", err); appNotify("Không kết nối được API để lưu dữ liệu.", "error", true); });
+async function dbSyncBatch() {
+  try {
+    const res = await fetch(`${NXT_API}/rows/batch`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(dashboardRows.map(rowToDto)) });
+    if (!res.ok) {
+      const t = await res.text();
+      console.error("[NXT] batch lỗi", res.status, t);
+      appNotify("Lưu dữ liệu thất bại! Xem Console (F12) để biết chi tiết.", "error", true);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[NXT] batch network error", err);
+    appNotify("Không kết nối được API để lưu dữ liệu.", "error", true);
+    return false;
+  }
 }
 
 function dbSaveLog(entry) {
@@ -178,7 +190,7 @@ function setNextDayOpeningFromActual({ closeDate, branch, itemCode, actualStock 
   nextRow.openingStock = number(actualStock);
   nextRow.openingSource = `Tự lấy từ tồn thực tế cuối ngày ${closeDate}`;
   nextRow.inactive = false;
-  dbSaveRow(nextRow);
+  // dbSaveRow removed — caller always follows with dbSyncBatch() which saves all rows
 }
 
 function syncNextDayOpeningAfterCodeChange(closeDate, branch, wrongCode, rightCode, qty) {
@@ -215,8 +227,7 @@ function syncNextDayOpeningAfterCodeChange(closeDate, branch, wrongCode, rightCo
   cleanupZeroFields(wrongNext);
   cleanupZeroFields(rightNext);
   deactivateIfEmpty(wrongNext);
-  dbSaveRow(wrongNext);
-  dbSaveRow(rightNext);
+  // dbSaveRow removed — applyWrongCode caller uses dbSyncBatch()
 
   return {
     synced: true,
@@ -811,10 +822,10 @@ function deleteSelectedRows() {
         adjustmentsLog.unshift(logEntry);
         dbSaveLog(logEntry);
         selectedOverviewRows.clear();
-        await dbSyncBatch();
+        const okDel = await dbSyncBatch();
         renderDashboardByPermission();
         renderAdjustments();
-        appNotify(`Đã xóa ${n} dòng.`, "success");
+        if (okDel) appNotify(`Đã xóa ${n} dòng.`, "success");
       } catch (e) {
         appNotify("Lỗi khi xóa: " + (e.message || e), "error");
       }
@@ -1128,6 +1139,47 @@ function checkPreviewDups(rows, applyBtnId, warningElId) {
   }
 }
 
+function mergeStockRows(rows) {
+  const trueWarnings = []; // mã nhập trùng cùng loại trạng thái (DTT/CTT/bình thường)
+  const groups = {};
+  rows.forEach(r => {
+    const key = `${r.date}|${r.branch || ""}|${r.itemCode}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+  const mergedRows = [];
+  Object.values(groups).forEach(group => {
+    if (group.length === 1) { mergedRows.push(group[0]); return; }
+    const stockRows = group.filter(r => r.status !== "Chuyển chi nhánh");
+    const transferRows = group.filter(r => r.status === "Chuyển chi nhánh");
+    // cảnh báo trùng: 2 dòng tồn có cùng loại trạng thái (DTT+DTT, CTT+CTT, bình thường+bình thường)
+    if (stockRows.length > 1) {
+      const types = stockRows.map(r => getStockStatusType(r.status) || "normal");
+      const seen = new Set();
+      for (const t of types) { if (seen.has(t)) { trueWarnings.push(group[0].itemCode); break; } seen.add(t); }
+    }
+    // gộp các dòng tồn thành 1 dòng: totalQty = tồn thực tế, dttQty = bán chưa lấy
+    if (stockRows.length > 0) {
+      const totalQty = stockRows.reduce((s, r) => s + number(r.qty), 0);
+      const dttQty = stockRows.filter(r => isSoldNotPickedStatus(r.status)).reduce((s, r) => s + number(r.qty), 0);
+      const hasDTT = stockRows.some(r => getStockStatusType(r.status) === "DTT");
+      const hasCTT = !hasDTT && stockRows.some(r => getStockStatusType(r.status) === "CTT");
+      const statusRow = hasDTT ? stockRows.find(r => getStockStatusType(r.status) === "DTT")
+                      : hasCTT ? stockRows.find(r => getStockStatusType(r.status) === "CTT")
+                      : stockRows[0];
+      mergedRows.push({ ...stockRows[0], qty: totalQty, status: statusRow.status, _soldNotPickedOverride: dttQty, raw: stockRows.length > 1 ? stockRows.map(r => r.raw).join(" + ") : stockRows[0].raw });
+    }
+    // gộp các dòng chuyển CN theo điểm đến, cộng qty nếu cùng đích
+    const transferByDest = {};
+    transferRows.forEach(r => { const dest = r.transferToBranch || ""; if (!transferByDest[dest]) transferByDest[dest] = []; transferByDest[dest].push(r); });
+    Object.values(transferByDest).forEach(tRows => {
+      const totalQty = tRows.reduce((s, r) => s + number(r.qty), 0);
+      mergedRows.push({ ...tRows[0], qty: totalQty, raw: tRows.length > 1 ? tRows.map(r => r.raw).join(" + ") : tRows[0].raw });
+    });
+  });
+  return { mergedRows, trueWarnings };
+}
+
 function _disableSaveBtn(btnId) {
   const btn = document.getElementById(btnId);
   if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed"; }
@@ -1223,9 +1275,9 @@ function setupGiftIn() {
     renderDashboardByPermission();
     const log = makeOpLog("Nạp Gói ra", lastGiftInPreview);
     adjustmentsLog.unshift(log);
-    await Promise.all([dbSyncBatch(), dbSaveLog(log)]);
+    const [ok] = await Promise.all([dbSyncBatch(), dbSaveLog(log)]);
     renderAdjustments();
-    appNotify("Đã cộng Gói ra vào Tổng quan.", "success");
+    if (ok) appNotify("Đã cộng Gói ra vào Tổng quan.", "success");
   });
   document.getElementById("btnClearGiftIn")?.addEventListener("click", () => { document.getElementById("giftInText").value = ""; lastGiftInPreview = []; renderPreview("giftInPreviewRows", [], [{}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnAddGiftInToSample", "giftInDupWarning"); });
   _disableSaveBtn("btnAddGiftInToSample");
@@ -1235,9 +1287,22 @@ function setupGiftIn() {
 function setupStock() {
   const previewBtn = document.getElementById("btnPreviewStock");
   previewBtn?.addEventListener("click", () => {
-    lastStockPreview = parseCodeQtyText(document.getElementById("stockText").value, { date: document.getElementById("stockDate").value, branch: document.getElementById("stockBranch").value }).map(row => ({ ...row, status: inferStockStatus(row.raw, document.getElementById("stockDefaultStatus").value), transferToBranch: parseTransferToBranch(row.raw, "") }));
+    const rawRows = parseCodeQtyText(document.getElementById("stockText").value, { date: document.getElementById("stockDate").value, branch: document.getElementById("stockBranch").value }).map(row => ({ ...row, status: inferStockStatus(row.raw, document.getElementById("stockDefaultStatus").value), transferToBranch: parseTransferToBranch(row.raw, "") }));
+    const { mergedRows, trueWarnings } = mergeStockRows(rawRows);
+    lastStockPreview = mergedRows;
     renderPreview("stockPreviewRows", lastStockPreview, [{ key: "date" }, { key: "branch" }, { key: "itemCode", render: r => `<b>${r.itemCode}</b>` }, { key: "qty", right: true }, { key: "status" }, { key: "transferToBranch" }, { key: "raw" }], "Chưa đọc được dòng tồn hợp lệ.");
-    checkPreviewDups(lastStockPreview, "btnApplyStockToSample", "stockDupWarning");
+    const btn = document.getElementById("btnApplyStockToSample");
+    let warnEl = document.getElementById("stockDupWarning");
+    if (trueWarnings.length > 0) {
+      if (!warnEl) { warnEl = document.createElement("div"); warnEl.id = "stockDupWarning"; btn?.parentNode?.insertBefore(warnEl, btn); }
+      const msgs = [...new Set(trueWarnings)].map(code => `Mã <b>${code}</b> nhập trùng cùng trạng thái`).join(", ");
+      warnEl.innerHTML = `⚠️ ${msgs} — vui lòng kiểm tra lại trước khi lưu.`;
+      warnEl.style.cssText = "color:#dc2626;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin:0 0 8px;display:block;";
+      if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed"; }
+    } else {
+      if (warnEl) { warnEl.innerHTML = ""; warnEl.style.display = "none"; }
+      if (btn) { const hasRows = lastStockPreview.length > 0; btn.disabled = !hasRows; btn.style.opacity = hasRows ? "" : "0.5"; btn.style.cursor = hasRows ? "" : "not-allowed"; }
+    }
   });
   document.getElementById("btnApplyStockToSample")?.addEventListener("click", async () => {
     if (!lastStockPreview.length) previewBtn?.click();
@@ -1245,16 +1310,21 @@ function setupStock() {
       if (r.status === "Chuyển chi nhánh" && r.transferToBranch) {
         applyTransferRow({ date: r.date, fromBranch: r.branch, toBranch: r.transferToBranch, itemCode: r.itemCode, qty: r.qty });
       } else {
-        const soldNotPicked = isSoldNotPickedStatus(r.status) ? r.qty : 0;
+        const soldNotPicked = r._soldNotPickedOverride !== undefined ? r._soldNotPickedOverride : (isSoldNotPickedStatus(r.status) ? r.qty : 0);
         setDashboardStock({ closeDate: isoToDisplay(r.date), branch: r.branch, itemCode: r.itemCode, actualStock: r.qty, soldNotPicked, stockStatus: r.status });
       }
     });
     renderDashboardByPermission();
-    const logStock = makeOpLog("Nạp Tồn CN", lastStockPreview);
+    const stockDetail = lastStockPreview.map(r => {
+      const cd = isoToDisplay(r.date);
+      const tag = getStockStatusType(r.status);
+      return tag ? `${cd}|${r.itemCode}:${r.qty}|${tag}` : `${cd}|${r.itemCode}:${r.qty}`;
+    }).join(", ");
+    const logStock = makeOpLog("Nạp Tồn CN", lastStockPreview, stockDetail);
     adjustmentsLog.unshift(logStock);
-    await Promise.all([dbSyncBatch(), dbSaveLog(logStock)]);
+    const [okStock] = await Promise.all([dbSyncBatch(), dbSaveLog(logStock)]);
     renderAdjustments();
-    appNotify("Đã cập nhật Tồn CN / Chuyển CN vào Tổng quan.", "success");
+    if (okStock) appNotify("Đã cập nhật Tồn CN / Chuyển CN vào Tổng quan.", "success");
   });
   document.getElementById("btnClearStock")?.addEventListener("click", () => { document.getElementById("stockText").value = ""; lastStockPreview = []; renderPreview("stockPreviewRows", [], [{}, {}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnApplyStockToSample", "stockDupWarning"); });
   _disableSaveBtn("btnApplyStockToSample");
@@ -1274,9 +1344,9 @@ function setupCancel() {
     renderDashboardByPermission();
     const logCancel = makeOpLog("Nạp Hủy giỏ", lastCancelPreview);
     adjustmentsLog.unshift(logCancel);
-    await Promise.all([dbSyncBatch(), dbSaveLog(logCancel)]);
+    const [okCancel] = await Promise.all([dbSyncBatch(), dbSaveLog(logCancel)]);
     renderAdjustments();
-    appNotify("Đã cập nhật Hủy giỏ vào Tổng quan.", "success");
+    if (okCancel) appNotify("Đã cập nhật Hủy giỏ vào Tổng quan.", "success");
   });
   _disableSaveBtn("btnApplyCancelToSample");
   document.getElementById("cancelText")?.addEventListener("input", () => _disableSaveBtn("btnApplyCancelToSample"));
@@ -1291,13 +1361,9 @@ function applyTransferRow(r) {
 
   upsertDashboardRow({ closeDate, branch: fromBranch, itemCode, patch: { transferBranch: qty } });
   addTransferNote({ closeDate, branch: fromBranch, itemCode, type: "out", otherBranch: toBranch, qty });
-  const fromRow = dashboardRows.find(r => r.closeDate === closeDate && r.branch === fromBranch && r.itemCode === itemCode);
-  if (fromRow) dbSaveRow(fromRow);
-
   upsertDashboardRow({ closeDate, branch: toBranch, itemCode, patch: { receiveBranch: qty } });
   addTransferNote({ closeDate, branch: toBranch, itemCode, type: "in", otherBranch: fromBranch, qty });
-  const toRow = dashboardRows.find(r => r.closeDate === closeDate && r.branch === toBranch && r.itemCode === itemCode);
-  if (toRow) dbSaveRow(toRow);
+  // dbSaveRow removed — caller always follows with dbSyncBatch() which saves all rows
 }
 
 function setupTransfer() {
@@ -1313,9 +1379,9 @@ function setupTransfer() {
     renderDashboardByPermission();
     const logTrf = makeOpLog("Nạp Chuyển CN", lastTransferPreview, lastTransferPreview.map(r => `${r.itemCode}:${r.qty} ${r.fromBranch}→${r.toBranch}`).join(", "));
     adjustmentsLog.unshift(logTrf);
-    await Promise.all([dbSyncBatch(), dbSaveLog(logTrf)]);
+    const [okTrf] = await Promise.all([dbSyncBatch(), dbSaveLog(logTrf)]);
     renderAdjustments();
-    appNotify("Đã cập nhật Chuyển CN vào Tổng quan.", "success");
+    if (okTrf) appNotify("Đã cập nhật Chuyển CN vào Tổng quan.", "success");
   });
 }
 
@@ -1742,8 +1808,8 @@ async function applyWrongCode() {
   const msg = type === "Sai mã Sapo / check đơn"
     ? "Đã chuyển Sapo bán từ mã sai sang mã đúng trong Tổng quan."
     : "Đã chuyển phát sinh nội bộ từ mã cũ sang mã đúng trong Tổng quan.";
-  await dbSyncBatch();
-  appNotify(msg + "\nMã cũ sẽ tự ẩn nếu đã hết phát sinh có ý nghĩa.", "success", true);
+  const okWC = await dbSyncBatch();
+  if (okWC) appNotify(msg + "\nMã cũ sẽ tự ẩn nếu đã hết phát sinh có ý nghĩa.", "success", true);
 }
 
 function normalizeItemCode(value) {
@@ -1933,12 +1999,15 @@ function renderAdjustments() {
 
 function parseLogDetail(detail) {
   return (detail || "").split(",").map(s => s.trim()).filter(Boolean).map(s => {
-    // New format (v2): "DD/MM/YYYY|CODE:QTY"
+    // v3: "DD/MM/YYYY|CODE:QTY|STATUS"
+    const v3 = s.match(/^(\d{2}\/\d{2}\/\d{4})\|(.+):(-?[\d.]+)\|(.*)$/);
+    if (v3) return { closeDate: v3[1], code: v3[2].trim(), qty: Number(v3[3]), status: v3[4] };
+    // v2: "DD/MM/YYYY|CODE:QTY"
     const v2 = s.match(/^(\d{2}\/\d{2}\/\d{4})\|(.+):(-?[\d.]+)$/);
-    if (v2) return { closeDate: v2[1], code: v2[2].trim(), qty: Number(v2[3]) };
-    // Old format (v1): "CODE:QTY"
+    if (v2) return { closeDate: v2[1], code: v2[2].trim(), qty: Number(v2[3]), status: "" };
+    // v1: "CODE:QTY"
     const v1 = s.match(/^(.+):(-?[\d.]+)$/);
-    return v1 ? { code: v1[1].trim(), qty: Number(v1[2]), closeDate: null } : null;
+    return v1 ? { code: v1[1].trim(), qty: Number(v1[2]), closeDate: null, status: "" } : null;
   }).filter(Boolean);
 }
 
@@ -1970,11 +2039,18 @@ function showLogDetail(idx) {
     ${syncNote ? `<div style="margin-top:8px;font-size:12px;color:#64748b;">↳ ${escapeHtml(syncNote)}</div>` : ""}`;
   } else if (items.length > 0) {
     const totalQty = items.reduce((s, i) => s + Math.abs(i.qty), 0);
+    const hasStatus = items.some(i => i.status);
+    const statusBadge = s => {
+      if (!s) return "";
+      const color = s === "DTT" ? "background:#dbeafe;color:#1d4ed8;" : s === "CTT" ? "background:#fef9c3;color:#854d0e;" : "background:#f1f5f9;color:#475569;";
+      return `<span style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:700;${color}">${escapeHtml(s)}</span>`;
+    };
     const rowsHtml = items.map(item => `
       <tr>
         <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">${escapeHtml(item.closeDate || log.closeDate)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-weight:700;">${escapeHtml(item.code)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;text-align:right;">${item.qty}</td>
+        ${hasStatus ? `<td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">${statusBadge(item.status)}</td>` : ""}
       </tr>`).join("");
     bodyHtml = `
       <div style="max-height:300px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;">
@@ -1983,6 +2059,7 @@ function showLogDetail(idx) {
             <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Ngày</th>
             <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Mã</th>
             <th style="padding:8px 10px;text-align:right;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">SL</th>
+            ${hasStatus ? `<th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Trạng thái</th>` : ""}
           </tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
@@ -2006,6 +2083,7 @@ function showLogDetail(idx) {
         </div>
         <button id="nxtDetailClose" style="background:none;border:none;cursor:pointer;font-size:22px;color:#94a3b8;line-height:1;padding:0 2px;">×</button>
       </div>
+      ${log.status ? `<div style="margin-bottom:10px;"><span style="display:inline-block;padding:2px 12px;border-radius:99px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;">${escapeHtml(log.status)}</span></div>` : ""}
       <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Chi tiết nhập liệu</div>
       ${bodyHtml}
       ${log.note ? `<div style="margin-top:10px;font-size:12px;color:#64748b;">Ghi chú: ${escapeHtml(log.note)}</div>` : ""}
@@ -2260,8 +2338,8 @@ async function applyEditQty() {
   renderDashboardByPermission();
 
   appNotify("loading");
-  await Promise.all([dbSyncBatch(), dbSaveLog(logEntry)]);
-  appNotify(`Đã sửa ${fieldLabel} của ${itemCode} (${branch}): ${oldVal} → ${newVal}.`, "success");
+  const [okEQ] = await Promise.all([dbSyncBatch(), dbSaveLog(logEntry)]);
+  if (okEQ) appNotify(`Đã sửa ${fieldLabel} của ${itemCode} (${branch}): ${oldVal} → ${newVal}.`, "success");
 }
 
 function setupEditQty() {

@@ -980,6 +980,11 @@ namespace WebAppInfractor.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("sold_not_picked");
 
+                    b.Property<string>("StockStatus")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("stock_status");
+
                     b.Property<decimal>("TransferBranch")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")

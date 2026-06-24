@@ -64,6 +64,7 @@ namespace WebAppAPI.Controllers
                 existing.Adjustment = dto.Adjustment;
                 existing.ActualStock = dto.ActualStock;
                 existing.SoldNotPicked = dto.SoldNotPicked;
+                existing.StockStatus = dto.StockStatus;
                 existing.Revenue = dto.Revenue;
                 existing.OrderCount = dto.OrderCount;
                 existing.TransferNotes =
@@ -123,6 +124,7 @@ namespace WebAppAPI.Controllers
                     ex.Adjustment = dto.Adjustment;
                     ex.ActualStock = dto.ActualStock;
                     ex.SoldNotPicked = dto.SoldNotPicked;
+                    ex.StockStatus = dto.StockStatus;
                     ex.Revenue = dto.Revenue;
                     ex.OrderCount = dto.OrderCount;
                     ex.TransferNotes =
@@ -161,6 +163,7 @@ namespace WebAppAPI.Controllers
             existing.Adjustment = dto.Adjustment;
             existing.ActualStock = dto.ActualStock;
             existing.SoldNotPicked = dto.SoldNotPicked;
+            existing.StockStatus = dto.StockStatus;
             existing.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return new ResponseValue<object>(new { success = true }, "Đã lưu chỉnh sửa", StatusReponse.Success);
@@ -293,6 +296,7 @@ namespace WebAppAPI.Controllers
                 adjustment = r.Adjustment,
                 actualStock = r.ActualStock,
                 soldNotPicked = r.SoldNotPicked,
+                stockStatus = r.StockStatus ?? "",
                 revenue = r.Revenue,
                 orderCount = r.OrderCount,
                 transferNotes = r.TransferNotes != null
@@ -317,6 +321,7 @@ namespace WebAppAPI.Controllers
                 Adjustment = dto.Adjustment,
                 ActualStock = dto.ActualStock,
                 SoldNotPicked = dto.SoldNotPicked,
+                StockStatus = dto.StockStatus,
                 Revenue = dto.Revenue,
                 OrderCount = dto.OrderCount,
                 TransferNotes =
@@ -340,6 +345,7 @@ namespace WebAppAPI.Controllers
         public decimal Adjustment { get; set; }
         public decimal ActualStock { get; set; }
         public decimal SoldNotPicked { get; set; }
+        public string? StockStatus { get; set; }
         public decimal Revenue { get; set; }
         public decimal OrderCount { get; set; }
         public object[]? TransferNotes { get; set; }

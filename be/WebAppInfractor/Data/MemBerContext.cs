@@ -818,6 +818,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Adjustment).HasPrecision(18, 2).HasColumnName("adjustment");
             entity.Property(e => e.ActualStock).HasPrecision(18, 2).HasColumnName("actual_stock");
             entity.Property(e => e.SoldNotPicked).HasPrecision(18, 2).HasColumnName("sold_not_picked");
+            entity.Property(e => e.StockStatus).HasMaxLength(200).HasColumnName("stock_status");
             entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
             entity.Property(e => e.OrderCount).HasPrecision(18, 2).HasColumnName("order_count");
             entity.Property(e => e.TransferNotes).HasColumnType("jsonb").HasColumnName("transfer_notes");

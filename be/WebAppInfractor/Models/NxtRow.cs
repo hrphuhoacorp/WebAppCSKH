@@ -16,6 +16,7 @@ public class NxtRow
     public decimal Adjustment { get; set; }
     public decimal ActualStock { get; set; }
     public decimal SoldNotPicked { get; set; }
+    public string? StockStatus { get; set; }
     public decimal Revenue { get; set; }
     public decimal OrderCount { get; set; }
     public string? TransferNotes { get; set; }
