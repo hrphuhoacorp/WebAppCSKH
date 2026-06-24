@@ -1117,8 +1117,18 @@ function checkPreviewDups(rows, applyBtnId, warningElId) {
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed"; }
   } else {
     if (warnEl) { warnEl.innerHTML = ""; warnEl.style.display = "none"; }
-    if (btn) { btn.disabled = false; btn.style.opacity = ""; btn.style.cursor = ""; }
+    if (btn) {
+      const hasRows = rows.length > 0;
+      btn.disabled = !hasRows;
+      btn.style.opacity = hasRows ? "" : "0.5";
+      btn.style.cursor = hasRows ? "" : "not-allowed";
+    }
   }
+}
+
+function _disableSaveBtn(btnId) {
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed"; }
 }
 
 function setupOverview() {
@@ -1216,6 +1226,8 @@ function setupGiftIn() {
     appNotify("Đã cộng Gói ra vào Tổng quan.", "success");
   });
   document.getElementById("btnClearGiftIn")?.addEventListener("click", () => { document.getElementById("giftInText").value = ""; lastGiftInPreview = []; renderPreview("giftInPreviewRows", [], [{}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnAddGiftInToSample", "giftInDupWarning"); });
+  _disableSaveBtn("btnAddGiftInToSample");
+  document.getElementById("giftInText")?.addEventListener("input", () => _disableSaveBtn("btnAddGiftInToSample"));
 }
 
 function setupStock() {
@@ -1243,6 +1255,8 @@ function setupStock() {
     appNotify("Đã cập nhật Tồn CN / Chuyển CN vào Tổng quan.", "success");
   });
   document.getElementById("btnClearStock")?.addEventListener("click", () => { document.getElementById("stockText").value = ""; lastStockPreview = []; renderPreview("stockPreviewRows", [], [{}, {}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnApplyStockToSample", "stockDupWarning"); });
+  _disableSaveBtn("btnApplyStockToSample");
+  document.getElementById("stockText")?.addEventListener("input", () => _disableSaveBtn("btnApplyStockToSample"));
 }
 
 function setupCancel() {
@@ -1262,6 +1276,8 @@ function setupCancel() {
     renderAdjustments();
     appNotify("Đã cập nhật Hủy giỏ vào Tổng quan.", "success");
   });
+  _disableSaveBtn("btnApplyCancelToSample");
+  document.getElementById("cancelText")?.addEventListener("input", () => _disableSaveBtn("btnApplyCancelToSample"));
 }
 
 function applyTransferRow(r) {
