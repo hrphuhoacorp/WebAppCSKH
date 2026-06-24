@@ -49,7 +49,6 @@ namespace WebAppAPI.Controllers
                 Status = "pending",
                 CreatedBy = dto.LoginCode,
                 CreatedByName = dto.DisplayName,
-                CreatedAt = DateTime.UtcNow,
             };
             _db.NxtSapoPendings.Add(record);
             await _db.SaveChangesAsync();

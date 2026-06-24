@@ -2433,23 +2433,23 @@ function renderSapoPendingCards() {
 }
 
 function renderSpCard(r) {
-  const days = daysSincePending(r.createdAtRaw);
+  const days = Math.max(0, daysSincePending(r.createdAtRaw));
   const daysLabel = days === 0 ? "Hôm nay" : `${days} ngày`;
   const daysClass = days >= 3 ? "urgent" : "normal";
   const showDelete = currentUser?.role === "admin";
   return `
 <div id="spCard-${r.id}" class="sp-card">
-  <div class="sp-card-main">
-    <div class="sp-card-info">
-      <span class="sp-days ${daysClass}">${daysLabel}</span>
-      <b class="sp-item-code">${escapeHtml(r.itemCode)}</b>
-      <span class="sp-item-meta">${escapeHtml(r.closeDate)} · ${escapeHtml(r.branch)} · SL ${r.qty}</span>
-      ${r.note ? `<span class="sp-item-note">📝 ${escapeHtml(r.note)}</span>` : ""}
+  <div class="sp-card-head">
+    <b>${escapeHtml(r.itemCode)}</b>
+    <div style="display:flex;align-items:center;gap:8px">
+      ${r.note ? `<span style="font-size:12px;color:#92400e;font-style:italic">${escapeHtml(r.note)}</span>` : ""}
+      <span class="sp-days ${daysClass}">⏳ ${daysLabel}</span>
     </div>
-    <div class="sp-card-btns">
-      <button class="sp-btn-primary" id="spCompleteBtn-${r.id}">✓ Hoàn thành</button>
-      ${showDelete ? `<button class="sp-btn-danger" id="spDeleteBtn-${r.id}">Hủy</button>` : ""}
-    </div>
+  </div>
+  <div class="sp-body">
+    <span><b>Ngày ra:</b> ${escapeHtml(r.closeDate)}</span> &nbsp;·&nbsp;
+    <span><b>CN:</b> ${escapeHtml(r.branch)}</span> &nbsp;·&nbsp;
+    <span><b>SL:</b> ${r.qty}</span>
   </div>
   <div id="spForm-${r.id}" class="sp-form">
     <div class="sp-form-grid">
@@ -2458,18 +2458,19 @@ function renderSpCard(r) {
         <input id="spSapoDate-${r.id}" type="date" class="sp-input" />
       </div>
       <div>
-        <label class="sp-label">Mã đơn Sapo</label>
-        <input id="spOrderCode-${r.id}" type="text" placeholder="SO12345 (tùy chọn)" class="sp-input" />
-      </div>
-      <div>
-        <label class="sp-label">Ghi chú hoàn thành</label>
-        <input id="spNote-${r.id}" type="text" placeholder="Tùy chọn" class="sp-input" />
+        <label class="sp-label">Mã đơn Sapo (tùy chọn)</label>
+        <input id="spOrderCode-${r.id}" type="text" placeholder="SO12345" class="sp-input" />
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:2px">
-      <button class="sp-btn-primary" id="spConfirmBtn-${r.id}">✓ Xác nhận</button>
+    <input id="spNote-${r.id}" type="text" placeholder="Ghi chú hoàn thành (tùy chọn)" class="sp-input" style="margin-bottom:8px" />
+    <div style="display:flex;gap:8px">
+      <button class="sp-btn-primary" id="spConfirmBtn-${r.id}">✓ Xác nhận hoàn thành</button>
       <button class="sp-btn-cancel" id="spCancelFormBtn-${r.id}">Hủy</button>
     </div>
+  </div>
+  <div id="spActions-${r.id}" class="sp-actions">
+    <button class="sp-btn-primary" id="spCompleteBtn-${r.id}">✓ Hoàn thành / Đã lên Sapo</button>
+    ${showDelete ? `<button class="sp-btn-danger" id="spDeleteBtn-${r.id}">Hủy treo</button>` : ""}
   </div>
 </div>`;
 }
@@ -2477,26 +2478,30 @@ function renderSpCard(r) {
 function renderSpDoneCard(r) {
   return `
 <div class="sp-card done">
-  <div class="sp-card-main">
-    <div class="sp-card-info">
-      <b class="sp-item-code">✓ ${escapeHtml(r.itemCode)}</b>
-      <span class="sp-item-meta">${escapeHtml(r.closeDate)} · ${escapeHtml(r.branch)} · SL ${r.qty}${r.sapoDate ? ` → Sapo ${escapeHtml(r.sapoDate)}` : ""}${r.sapoOrderCode ? ` (${escapeHtml(r.sapoOrderCode)})` : ""}</span>
-      ${r.completionNote ? `<span class="sp-item-note">📝 ${escapeHtml(r.completionNote)}</span>` : ""}
-    </div>
-    ${r.completedAt ? `<span style="font-size:11px;color:#9ca3af;flex-shrink:0">${escapeHtml(r.completedAt)}</span>` : ""}
+  <div class="sp-card-head">
+    <b>✓ ${escapeHtml(r.itemCode)}</b>
+    ${r.completedAt ? `<span style="font-size:11px;color:#374151">${escapeHtml(r.completedAt)}</span>` : ""}
+  </div>
+  <div class="sp-body" style="font-size:12px">
+    <span><b>Ngày ra:</b> ${escapeHtml(r.closeDate)}</span> &nbsp;·&nbsp;
+    <span><b>CN:</b> ${escapeHtml(r.branch)}</span> &nbsp;·&nbsp;
+    <span><b>SL:</b> ${r.qty}</span>
+    ${r.sapoDate ? ` &nbsp;·&nbsp; <span><b>Sapo:</b> ${escapeHtml(r.sapoDate)}${r.sapoOrderCode ? ` (${escapeHtml(r.sapoOrderCode)})` : ""}</span>` : ""}
+    ${r.completionNote ? `<br><span style="color:#6b7280;font-style:italic">${escapeHtml(r.completionNote)}</span>` : ""}
   </div>
 </div>`;
 }
 
 function bindSpCard(id) {
-  const completeBtn = document.getElementById(`spCompleteBtn-${id}`);
-  completeBtn?.addEventListener("click", () => {
+  document.getElementById(`spCompleteBtn-${id}`)?.addEventListener("click", () => {
     document.getElementById(`spForm-${id}`)?.classList.add("open");
-    if (completeBtn) completeBtn.style.display = "none";
+    const actions = document.getElementById(`spActions-${id}`);
+    if (actions) actions.style.display = "none";
   });
   document.getElementById(`spCancelFormBtn-${id}`)?.addEventListener("click", () => {
     document.getElementById(`spForm-${id}`)?.classList.remove("open");
-    if (completeBtn) completeBtn.style.display = "";
+    const actions = document.getElementById(`spActions-${id}`);
+    if (actions) actions.style.display = "";
   });
   document.getElementById(`spConfirmBtn-${id}`)?.addEventListener("click", () => confirmSapoPending(id));
   document.getElementById(`spDeleteBtn-${id}`)?.addEventListener("click", () => deleteSapoPending(id));
