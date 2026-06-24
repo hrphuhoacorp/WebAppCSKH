@@ -2155,7 +2155,8 @@ const EDIT_FIELD_LABELS = {
   transferBranch: "Chuyển CN",
   cancelBasket: "Hủy giỏ",
   actualStock: "Tồn thực tế",
-  soldNotPicked: "Bán chưa lấy"
+  soldNotPicked: "Bán chưa lấy",
+  adjustment: "Điều chỉnh"
 };
 
 function lookupEditQtyValue() {

@@ -777,6 +777,7 @@ export default function NxtPage() {
                             <option value="cancelBasket">Hủy giỏ</option>
                             <option value="actualStock">Tồn thực tế</option>
                             <option value="soldNotPicked">Bán chưa lấy</option>
+                            <option value="adjustment">Điều chỉnh</option>
                         </Box>
                     </Box>
                     <Box id="editQtyCounterBox" sx={{ display: 'none' }}>
@@ -803,7 +804,7 @@ export default function NxtPage() {
                 </BR>
                 <Box id="editQtyCheckResult" sx={hintSx}>Nhập ngày, chi nhánh và mã giỏ để xem giá trị hiện tại.</Box>
                 <Box sx={{ ...warnSx, mb: 2 }}>
-                    <b>Không sửa được:</b> Sapo bán, Điều chỉnh, Tồn đầu ngày.<br />
+                    <b>Không sửa được:</b> Sapo bán, Tồn đầu ngày.<br />
                     <b>Sửa Tồn thực tế:</b> app tự đồng bộ Tồn đầu ngày kế tiếp.<br />
                     <b>Sửa Chuyển/Nhận CN:</b> chọn chi nhánh đối ứng, app cập nhật đồng thời cả 2 phía.
                 </Box>
