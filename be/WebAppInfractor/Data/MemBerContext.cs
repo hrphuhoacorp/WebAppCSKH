@@ -45,6 +45,7 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<GiftCodeChangeRequest> GiftCodeChangeRequests { get; set; }
 
     public virtual DbSet<NxtRow> NxtRows { get; set; }
+    public virtual DbSet<NxtSapoPending> NxtSapoPendings { get; set; }
 
     public virtual DbSet<SapoImportBatch> SapoImportBatches { get; set; }
     public virtual DbSet<SapoSalesRow> SapoSalesRows { get; set; }
@@ -825,6 +826,32 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Inactive).HasColumnName("inactive").HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<NxtSapoPending>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("nxt_sapo_pending_pkey");
+            entity.ToTable("nxt_sapo_pending");
+
+            entity.Property(e => e.Id).HasColumnName("id").UseIdentityColumn();
+            entity.Property(e => e.CloseDate).IsRequired().HasMaxLength(20).HasColumnName("close_date");
+            entity.Property(e => e.Branch).IsRequired().HasMaxLength(100).HasColumnName("branch");
+            entity.Property(e => e.ItemCode).IsRequired().HasMaxLength(100).HasColumnName("item_code");
+            entity.Property(e => e.Qty).HasPrecision(18, 2).HasColumnName("qty");
+            entity.Property(e => e.Reason).HasMaxLength(500).HasColumnName("reason");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("pending").HasColumnName("status");
+            entity.Property(e => e.CreatedBy).HasMaxLength(100).HasColumnName("created_by");
+            entity.Property(e => e.CreatedByName).HasMaxLength(200).HasColumnName("created_by_name");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.SapoDate).HasMaxLength(20).HasColumnName("sapo_date");
+            entity.Property(e => e.SapoOrderCode).HasMaxLength(200).HasColumnName("sapo_order_code");
+            entity.Property(e => e.CompletedBy).HasMaxLength(100).HasColumnName("completed_by");
+            entity.Property(e => e.CompletedByName).HasMaxLength(200).HasColumnName("completed_by_name");
+            entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
+            entity.Property(e => e.CompletionNote).HasColumnName("completion_note");
+            entity.Property(e => e.PositiveAdjDate).HasMaxLength(20).HasColumnName("positive_adj_date");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
         });
 
         modelBuilder.Entity<SapoImportBatch>(entity =>

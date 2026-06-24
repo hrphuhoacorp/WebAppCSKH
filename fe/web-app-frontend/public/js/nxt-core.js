@@ -96,6 +96,8 @@ let adjustmentsLog = [];
 let checkDayMeta = {};
 
 let dashboardRows = [];
+let sapoPendingList = [];
+let SAPO_PENDING_API = "http://localhost:5109/api/nxtsapopending";
 let overviewEditKey = null;
 let overviewEditDraft = {};
 
@@ -2351,20 +2353,249 @@ function setupEditQty() {
   document.getElementById("btnApplyEditQty")?.addEventListener("click", applyEditQty);
 }
 
+// ─── SAPO PENDING (Đã lấy - chờ Sapo) ───────────────────────────────────────
+
+async function loadSapoPending() {
+  try {
+    const res = await fetch(SAPO_PENDING_API, { credentials: "include" });
+    if (res.ok) {
+      const r = await res.json();
+      sapoPendingList = Array.isArray(r) ? r : (r?.content ?? []);
+    }
+  } catch (e) { console.warn("[SapoPending] load error", e); }
+}
+
+function daysSincePending(createdAtRaw) {
+  if (!createdAtRaw) return 0;
+  return Math.floor((Date.now() - new Date(createdAtRaw).getTime()) / 86400000);
+}
+
+function renderSapoPendingBanner() {
+  const el = document.getElementById("sapoPendingBanner");
+  if (!el) return;
+  const pending = sapoPendingList.filter(r => r.status === "pending");
+  if (!pending.length) { el.classList.remove("show"); return; }
+  el.classList.add("show");
+  const urgent = pending.filter(r => daysSincePending(r.createdAtRaw) >= 3).length;
+  const urgentTxt = urgent ? ` · <b style="color:#dc2626">${urgent} quá 3 ngày</b>` : "";
+  el.innerHTML = `⚠️ <b>${pending.length} mục đang treo chờ Sapo</b>${urgentTxt} — <a href="#" id="linkGoSapoPending" style="color:#c05600;font-weight:700;text-decoration:underline">Xem chi tiết</a>`;
+  document.getElementById("linkGoSapoPending")?.addEventListener("click", e => {
+    e.preventDefault();
+    document.querySelector('[data-tab="sapoPending"]')?.click();
+  });
+}
+
+function renderSapoPendingCards() {
+  const pendingEl = document.getElementById("sapoPendingCards");
+  const completedEl = document.getElementById("sapoCompletedCards");
+  const badge = document.getElementById("sapoPendingTabBadge");
+
+  const pending = sapoPendingList.filter(r => r.status === "pending");
+  const completed = sapoPendingList.filter(r => r.status === "completed");
+
+  if (badge) badge.textContent = pending.length ? String(pending.length) : "";
+
+  if (pendingEl) {
+    pendingEl.innerHTML = pending.length
+      ? pending.map(r => renderSpCard(r)).join("")
+      : `<div class="check-day-empty">Không có mục nào đang treo.</div>`;
+    pending.forEach(r => bindSpCard(r.id));
+  }
+  if (completedEl) {
+    completedEl.innerHTML = completed.length
+      ? completed.map(r => renderSpDoneCard(r)).join("")
+      : `<div class="check-day-empty">Chưa có mục nào hoàn thành.</div>`;
+  }
+}
+
+function renderSpCard(r) {
+  const days = daysSincePending(r.createdAtRaw);
+  const daysLabel = days === 0 ? "Hôm nay" : `${days} ngày`;
+  const daysClass = days >= 3 ? "urgent" : "normal";
+  const showDelete = currentUser?.role === "admin";
+  return `
+<div id="spCard-${r.id}" class="sp-card">
+  <div class="sp-card-head">
+    <b>⚠️ ${escapeHtml(r.reason || "Đã lấy - chờ Sapo")}</b>
+    <span class="sp-days ${daysClass}">Treo ${daysLabel}</span>
+  </div>
+  <div class="sp-body">
+    <span><b>Ngày ra:</b> ${escapeHtml(r.closeDate)}</span>
+    <span style="color:#d1d5db">·</span>
+    <span><b>CN:</b> ${escapeHtml(r.branch)}</span>
+    <span style="color:#d1d5db">·</span>
+    <span><b>Mã:</b> <b style="color:#065f2d">${escapeHtml(r.itemCode)}</b></span>
+    <span style="color:#d1d5db">·</span>
+    <span><b>SL:</b> ${r.qty}</span>
+  </div>
+  <div class="sp-meta">Người tạo: <b>${escapeHtml(r.createdByName || r.createdBy)}</b>${r.createdAt ? ` · ${escapeHtml(r.createdAt)}` : ""}</div>
+  ${r.note ? `<div class="sp-note">Ghi chú: ${escapeHtml(r.note)}</div>` : ""}
+  <div id="spForm-${r.id}" class="sp-form">
+    <div class="sp-form-grid">
+      <div>
+        <label class="sp-label">Ngày Sapo ghi nhận</label>
+        <input id="spSapoDate-${r.id}" type="date" class="sp-input" />
+      </div>
+      <div>
+        <label class="sp-label">Mã đơn / Sapo (tùy chọn)</label>
+        <input id="spOrderCode-${r.id}" type="text" placeholder="Ví dụ: SO12345" class="sp-input" />
+      </div>
+    </div>
+    <textarea id="spNote-${r.id}" placeholder="Ghi chú hoàn thành (tùy chọn)" class="sp-input" style="min-height:60px;resize:vertical;display:block;margin-bottom:8px"></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="sp-btn-primary" id="spConfirmBtn-${r.id}">✓ Xác nhận hoàn thành</button>
+      <button class="sp-btn-cancel" id="spCancelFormBtn-${r.id}">Hủy</button>
+    </div>
+  </div>
+  <div class="sp-actions">
+    <button class="sp-btn-primary" id="spCompleteBtn-${r.id}">✓ Hoàn thành / Đã lên Sapo</button>
+    ${showDelete ? `<button class="sp-btn-danger" id="spDeleteBtn-${r.id}">Hủy treo</button>` : ""}
+  </div>
+</div>`;
+}
+
+function renderSpDoneCard(r) {
+  return `
+<div class="sp-card done">
+  <div class="sp-card-head">
+    <b>✓ Đã đối chiếu Sapo</b>
+    <span style="font-size:11px;color:#374151">${escapeHtml(r.completedAt || "")}</span>
+  </div>
+  <div class="sp-body" style="font-size:12px">
+    <span><b>Ngày ra:</b> ${escapeHtml(r.closeDate)}</span> ·
+    <span><b>CN:</b> ${escapeHtml(r.branch)}</span> ·
+    <span><b>Mã:</b> ${escapeHtml(r.itemCode)}</span> ·
+    <span><b>SL:</b> ${r.qty}</span>
+    ${r.sapoDate ? ` · <span><b>Sapo ngày:</b> ${escapeHtml(r.sapoDate)}</span>` : ""}
+    ${r.sapoOrderCode ? ` · <span><b>Đơn:</b> ${escapeHtml(r.sapoOrderCode)}</span>` : ""}
+  </div>
+  ${r.completionNote ? `<div class="sp-meta">Ghi chú: ${escapeHtml(r.completionNote)}</div>` : ""}
+</div>`;
+}
+
+function bindSpCard(id) {
+  document.getElementById(`spCompleteBtn-${id}`)?.addEventListener("click", () => {
+    document.getElementById(`spForm-${id}`)?.classList.add("open");
+  });
+  document.getElementById(`spCancelFormBtn-${id}`)?.addEventListener("click", () => {
+    document.getElementById(`spForm-${id}`)?.classList.remove("open");
+  });
+  document.getElementById(`spConfirmBtn-${id}`)?.addEventListener("click", () => confirmSapoPending(id));
+  document.getElementById(`spDeleteBtn-${id}`)?.addEventListener("click", () => deleteSapoPending(id));
+}
+
+async function confirmSapoPending(id) {
+  const record = sapoPendingList.find(r => r.id === id);
+  if (!record) return;
+  const sapoDateIso = document.getElementById(`spSapoDate-${id}`)?.value || "";
+  const sapoOrderCode = document.getElementById(`spOrderCode-${id}`)?.value?.trim() || "";
+  const completionNote = document.getElementById(`spNote-${id}`)?.value?.trim() || "";
+  const sapoDateDisplay = sapoDateIso ? isoToDisplay(sapoDateIso) : "";
+
+  try {
+    const res = await fetch(`${SAPO_PENDING_API}/${id}/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ sapoDate: sapoDateDisplay, sapoOrderCode, completionNote, loginCode: currentUser.loginCode, displayName: currentUser.displayName })
+    });
+    if (!res.ok) { appNotify("Lỗi khi hoàn thành. Xem Console.", "error", true); return; }
+
+    // Điều chỉnh dương ngày Sapo để tránh trừ tồn 2 lần
+    if (sapoDateDisplay) {
+      const existAdj = number(dashboardRows.find(r => r.closeDate === sapoDateDisplay && r.branch === record.branch && r.itemCode === record.itemCode)?.adjustment);
+      upsertDashboardRow({ closeDate: sapoDateDisplay, branch: record.branch, itemCode: record.itemCode, patch: { adjustment: existAdj + number(record.qty) } });
+    }
+
+    await loadSapoPending();
+    renderSapoPendingCards();
+    renderSapoPendingBanner();
+    const ok = await dbSyncBatch();
+    renderDashboardByPermission();
+    if (ok) appNotify(`Hoàn thành. Điều chỉnh +${record.qty} đã ghi${sapoDateDisplay ? ` vào ngày ${sapoDateDisplay}` : ""}.`, "success");
+  } catch (e) {
+    console.error("[SapoPending] confirm error", e);
+    appNotify("Lỗi kết nối khi hoàn thành.", "error", true);
+  }
+}
+
+async function deleteSapoPending(id) {
+  const record = sapoPendingList.find(r => r.id === id);
+  if (!record) return;
+  if (!confirm(`Hủy treo "${record.itemCode}" ngày ${record.closeDate}?\n\nLưu ý: Điều chỉnh âm đã ghi vào tổng quan sẽ KHÔNG tự hoàn tác. Bạn cần sửa thủ công nếu cần.`)) return;
+  try {
+    const res = await fetch(`${SAPO_PENDING_API}/${id}`, { method: "DELETE", credentials: "include" });
+    if (!res.ok) { appNotify("Lỗi khi hủy treo.", "error", true); return; }
+    await loadSapoPending();
+    renderSapoPendingCards();
+    renderSapoPendingBanner();
+    appNotify("Đã hủy treo.", "success");
+  } catch (e) { appNotify("Lỗi kết nối.", "error", true); }
+}
+
+function setupSapoPending() {
+  document.getElementById("btnCreateSapoPending")?.addEventListener("click", async () => {
+    const closeDateIso = document.getElementById("sapoPendingDate")?.value || "";
+    const branch = document.getElementById("sapoPendingBranch")?.value || "";
+    const itemCode = (document.getElementById("sapoPendingCode")?.value || "").trim().toUpperCase();
+    const qty = Number(document.getElementById("sapoPendingQty")?.value) || 0;
+    const reason = (document.getElementById("sapoPendingReason")?.value || "").trim() || "Đã lấy - chờ Sapo";
+    const note = (document.getElementById("sapoPendingNote")?.value || "").trim();
+
+    if (!closeDateIso || !branch || !itemCode || qty <= 0) {
+      appNotify("Vui lòng điền đầy đủ ngày, chi nhánh, mã giỏ và số lượng > 0.", "error", true);
+      return;
+    }
+    const closeDateDisplay = isoToDisplay(closeDateIso);
+    try {
+      const res = await fetch(SAPO_PENDING_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ closeDate: closeDateDisplay, branch, itemCode, qty, reason, note, loginCode: currentUser.loginCode, displayName: currentUser.displayName })
+      });
+      if (!res.ok) { appNotify("Lỗi khi tạo mục treo. Xem Console.", "error", true); return; }
+
+      // Điều chỉnh âm ngày hàng ra thực tế
+      const existAdj = number(dashboardRows.find(r => r.closeDate === closeDateDisplay && r.branch === branch && r.itemCode === itemCode)?.adjustment);
+      upsertDashboardRow({ closeDate: closeDateDisplay, branch, itemCode, patch: { adjustment: existAdj - qty } });
+
+      // Reset form
+      ["sapoPendingCode", "sapoPendingNote"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+      const qtyEl = document.getElementById("sapoPendingQty"); if (qtyEl) qtyEl.value = "1";
+      const rEl = document.getElementById("sapoPendingReason"); if (rEl) rEl.value = "Đã lấy - chờ Sapo";
+
+      await loadSapoPending();
+      renderSapoPendingCards();
+      renderSapoPendingBanner();
+      const ok = await dbSyncBatch();
+      renderDashboardByPermission();
+      if (ok) appNotify(`Đã tạo mục treo. Điều chỉnh −${qty} ghi vào ngày ${closeDateDisplay}.`, "success");
+    } catch (e) {
+      console.error("[SapoPending] create error", e);
+      appNotify("Lỗi kết nối.", "error", true);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 window.bootNxt = async function (user) {
   if (window.NXT_API) NXT_API = window.NXT_API;
+  if (window.NXT_SAPO_PENDING_API) SAPO_PENDING_API = window.NXT_SAPO_PENDING_API;
   currentUser = user;
   setupAppPopup();
-  setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode(); setupEditQty();
+  setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode(); setupEditQty(); setupSapoPending();
   applyLoginState();
   try {
-    const [rowsRes, logsRes] = await Promise.all([
+    const [rowsRes, logsRes, spRes] = await Promise.all([
       fetch(`${NXT_API}/rows`, { credentials: "include" }),
-      fetch(`${NXT_API}/logs`, { credentials: "include" })
+      fetch(`${NXT_API}/logs`, { credentials: "include" }),
+      fetch(SAPO_PENDING_API, { credentials: "include" })
     ]);
     if (rowsRes.ok) { const r = await rowsRes.json(); console.log("[NXT] rows raw:", r); dashboardRows = Array.isArray(r) ? r : (r?.content ?? []); console.log("[NXT] dashboardRows:", dashboardRows, "dòng"); }
     if (logsRes.ok) { const l = await logsRes.json(); adjustmentsLog = Array.isArray(l) ? l : (l?.content ?? []); }
-
+    if (spRes.ok) { const s = await spRes.json(); sapoPendingList = Array.isArray(s) ? s : (s?.content ?? []); }
   } catch (e) {
     console.warn("Không kết nối được API, dùng dữ liệu rỗng.", e);
   }
@@ -2372,11 +2603,13 @@ window.bootNxt = async function (user) {
   const todayIso = new Date().toISOString().split('T')[0]; // Kết quả dạng: YYYY-MM-DD
 
   // Tự động điền vào các ô nhập ngày
-  ["giftInDate", "stockDate", "cancelDate", "wrongCodeDate", "dateFrom", "dateTo"].forEach(id => {
+  ["giftInDate", "stockDate", "cancelDate", "wrongCodeDate", "dateFrom", "dateTo", "sapoPendingDate"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = todayIso;
   });
   renderDashboardByPermission();
   renderAdjustments();
+  renderSapoPendingCards();
+  renderSapoPendingBanner();
 };
 

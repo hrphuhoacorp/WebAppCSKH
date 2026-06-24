@@ -21,6 +21,7 @@ declare global {
     interface Window {
         bootNxt: (user: { loginCode: string; displayName: string; role: string; branch: string; canDeleteLogs: boolean; canEditQty: boolean }) => void;
         NXT_API: string;
+        NXT_SAPO_PENDING_API: string;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         nxtToast: any;
     }
@@ -71,6 +72,31 @@ const dynamicStyles = {
     '.nxt .check-stat': { display: 'block', fontWeight: 700, fontSize: 12, color: '#92400e', marginBottom: 2 },
     '.nxt .check-codes': { display: 'block', fontSize: 11, color: '#a16207', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
     '.nxt .check-day-empty': { border: '1px dashed #d1d5db', background: '#f9fafb', borderRadius: 10, padding: 14, textAlign: 'center', color: '#6b7280', fontWeight: 700, fontSize: 13 },
+    /* sapo pending warning banner */
+    '.nxt .sapo-pending-banner': { display: 'none', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '12px', padding: '10px 14px', fontSize: 13, color: '#7c2d12', fontWeight: 600, marginBottom: 12 },
+    '.nxt .sapo-pending-banner.show': { display: 'block' },
+    /* sapo pending cards */
+    '.nxt .sp-card': { border: '1px solid #fcd34d', borderRadius: '12px', overflow: 'hidden', marginBottom: 10 },
+    '.nxt .sp-card.done': { border: '1px solid #d1fae5', opacity: 0.85 },
+    '.nxt .sp-card-head': { background: '#fef3c7', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    '.nxt .sp-card.done .sp-card-head': { background: '#ecfdf5' },
+    '.nxt .sp-card-head b': { fontWeight: 800, fontSize: 13, color: '#92400e' },
+    '.nxt .sp-card.done .sp-card-head b': { color: '#065f2d' },
+    '.nxt .sp-days': { display: 'inline-block', padding: '2px 10px', borderRadius: '99px', fontSize: 11, fontWeight: 700 },
+    '.nxt .sp-days.urgent': { background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca' },
+    '.nxt .sp-days.normal': { background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d' },
+    '.nxt .sp-body': { padding: '8px 14px', fontSize: 13, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', color: '#374151' },
+    '.nxt .sp-meta': { padding: '0 14px 6px', fontSize: 12, color: '#6b7280' },
+    '.nxt .sp-note': { padding: '0 14px 8px', fontSize: 12, color: '#374151' },
+    '.nxt .sp-form': { display: 'none', padding: '10px 14px', background: '#fafafa', borderTop: '1px solid #fde68a' },
+    '.nxt .sp-form.open': { display: 'block' },
+    '.nxt .sp-form-grid': { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 },
+    '.nxt .sp-actions': { padding: '8px 14px', display: 'flex', gap: 8, borderTop: '1px solid #fde68a' },
+    '.nxt .sp-btn-primary': { flex: 1, background: '#065f2d', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+    '.nxt .sp-btn-danger': { background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+    '.nxt .sp-btn-cancel': { background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
+    '.nxt .sp-input': { width: '100%', border: '1px solid #d1d5db', borderRadius: '8px', padding: '7px 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' },
+    '.nxt .sp-label': { display: 'block', fontSize: 11, color: '#6b7280', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.4px' },
     '.nxt .check-day-chip': { border: '1px solid #fcd34d', background: '#fffbeb', color: '#78350f', borderRadius: 12, padding: '10px 14px', fontWeight: 700, cursor: 'pointer', transition: 'filter .12s', display: 'inline-block' },
     /* table — app.js injects tbody rows */
     '.nxt tbody tr:nth-of-type(even)': { background: '#fafcfb' },
@@ -188,6 +214,7 @@ export default function NxtPage() {
         bootedRef.current = true;
         try {
             window.NXT_API = (process.env.NEXT_PUBLIC_DOTNET_API_URL ?? 'http://localhost:5109/api') + '/nxt';
+            window.NXT_SAPO_PENDING_API = (process.env.NEXT_PUBLIC_DOTNET_API_URL ?? 'http://localhost:5109/api') + '/nxtsapopending';
             window.nxtToast = toast;
             const p = profileRef.current;
             const role = p.permissions?.includes('sales.nxt.edit') ? 'admin' : 'employee';
@@ -269,6 +296,10 @@ export default function NxtPage() {
                     <button className="tab" data-tab="sapoImport" data-roles="admin">Nạp Sapo</button>
                     <button className="tab" data-tab="wrongCode" data-roles="admin,employee">Sai mã</button>
                     <button id="tabEditQty" className="tab" data-tab="editQty" data-roles="admin,employee">Sửa SL</button>
+                    <button className="tab" data-tab="sapoPending" data-roles="admin,employee" style={{ position: 'relative' }}>
+                        Sapo treo
+                        <span id="sapoPendingTabBadge" style={{ display: 'inline-block', marginLeft: 6, background: '#dc2626', color: '#fff', borderRadius: '99px', padding: '1px 7px', fontSize: 11, fontWeight: 800, verticalAlign: 'middle' }}></span>
+                    </button>
                 </Box>
             </Paper>
 
@@ -340,6 +371,9 @@ export default function NxtPage() {
                         </Paper>
                     ))}
                 </Box>
+
+                {/* Sapo pending warning banner */}
+                <div id="sapoPendingBanner" className="sapo-pending-banner" />
 
                 {/* Check days */}
                 <PT>Ngày cần kiểm tra</PT>
@@ -807,6 +841,68 @@ export default function NxtPage() {
                     <b>Không sửa được:</b> Sapo bán, Tồn đầu ngày.<br />
                     <b>Sửa Tồn thực tế:</b> app tự đồng bộ Tồn đầu ngày kế tiếp.<br />
                     <b>Sửa Chuyển/Nhận CN:</b> chọn chi nhánh đối ứng, app cập nhật đồng thời cả 2 phía.
+                </Box>
+            </Paper>
+
+            {/* ── SAPO TREO ── */}
+            <Paper elevation={0} className="screen" id="screen-sapoPending" sx={cardSx}>
+                <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1e293b', mb: 0.5 }}>Sapo treo / Công nợ treo</Typography>
+                <Typography sx={{ color: '#6b7280', fontSize: 13, mb: 1.5 }}>Theo dõi hàng đã ra thực tế nhưng chưa lên Sapo. Điều chỉnh âm ghi ngày hàng ra, điều chỉnh dương ghi ngày Sapo ghi nhận.</Typography>
+
+                <Box sx={warnSx}>
+                    <b>Nguyên tắc:</b> Tồn kho tính theo ngày hàng ra thực tế. Sapo/thanh toán tính theo ngày Sapo ghi nhận. Không để một đơn bị trừ tồn 2 lần.
+                </Box>
+
+                {/* Tạo mới */}
+                {profile?.permissions?.includes('sales.nxt.edit') && (<>
+                    <PT>Tạo mục treo mới</PT>
+                    <FG cols={4}>
+                        <Box>
+                            <FL htmlFor="sapoPendingDate">Ngày hàng ra thực tế</FL>
+                            <Box component="input" id="sapoPendingDate" type="date" sx={inputSx} />
+                        </Box>
+                        <Box>
+                            <FL htmlFor="sapoPendingBranch">Chi nhánh</FL>
+                            <Box component="select" id="sapoPendingBranch" sx={selectSx}>
+                                {BRANCHES.map(b => <option key={b}>{b}</option>)}
+                            </Box>
+                        </Box>
+                        <Box>
+                            <FL htmlFor="sapoPendingCode">Mã giỏ</FL>
+                            <Box component="input" id="sapoPendingCode" placeholder="Ví dụ: H1136" sx={inputSx} />
+                        </Box>
+                        <Box>
+                            <FL htmlFor="sapoPendingQty">Số lượng</FL>
+                            <Box component="input" id="sapoPendingQty" type="number" defaultValue={1} min={1} sx={inputSx} />
+                        </Box>
+                        <Box>
+                            <FL htmlFor="sapoPendingReason">Lý do treo</FL>
+                            <Box component="input" id="sapoPendingReason" defaultValue="Đã lấy - chờ Sapo" sx={inputSx} />
+                        </Box>
+                        <Box sx={{ gridColumn: { sm: 'span 3' } }}>
+                            <FL htmlFor="sapoPendingNote">Ghi chú</FL>
+                            <Box component="input" id="sapoPendingNote" placeholder="Ví dụ: Khách lấy hàng buổi chiều chưa quét Sapo" sx={inputSx} />
+                        </Box>
+                    </FG>
+                    <BR>
+                        <Button id="btnCreateSapoPending" variant="contained" size="small" sx={primaryBtn}>Tạo mục treo</Button>
+                    </BR>
+                </>)}
+
+                {/* Đang treo */}
+                <PT>Đang treo chờ Sapo</PT>
+                <Box id="sapoPendingCards">
+                    <Box sx={{ border: '1px dashed #d1d5db', bgcolor: '#f9fafb', borderRadius: '10px', p: 1.75, textAlign: 'center', color: '#6b7280', fontWeight: 700, fontSize: 13 }}>
+                        Chưa có mục nào đang treo.
+                    </Box>
+                </Box>
+
+                {/* Đã hoàn thành */}
+                <PT>Đã hoàn thành / Đã đối chiếu Sapo</PT>
+                <Box id="sapoCompletedCards">
+                    <Box sx={{ border: '1px dashed #d1d5db', bgcolor: '#f9fafb', borderRadius: '10px', p: 1.75, textAlign: 'center', color: '#6b7280', fontWeight: 700, fontSize: 13 }}>
+                        Chưa có mục nào hoàn thành.
+                    </Box>
                 </Box>
             </Paper>
 
