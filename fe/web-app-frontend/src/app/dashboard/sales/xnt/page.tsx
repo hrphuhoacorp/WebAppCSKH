@@ -465,6 +465,7 @@ export default function NxtPage() {
                     <Box sx={{ gridColumn: '1/-1' }}>
                         <FL htmlFor="giftInText">Dán danh sách gói ra</FL>
                         <Box component="textarea" id="giftInText" placeholder={"H1135 2\nH1094A 1\nGT2013\nH1045F 1+1"} sx={textareaSx} />
+                        <div id="giftInDupWarning" style={{ display: 'none', marginTop: 8 }} />
                         <OcrCard hint="OCR mở tab mới. Chuyển ảnh Zalo xong dán kết quả vào đây." />
                     </Box>
                 </FG>
@@ -523,6 +524,7 @@ export default function NxtPage() {
                     <Box sx={{ gridColumn: '1/-1' }}>
                         <FL htmlFor="stockText">Dán danh sách tồn thực tế / chuyển CN</FL>
                         <Box component="textarea" id="stockText" placeholder={"H1135 1\nGT2013 2\nH1045F 1 dtt\nH1094A ctt 1\nH1136 1 chuyển NQ"} sx={textareaSx} />
+                        <div id="stockDupWarning" style={{ display: 'none', marginTop: 8 }} />
                         <OcrCard
                             hint="Mẫu đọc được: DTT, CTT, chuyển chi nhánh đều đọc được. Có ảnh thì dùng nút chuyển ảnh thành text."
                             note={<>H1045F 1 dtt = đã thanh toán/chưa lấy 1<br />H1094A ctt 1 = chưa thanh toán/giữ giỏ 1<br />H1045F dtt 2 hoặc H1094A ctt 1 vẫn đọc được<br />H1136 1 chuyển NQ = CN hiện tại gửi, NQ nhận</>}
@@ -588,6 +590,7 @@ export default function NxtPage() {
                     <Box sx={{ gridColumn: '1/-1' }}>
                         <FL htmlFor="cancelText">Dán danh sách hủy</FL>
                         <Box component="textarea" id="cancelText" placeholder={"H1135 2\nGT2013 1\nH1045F 1+1\nTEMP01"} sx={textareaSx} />
+                        <div id="cancelDupWarning" style={{ display: 'none', marginTop: 8 }} />
                         <OcrCard hint="Nếu danh sách hủy nằm trong ảnh Zalo, mở OCR rồi dán kết quả vào đây." />
                     </Box>
                 </FG>
