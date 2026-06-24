@@ -538,11 +538,13 @@ function renderRowLabels(row) {
   });
 
   const stockType = getStockStatusType(row);
-  if (stockType === "DTT" && number(row.soldNotPicked) > 0) {
-    labels.push(`<span class="stock-badge dtt">DTT · ${number(row.soldNotPicked)}</span>`);
+  const soldNotPickedQty = number(row.soldNotPicked);
+  if (stockType === "DTT" || soldNotPickedQty > 0) {
+    labels.push(`<span class="stock-badge dtt">${soldNotPickedQty > 0 ? `DTT · ${soldNotPickedQty}` : "DTT"}</span>`);
   }
-  if (stockType === "CTT" && number(row.actualStock) > 0) {
-    labels.push(`<span class="stock-badge ctt">CTT · ${number(row.actualStock)}</span>`);
+  if (stockType === "CTT") {
+    const cttQty = number(row.actualStock);
+    labels.push(`<span class="stock-badge ctt">${cttQty > 0 ? `CTT · ${cttQty}` : "CTT"}</span>`);
   }
 
   if (calcExpectedStock(row) < 0 && number(row.transferBranch) > 0) {
