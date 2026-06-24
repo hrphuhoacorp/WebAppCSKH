@@ -696,7 +696,7 @@ function renderDashboardRows(rows) {
       : "";
     const cbTd = canDel
       ? `<td style="padding:4px 8px;"><input type="checkbox" class="overviewRowCb" data-key="${rowKey}" onchange="toggleOverviewRow('${rowKey}', this.checked)" ${selectedOverviewRows.has(rowKey) ? "checked" : ""} style="cursor:pointer;"></td>`
-      : `<td></td>`;
+      : `<td style="display:none;"></td>`;
     return `<tr>
       ${cbTd}
       <td>${row.closeDate}</td><td>${row.branch}</td><td><b>${row.itemCode}</b></td><td>${renderRowLabels(row)}</td>

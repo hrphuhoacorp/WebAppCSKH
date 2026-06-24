@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Box,
     Paper,
@@ -76,12 +77,6 @@ type ImportRow = {
 
 export default function SystemHistoryPage() {
     const [currentTab, setCurrentTab] = useState(0);
-    const [loading, setLoading] = useState(false);
-
-    // Dữ liệu danh sách
-    const [logs, setLogs] = useState<LogRow[]>([]);
-    const [imports, setImports] = useState<ImportRow[]>([]);
-    const [total, setTotal] = useState(0);
 
     // Phân trang
     const [page, setPage] = useState(0);
@@ -125,41 +120,43 @@ export default function SystemHistoryPage() {
         return () => clearTimeout(timer);
     }, [search]);
 
-    // Đọc dữ liệu tự động dựa trên Tab và Filters
-    const loadHistoryData = async () => {
-        setLoading(true);
-        try {
-            const params = {
-                page: page + 1,
-                pageSize,
-                search: debouncedSearch || undefined,
-                fromDate: fromDate || undefined,
-                toDate: toDate || undefined,
-            };
+    const queryClient = useQueryClient();
 
-            if (currentTab === 0) {
-                const response = await userApi.getActivityLogs(params);
-                setLogs(response.content.items);
-                setTotal(response.content.totalItems);
-            } else {
-                const response = await userApi.getImportHistory({
-                    ...params,
-                    status: status || undefined
-                });
-                setImports(response.content.items);
-                setTotal(response.content.totalItems);
+    const { data: historyData, isFetching: loading } = useQuery({
+        queryKey: ['history', currentTab, page, pageSize, debouncedSearch, fromDate, toDate, status],
+        queryFn: async () => {
+            try {
+                if (currentTab === 0) {
+                    const r = await userApi.getActivityLogs({
+                        page: page + 1,
+                        pageSize,
+                        search: debouncedSearch || undefined,
+                        fromDate: fromDate || undefined,
+                        toDate: toDate || undefined,
+                    });
+                    return { logs: r.content.items, imports: [], total: r.content.totalItems };
+                } else {
+                    const r = await userApi.getImportHistory({
+                        page: page + 1,
+                        pageSize,
+                        search: debouncedSearch || undefined,
+                        fromDate: fromDate || undefined,
+                        toDate: toDate || undefined,
+                        status: status || undefined,
+                    });
+                    return { logs: [], imports: r.content.items, total: r.content.totalItems };
+                }
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được lịch sử');
+                return { logs: [], imports: [], total: 0 };
             }
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message ?? 'Không tải được dữ liệu lịch sử');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Lắng nghe thay đổi bộ lọc để gọi lại API
-    useEffect(() => {
-        loadHistoryData();
-    }, [currentTab, page, pageSize, debouncedSearch, fromDate, toDate, status]);
+        },
+        placeholderData: (prev) => prev,
+    });
+    const logs = historyData?.logs ?? [];
+    const imports = historyData?.imports ?? [];
+    const total = historyData?.total ?? 0;
+    const refreshHistory = () => queryClient.invalidateQueries({ queryKey: ['history'] });
 
     // Reset bộ lọc và phân trang khi đổi Tab qua lại
     const handleTabChange = (_: any, newValue: number) => {
@@ -190,7 +187,6 @@ export default function SystemHistoryPage() {
         if (!selectedFile || !actionType) return;
 
         const toastId = toast.loading(actionType === 'rollback' ? 'Đang hoàn tác tệp Excel...' : 'Đang khôi phục tệp Excel...');
-        setLoading(true);
         setConfirmOpen(false); // Đóng nhanh dialog tránh đúp lệnh bấm
 
         try {
@@ -201,11 +197,10 @@ export default function SystemHistoryPage() {
                 await userApi.restoreImportExcel(selectedFile.id);
                 toast.success('Khôi phục tệp Excel thành công, đơn hàng đã hoạt động trở lại', { id: toastId });
             }
-            loadHistoryData();
+            refreshHistory();
         } catch (error: any) {
             toast.error(error?.response?.data?.Message ?? 'Thao tác tệp dữ liệu gặp lỗi', { id: toastId });
         } finally {
-            setLoading(false);
             closeConfirmDialog();
         }
     };
@@ -382,7 +377,7 @@ export default function SystemHistoryPage() {
 
                     <TableBody>
                         {currentTab === 0 ? (
-                            logs.map(log => (
+                            logs.map((log: any) => (
                                 <TableRow key={log.id} sx={{ '&:hover': { bgcolor: '#f0fdf4 !important' }, transition: 'background-color 0.15s' }}>
                                     <TableCell sx={{ fontSize: 13, color: '#475569', whiteSpace: 'nowrap' }}>{formatDateTime(log.createdAt)}</TableCell>
                                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
@@ -416,7 +411,7 @@ export default function SystemHistoryPage() {
                                 </TableRow>
                             ))
                         ) : (
-                            imports.map(file => (
+                            imports.map((file: any) => (
                                 <TableRow key={file.id} sx={{ '&:hover': { bgcolor: '#f0fdf4 !important' }, transition: 'background-color 0.15s' }}>
                                     <TableCell sx={{ fontSize: 13, color: '#475569', whiteSpace: 'nowrap' }}>{formatDateTime(file.importDate)}</TableCell>
                                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.fileName}</TableCell>

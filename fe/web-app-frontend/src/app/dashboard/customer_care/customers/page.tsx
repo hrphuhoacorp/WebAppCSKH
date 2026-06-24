@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePermission } from '@/hooks/usePermission';
 import * as React from 'react';
 import { InputAdornment } from '@mui/material';
@@ -112,14 +113,11 @@ const metaCardConfig = [
 export default function CustomerPage() {
     const canEdit = usePermission('cskh.customer.edit');
 
-    const [customers, setCustomers] = useState<CustomerSchema[]>([]);
-    const [total, setTotal] = useState(100);
     const [openRow, setOpenRow] = useState<number | null>(null);
 
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(25);
     const [search, setSearch] = useState('');
-    const [loading, setLoading] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -146,24 +144,27 @@ export default function CustomerPage() {
         return () => clearTimeout(timer);
     }, [search]);
 
-    const fetchCustomers = async () => {
-        try {
-            setLoading(true);
-            const response = await customerApi.getCustomers({
-                page: page + 1,
-                pageSize,
-                search: debouncedSearch || undefined,
-            });
-            setTotal(response.content.totalItems);
-            setCustomers(response.content.items);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message || 'Không thể tải danh sách khách hàng');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => { fetchCustomers(); }, [page, pageSize, debouncedSearch]);
+    const queryClient = useQueryClient();
+    const { data: customersData, isFetching: loading } = useQuery({
+        queryKey: ['customers', page, pageSize, debouncedSearch],
+        queryFn: async () => {
+            try {
+                const response = await customerApi.getCustomers({
+                    page: page + 1,
+                    pageSize,
+                    search: debouncedSearch || undefined,
+                });
+                return response.content;
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được danh sách khách hàng');
+                return { items: [] as CustomerSchema[], totalItems: 0 };
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
+    const customers: CustomerSchema[] = customersData?.items ?? [];
+    const total = customersData?.totalItems ?? 0;
+    const refreshCustomers = () => queryClient.invalidateQueries({ queryKey: ['customers'] });
 
     const handleExpandRow = async (customerId: number) => {
         const next = openRow === customerId ? null : customerId;
@@ -685,7 +686,7 @@ export default function CustomerPage() {
                                                         </TableHead>
                                                         <TableBody>
                                                             {customer.orders?.length ? (
-                                                                customer.orders.map((item, orderIdx) => (
+                                                                (customer.orders as any[]).map((item: any, orderIdx: number) => (
                                                                     <TableRow
                                                                         key={item.id}
                                                                         sx={{
@@ -888,7 +889,7 @@ export default function CustomerPage() {
                 open={editOpen}
                 customer={editingCustomer}
                 onClose={() => { setEditOpen(false); setEditingCustomer(null); }}
-                onSuccess={fetchCustomers}
+                onSuccess={refreshCustomers}
             />
             <OrderDetailDialog
                 open={orderDetailOpen}

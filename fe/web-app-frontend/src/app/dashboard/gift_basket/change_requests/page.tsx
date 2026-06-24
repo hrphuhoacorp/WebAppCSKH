@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useHasAnyPermission, usePermission } from '@/hooks/usePermission';
 import {
     Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions,
@@ -89,15 +90,11 @@ export default function ChangeRequestsPage() {
     const canDeleteReq = usePermission('gift.change_request.delete');
     const canBulkAct = useHasAnyPermission(['gift.change_request.toggle_active', 'gift.change_request.delete']);
 
-    const [rows, setRows] = useState<GiftCodeChangeRequestDTO[]>([]);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
-    const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
     const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
     const [branchId, setBranchId] = useState<number | ''>('');
-    const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
     const [search, setSearch] = useState('');
     const debouncedSearch = useDebounce(search);
 
@@ -123,9 +120,6 @@ export default function ChangeRequestsPage() {
     const [editForm, setEditForm] = useState<any>({});
     const [editSaving, setEditSaving] = useState(false);
 
-    // scrolling ticker — 3 most recent approved requests
-    const [recentApproved, setRecentApproved] = useState<GiftCodeChangeRequestDTO[]>([]);
-
     // multi-select
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [bulkActing, setBulkActing] = useState(false);
@@ -147,7 +141,7 @@ export default function ChangeRequestsPage() {
         setBulkActing(false);
         setSelectedIds(new Set());
         toast.success(`Đã vô hiệu ${ok} yêu cầu${fail > 0 ? `, thất bại ${fail}` : ''}`);
-        load();
+        refreshRequests();
     };
 
     const handleBulkDelete = async () => {
@@ -161,35 +155,56 @@ export default function ChangeRequestsPage() {
         setBulkActing(false);
         setSelectedIds(new Set());
         toast.success(`Đã xóa ${ok} yêu cầu${fail > 0 ? `, thất bại ${fail}` : ''}`);
-        load();
+        refreshRequests();
     };
 
     const bulkRows = useMemo(() => parseBulk(bulkText), [bulkText]);
     const bulkValid = bulkRows.filter(r => !r.error);
     const bulkInvalid = bulkRows.filter(r => r.error);
 
-    useEffect(() => {
-        ordersApi.getBranches().then((res: any) => { if (res?.content) setBranches(res.content); });
-        giftBasketApi.getChangeRequests({ status: 'done', pageSize: 3, page: 1 })
-            .then(res => { if (res.content?.items) setRecentApproved(res.content.items); })
-            .catch(() => {});
-    }, []);
+    const queryClient = useQueryClient();
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await giftBasketApi.getChangeRequests({
-                page: page + 1, pageSize,
-                status: statusFilter || undefined,
-                branchId: branchId || undefined,
-                isActive: activeFilter ?? undefined,
-            });
-            if (res.content) { setRows(res.content.items); setTotal(res.content.totalItems); }
-        } catch { toast.error('Lỗi tải danh sách'); }
-        finally { setLoading(false); }
-    }, [page, pageSize, statusFilter, branchId, activeFilter]);
+    const { data: requestsData, isFetching: loading } = useQuery({
+        queryKey: ['change-requests', page, pageSize, statusFilter, branchId, activeFilter],
+        queryFn: async () => {
+            try {
+                const res = await giftBasketApi.getChangeRequests({
+                    page: page + 1,
+                    pageSize,
+                    status: statusFilter || undefined,
+                    branchId: branchId || undefined,
+                    isActive: activeFilter ?? undefined,
+                });
+                return res.content;
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được danh sách yêu cầu');
+                return { items: [], totalItems: 0 };
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
+    const rows = requestsData?.items ?? [];
+    const total = requestsData?.totalItems ?? 0;
 
-    useEffect(() => { load(); }, [load]);
+    const { data: branches = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => {
+            const r = await ordersApi.getBranches();
+            return r.content as { id: number; name: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: recentApproved = [] } = useQuery({
+        queryKey: ['change-requests-recent'],
+        queryFn: async () => {
+            const res = await giftBasketApi.getChangeRequests({ status: 'done', pageSize: 3, page: 1 });
+            return res.content.items;
+        },
+        staleTime: 60 * 1000,
+    });
+
+    const refreshRequests = () => queryClient.invalidateQueries({ queryKey: ['change-requests'] });
 
     // Client-side search filter
     const filtered = useMemo(() => {
@@ -215,7 +230,7 @@ export default function ChangeRequestsPage() {
             toast.success('Đã gửi yêu cầu');
             setCreateOpen(false);
             setForm({ priority: 'normal', sentZaloPhoto: true });
-            load();
+            refreshRequests();
         } catch (e: any) { toast.error(e?.response?.data?.MediaFileDtoessage ?? 'Lỗi'); }
         finally { setSaving(false); }
     };
@@ -258,7 +273,7 @@ export default function ChangeRequestsPage() {
             });
             toast.success(isActive ? 'Đã kích hoạt hiệu lực' : 'Đã đặt hết hiệu lực');
             setEditOpen(false);
-            load();
+            refreshRequests();
         } catch (e: any) { toast.error(e?.response?.data?.Message ); }
         finally { setEditSaving(false); }
     };
@@ -290,7 +305,7 @@ export default function ChangeRequestsPage() {
         setBulkOpen(false);
         setBulkText('');
         setBulkPreviewed(false);
-        load();
+        refreshRequests();
     };
 
     return (
@@ -396,7 +411,7 @@ export default function ChangeRequestsPage() {
                     </Select>
                 </FormControl>
                 <Box sx={{ flex: 1 }} />
-                <Tooltip title="Làm mới"><Button size="small" onClick={load} variant="text" sx={{ minWidth: 0, color: '#94a3b8' }}><Refresh fontSize="small" /></Button></Tooltip>
+                <Tooltip title="Làm mới"><Button size="small" onClick={refreshRequests} variant="text" sx={{ minWidth: 0, color: '#94a3b8' }}><Refresh fontSize="small" /></Button></Tooltip>
             </Paper>
 
             {/* Bulk action bar */}

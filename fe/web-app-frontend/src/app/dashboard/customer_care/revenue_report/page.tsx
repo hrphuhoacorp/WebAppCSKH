@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
     Box,
     Card,
@@ -39,7 +40,6 @@ import { LoyalCustomerDTO } from '@/features/customer/api/returnRate.api';
 import LoyalCustomerDetailDialog from '@/features/customer/components/LoyalCustomerDetailDialog';
 
 export default function DashboardPage() {
-    const [loading, setLoading] = useState(false);
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const [month, setMonth] = useState<number | ''>(
@@ -48,62 +48,62 @@ export default function DashboardPage() {
     const [year, setYear] = useState('');
     const [source, setSource] = useState('');
     const [branchId, setBranchId] = useState('');
-    const [branches, setBranches] = useState<any[]>([]);
-    const [dashboard, setDashboard] = useState<any>(null);
     const [revenueGroupBy, setRevenueGroupBy] = useState<'day' | 'week' | 'month'>('day');
     const [selectedCustomer, setSelectedCustomer] = useState<LoyalCustomerDTO | null>(null);
 
     // ── message stats ──
     const [msgType, setMsgType] = useState('');
-    const [msgRows, setMsgRows] = useState<MessageReportDTO[]>([]);
-
 
     const formatMoney = (value: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value ?? 0);
 
-    const fetchBranches = async () => {
-        try {
-            const response = await ordersApi.getBranches();
-            setBranches(response.content || response || []);
-        } catch {
-            toast.error('Không tải được danh sách chi nhánh');
-        }
-    };
+    const { data: branches = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => {
+            const r = await ordersApi.getBranches();
+            return r.content ?? r ?? [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
-    const fetchDashboard = async () => {
-        try {
-            setLoading(true);
-            const response = await dashboardApi.getDashboardForOnline({
-                fromDate: fromDate || undefined,
-                toDate: toDate || undefined,
-                month: month ? Number(month) : undefined,
-                year: year ? Number(year) : undefined,
-                source: source || undefined,
-                branchId: branchId ? Number(branchId) : undefined,
-                revenueGroupBy: revenueGroupBy
-            });
-            setDashboard(response.content);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message ?? 'Không tải được dashboard');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: dashboard, isFetching: loading } = useQuery({
+        queryKey: ['dashboard-online', fromDate, toDate, month, year, source, branchId, revenueGroupBy],
+        queryFn: async () => {
+            try {
+                const res = await dashboardApi.getDashboardForOnline({
+                    fromDate: fromDate || undefined,
+                    toDate: toDate || undefined,
+                    month: month ? Number(month) : undefined,
+                    year: year ? Number(year) : undefined,
+                    source: source || undefined,
+                    branchId: branchId ? Number(branchId) : undefined,
+                    revenueGroupBy,
+                });
+                return res.content;
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được dashboard');
+                return null;
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
 
-    const fetchMsgStats = async () => {
-        try {
-            const filter: any = {};
-            if (month) filter.month = Number(month);
-            if (year) filter.year = Number(year);
-            if (msgType) filter.type = msgType;
-            const res = await messageReportApi.getList(filter);
-            setMsgRows(res.content ?? res ?? []);
-        } catch { /* silent */ }
-    };
-
-    useEffect(() => { fetchBranches(); }, []);
-    useEffect(() => { fetchDashboard(); }, [fromDate, toDate, month, year, source, branchId, revenueGroupBy]);
-    useEffect(() => { fetchMsgStats(); }, [month, year, msgType]);
+    const { data: msgRows = [] } = useQuery<any[]>({
+        queryKey: ['msg-stats', month, year, msgType],
+        queryFn: async () => {
+            try {
+                const res = await messageReportApi.getList({
+                    month: month ? Number(month) : undefined,
+                    year: year ? Number(year) : undefined,
+                    type: msgType || undefined,
+                });
+                return (res.content ?? []) as any[];
+            } catch {
+                return [];
+            }
+        },
+        staleTime: 2 * 60 * 1000,
+    });
 
     const hasFilter = fromDate || toDate || month || year || source || branchId || revenueGroupBy;
 

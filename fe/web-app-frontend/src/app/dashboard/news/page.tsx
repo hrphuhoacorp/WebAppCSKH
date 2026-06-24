@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePermission } from '@/hooks/usePermission';
 import {
     Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
@@ -19,7 +20,7 @@ import LoadingOverlay from '@/components/common/LoadingOverlay';
 import PageHeader from '@/components/common/PageHeader';
 import { newsApi } from '@/features/news/api/news.api';
 import NewsEditor from '@/features/news/components/NewsEditor';
-import { TYPE_LABEL, TYPE_OPTIONS, NewsItem, fixVnDate } from '@/features/news/news.shared';
+import { TYPE_LABEL, NewsItem } from '@/features/news/news.shared';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,9 +69,6 @@ export default function NewsManagePage() {
     const canPin = usePermission('news.toggle_pin');
     const canPublish = usePermission('news.publish');
 
-    const [loading, setLoading] = useState(false);
-    const [newsList, setNewsList] = useState<NewsItem[]>([]);
-    const [total, setTotal] = useState(0);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterType, setFilterType] = useState('');
@@ -86,32 +84,37 @@ export default function NewsManagePage() {
         type: 'announcement', status: 'draft', isPinned: false,
     });
 
-    // stats derived from list (approximation — real stats need dedicated API)
-    const publishedCount = newsList.filter(n => n.status === 'published').length;
-    const draftCount = newsList.filter(n => n.status !== 'published').length;
-    const pinnedCount = newsList.filter(n => n.isPinned).length;
+    const queryClient = useQueryClient();
 
-    const fetchNews = async () => {
-        try {
-            setLoading(true);
-            const res = await newsApi.getPaged({
-                search: search || undefined,
-                status: filterStatus || undefined,
-                type: filterType || undefined,
-                pageSize,
-                page: page + 1,
-            });
-            setNewsList(res.content.items);
-            setTotal(res.content.totalItems);
-        } catch {
-            toast.error('Không tải được danh sách tin');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: newsData, isFetching: loading } = useQuery({
+        queryKey: ['news', page, pageSize, search, filterStatus, filterType],
+        queryFn: async () => {
+            try {
+                const res = await newsApi.getPaged({
+                    search: search || undefined,
+                    status: filterStatus || undefined,
+                    type: filterType || undefined,
+                    pageSize,
+                    page: page + 1,
+                });
+                return res.content;
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được tin tức');
+                return { items: [], totalItems: 0 };
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
+    const newsList = newsData?.items ?? [];
+    const total = newsData?.totalItems ?? 0;
+    const refreshNews = () => queryClient.invalidateQueries({ queryKey: ['news'] });
+
+    // stats derived from list (approximation — real stats need dedicated API)
+    const publishedCount = newsList.filter((n: NewsItem) => n.status === 'published').length;
+    const draftCount = newsList.filter((n: NewsItem) => n.status !== 'published').length;
+    const pinnedCount = newsList.filter((n: NewsItem) => n.isPinned).length;
 
     useEffect(() => { setPage(0); }, [search, filterStatus, filterType]);
-    useEffect(() => { fetchNews(); }, [search, filterStatus, filterType, page]);
 
     const openCreate = () => {
         setEditingId(null);
@@ -136,7 +139,6 @@ export default function NewsManagePage() {
         if (!form.title.trim()) { toast.error('Vui lòng nhập tiêu đề'); return; }
         if (!form.content.trim()) { toast.error('Vui lòng nhập nội dung'); return; }
         try {
-            setLoading(true);
             if (editingId) {
                 await newsApi.update(editingId, form);
                 toast.success('Cập nhật thành công');
@@ -145,11 +147,9 @@ export default function NewsManagePage() {
                 toast.success('Tạo bài viết thành công');
             }
             setDialogOpen(false);
-            fetchNews();
+            refreshNews();
         } catch (e: any) {
             toast.error(e?.response?.data?.Message ?? 'Có lỗi xảy ra');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -158,15 +158,15 @@ export default function NewsManagePage() {
         try {
             await newsApi.delete(id);
             toast.success('Đã xóa bài viết');
-            fetchNews();
+            refreshNews();
         } catch { toast.error('Xóa thất bại'); }
     };
 
     const handleTogglePin = async (id: number) => {
-        try { await newsApi.togglePin(id); fetchNews(); }
+        try { await newsApi.togglePin(id); refreshNews(); }
         catch (e: any) {
-            if (e?.response?.status === 409) { fetchNews(); return; }
-            toast.error(e?.response?.data?.Message ?? e?.response?.data?.Message ?? 'Ghim thất bại');
+            if (e?.response?.status === 409) { refreshNews(); return; }
+            toast.error(e?.response?.data?.Message ?? 'Ghim thất bại');
         }
     };
 
@@ -179,12 +179,12 @@ export default function NewsManagePage() {
                 await newsApi.publish(id);
                 toast.success('Đã đăng bài');
             }
-            fetchNews();
+            refreshNews();
         } catch (e: any) {
             if (e?.response?.status === 409) {
                 // State mismatch — sync lại từ server
                 toast('Trạng thái bài đã thay đổi, đang cập nhật...', { icon: '🔄' });
-                fetchNews();
+                refreshNews();
                 return;
             }
             const msg = e?.response?.data?.Message;
@@ -268,7 +268,7 @@ export default function NewsManagePage() {
                         placeholder="Tìm theo tiêu đề bài viết..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && fetchNews()}
+                        onKeyDown={e => e.key === 'Enter' && refreshNews()}
                         sx={{ flex: 1, '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: 13.5, bgcolor: '#f8fafc' } }}
                         slotProps={{
                             input: {
@@ -282,7 +282,7 @@ export default function NewsManagePage() {
                     />
                     <Button
                         variant="contained"
-                        onClick={fetchNews}
+                        onClick={refreshNews}
                         sx={{
                             bgcolor: '#086839', borderRadius: '10px', fontWeight: 600,
                             textTransform: 'none', px: 2.5, boxShadow: 'none', flexShrink: 0,
@@ -360,7 +360,7 @@ export default function NewsManagePage() {
                     </Box>
                 )}
 
-                {newsList.map(item => {
+                {newsList.map((item: NewsItem) => {
                     const typeInfo = item.type ? TYPE_LABEL[item.type] : null;
                     const accentColor = typeInfo?.color ?? '#086839';
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-import * as signalR from '@microsoft/signalr';
 import { CircularProgress, InputAdornment, LinearProgress, Stack } from '@mui/material';
 import {
     Autocomplete,
@@ -45,8 +45,6 @@ import {
     ExpandMore,
     HistoryToggleOffRounded,
     Inventory2,
-    ReportGmailerrorredOutlined,
-    Message,
     CheckCircleRounded,
     ErrorRounded,
     Close,
@@ -62,9 +60,7 @@ import { ReceiptLongRounded } from '@mui/icons-material';
 import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
 import { useAuth } from '@/providers/AuthProviders';
 import ImportHistoryDialog from '@/features/orders/components/ImportHistoryDialog';
-import ReportMessageDialog from '@/features/orders/components/ReportMessageDialog';
 import { usePermission } from '@/hooks/usePermission';
-import { Color } from '@tiptap/extension-text-style';
 
 const branchColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
 
@@ -142,14 +138,9 @@ const itemColumnConfig = [
 export default function OrdersStaffPage() {
     const canImport = usePermission('cskh.order.import');
 
-    const [orders, setOrders] = useState<any[]>([]);
-    const [total, setTotal] = useState(0);
     const [openRow, setOpenRow] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [filterOpen, setFilterOpen] = useState(false);
-    const [statusOptions, setStatusOptions] = useState<{ id: number; name: string; color: string }[]>([]);
-    const [branchOptions, setBranchOptions] = useState<{ id: number; name: string }[]>([]);
-
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(25);
     const [search, setSearch] = useState('');
@@ -160,7 +151,6 @@ export default function OrdersStaffPage() {
     const [source, setSource] = useState<any>(null);
     const [sortBy, setSortBy] = useState('purchaseDate');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-    const [loading, setLoading] = useState(false);
 
     const [progress, setProgress] = useState({ current: 0, total: 0 });
 
@@ -195,39 +185,54 @@ export default function OrdersStaffPage() {
         return () => clearTimeout(t);
     }, [search]);
 
-    const fetchOrders = async (silent = false) => {
-        try {
-            if (!silent) setLoading(true);
-            const response = await ordersApi.getOrdersSale({
-                page: page + 1, pageSize,
-                search: debouncedSearch || undefined,
-                fromDate: fromDate || undefined,
-                toDate: toDate || undefined,
-                statusId: status?.id || undefined,
-                branchId: branch?.id || undefined,
-                source: source?.name || undefined,
-                sortBy, sortDir,
-            });
-            setTotal(response.content.totalItems);
-            setOrders(response.content.items);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message || 'Không thể tải danh sách đơn hàng');
-        } finally {
-            if (!silent) setLoading(false);
-        }
-    };
+    const queryClient = useQueryClient();
 
-    useEffect(() => { fetchOrders(); }, [page, pageSize, debouncedSearch, fromDate, toDate, status, branch, source, sortBy, sortDir]);
+    const { data: ordersData, isFetching: loading } = useQuery({
+        queryKey: ['orders-sales', page, pageSize, debouncedSearch, fromDate, toDate, status?.id, branch?.id, source?.name, sortBy, sortDir],
+        queryFn: async () => {
+            try {
+                const response = await ordersApi.getOrdersSale({
+                    page: page + 1,
+                    pageSize,
+                    search: debouncedSearch || undefined,
+                    fromDate: fromDate || undefined,
+                    toDate: toDate || undefined,
+                    statusId: status?.id || undefined,
+                    branchId: branch?.id || undefined,
+                    source: source?.name || undefined,
+                    sortBy,
+                    sortDir,
+                });
+                return response.content;
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được danh sách đơn hàng');
+                return { items: [], totalItems: 0 };
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
+    const orders = ordersData?.items ?? [];
+    const total = ordersData?.totalItems ?? 0;
 
-    useEffect(() => {
-        const fetchStatus = async () => {
-            try { const r = await ordersApi.getStatuses(); setStatusOptions(r.content); } catch { }
-        };
-        const fetchBranch = async () => {
-            try { const r = await ordersApi.getBranches(); setBranchOptions(r.content); } catch { }
-        };
-        fetchStatus(); fetchBranch();
-    }, []);
+    const { data: statusOptions = [] } = useQuery({
+        queryKey: ['order-statuses'],
+        queryFn: async () => {
+            const r = await ordersApi.getStatuses();
+            return r.content as { id: number; name: string; color: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: branchOptions = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => {
+            const r = await ordersApi.getBranches();
+            return r.content as { id: number; name: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const refreshOrders = () => queryClient.invalidateQueries({ queryKey: ['orders-sales'] });
 
     const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -244,8 +249,8 @@ export default function OrdersStaffPage() {
                 errorMessages: response.content.errorMessages ?? [],
                 skippedMessages: response.content.skippedMessages ?? [],
             });
-            // Refresh ngầm, silent=true để không bật loading overlay che dialog
-            fetchOrders(true);
+            // Refresh ngầm sau khi import
+            refreshOrders();
             loadProfile(true);
         } catch (error: any) {
             toast.error(error?.response?.data?.Message ?? 'Có lỗi xảy ra khi import');
@@ -701,7 +706,7 @@ export default function OrdersStaffPage() {
                     </TableHead>
 
                     <TableBody>
-                        {orders.map((order, index) => (
+                        {orders.map((order: any, index: number) => (
                             <React.Fragment key={order.id}>
                                 {/* Main row */}
                                 <TableRow

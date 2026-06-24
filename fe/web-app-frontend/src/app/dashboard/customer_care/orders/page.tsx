@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import * as signalR from '@microsoft/signalr';
 import { CircularProgress, InputAdornment, LinearProgress, Stack } from '@mui/material';
@@ -139,13 +140,9 @@ const itemColumnConfig = [
 export default function OrdersPage() {
     const canReport = usePermission('cskh.message_report.create');
 
-    const [orders, setOrders] = useState<any[]>([]);
-    const [total, setTotal] = useState(0);
     const [openRow, setOpenRow] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [filterOpen, setFilterOpen] = useState(false);
-    const [statusOptions, setStatusOptions] = useState<{ id: number; name: string; color: string }[]>([]);
-    const [branchOptions, setBranchOptions] = useState<{ id: number; name: string }[]>([]);
 
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(25);
@@ -157,7 +154,6 @@ export default function OrdersPage() {
     const [source, setSource] = useState<any>(null);
     const [sortBy, setSortBy] = useState('purchaseDate');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-    const [loading, setLoading] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
     const [orderDetailOpen, setOrderDetailOpen] = useState(false);
@@ -186,39 +182,54 @@ export default function OrdersPage() {
         return () => clearTimeout(t);
     }, [search]);
 
-    const fetchOrders = async (silent = false) => {
-        try {
-            if (!silent) setLoading(true);
-            const response = await ordersApi.getOrdersOnline({
-                page: page + 1, pageSize,
-                search: debouncedSearch || undefined,
-                fromDate: fromDate || undefined,
-                toDate: toDate || undefined,
-                statusId: status?.id || undefined,
-                branchId: branch?.id || undefined,
-                source: source?.name || undefined,
-                sortBy, sortDir,
-            });
-            setTotal(response.content.totalItems);
-            setOrders(response.content.items);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message || 'Không thể tải danh sách đơn hàng');
-        } finally {
-            if (!silent) setLoading(false);
-        }
-    };
+    const queryClient = useQueryClient();
 
-    useEffect(() => { fetchOrders(); }, [page, pageSize, debouncedSearch, fromDate, toDate, status, branch, source, sortBy, sortDir]);
+    const { data: ordersData, isFetching: loading } = useQuery({
+        queryKey: ['orders-online', page, pageSize, debouncedSearch, fromDate, toDate, status?.id, branch?.id, source?.name, sortBy, sortDir],
+        queryFn: async () => {
+            try {
+                const response = await ordersApi.getOrdersOnline({
+                    page: page + 1,
+                    pageSize,
+                    search: debouncedSearch || undefined,
+                    fromDate: fromDate || undefined,
+                    toDate: toDate || undefined,
+                    statusId: status?.id || undefined,
+                    branchId: branch?.id || undefined,
+                    source: source?.name || undefined,
+                    sortBy,
+                    sortDir,
+                });
+                return response.content;
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được danh sách đơn hàng');
+                return { items: [], totalItems: 0 };
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
+    const orders = ordersData?.items ?? [];
+    const total = ordersData?.totalItems ?? 0;
 
-    useEffect(() => {
-        const fetchStatus = async () => {
-            try { const r = await ordersApi.getStatuses(); setStatusOptions(r.content); } catch { }
-        };
-        const fetchBranch = async () => {
-            try { const r = await ordersApi.getBranches(); setBranchOptions(r.content); } catch { }
-        };
-        fetchStatus(); fetchBranch();
-    }, []);
+    const { data: statusOptions = [] } = useQuery({
+        queryKey: ['order-statuses'],
+        queryFn: async () => {
+            const r = await ordersApi.getStatuses();
+            return r.content as { id: number; name: string; color: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: branchOptions = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => {
+            const r = await ordersApi.getBranches();
+            return r.content as { id: number; name: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const refreshOrders = () => queryClient.invalidateQueries({ queryKey: ['orders-online'] });
 
 
 
@@ -430,7 +441,7 @@ export default function OrdersPage() {
                     </TableHead>
 
                     <TableBody>
-                        {orders.map((order, index) => (
+                        {orders.map((order: any, index: number) => (
                             <React.Fragment key={order.id}>
                                 {/* Main row */}
                                 <TableRow

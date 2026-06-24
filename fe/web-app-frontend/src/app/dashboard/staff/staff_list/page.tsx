@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -90,18 +91,14 @@ const ROLE_COLORS = [
 
 export default function UsersPage() {
     const router = useRouter();
-    const [users, setUsers] = useState<UserRow[]>([]);
-    const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(25);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [role, setRole] = useState('');
     const [branchId, setBranchId] = useState<number | ''>('');
-    const [branchOptions, setBranchOptions] = useState<{ id: number; name: string }[]>([]);
     const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
-    const [roleOptions, setRoleOptions] = useState<{ id: number; name: string }[]>([]);
     const [detailOpen, setDetailOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -128,17 +125,19 @@ export default function UsersPage() {
         }).format(new Date(value));
     };
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(search.trim());
+    // Debounce search
+    const handleSearchChange = (value: string) => {
+        setSearch(value);
+        clearTimeout((handleSearchChange as any)._timer);
+        (handleSearchChange as any)._timer = setTimeout(() => {
+            setDebouncedSearch(value.trim());
             setPage(0);
         }, 500);
-        return () => clearTimeout(timer);
-    }, [search]);
+    };
 
-    const fetchUsers = async () => {
-        try {
-            setLoading(true);
+    const { data: usersData, isFetching: loading } = useQuery({
+        queryKey: ['users', page, pageSize, debouncedSearch, role, branchId],
+        queryFn: async () => {
             const response = await userApi.getUsers({
                 page: page + 1,
                 pageSize,
@@ -146,43 +145,41 @@ export default function UsersPage() {
                 role: role || undefined,
                 branchId: branchId || undefined,
             });
-            setUsers(response.content.items);
-            setTotal(response.content.totalItems);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message ?? 'Không tải được danh sách nhân sự');
-        } finally {
-            setLoading(false);
-        }
-    };
+            return response.content;
+        },
+        placeholderData: (prev) => prev,
+    });
 
-    const fetchBranches = async () => {
-        try {
+    const users: UserRow[] = usersData?.items ?? [];
+    const total: number = usersData?.totalItems ?? 0;
+
+    const { data: branchOptions = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => {
             const response = await ordersApi.getBranches();
-            setBranchOptions(response.content);
-        } catch {
-            toast.error('Không tải được danh sách chi nhánh');
-        }
-    };
-    const fetchAllRole = async () => {
-        try {
+            return response.content as { id: number; name: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: roleOptions = [] } = useQuery({
+        queryKey: ['roles'],
+        queryFn: async () => {
             const response = await userApi.getRoles();
-            setRoleOptions(response.content);
-        } catch {
-            toast.error('Không tải được danh sách vai trò');
-        }
-    }
+            return response.content as { id: number; name: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const refreshUsers = () => queryClient.invalidateQueries({ queryKey: ['users'] });
+
     const getRoleColor = (role: string) => {
         let hash = 0;
-
         for (let i = 0; i < role.length; i++) {
             hash = role.charCodeAt(i) + ((hash << 5) - hash);
         }
-
         return ROLE_COLORS[Math.abs(hash) % ROLE_COLORS.length];
     };
-
-    useEffect(() => { fetchBranches(); fetchAllRole(); }, []);
-    useEffect(() => { fetchUsers(); }, [page, pageSize, debouncedSearch, role, branchId]);
 
     const hasActiveFilter = !!debouncedSearch || !!role || !!branchId;
 
@@ -319,7 +316,7 @@ export default function UsersPage() {
                         label="Tìm kiếm nhân sự"
                         placeholder="Nhập tên, email, số điện thoại..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => handleSearchChange(e.target.value)}
                         slotProps={{
                             input: {
                                 startAdornment: (
@@ -765,19 +762,19 @@ export default function UsersPage() {
                 userId={selectedUser?.id}
                 branchOptions={branchOptions}
                 onClose={() => { setEditOpen(false); setSelectedUser(null); }}
-                onSuccess={fetchUsers}
+                onSuccess={refreshUsers}
             />
             <DeleteUserDialog
                 open={deleteOpen}
                 user={selectedUser}
                 onClose={() => { setDeleteOpen(false); setSelectedUser(null); }}
-                onSuccess={fetchUsers}
+                onSuccess={refreshUsers}
             />
             <RestoreUserDialog
                 open={restoreOpen}
                 user={selectedUser}
                 onClose={() => { setRestoreOpen(false); setSelectedUser(null); }}
-                onSuccess={fetchUsers}
+                onSuccess={refreshUsers}
             />
             <ResetPasswordDialog
                 open={resetPasswordOpen}
@@ -791,12 +788,12 @@ export default function UsersPage() {
                 open={createOpen}
                 branchOptions={branchOptions}
                 onClose={() => setCreateOpen(false)}
-                onSuccess={fetchUsers}
+                onSuccess={refreshUsers}
             />
             <ImportStaffDialog
                 open={importOpen}
                 onClose={() => setImportOpen(false)}
-                onSuccess={fetchUsers}
+                onSuccess={refreshUsers}
             />
             <PermissionDialog
                 open={permOpen}

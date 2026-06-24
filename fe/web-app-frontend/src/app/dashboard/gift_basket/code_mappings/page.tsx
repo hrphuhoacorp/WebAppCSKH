@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef, memo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Button, Chip, CircularProgress, Dialog, DialogActions,
     DialogContent, DialogTitle, Divider, FormControl,
@@ -211,12 +212,11 @@ const QuickApproveRow = memo(function QuickApproveRow({
 
 /* ══════════════════════════════════════════════════════════════ */
 export default function ApprovePage() {
-    const [rows, setRows] = useState<GiftCodeChangeRequestDTO[]>([]);
-    const [total, setTotal] = useState(0);
     const [page] = useState(0);
     const [pageSize] = useState(50);
-    const [loading, setLoading] = useState(false);
-    const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+    const [statusFilter, setStatusFilter] = useState('');
+    const [branchId, setBranchId] = useState('');
+    const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
 
     // dialogs
     const [approveOpen, setApproveOpen] = useState(false);
@@ -293,7 +293,7 @@ export default function ApprovePage() {
         setBulkSaving(false); setBulkProgress('');
         toast.success(`Đã tạo và duyệt ${ok} mã${fail > 0 ? `, thất bại ${fail}` : ''}`);
         setBulkOpen(false); setBulkText(''); setBulkPreviewed(false);
-        load();
+        refreshMappings();
     };
 
     // quick approve
@@ -322,24 +322,53 @@ export default function ApprovePage() {
     const [uploadTarget, setUploadTarget] = useState<{ form: 'admin' | 'approve'; field: 'frontImageUrl' | 'backImageUrl' } | null>(null);
 
     useEffect(() => {
-        ordersApi.getBranches().then((res: any) => { if (res?.content) setBranches(res.content); });
-    }, []);
-
-    const load = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await giftBasketApi.getChangeRequests({ page: page + 1, pageSize, status: 'pending' });
-            if (res.content) { setRows(res.content.items); setTotal(res.content.totalItems); }
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message ?? 'Lỗi');
-        }
-        finally { setLoading(false); }
-    }, [page, pageSize]);
-
-    useEffect(() => {
         document.addEventListener('click', unlockAudio, { once: true });
         return () => document.removeEventListener('click', unlockAudio);
     }, []);
+
+    const queryClient = useQueryClient();
+
+    const { data: mappingsData, isFetching: loading } = useQuery({
+        queryKey: ['code-mappings', page, pageSize, statusFilter, branchId, activeFilter],
+        queryFn: async () => {
+            try {
+                const res = await giftBasketApi.getChangeRequests({
+                    page: page + 1,
+                    pageSize,
+                    status: statusFilter || undefined,
+                    branchId: branchId ? Number(branchId) : undefined,
+                    isActive: activeFilter ?? undefined,
+                });
+                return res.content;
+            } catch (error: any) {
+                toast.error(error?.response?.data?.Message ?? 'Không tải được dữ liệu');
+                return { items: [], totalItems: 0 };
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
+    const rows = mappingsData?.items ?? [];
+    const total = mappingsData?.totalItems ?? 0;
+
+    const { data: branches = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => {
+            const r = await ordersApi.getBranches();
+            return r.content as { id: number; name: string }[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: recentApproved = [] } = useQuery({
+        queryKey: ['code-mappings-recent'],
+        queryFn: async () => {
+            const res = await giftBasketApi.getChangeRequests({ status: 'done', pageSize: 3, page: 1 });
+            return res.content.items;
+        },
+        staleTime: 60 * 1000,
+    });
+
+    const refreshMappings = useCallback(() => queryClient.invalidateQueries({ queryKey: ['code-mappings'] }), [queryClient]);
 
     useEffect(() => {
         const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
@@ -350,25 +379,20 @@ export default function ApprovePage() {
         conn.on('GiftBasketChanged', (payload: any) => {
             if (payload.table !== 'change_requests') return;
             if (payload.action === 'created') {
-                setRows(prev => [payload.data, ...prev]);
-                setTotal(prev => prev + 1);
+                queryClient.invalidateQueries({ queryKey: ['code-mappings'] });
                 playBeep();
                 toast('🔔 Có yêu cầu đổi mã mới!');
             } else if (payload.action === 'handled') {
-                setRows(prev => prev.filter((r: GiftCodeChangeRequestDTO) => r.id !== payload.data.id));
-                setTotal(prev => Math.max(0, prev - 1));
+                queryClient.invalidateQueries({ queryKey: ['code-mappings'] });
                 const label = payload.data.status === 'done' ? 'đã được duyệt ✅' : 'đã bị từ chối ❌';
                 toast(`Yêu cầu ${payload.data.requestUid ?? ''} ${label}`);
             } else if (payload.action === 'deleted') {
-                setRows(prev => prev.filter((r: GiftCodeChangeRequestDTO) => r.id !== payload.id));
-                setTotal(prev => Math.max(0, prev - 1));
+                queryClient.invalidateQueries({ queryKey: ['code-mappings'] });
             }
         });
         conn.start().catch(() => { });
         return () => { conn.stop(); };
-    }, []);
-
-    useEffect(() => { load(); }, [load]);
+    }, [queryClient]);
 
     /* ── Quick approve handlers (after load) ── */
     const openQuickApprove = () => {
@@ -410,10 +434,10 @@ export default function ApprovePage() {
             });
             toast.success(`Đã duyệt ${row.requestUid}`);
             setQuickInputs(p => { const n = { ...p }; delete n[row.id]; return n; });
-            load();
+            refreshMappings();
         } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi duyệt'); }
         finally { setQuickInputs(p => ({ ...p, [row.id]: { ...p[row.id], saving: false } })); }
-    }, [quickInputs, load]);
+    }, [quickInputs, refreshMappings]);
 
     const handleQuickUpload = useCallback((id: number, field: 'frontImageUrl' | 'backImageUrl') => {
         setQuickUploadTarget({ id, field });
@@ -455,7 +479,7 @@ export default function ApprovePage() {
             });
             toast.success(approveForm.status === 'done' ? 'Đã duyệt' : 'Đã từ chối');
             setApproveOpen(false);
-            load();
+            refreshMappings();
         } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi'); }
         finally { setSaving(false); }
     };
@@ -495,7 +519,7 @@ export default function ApprovePage() {
             toast.success('Đã tạo và duyệt mã thành công');
             setAdminCreateOpen(false);
             setAdminForm({ approvedDate: todayStr() });
-            load();
+            refreshMappings();
         } catch (e: any) { toast.error(e?.response?.data?.Message ?? 'Lỗi'); }
         finally { setSaving(false); }
     };

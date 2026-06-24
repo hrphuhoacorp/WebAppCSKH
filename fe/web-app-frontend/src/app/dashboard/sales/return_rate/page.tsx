@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
     Box, Typography, Paper, Chip, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, alpha, MenuItem, TextField,
@@ -84,27 +85,21 @@ function SegmentTable({
     color: string;
     onViewCustomer: (c: SegmentCustomerDTO) => void;
 }) {
-    const [rows, setRows] = useState<SegmentCustomerDTO[]>([]);
-    const [total, setTotal] = useState(0);
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(20);
-    const [loading, setLoading] = useState(false);
 
-    const fetch = useCallback(async () => {
-        try {
-            setLoading(true);
-            const res = await returnRateApi.getCustomersBySegment(segment, page + 1, pageSize);
-            setRows(res.items);
-            setTotal(res.totalItems);
-        } catch {
-            toast.error('Không tải được danh sách');
-        } finally {
-            setLoading(false);
-        }
-    }, [segment, page, pageSize]);
-
-    useEffect(() => { fetch(); }, [fetch]);
     useEffect(() => { setPage(0); }, [segment]);
+
+    const { data: segmentData, isFetching: loading } = useQuery({
+        queryKey: ['segment-customers', segment, page, pageSize],
+        queryFn: async () => {
+            const res = await returnRateApi.getCustomersBySegment(segment, page + 1, pageSize);
+            return res;
+        },
+        placeholderData: (prev) => prev,
+    });
+    const rows = segmentData?.items ?? [];
+    const total = segmentData?.totalItems ?? 0;
 
     const dormColor = (days: number) =>
         days <= 30 ? '#086839' : days <= 90 ? '#b45309' : '#dc2626';
@@ -218,26 +213,18 @@ function SegmentTable({
 // ── Main Page ───────────────────────────────────────────────────
 export default function ReturnRatePage() {
     const [months, setMonths] = useState(12);
-    const [data, setData] = useState<ReturnRateStatsDTO | null>(null);
-    const [loading, setLoading] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<LoyalCustomerDTO | null>(null);
     const [selectedSegmentIdx, setSelectedSegmentIdx] = useState(0);
     const [activeTab, setActiveTab] = useState(0);
 
-    useEffect(() => {
-        const fetch = async () => {
-            try {
-                setLoading(true);
-                const res = await returnRateApi.getStats(months);
-                setData(res);
-            } catch {
-                toast.error('Không tải được thống kê');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetch();
-    }, [months]);
+    const { data, isFetching: loading } = useQuery({
+        queryKey: ['return-rate', months],
+        queryFn: async () => {
+            const res = await returnRateApi.getStats(months);
+            return res;
+        },
+        placeholderData: (prev) => prev,
+    });
 
     const freq = data?.frequencyDistribution;
     const dorm = data?.dormancySegments;
