@@ -12,9 +12,6 @@ import {
     Library,
     Import,
     Briefcase,
-    UserSearch,
-    Mail,
-    Settings,
 } from 'lucide-react';
 import React from 'react';
 
@@ -121,48 +118,19 @@ export const sidebarMenu: SidebarGroup[] = [
         ],
     },
     {
-        title: 'Tuyển Dụng',
-        children: [
-            {
-                title: 'Tổng Quan Tuyển Dụng',
-                href: '/dashboard/recruitment/dashboard',
-                icon: LayoutDashboard,
-                permissions: ['recruitment.view'],
-            },
-            {
-                title: 'Chiến Dịch',
-                href: '/dashboard/recruitment/campaigns',
-                icon: Briefcase,
-                permissions: ['recruitment.view'],
-            },
-            {
-                title: 'Ứng Viên',
-                href: '/dashboard/recruitment/candidates',
-                icon: UserSearch,
-                permissions: ['recruitment.view'],
-            },
-            {
-                title: 'Soạn Thảo Email',
-                href: '/dashboard/recruitment/compose_mail',
-                icon: Mail,
-                permissions: ['recruitment.edit'],
-            },
-            {
-                title: 'Cài Đặt Tuyển Dụng',
-                href: '/dashboard/recruitment/settings',
-                icon: Settings,
-                permissions: ['recruitment.settings'],
-            },
-        ],
-    },
-    {
-        title: 'Quản Trị Nhân sự',
+        title: 'Quản Trị Tổng Hợp',
         children: [
             {
                 title: 'Danh Sách Nhân Viên',
                 href: '/dashboard/staff/staff_list',
                 icon: Users,
                 permissions: ['staff.view_list'],
+            },
+            {
+                title: 'Tuyển Dụng',
+                href: '/dashboard/staff/recruitment',
+                icon: Briefcase,
+                permissions: ['recruitment.view'],
             },
             {
                 title: 'Lịch Sử Thao Tác',

@@ -96,7 +96,7 @@ export interface CandidateCreateDto {
     actedBy?: string;
 }
 
-export type CandidateUpdateDto = CandidateCreateDto;
+export type CandidateUpdateDto = Partial<CandidateCreateDto> & { actedBy?: string };
 
 export interface SendMailDto {
     subject: string;

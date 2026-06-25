@@ -14,7 +14,7 @@ public class RecruitmentCandidate
     public string? CvFileName { get; set; }
     public string? CvFilePath { get; set; }
     public string? CvNote { get; set; }
-    public string Status { get; set; } = "new";
+    public string Status { get; set; } = "CV mới / NV Đã gửi";
     public string? WaitingFor { get; set; }
     public string? InterviewTime { get; set; }
     public string? InterviewNote { get; set; }

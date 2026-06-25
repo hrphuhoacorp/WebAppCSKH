@@ -1580,9 +1580,9 @@ namespace WebAppInfractor.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasDefaultValue("new")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("CV mới / NV Đã gửi")
                         .HasColumnName("status");
 
                     b.Property<DateTime?>("UpdatedAt")

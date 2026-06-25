@@ -122,22 +122,24 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
             throw new NotFoundException("Không tìm thấy ứng viên");
 
         var oldStatus = entity.Status;
-        entity.CandidateName = dto.CandidateName;
-        entity.Phone = dto.Phone;
-        entity.Email = dto.Email;
-        entity.Position = dto.Position;
-        entity.Source = dto.Source;
-        entity.SourceOtherNote = dto.SourceOtherNote;
-        entity.CvLink = dto.CvLink;
-        entity.CvNote = dto.CvNote;
+        // Only overwrite fields that are explicitly provided (non-null).
+        // This allows quickUpdate to send only {status} without wiping all other fields.
+        if (dto.CandidateName != null) entity.CandidateName = dto.CandidateName;
+        if (dto.Phone != null)        entity.Phone = dto.Phone;
+        if (dto.Email != null)        entity.Email = dto.Email;
+        if (dto.Position != null)     entity.Position = dto.Position;
+        if (dto.Source != null)       entity.Source = dto.Source;
+        if (dto.SourceOtherNote != null) entity.SourceOtherNote = dto.SourceOtherNote;
+        if (dto.CvLink != null)       entity.CvLink = dto.CvLink;
+        if (dto.CvNote != null)       entity.CvNote = dto.CvNote;
         entity.Status = string.IsNullOrWhiteSpace(dto.Status) ? entity.Status : dto.Status;
-        entity.WaitingFor = dto.WaitingFor;
-        entity.InterviewTime = dto.InterviewTime;
-        entity.InterviewNote = dto.InterviewNote;
-        entity.Result = dto.Result;
-        entity.OfferNote = dto.OfferNote;
-        entity.OnboardDate = dto.OnboardDate;
-        entity.CampaignId = dto.CampaignId;
+        if (dto.WaitingFor != null)   entity.WaitingFor = dto.WaitingFor;
+        if (dto.InterviewTime != null) entity.InterviewTime = dto.InterviewTime;
+        if (dto.InterviewNote != null) entity.InterviewNote = dto.InterviewNote;
+        if (dto.Result != null)       entity.Result = dto.Result;
+        if (dto.OfferNote != null)    entity.OfferNote = dto.OfferNote;
+        if (dto.OnboardDate != null)  entity.OnboardDate = dto.OnboardDate;
+        if (dto.CampaignId != null)   entity.CampaignId = dto.CampaignId;
         entity.UpdatedAt = DateTime.UtcNow;
         await _unitOfWork.SaveChangesAsync();
 
