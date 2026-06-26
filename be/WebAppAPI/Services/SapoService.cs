@@ -1169,16 +1169,19 @@ public class SapoService
         var normalizedReportRows = reportRows.Select(NormalizeRowForDashboard).ToList();
         var metrics = SummarizeRows(normalizedFiltered);
 
-        // Add material/accessory revenue to the 2 total cards only (to match Sapo file totals)
+        // Add material/ accessory revenue to the 2 total cards only (to match Sapo file totals)
         var filteredDateSet = new HashSet<string>(
             normalizedFiltered
                 .Select(r => (r.Date ?? "").Length >= 10 ? r.Date![..10] : (r.Date ?? ""))
                 .Where(d => !string.IsNullOrEmpty(d))
         );
-        foreach (var r in allRows.Where(r =>
-            IsGiftMaterialRow(r.ProductType, r.Sku, r.ProductName)
-            && !string.IsNullOrEmpty(r.Date)
-            && filteredDateSet.Contains(r.Date.Length >= 10 ? r.Date[..10] : r.Date)))
+        foreach (
+            var r in allRows.Where(r =>
+                IsGiftMaterialRow(r.ProductType, r.Sku, r.ProductName)
+                && !string.IsNullOrEmpty(r.Date)
+                && filteredDateSet.Contains(r.Date.Length >= 10 ? r.Date[..10] : r.Date)
+            )
+        )
         {
             metrics.Revenue += r.Revenue;
             metrics.NetRevenue += r.NetRevenue;

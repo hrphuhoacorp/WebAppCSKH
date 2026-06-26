@@ -115,22 +115,34 @@ public class RecruitmentSettingsService : IRecruitmentSettingsService
         };
         await _categoryRepo.AddAsync(entity);
         await _unitOfWork.SaveChangesAsync();
-        return new CategoryItemDto { Id = entity.Id, Value = entity.Value, SortOrder = entity.SortOrder };
+        return new CategoryItemDto
+        {
+            Id = entity.Id,
+            Value = entity.Value,
+            SortOrder = entity.SortOrder,
+        };
     }
 
     public async Task<CategoryItemDto> UpdateCategoryAsync(int id, CategoryUpsertDto dto)
     {
-        var entity = await _categoryRepo.GetByIdAsync(id)
+        var entity =
+            await _categoryRepo.GetByIdAsync(id)
             ?? throw new NotFoundException("Không tìm thấy danh mục");
         entity.Value = dto.Value;
         entity.SortOrder = dto.SortOrder;
         await _unitOfWork.SaveChangesAsync();
-        return new CategoryItemDto { Id = entity.Id, Value = entity.Value, SortOrder = entity.SortOrder };
+        return new CategoryItemDto
+        {
+            Id = entity.Id,
+            Value = entity.Value,
+            SortOrder = entity.SortOrder,
+        };
     }
 
     public async Task DeleteCategoryAsync(int id)
     {
-        var entity = await _categoryRepo.GetByIdAsync(id)
+        var entity =
+            await _categoryRepo.GetByIdAsync(id)
             ?? throw new NotFoundException("Không tìm thấy danh mục");
         await _categoryRepo.DeleteAsync(entity);
         await _unitOfWork.SaveChangesAsync();

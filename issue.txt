@@ -1,36 +1,10 @@
-1. các thẻ như Chờ liên hệ PV,Đã hẹn / Chờ PV, Đã PV / Chờ kết quả, Kết quả / Hoàn tất ở trang chi tiết xử lý không lấy được thông tin ứng viên
-2. Khi báo fail -> ghi nhận hoàn tất nhưng ở kết quả pv nó vẫn nhận là pass
-Kết quả hồ sơ
-
-Đang xử lý, fail, pass/nhận việc...
-
-3
-
-đã PV
-
-Pass / nhận việc
-
-3
-
-Fail / không phù hợp
-
-0
-
-Đang xử lý
-
-0
-------------------------
-
-3
-
-Pass
-
-Đạt/thỏa thuận
-
-0
-
-Fail
-
-Không phù hợp
 
 
+
+
+
+
+
+
+1. Gắn audi log cho đổi role, cấp quyền -> người thực hiện thao tác đó và có người được chuyển lun nha chắc là trong dữ liệu cũ và dữ liệu mới
+2. gắn audi log cho trang tuyển dụng
