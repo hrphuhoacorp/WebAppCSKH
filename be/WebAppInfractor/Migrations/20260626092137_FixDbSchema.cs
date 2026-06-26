@@ -15,16 +15,12 @@ namespace WebAppInfractor.Migrations
                 table: "order_status",
                 newName: "status");
 
-            migrationBuilder.AlterColumn<bool>(
-                name: "active",
-                table: "sapo_code_mappings",
-                type: "boolean",
-                nullable: false,
-                defaultValue: true,
-                oldClrType: typeof(string),
-                oldType: "character varying(10)",
-                oldMaxLength: 10,
-                oldDefaultValue: "TRUE");
+            migrationBuilder.Sql(
+                "ALTER TABLE sapo_code_mappings ALTER COLUMN active DROP DEFAULT");
+            migrationBuilder.Sql(
+                "ALTER TABLE sapo_code_mappings ALTER COLUMN active TYPE boolean USING (active::boolean)");
+            migrationBuilder.Sql(
+                "ALTER TABLE sapo_code_mappings ALTER COLUMN active SET DEFAULT TRUE");
 
             migrationBuilder.AlterColumn<string>(
                 name: "status",
