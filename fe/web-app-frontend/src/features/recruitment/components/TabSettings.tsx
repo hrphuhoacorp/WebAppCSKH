@@ -32,8 +32,11 @@ const fieldSx = {
 
 const MAIL_TYPES = [
     { value: 'invite', label: 'Mời phỏng vấn' },
-    { value: 'result_pass', label: 'Thông báo đậu' },
-    { value: 'result_fail', label: 'Thông báo trượt' },
+    { value: 'pass', label: 'Thông báo đậu' },
+    { value: 'fail', label: 'Thông báo trượt' },
+    { value: 'reschedule', label: 'Thay đổi lịch phỏng vấn ' },
+    { value: 'onboard', label: 'Thông báo nhận việc' },
+
     { value: 'custom', label: 'Tuỳ chỉnh' },
 ];
 const CAT_TYPES = [
