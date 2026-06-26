@@ -28,15 +28,15 @@ const BORDER = '#e2e8f0';
 const R = '20px';
 
 const PASS_STATUSES = ["Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất"];
-const FAIL_STATUSES = ["Fail - chưa mail", "Không phù hợp CV"];
-const INTERVIEWED = ["Đã PV - chờ TBP báo KQ", "Fail - chưa mail", "Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất"];
+const FAIL_STATUSES = ["Fail - chưa mail", "Không phù hợp CV", "Đã từ chối"];
+const INTERVIEWED = ["Đã PV - chờ TBP báo KQ", "Fail - chưa mail", "Đã từ chối", "Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất"];
 const TBP_PENDING = ["CV mới / NV Đã gửi"];
 const TBP_REVIEW = ["Chờ TBP kiểm tra CV"];
 // Phù hợp = passed CV review (not in pending/review/fail)
 const FIT_STATUSES = [
     "Chờ Nhân viên liên hệ hẹn PV", "Chờ TBP cho lịch PV",
     "Đã hẹn PV - chưa mail", "Đã gửi mail mời PV", "Không tới phỏng vấn",
-    "Hẹn lại PV", "Đã PV - chờ TBP báo KQ", "Fail - chưa mail",
+    "Hẹn lại PV", "Đã PV - chờ TBP báo KQ", "Fail - chưa mail", "Đã từ chối",
     "Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất",
 ];
 
@@ -67,7 +67,13 @@ export default function TabCvSummary({ onOpenCompose }: TabCvSummaryProps) {
     async function quickUpdate(c: RecruitmentCandidateDto, status: string) {
         setQuickUpdating(true);
         try {
-            await recruitmentCandidateApi.update(c.id, { candidateName: c.candidateName, status, actedBy: profile?.name ?? '' });
+            await recruitmentCandidateApi.update(c.id, {
+                candidateName: c.candidateName, phone: c.phone, email: c.email,
+                position: c.position, source: c.source, cvLink: c.cvLink, cvNote: c.cvNote,
+                interviewTime: c.interviewTime, interviewNote: c.interviewNote,
+                result: c.result, offerNote: c.offerNote, onboardDate: c.onboardDate,
+                status, actedBy: profile?.name ?? '',
+            });
             await qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
             toast.success(`Đã cập nhật: ${c.candidateName}`);
         } catch { toast.error('Cập nhật thất bại'); } finally { setQuickUpdating(false); }

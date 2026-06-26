@@ -222,7 +222,7 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
         if (string.IsNullOrWhiteSpace(entity.Email))
             throw new BadRequestException("Ứng viên chưa có email");
 
-        await _emailService.SendEmaiLAsync(entity.Email, dto.Subject, dto.HtmlBody);
+        await _emailService.SendEmaiLAsync(entity.Email, dto.Subject, dto.HtmlBody, dto.Attachments);
 
         if (dto.MailType == "invite")
             entity.MailInviteSent = true;
@@ -411,6 +411,7 @@ public class SendMailDto
     public string HtmlBody { get; set; } = null!;
     public string MailType { get; set; } = "custom";
     public string? ActedBy { get; set; }
+    public IList<IFormFile>? Attachments { get; set; }
 }
 
 public class UploadCvForm

@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, IconButton, MenuItem, Paper, Skeleton, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, TextField, Tooltip, Typography, alpha,
-    InputAdornment, Tab, Tabs, LinearProgress,
+    TableContainer, TableHead, TableRow, TablePagination, TextField, Tooltip,
+    Typography, alpha, InputAdornment, Tab, Tabs, LinearProgress,
 } from '@mui/material';
 import AddCircleRoundedIcon from '@mui/icons-material/AddCircleRounded';
 import EditIcon from '@mui/icons-material/Edit';
@@ -51,13 +51,14 @@ const CANDIDATE_STATUSES = [
     "Hẹn lại PV",
     "Đã PV - chờ TBP báo KQ",
     "Fail - chưa mail",
+    "Đã từ chối",
     "Pass - chưa gửi thỏa thuận",
     "Đã gửi thỏa thuận",
     "Hoàn tất",
 ];
 
-const DONE_STATUSES = ["Hoàn tất", "Không phù hợp CV"];
-const FAIL_STATUSES = ["Fail - chưa mail", "Không phù hợp CV"];
+const DONE_STATUSES = ["Hoàn tất", "Không phù hợp CV", "Đã từ chối"];
+const FAIL_STATUSES = ["Fail - chưa mail", "Không phù hợp CV", "Đã từ chối"];
 const PASS_STATUSES = ["Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất"];
 const WAIT_TBP = ["CV mới / NV Đã gửi", "Chờ TBP kiểm tra CV", "Chờ TBP cho lịch PV", "Đã PV - chờ TBP báo KQ"];
 const WAIT_STAFF = ["Chờ Nhân viên liên hệ hẹn PV", "Đã hẹn PV - chưa mail", "Không tới phỏng vấn", "Hẹn lại PV"];
@@ -68,7 +69,7 @@ const KANBAN_COLUMNS = [
     { id: 'contact', title: 'Chờ liên hệ PV', sub: 'CV phù hợp, cần hẹn PV', statuses: ["Chờ Nhân viên liên hệ hẹn PV", "Chờ TBP cho lịch PV"], color: '#f97316', bg: '#fff7ed' },
     { id: 'scheduled', title: 'Đã hẹn / Chờ PV', sub: 'Theo dõi lịch PV, mail mời', statuses: ["Đã hẹn PV - chưa mail", "Đã gửi mail mời PV", "Không tới phỏng vấn", "Hẹn lại PV"], color: '#7c3aed', bg: '#f5f3ff' },
     { id: 'result', title: 'Đã PV / Chờ kết quả', sub: 'PV xong, TBP báo pass/fail', statuses: ["Đã PV - chờ TBP báo KQ"], color: '#0891b2', bg: '#ecfeff' },
-    { id: 'final', title: 'Kết quả / Hoàn tất', sub: 'Mail fail/pass, thỏa thuận', statuses: ["Fail - chưa mail", "Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất", "Không phù hợp CV"], color: '#16a34a', bg: '#f0fdf4' },
+    { id: 'final', title: 'Kết quả / Hoàn tất', sub: 'Mail fail/pass, thỏa thuận', statuses: ["Fail - chưa mail", "Đã từ chối", "Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất", "Không phù hợp CV"], color: '#16a34a', bg: '#f0fdf4' },
 ];
 
 const STATUS_CHIP_COLOR: Record<string, { bg: string; color: string }> = {
@@ -83,6 +84,7 @@ const STATUS_CHIP_COLOR: Record<string, { bg: string; color: string }> = {
     "Hẹn lại PV": { bg: '#fef9c3', color: '#a16207' },
     "Đã PV - chờ TBP báo KQ": { bg: '#e0f2fe', color: '#0369a1' },
     "Fail - chưa mail": { bg: '#fee2e2', color: '#dc2626' },
+    "Đã từ chối": { bg: '#fce7f3', color: '#9d174d' },
     "Pass - chưa gửi thỏa thuận": { bg: '#dcfce7', color: '#166534' },
     "Đã gửi thỏa thuận": { bg: '#d1fae5', color: '#065f46' },
     "Hoàn tất": { bg: '#f0fdf4', color: '#15803d' },
@@ -100,17 +102,50 @@ function autoMailType(status: string): string {
     return 'invite';
 }
 
+function parseInterviewDate(s?: string): Date | null {
+    if (!s) return null;
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+    if (!m) return null;
+    return new Date(+m[3], +m[2] - 1, +m[1], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+}
+
+function toDateTimeLocal(s?: string): string {
+    if (!s) return '';
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+    if (!m) return '';
+    return `${m[3]}-${m[2]}-${m[1]}T${m[4] ?? '00'}:${m[5] ?? '00'}`;
+}
+
+function fromDateTimeLocal(s: string): string {
+    if (!s) return '';
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return '';
+    return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+}
+
+function toDateInput(s?: string): string {
+    if (!s) return '';
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!m) return '';
+    return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function fromDateInput(s: string): string {
+    if (!s) return '';
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 function isOverdue(c: RecruitmentCandidateDto): boolean {
     if (DONE_STATUSES.includes(c.status)) return false;
-    if (!c.interviewTime) return false;
-    const d = new Date(c.interviewTime.split('/').reverse().join('-'));
-    return !isNaN(d.getTime()) && d < new Date();
+    const d = parseInterviewDate(c.interviewTime);
+    return d != null && d < new Date();
 }
 
 function isDueToday(c: RecruitmentCandidateDto): boolean {
-    if (!c.interviewTime) return false;
-    const d = new Date(c.interviewTime.split('/').reverse().join('-'));
-    if (isNaN(d.getTime())) return false;
+    const d = parseInterviewDate(c.interviewTime);
+    if (!d) return false;
     const t = new Date();
     return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
 }
@@ -160,6 +195,10 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
 
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [deleting, setDeleting] = useState(false);
+
+    const [tablePage, setTablePage] = useState(0);
+    const [tableRowsPerPage, setTableRowsPerPage] = useState(25);
+    useEffect(() => { setTablePage(0); }, [search, filterStatus, filterCampaign, filterSource, workPreset, quickChip]);
 
     const { data: cdata, isLoading: lc } = useQuery({
         queryKey: ['recruitment-candidates'],
@@ -240,10 +279,16 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
         } catch { toast.error('Có lỗi xảy ra'); } finally { setSaving(false); }
     }
 
-    async function quickUpdate(c: RecruitmentCandidateDto, status: string) {
+    async function quickUpdate(c: RecruitmentCandidateDto, status: string, extra?: Record<string, string>) {
         setQuickUpdating(true);
         try {
-            await recruitmentCandidateApi.update(c.id, { candidateName: c.candidateName, status, actedBy: profile?.name ?? '' });
+            await recruitmentCandidateApi.update(c.id, {
+                candidateName: c.candidateName, phone: c.phone, email: c.email,
+                position: c.position, source: c.source, cvLink: c.cvLink, cvNote: c.cvNote,
+                interviewTime: c.interviewTime, interviewNote: c.interviewNote,
+                result: c.result, offerNote: c.offerNote, onboardDate: c.onboardDate,
+                status, actedBy: profile?.name ?? '', ...extra,
+            });
             qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
             qc.invalidateQueries({ queryKey: ['recruitment-candidate-detail', c.id] });
         } catch { toast.error('Cập nhật thất bại'); } finally { setQuickUpdating(false); }
@@ -315,7 +360,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             btns.push({ label: "Fail", color: '#dc2626', onClick: () => quickUpdate(c, "Fail - chưa mail") });
         } else if (s === "Fail - chưa mail") {
             btns.push({ label: "Soạn mail fail", color: '#dc2626', onClick: () => onOpenCompose?.(c, 'fail') });
-            btns.push({ label: "Đã mail fail ✓", onClick: () => quickUpdate(c, "Hoàn tất") });
+            btns.push({ label: "Đã mail fail ✓", onClick: () => quickUpdate(c, "Đã từ chối") });
         } else if (s === "Pass - chưa gửi thỏa thuận") {
             btns.push({ label: "Soạn mail pass", color: G, onClick: () => onOpenCompose?.(c, 'pass') });
             btns.push({ label: "Đã gửi thỏa thuận ✓", onClick: () => quickUpdate(c, "Đã gửi thỏa thuận") });
@@ -493,6 +538,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                                         <Box component="span" sx={{ fontWeight: 800 }}>{c.candidateName}</Box>
                                         {c.position && <Box component="span" sx={{ opacity: 0.75, fontSize: 11 }}>{c.position}</Box>}
                                         {c.interviewTime && <Box component="span" sx={{ fontFamily: 'monospace', color: '#86efac', fontSize: 12 }}>{c.interviewTime}</Box>}
+                                        {DONE_STATUSES.includes(c.status) && <Box component="span" sx={{ bgcolor: '#10b981', color: '#fff', px: 0.7, borderRadius: '5px', fontSize: 9, fontWeight: 800, lineHeight: '18px' }}>✓ XONG</Box>}
                                         <Box component="span" sx={{ opacity: 0.35, mx: 1 }}>❱❱</Box>
                                     </Box>
                                 ))}
@@ -584,7 +630,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                                         <Typography sx={{ fontWeight: 700, color: '#64748b', fontSize: 15 }}>Không tìm thấy ứng viên nào</Typography>
                                     </Box>
                                 </TableCell></TableRow>
-                            ) : displayRows.map(c => {
+                            ) : displayRows.slice(tablePage * tableRowsPerPage, (tablePage + 1) * tableRowsPerPage).map(c => {
                                 const sc = STATUS_CHIP_COLOR[c.status] ?? { bg: '#f1f5f9', color: '#475569' };
                                 const camp = campaigns.find(x => x.id === c.campaignId);
                                 const overdue = isOverdue(c);
@@ -624,6 +670,18 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                             })}
                         </TableBody>
                     </Table>
+                    <TablePagination
+                        rowsPerPageOptions={[10, 25, 50, 100]}
+                        component="div"
+                        count={displayRows.length}
+                        rowsPerPage={tableRowsPerPage}
+                        page={tablePage}
+                        onPageChange={(_, p) => setTablePage(p)}
+                        onRowsPerPageChange={e => { setTableRowsPerPage(+e.target.value); setTablePage(0); }}
+                        labelRowsPerPage="Hàng/trang:"
+                        labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
+                        sx={{ borderTop: `1px solid ${BORDER}`, bgcolor: '#f8fafc', '& .MuiTablePagination-select': { borderRadius: '8px' } }}
+                    />
                 </TableContainer>
             )}
 
@@ -657,8 +715,8 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                         </TextField>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 2 }}>
-                        <TextField label="Thời gian PV" value={form.interviewTime ?? ''} onChange={e => setF('interviewTime', e.target.value)} size="small" sx={{ flex: 1, ...fieldSx }} placeholder="dd/mm/yyyy HH:mm" />
-                        <TextField label="Ngày onboard" value={form.onboardDate ?? ''} onChange={e => setF('onboardDate', e.target.value)} size="small" sx={{ flex: 1, ...fieldSx }} placeholder="dd/mm/yyyy" />
+                        <TextField label="Thời gian PV" value={toDateTimeLocal(form.interviewTime)} onChange={e => setF('interviewTime', fromDateTimeLocal(e.target.value))} size="small" sx={{ flex: 1, ...fieldSx }} slotProps={{ htmlInput: { type: 'datetime-local' }, inputLabel: { shrink: true } }} />
+                        <TextField label="Ngày onboard" value={toDateInput(form.onboardDate)} onChange={e => setF('onboardDate', fromDateInput(e.target.value))} size="small" sx={{ flex: 1, ...fieldSx }} slotProps={{ htmlInput: { type: 'date' }, inputLabel: { shrink: true } }} />
                     </Box>
                     {/* CV section */}
                     <Box>
@@ -750,8 +808,8 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                                             {CANDIDATE_STATUSES.map(s => <MenuItem key={s} value={s}><Typography sx={{ fontSize: 12 }}>{s}</Typography></MenuItem>)}
                                         </TextField>
                                         <Box sx={{ display: 'flex', gap: 2 }}>
-                                            <TextField label="Thời gian PV" value={editForm.interviewTime ?? ''} onChange={e => setEF('interviewTime', e.target.value)} size="small" sx={{ flex: 1, ...fieldSx }} placeholder="dd/mm/yyyy" />
-                                            <TextField label="Ngày onboard" value={editForm.onboardDate ?? ''} onChange={e => setEF('onboardDate', e.target.value)} size="small" sx={{ flex: 1, ...fieldSx }} placeholder="dd/mm/yyyy" />
+                                            <TextField label="Thời gian PV" value={toDateTimeLocal(editForm.interviewTime)} onChange={e => setEF('interviewTime', fromDateTimeLocal(e.target.value))} size="small" sx={{ flex: 1, ...fieldSx }} slotProps={{ htmlInput: { type: 'datetime-local' }, inputLabel: { shrink: true } }} />
+                                            <TextField label="Ngày onboard" value={toDateInput(editForm.onboardDate)} onChange={e => setEF('onboardDate', fromDateInput(e.target.value))} size="small" sx={{ flex: 1, ...fieldSx }} slotProps={{ htmlInput: { type: 'date' }, inputLabel: { shrink: true } }} />
                                         </Box>
                                         <TextField label="Ghi chú phỏng vấn" value={editForm.interviewNote ?? ''} onChange={e => setEF('interviewNote', e.target.value)} size="small" fullWidth multiline rows={2} sx={fieldSx} />
                                         <TextField label="Kết quả / Offer note" value={editForm.offerNote ?? ''} onChange={e => setEF('offerNote', e.target.value)} size="small" fullWidth multiline rows={2} sx={fieldSx} />

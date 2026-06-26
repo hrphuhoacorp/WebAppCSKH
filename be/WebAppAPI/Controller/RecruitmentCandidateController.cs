@@ -104,7 +104,9 @@ namespace WebAppAPI.Controllers
 
         [RequirePermission("recruitment.edit")]
         [HttpPost("{id:int}/send-mail")]
-        public async Task<ResponseValue<object>> SendMail(int id, [FromBody] SendMailDto dto)
+        [Consumes("multipart/form-data")]
+        [RequestSizeLimit(25 * 1024 * 1024)]
+        public async Task<ResponseValue<object>> SendMail(int id, [FromForm] SendMailDto dto)
         {
             await _service.SendMailAsync(id, dto);
             return new ResponseValue<object>(

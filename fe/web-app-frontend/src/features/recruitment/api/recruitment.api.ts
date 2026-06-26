@@ -213,8 +213,16 @@ export const recruitmentCandidateApi = {
     downloadCv: async (id: number) => {
         return api.get(`/recruitment/candidates/${id}/download-cv`, { responseType: 'blob' });
     },
-    sendMail: async (id: number, dto: SendMailDto) => {
-        const res = await api.post(`/recruitment/candidates/${id}/send-mail`, dto);
+    sendMail: async (id: number, dto: SendMailDto & { attachments?: File[] }) => {
+        const form = new FormData();
+        form.append('subject', dto.subject);
+        form.append('htmlBody', dto.htmlBody);
+        form.append('mailType', dto.mailType);
+        if (dto.actedBy) form.append('actedBy', dto.actedBy);
+        (dto.attachments ?? []).forEach(f => form.append('attachments', f));
+        const res = await api.post(`/recruitment/candidates/${id}/send-mail`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
         return res.data as { status: string; message: string };
     },
     delete: async (id: number) => {

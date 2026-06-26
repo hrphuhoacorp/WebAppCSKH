@@ -11,10 +11,12 @@ namespace WebAppAPI.Controllers;
 public class PermissionController : ControllerBase
 {
     private readonly MemBerContext _context;
+    private readonly IActivityService _activityService;
 
-    public PermissionController(MemBerContext context)
+    public PermissionController(MemBerContext context, IActivityService activityService)
     {
         _context = context;
+        _activityService = activityService;
     }
 
     [RequirePermission("staff.manage_permissions")]
@@ -109,8 +111,9 @@ public class PermissionController : ControllerBase
             _context.UserPermissions.Add(
                 new UserPermission { UserId = userId, PermissionId = permId }
             );
-        }
 
+        }
+     
         await _context.SaveChangesAsync();
 
         return new ResponseValue<string>("OK", "Cập nhật quyền thành công", StatusReponse.Success);

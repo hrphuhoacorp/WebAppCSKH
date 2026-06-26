@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Alert, Autocomplete, Box, Button, Chip, Divider, MenuItem,
@@ -13,6 +13,8 @@ import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { usePermission } from '@/hooks/usePermission';
@@ -39,8 +41,8 @@ const MAIL_TYPES = [
     { value: 'custom', label: 'Tùy chỉnh' },
 ];
 
-const TITLES = ['Anh', 'Chị', 'Bạn'];
 const METHODS = ['Trực tiếp tại văn phòng', 'Online qua Google Meet', 'Online qua Zoom', 'Qua điện thoại'];
+const DONE_STATUSES_MAIL = ['Hoàn tất', 'Đã từ chối', 'Không phù hợp CV'];
 
 function esc(s: string) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -49,7 +51,7 @@ function esc(s: string) {
 function buildHtmlMail(d: {
     type: string; title: string; name: string; position: string;
     date: string; time: string; method: string; contact: string; phone: string; location: string;
-    offer: string; note: string; signature: string;
+    offer: string; note: string; signature: string; onboardDate: string;
 }): string {
     const nm = esc(d.name || 'TÊN ỨNG VIÊN');
     const pos = esc(d.position || 'VỊ TRÍ');
@@ -85,10 +87,12 @@ ${footer}${close}`;
     }
 
     if (d.type === 'pass') {
+        const ob = esc(d.onboardDate || '');
         return `${base}${greeting}
 <p>Cảm ơn ${ttl} đã tham gia buổi phỏng vấn vị trí <strong>${pos}</strong> tại công ty chúng tôi.</p>
 <p>Chúng tôi rất vui thông báo rằng ${ttl} đã <strong style="color:#16a34a">vượt qua vòng phỏng vấn</strong> và được mời tham gia làm việc tại công ty.</p>
 ${offerNote ? `<p><strong>Thông tin đề xuất:</strong> ${offerNote}</p>` : ''}
+${ob ? `<p><strong>Ngày bắt đầu dự kiến:</strong> ${ob}</p>` : ''}
 <p>Chúng tôi sẽ gửi thư mời nhận việc chính thức trong thời gian sớm nhất. Vui lòng xác nhận bằng cách trả lời email này.</p>
 <p>Chào mừng ${ttl} đến với đội ngũ của chúng tôi!</p>
 ${footer}${close}`;
@@ -172,7 +176,6 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
 
     const [selected, setSelected] = useState<RecruitmentCandidateDto | null>(null);
     const [mailType, setMailType] = useState('invite');
-    const [title, setTitle] = useState('Anh');
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
     const [method, setMethod] = useState(METHODS[0]);
@@ -180,11 +183,14 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
     const [phone, setPhone] = useState('');
     const [location, setLocation] = useState('');
     const [offer, setOffer] = useState('');
+    const [onboardDate, setOnboardDate] = useState('');
     const [note, setNote] = useState('');
     const [subject, setSubject] = useState('');
     const [customBody, setCustomBody] = useState('');
     const [useCustomBody, setUseCustomBody] = useState(false);
     const [sending, setSending] = useState(false);
+    const [attachments, setAttachments] = useState<File[]>([]);
+    const attachInputRef = useRef<HTMLInputElement>(null);
 
     const { data: cData } = useQuery({
         queryKey: ['recruitment-candidates'],
@@ -195,7 +201,7 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
         queryFn: () => recruitmentSettingsApi.getSettings(),
     });
 
-    const candidates = cData?.content ?? [];
+    const candidates = (cData?.content ?? []).filter(c => !DONE_STATUSES_MAIL.includes(c.status));
     const settings = sData?.content;
 
     // Apply prefill from kanban card
@@ -209,6 +215,13 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
             setPhone(settings.defaultPhone || '');
             setLocation(settings.defaultLocation || '');
         }
+        // Auto-bind interview date/time and onboard date
+        if (prefill.candidate.interviewTime) {
+            const parts = prefill.candidate.interviewTime.split(' ');
+            setDate(parts[0] || '');
+            setTime(parts[1] || '');
+        }
+        if (prefill.candidate.onboardDate) setOnboardDate(prefill.candidate.onboardDate);
         setUseCustomBody(false);
         onClearPrefill?.();
     }, [prefill]);
@@ -222,7 +235,15 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
 
     function handleCandidateChange(c: RecruitmentCandidateDto | null) {
         setSelected(c);
-        if (c) setSubject(composeSubject(mailType, c.position || ''));
+        if (c) {
+            setSubject(composeSubject(mailType, c.position || ''));
+            if (c.interviewTime) {
+                const parts = c.interviewTime.split(' ');
+                setDate(parts[0] || '');
+                setTime(parts[1] || '');
+            }
+            if (c.onboardDate) setOnboardDate(c.onboardDate);
+        }
     }
 
     function handleTypeChange(t: string) {
@@ -231,20 +252,21 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
     }
 
     const composeData = {
-        type: mailType, title, name: selected?.candidateName || '',
-        position: selected?.position || '', date, time, method, contact, phone, location, offer, note,
-        signature: settings?.signature || '',
+        type: mailType, title: 'Anh/Chị', name: selected?.candidateName || '',
+        position: selected?.position || '', date, time, method, contact, phone, location,
+        offer, onboardDate, note, signature: settings?.signature || '',
     };
 
     const previewHtml = buildHtmlMail(composeData);
     const finalBody = useCustomBody ? customBody : previewHtml;
 
     function handleClearForm() {
-        setSelected(null); setMailType('invite'); setTitle('Anh');
+        setSelected(null); setMailType('invite');
         setDate(''); setTime(''); setMethod(METHODS[0]);
         setContact(settings?.defaultContact || ''); setPhone(settings?.defaultPhone || '');
-        setLocation(settings?.defaultLocation || ''); setOffer(''); setNote('');
+        setLocation(settings?.defaultLocation || ''); setOffer(''); setOnboardDate(''); setNote('');
         setSubject(''); setCustomBody(''); setUseCustomBody(false);
+        setAttachments([]);
     }
 
     function handleOpenGmail() {
@@ -274,10 +296,15 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
         try {
             let newStatus = selected.status;
             if (mailType === 'invite' && selected.status === 'Đã hẹn PV - chưa mail') newStatus = 'Đã gửi mail mời PV';
-            else if (mailType === 'fail') newStatus = 'Hoàn tất';
+            else if (mailType === 'fail') newStatus = 'Đã từ chối';
             else if (mailType === 'pass' && selected.status === 'Pass - chưa gửi thỏa thuận') newStatus = 'Đã gửi thỏa thuận';
             if (newStatus !== selected.status) {
-                await recruitmentCandidateApi.update(selected.id, { status: newStatus, actedBy: profile?.name ?? '' });
+                await recruitmentCandidateApi.update(selected.id, {
+                    candidateName: selected.candidateName, phone: selected.phone, email: selected.email,
+                    position: selected.position, source: selected.source, cvLink: selected.cvLink,
+                    interviewTime: selected.interviewTime, result: selected.result, onboardDate: selected.onboardDate,
+                    status: newStatus, actedBy: profile?.name ?? '',
+                });
                 qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
             }
             toast.success('Đã đánh dấu gửi mail và cập nhật trạng thái');
@@ -290,8 +317,9 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
         if (!subject.trim()) { toast.error('Nhập tiêu đề email'); return; }
         setSending(true);
         try {
-            const dto: SendMailDto = { subject, htmlBody: finalBody, mailType, actedBy: profile?.name ?? undefined };
-            const res = await recruitmentCandidateApi.sendMail(selected.id, dto);
+            const res = await recruitmentCandidateApi.sendMail(selected.id, {
+                subject, htmlBody: finalBody, mailType, actedBy: profile?.name ?? undefined, attachments,
+            });
             toast.success(res.message || 'Đã gửi email thành công');
             qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
         } catch (err: any) {
@@ -335,14 +363,9 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
                         <Alert severity="warning" sx={{ py: 0.5, borderRadius: '10px' }}>Ứng viên chưa có email — chỉ dùng Gmail / In.</Alert>
                     )}
 
-                    <Box sx={{ display: 'flex', gap: 1.5 }}>
-                        <TextField select label="Loại thư *" value={mailType} onChange={e => handleTypeChange(e.target.value)} size="small" sx={{ flex: 2, ...fieldSx }}>
-                            {MAIL_TYPES.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
-                        </TextField>
-                        <TextField select label="Xưng hô" value={title} onChange={e => setTitle(e.target.value)} size="small" sx={{ flex: 1, ...fieldSx }}>
-                            {TITLES.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                        </TextField>
-                    </Box>
+                    <TextField select label="Loại thư *" value={mailType} onChange={e => handleTypeChange(e.target.value)} size="small" fullWidth sx={fieldSx}>
+                        {MAIL_TYPES.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+                    </TextField>
 
                     <TextField label="Tiêu đề email" value={subject} onChange={e => setSubject(e.target.value)} size="small" fullWidth sx={fieldSx} />
 
@@ -369,10 +392,35 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
                     )}
 
                     {mailType === 'pass' && (
-                        <TextField label="Thỏa thuận / Mức lương đề xuất" value={offer} onChange={e => setOffer(e.target.value)} size="small" fullWidth sx={fieldSx} />
+                        <>
+                            <TextField label="Thỏa thuận / Mức lương đề xuất" value={offer} onChange={e => setOffer(e.target.value)} size="small" fullWidth sx={fieldSx} />
+                            <TextField label="Ngày onboard dự kiến" value={onboardDate} onChange={e => setOnboardDate(e.target.value)} size="small" fullWidth sx={fieldSx} placeholder="dd/mm/yyyy" />
+                        </>
                     )}
 
                     <TextField label="Ghi chú thêm (sẽ hiện trong thư)" value={note} onChange={e => setNote(e.target.value)} size="small" fullWidth multiline rows={2} sx={fieldSx} />
+
+                    {/* File attachments */}
+                    <Box>
+                        <input ref={attachInputRef} type="file" multiple hidden onChange={e => {
+                            const files = Array.from(e.target.files ?? []);
+                            setAttachments(prev => [...prev, ...files]);
+                            e.target.value = '';
+                        }} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <Button size="small" variant="outlined" startIcon={<AttachFileRoundedIcon />}
+                                onClick={() => attachInputRef.current?.click()}
+                                sx={{ textTransform: 'none', borderRadius: '8px', borderColor: BORDER, color: '#64748b', fontSize: 11, fontWeight: 700 }}>
+                                Đính kèm file
+                            </Button>
+                            {attachments.map((f, i) => (
+                                <Chip key={i} label={f.name} size="small"
+                                    deleteIcon={<CloseRoundedIcon sx={{ fontSize: 14 }} />}
+                                    onDelete={() => setAttachments(prev => prev.filter((_, j) => j !== i))}
+                                    sx={{ fontSize: 11, borderRadius: '6px', height: 22, maxWidth: 160 }} />
+                            ))}
+                        </Box>
+                    </Box>
 
                     <Divider />
 

@@ -12,6 +12,7 @@ import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import * as XLSX from 'xlsx';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import WorkIcon from '@mui/icons-material/Work';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
@@ -37,10 +38,10 @@ const fieldSx = {
 const WAIT_TBP = ["CV mới / NV Đã gửi", "Chờ TBP kiểm tra CV", "Chờ TBP cho lịch PV"];
 const WAIT_STAFF = ["Chờ Nhân viên liên hệ hẹn PV"];
 const SCHEDULED = ["Đã hẹn PV - chưa mail", "Đã gửi mail mời PV", "Hẹn lại PV"];
-const INTERVIEWED = ["Đã PV - chờ TBP báo KQ", "Fail - chưa mail", "Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất"];
+const INTERVIEWED = ["Đã PV - chờ TBP báo KQ", "Fail - chưa mail", "Đã từ chối", "Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất"];
 const NO_SHOW = ["Không tới phỏng vấn"];
 const PASS_STATUSES = ["Pass - chưa gửi thỏa thuận", "Đã gửi thỏa thuận", "Hoàn tất"];
-const FAIL_STATUSES = ["Fail - chưa mail", "Không phù hợp CV"];
+const FAIL_STATUSES = ["Fail - chưa mail", "Không phù hợp CV", "Đã từ chối"];
 
 function parseDate(dateStr?: string): Date | null {
     if (!dateStr) return null;
@@ -153,24 +154,24 @@ export default function TabOverview({ onGoToTab }: TabOverviewProps) {
     // Donut data
     const totalInterviewed = allCandidates.filter(c => INTERVIEWED.includes(c.status)).length;
     const passCount = allCandidates.filter(c => PASS_STATUSES.includes(c.status)).length;
+    const failInterviewedCount = allCandidates.filter(c => FAIL_STATUSES.includes(c.status) && INTERVIEWED.includes(c.status)).length;
     const failCount = allCandidates.filter(c => FAIL_STATUSES.includes(c.status)).length;
-    const processingCount = Math.max(0, totalInterviewed - passCount - failCount);
+    const processingCount = Math.max(0, totalInterviewed - passCount - failInterviewedCount);
     const passAngle = totalInterviewed > 0 ? (passCount / totalInterviewed) * 360 : 0;
-    const failAngle = totalInterviewed > 0 ? (failCount / totalInterviewed) * 360 : 0;
+    const failAngle = totalInterviewed > 0 ? (failInterviewedCount / totalInterviewed) * 360 : 0;
 
 
-    // Export CSV
+    // Export Excel
     function handleExport() {
         const headers = ['Tên', 'Email', 'SĐT', 'Vị trí', 'Nguồn', 'Trạng thái', 'Chiến dịch', 'Ngày thêm'];
         const rows = allCandidates.map(c => {
             const camp = campaigns.find(x => x.id === c.campaignId);
             return [c.candidateName, c.email || '', c.phone || '', c.position || '', c.source || '', c.status, camp?.name || '', c.createdAt || ''];
         });
-        const csv = '﻿' + [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `tuyen-dung-${filterYear}.csv`; a.click();
-        URL.revokeObjectURL(url);
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Tuyển dụng');
+        XLSX.writeFile(wb, `tuyen-dung-${filterYear}.xlsx`);
     }
 
     return (
@@ -289,7 +290,7 @@ export default function TabOverview({ onGoToTab }: TabOverviewProps) {
 
                 {/* Stage chart */}
                 <Paper elevation={0} sx={{ flex: '1 1 240px', p: 2.5, borderRadius: R, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 12px rgba(8,104,57,0.05)' }}>
-                    <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#1e293b', mb: 0.3 }}>Ngưỡng quy trình</Typography>
+                    <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#1e293b', mb: 0.3 }}>Nghẽn quy trình</Typography>
                     <Typography sx={{ fontSize: 11, color: '#94a3b8', mb: 2 }}>Hồ sơ đang ở từng bước xử lý.</Typography>
                     {loading ? [1, 2, 3, 4, 5].map(i => <Skeleton key={i} height={22} sx={{ mb: 0.8, borderRadius: '6px' }} />) : (
                         stageCounts.map(s => {
