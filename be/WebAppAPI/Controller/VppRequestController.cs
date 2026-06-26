@@ -22,9 +22,8 @@ public class VppRequestController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppRequestDetailDto>> GetById(int id)
     {
-        var result = await _service.GetByIdAsync(id);
-        if (result == null)
-            return new ResponseValue<VppRequestDetailDto>(null, "Không tìm thấy đề nghị", StatusReponse.Error);
+        var result = await _service.GetByIdAsync(id)
+            ?? throw new NotFoundException("Không tìm thấy đề nghị");
         return new ResponseValue<VppRequestDetailDto>(result, "OK", StatusReponse.Success);
     }
 

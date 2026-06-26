@@ -23,9 +23,8 @@ public class VppImportController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppImportDetailDto>> GetById(int id)
     {
-        var result = await _service.GetByIdAsync(id);
-        if (result == null)
-            return new ResponseValue<VppImportDetailDto>(null, "Không tìm thấy phiếu nhập", StatusReponse.Error);
+        var result = await _service.GetByIdAsync(id)
+            ?? throw new NotFoundException("Không tìm thấy phiếu nhập");
         return new ResponseValue<VppImportDetailDto>(result, "OK", StatusReponse.Success);
     }
 

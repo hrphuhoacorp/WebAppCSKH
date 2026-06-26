@@ -22,9 +22,8 @@ public class VppItemController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppItemDto>> GetById(int id)
     {
-        var result = await _service.GetByIdAsync(id);
-        if (result == null)
-            return new ResponseValue<VppItemDto>(null, "Không tìm thấy vật tư", StatusReponse.Error);
+        var result = await _service.GetByIdAsync(id)
+            ?? throw new NotFoundException("Không tìm thấy vật tư");
         return new ResponseValue<VppItemDto>(result, "OK", StatusReponse.Success);
     }
 
