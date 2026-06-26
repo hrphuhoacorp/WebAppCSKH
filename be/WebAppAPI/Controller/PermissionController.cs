@@ -102,6 +102,13 @@ public class PermissionController : ControllerBase
                 .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null)
             ?? throw new NotFoundException("Không tìm thấy người dùng");
 
+        // Capture old state for audit
+        var oldPermIds = user.UserPermissions.Select(up => up.PermissionId).ToList();
+        var oldPerms = await _context.Permissions
+            .Where(p => oldPermIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Code, p.Name })
+            .ToListAsync();
+
         // Xóa tất cả user_permissions hiện tại
         _context.UserPermissions.RemoveRange(user.UserPermissions);
 
@@ -111,10 +118,26 @@ public class PermissionController : ControllerBase
             _context.UserPermissions.Add(
                 new UserPermission { UserId = userId, PermissionId = permId }
             );
-
         }
-     
+
         await _context.SaveChangesAsync();
+
+        // Capture new state and write audit log
+        var newPerms = await _context.Permissions
+            .Where(p => dto.ExtraPermissionIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Code, p.Name })
+            .ToListAsync();
+
+        var actorId = int.TryParse(User.FindFirst("Id")?.Value, out var aid) ? (int?)aid : null;
+        await _activityService.SaveLogAsync(
+            actorId,
+            null,
+            "UPDATE_PERMISSIONS",
+            "users",
+            userId,
+            new { targetUserId = userId, targetUserName = user.Name, permissions = oldPerms },
+            new { targetUserId = userId, targetUserName = user.Name, permissions = newPerms }
+        );
 
         return new ResponseValue<string>("OK", "Cập nhật quyền thành công", StatusReponse.Success);
     }

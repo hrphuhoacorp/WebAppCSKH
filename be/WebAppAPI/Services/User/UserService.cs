@@ -29,13 +29,17 @@ public class UserService : IUserService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBranchRepository _branchRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IActivityService _activityService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public UserService(
         IUserRepository userRepository,
         IUserRoleRepository userRoleRepository,
         IUnitOfWork unitOfWork,
         IBranchRepository branchRepository,
-        IRoleRepository roleRepository
+        IRoleRepository roleRepository,
+        IActivityService activityService,
+        IHttpContextAccessor httpContextAccessor
     )
     {
         _userRepository = userRepository;
@@ -43,6 +47,8 @@ public class UserService : IUserService
         _unitOfWork = unitOfWork;
         _branchRepository = branchRepository;
         _roleRepository = roleRepository;
+        _activityService = activityService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<PagedResult<UserGetAllDTO>> GetAllAsync(
@@ -278,6 +284,11 @@ public class UserService : IUserService
                 .Where(x => x.UserId == id)
                 .ToListAsync();
 
+            // Capture old roles for audit (names already loaded via Include)
+            var oldRoleInfo = user.UserRoles
+                .Select(ur => new { id = ur.RoleId, name = ur.Role?.Name ?? "" })
+                .ToList();
+
             var rolesToRemove = currentRoles.Where(x => !dto.RoleIds.Contains(x.RoleId)).ToList();
 
             var existingRoleIds = currentRoles.Select(x => x.RoleId).ToList();
@@ -286,6 +297,12 @@ public class UserService : IUserService
                 .RoleIds.Where(roleId => !existingRoleIds.Contains(roleId))
                 .Select(roleId => new UserRole { UserId = id, RoleId = roleId })
                 .ToList();
+
+            // Capture new role names for audit
+            var newRoleInfo = await _roleRepository.GetAll()
+                .Where(r => dto.RoleIds.Contains(r.Id))
+                .Select(r => new { id = r.Id, name = r.Name })
+                .ToListAsync();
 
             _userRoleRepository.RemoveRange(rolesToRemove);
 
@@ -298,6 +315,20 @@ public class UserService : IUserService
 
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            // Audit log — after commit so it's not rolled back with the transaction
+            var actorId = int.TryParse(
+                _httpContextAccessor.HttpContext?.User.FindFirst("Id")?.Value, out var aid)
+                ? (int?)aid : null;
+            await _activityService.SaveLogAsync(
+                actorId,
+                null,
+                "UPDATE_ROLES",
+                "users",
+                id,
+                new { targetUserId = id, targetUserName = user.Name, roles = oldRoleInfo },
+                new { targetUserId = id, targetUserName = user.Name, roles = newRoleInfo }
+            );
 
             return new UserDTO
             {

@@ -25,6 +25,8 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
     private readonly IEmailService _emailService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly MediaSettings _mediaSettings;
+    private readonly IActivityService _activityService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     private static readonly string[] AllowedCvExtensions =
     [
@@ -41,7 +43,9 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
         IRecruitmentCandidateHistoryRepository historyRepo,
         IEmailService emailService,
         IUnitOfWork unitOfWork,
-        IOptions<MediaSettings> mediaOptions
+        IOptions<MediaSettings> mediaOptions,
+        IActivityService activityService,
+        IHttpContextAccessor httpContextAccessor
     )
     {
         _repo = repo;
@@ -49,7 +53,13 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
         _emailService = emailService;
         _unitOfWork = unitOfWork;
         _mediaSettings = mediaOptions.Value;
+        _activityService = activityService;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    private int? ActorId() =>
+        int.TryParse(_httpContextAccessor.HttpContext?.User.FindFirst("Id")?.Value, out var id)
+            ? id : null;
 
     public async Task<IEnumerable<RecruitmentCandidateDto>> GetAllAsync(
         int? campaignId,
@@ -105,11 +115,12 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
         var entity = MapFromCreateDto(dto);
         await _repo.AddAsync(entity);
         await _unitOfWork.SaveChangesAsync();
-        await AddHistoryAsync(
-            entity.Id,
-            dto.ActedBy,
-            "Thêm ứng viên",
-            $"Trạng thái: {entity.Status}"
+        await AddHistoryAsync(entity.Id, dto.ActedBy, "Thêm ứng viên", $"Trạng thái: {entity.Status}");
+        await _activityService.SaveLogAsync(
+            ActorId(), dto.ActedBy,
+            "RECRUITMENT_CREATE", "recruitment_candidates", entity.Id,
+            null,
+            new { candidateName = entity.CandidateName, status = entity.Status, position = entity.Position, actedBy = dto.ActedBy }
         );
         return ToDto(entity);
     }
@@ -124,30 +135,51 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
         var oldStatus = entity.Status;
         // Only overwrite fields that are explicitly provided (non-null).
         // This allows quickUpdate to send only {status} without wiping all other fields.
-        if (dto.CandidateName != null) entity.CandidateName = dto.CandidateName;
-        if (dto.Phone != null)        entity.Phone = dto.Phone;
-        if (dto.Email != null)        entity.Email = dto.Email;
-        if (dto.Position != null)     entity.Position = dto.Position;
-        if (dto.Source != null)       entity.Source = dto.Source;
-        if (dto.SourceOtherNote != null) entity.SourceOtherNote = dto.SourceOtherNote;
-        if (dto.CvLink != null)       entity.CvLink = dto.CvLink;
-        if (dto.CvNote != null)       entity.CvNote = dto.CvNote;
+        if (dto.CandidateName != null)
+            entity.CandidateName = dto.CandidateName;
+        if (dto.Phone != null)
+            entity.Phone = dto.Phone;
+        if (dto.Email != null)
+            entity.Email = dto.Email;
+        if (dto.Position != null)
+            entity.Position = dto.Position;
+        if (dto.Source != null)
+            entity.Source = dto.Source;
+        if (dto.SourceOtherNote != null)
+            entity.SourceOtherNote = dto.SourceOtherNote;
+        if (dto.CvLink != null)
+            entity.CvLink = dto.CvLink;
+        if (dto.CvNote != null)
+            entity.CvNote = dto.CvNote;
         entity.Status = string.IsNullOrWhiteSpace(dto.Status) ? entity.Status : dto.Status;
-        if (dto.WaitingFor != null)   entity.WaitingFor = dto.WaitingFor;
-        if (dto.InterviewTime != null) entity.InterviewTime = dto.InterviewTime;
-        if (dto.InterviewNote != null) entity.InterviewNote = dto.InterviewNote;
-        if (dto.Result != null)       entity.Result = dto.Result;
-        if (dto.OfferNote != null)    entity.OfferNote = dto.OfferNote;
-        if (dto.OnboardDate != null)  entity.OnboardDate = dto.OnboardDate;
-        if (dto.CampaignId != null)   entity.CampaignId = dto.CampaignId;
+        if (dto.WaitingFor != null)
+            entity.WaitingFor = dto.WaitingFor;
+        if (dto.InterviewTime != null)
+            entity.InterviewTime = dto.InterviewTime;
+        if (dto.InterviewNote != null)
+            entity.InterviewNote = dto.InterviewNote;
+        if (dto.Result != null)
+            entity.Result = dto.Result;
+        if (dto.OfferNote != null)
+            entity.OfferNote = dto.OfferNote;
+        if (dto.OnboardDate != null)
+            entity.OnboardDate = dto.OnboardDate;
+        if (dto.CampaignId != null)
+            entity.CampaignId = dto.CampaignId;
         entity.UpdatedAt = DateTime.UtcNow;
         await _unitOfWork.SaveChangesAsync();
 
         var note =
             oldStatus != entity.Status
-                ? $"Trạng thái: {oldStatus} → {entity.Status}"
-                : "Cập nhật thông tin";
-        await AddHistoryAsync(id, dto.ActedBy, "Cập nhật", note);
+                ? $"Trang thai: {oldStatus} -> {entity.Status}"
+                : "Cap nhat thong tin";
+        await AddHistoryAsync(id, dto.ActedBy, "Cap nhat", note);
+        await _activityService.SaveLogAsync(
+            ActorId(), dto.ActedBy,
+            "RECRUITMENT_UPDATE", "recruitment_candidates", id,
+            new { status = oldStatus },
+            new { status = entity.Status, note, actedBy = dto.ActedBy }
+        );
         return ToDto(entity);
     }
 
@@ -222,7 +254,12 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
         if (string.IsNullOrWhiteSpace(entity.Email))
             throw new BadRequestException("Ứng viên chưa có email");
 
-        await _emailService.SendEmaiLAsync(entity.Email, dto.Subject, dto.HtmlBody, dto.Attachments);
+        await _emailService.SendEmaiLAsync(
+            entity.Email,
+            dto.Subject,
+            dto.HtmlBody,
+            dto.Attachments
+        );
 
         if (dto.MailType == "invite")
             entity.MailInviteSent = true;
@@ -230,22 +267,29 @@ public class RecruitmentCandidateService : IRecruitmentCandidateService
             entity.MailResultSent = true;
         entity.UpdatedAt = DateTime.UtcNow;
         await _unitOfWork.SaveChangesAsync();
-        await AddHistoryAsync(
-            id,
-            dto.ActedBy,
-            "Gửi email",
-            $"Loại: {dto.MailType} | Chủ đề: {dto.Subject}"
+        await AddHistoryAsync(id, dto.ActedBy, "Gui email", $"Loai: {dto.MailType} | Chu de: {dto.Subject}");
+        await _activityService.SaveLogAsync(
+            ActorId(), dto.ActedBy,
+            "RECRUITMENT_SEND_MAIL", "recruitment_candidates", id,
+            null,
+            new { mailType = dto.MailType, subject = dto.Subject, actedBy = dto.ActedBy }
         );
     }
 
     public async Task DeleteAsync(int id)
     {
         var entity =
-            await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy ứng viên");
+            await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Khong tim thay ung vien");
         if (entity.DeletedAt != null)
-            throw new NotFoundException("Không tìm thấy ứng viên");
+            throw new NotFoundException("Khong tim thay ung vien");
         entity.DeletedAt = DateTime.UtcNow.AddHours(7);
         await _unitOfWork.SaveChangesAsync();
+        await _activityService.SaveLogAsync(
+            ActorId(), null,
+            "RECRUITMENT_DELETE", "recruitment_candidates", id,
+            new { candidateName = entity.CandidateName, status = entity.Status },
+            null
+        );
     }
 
     private async Task AddHistoryAsync(
