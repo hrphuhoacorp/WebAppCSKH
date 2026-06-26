@@ -596,8 +596,8 @@ export default function SapoDashboardPage() {
 
     const METRICS = data
         ? [
-            { label: 'Doanh thu', value: money(data.metrics.revenue), sub: 'Cột Doanh thu', icon: <MonetizationOnIcon />, color: '#065f2d' },
-            { label: 'Doanh thu thuần', value: money(data.metrics.netRevenue), sub: 'Theo file Sapo', icon: <TrendingUpIcon />, color: '#086839' },
+            { label: 'Doanh thu', value: money(data.metrics.revenue), sub: 'Giỏ + phụ kiện/vật liệu', icon: <MonetizationOnIcon />, color: '#065f2d' },
+            { label: 'Doanh thu thuần', value: money(data.metrics.netRevenue), sub: 'Giỏ + phụ kiện/vật liệu', icon: <TrendingUpIcon />, color: '#086839' },
             { label: 'Số lượng bán', value: fmt(data.metrics.qty), sub: 'Giữ dòng âm trả hàng', icon: <ShoppingBasketIcon />, color: '#2e7d32' },
             { label: 'Đơn giá TB/giỏ', value: money(data.metrics.aov), sub: 'Doanh thu / SL', icon: <CalculateIcon />, color: '#388e3c' },
         ]
