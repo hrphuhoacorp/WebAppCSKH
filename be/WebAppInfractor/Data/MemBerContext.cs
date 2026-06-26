@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Models;
 using WebAppInfractor.Models.Recruitment;
+using WebAppInfractor.Models.Vpp;
 
 namespace WebAppInfractor.Data;
 
@@ -62,6 +63,16 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<RecruitmentCandidateHistory> RecruitmentCandidateHistories { get; set; }
     public virtual DbSet<RecruitmentCategory> RecruitmentCategories { get; set; }
     public virtual DbSet<RecruitmentMailTemplate> RecruitmentMailTemplates { get; set; }
+
+    public virtual DbSet<VppItem> VppItems { get; set; }
+    public virtual DbSet<VppRequest> VppRequests { get; set; }
+    public virtual DbSet<VppRequestLine> VppRequestLines { get; set; }
+    public virtual DbSet<VppImport> VppImports { get; set; }
+    public virtual DbSet<VppImportLine> VppImportLines { get; set; }
+    public virtual DbSet<VppDispatch> VppDispatches { get; set; }
+    public virtual DbSet<VppDispatchLine> VppDispatchLines { get; set; }
+    public virtual DbSet<VppStockCount> VppStockCounts { get; set; }
+    public virtual DbSet<VppStockCountLine> VppStockCountLines { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
@@ -1103,6 +1114,143 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Subject).HasMaxLength(500).HasColumnName("subject");
             entity.Property(e => e.Content).HasColumnName("content");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<VppItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_items_pkey");
+            entity.ToTable("vpp_items");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Code).HasMaxLength(20).HasColumnName("code");
+            entity.Property(e => e.Group).HasMaxLength(10).HasColumnName("group");
+            entity.Property(e => e.Name).HasMaxLength(200).HasColumnName("name");
+            entity.Property(e => e.Unit).HasMaxLength(50).HasColumnName("unit");
+            entity.Property(e => e.UnitPrice).HasPrecision(18, 2).HasColumnName("unit_price");
+            entity.Property(e => e.VatRate).HasPrecision(5, 4).HasColumnName("vat_rate");
+            entity.Property(e => e.MinStock).HasDefaultValue(0).HasColumnName("min_stock");
+            entity.Property(e => e.MaxStock).HasDefaultValue(0).HasColumnName("max_stock");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<VppRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_requests_pkey");
+            entity.ToTable("vpp_requests");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RequesterId).HasColumnName("requester_id");
+            entity.Property(e => e.Department).HasMaxLength(100).HasColumnName("department");
+            entity.Property(e => e.Reason).HasColumnName("reason");
+            entity.Property(e => e.ReferencePrice).HasMaxLength(200).HasColumnName("reference_price");
+            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("pending").HasColumnName("status");
+            entity.Property(e => e.AdminNote).HasColumnName("admin_note");
+            entity.Property(e => e.DispatchId).HasColumnName("dispatch_id");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<VppRequestLine>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_request_lines_pkey");
+            entity.ToTable("vpp_request_lines");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RequestId).HasColumnName("request_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.Quantity).HasPrecision(18, 3).HasColumnName("quantity");
+            entity.Property(e => e.Note).HasColumnName("note");
+        });
+
+        modelBuilder.Entity<VppImport>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_imports_pkey");
+            entity.ToTable("vpp_imports");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ImportDate).HasColumnName("import_date");
+            entity.Property(e => e.PeriodMonth).HasColumnName("period_month");
+            entity.Property(e => e.PeriodYear).HasColumnName("period_year");
+            entity.Property(e => e.AttachmentInvoice).HasMaxLength(500).HasColumnName("attachment_invoice");
+            entity.Property(e => e.AttachmentApproval).HasMaxLength(500).HasColumnName("attachment_approval");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.CreatedBy).HasMaxLength(100).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<VppImportLine>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_import_lines_pkey");
+            entity.ToTable("vpp_import_lines");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ImportId).HasColumnName("import_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.Quantity).HasPrecision(18, 3).HasColumnName("quantity");
+            entity.Property(e => e.UnitPrice).HasPrecision(18, 2).HasColumnName("unit_price");
+            entity.Property(e => e.VatAmount).HasPrecision(18, 2).HasColumnName("vat_amount");
+            entity.Property(e => e.TotalAmount).HasPrecision(18, 2).HasColumnName("total_amount");
+        });
+
+        modelBuilder.Entity<VppDispatch>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_dispatches_pkey");
+            entity.ToTable("vpp_dispatches");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Code).HasMaxLength(20).HasColumnName("code");
+            entity.Property(e => e.DispatchDate).HasColumnName("dispatch_date");
+            entity.Property(e => e.Department).HasMaxLength(100).HasColumnName("department");
+            entity.Property(e => e.Branch).HasMaxLength(100).HasColumnName("branch");
+            entity.Property(e => e.RequestId).HasColumnName("request_id");
+            entity.Property(e => e.AttachmentInvoice).HasMaxLength(500).HasColumnName("attachment_invoice");
+            entity.Property(e => e.AttachmentApproval).HasMaxLength(500).HasColumnName("attachment_approval");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.CreatedBy).HasMaxLength(100).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<VppDispatchLine>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_dispatch_lines_pkey");
+            entity.ToTable("vpp_dispatch_lines");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.DispatchId).HasColumnName("dispatch_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.Quantity).HasPrecision(18, 3).HasColumnName("quantity");
+            entity.Property(e => e.UnitPrice).HasPrecision(18, 2).HasColumnName("unit_price");
+            entity.Property(e => e.VatAmount).HasPrecision(18, 2).HasColumnName("vat_amount");
+            entity.Property(e => e.TotalAmount).HasPrecision(18, 2).HasColumnName("total_amount");
+        });
+
+        modelBuilder.Entity<VppStockCount>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_stock_counts_pkey");
+            entity.ToTable("vpp_stock_counts");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CountDate).HasColumnName("count_date");
+            entity.Property(e => e.PeriodMonth).HasColumnName("period_month");
+            entity.Property(e => e.PeriodYear).HasColumnName("period_year");
+            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("draft").HasColumnName("status");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.CreatedBy).HasMaxLength(100).HasColumnName("created_by");
+            entity.Property(e => e.ConfirmedAt).HasColumnName("confirmed_at");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<VppStockCountLine>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_stock_count_lines_pkey");
+            entity.ToTable("vpp_stock_count_lines");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.StockCountId).HasColumnName("stock_count_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.SystemQty).HasPrecision(18, 3).HasColumnName("system_qty");
+            entity.Property(e => e.ActualQty).HasPrecision(18, 3).HasColumnName("actual_qty");
+            entity.Property(e => e.Difference).HasPrecision(18, 3).HasColumnName("difference");
+            entity.Property(e => e.Note).HasColumnName("note");
         });
 
         OnModelCreatingPartial(modelBuilder);
