@@ -53,6 +53,15 @@ builder.Services.AddScoped<IRecruitmentCategoryRepository, RecruitmentCategoryRe
 builder.Services.AddScoped<IRecruitmentMailTemplateRepository, RecruitmentMailTemplateRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
+builder.Services.AddScoped<IVppItemRepository, VppItemRepository>();
+builder.Services.AddScoped<IVppRequestRepository, VppRequestRepository>();
+builder.Services.AddScoped<IVppRequestLineRepository, VppRequestLineRepository>();
+builder.Services.AddScoped<IVppImportRepository, VppImportRepository>();
+builder.Services.AddScoped<IVppImportLineRepository, VppImportLineRepository>();
+builder.Services.AddScoped<IVppDispatchRepository, VppDispatchRepository>();
+builder.Services.AddScoped<IVppDispatchLineRepository, VppDispatchLineRepository>();
+builder.Services.AddScoped<IVppStockCountRepository, VppStockCountRepository>();
+builder.Services.AddScoped<IVppStockCountLineRepository, VppStockCountLineRepository>();
 
 //Cache
 builder.Services.AddMemoryCache();
@@ -261,6 +270,12 @@ builder.Services.AddScoped<IRecruitmentCampaignService, RecruitmentCampaignServi
 builder.Services.AddScoped<IRecruitmentCandidateService, RecruitmentCandidateService>();
 builder.Services.AddScoped<IRecruitmentSettingsService, RecruitmentSettingsService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IVppItemService, VppItemService>();
+builder.Services.AddScoped<IVppInventoryService, VppInventoryService>();
+builder.Services.AddScoped<IVppRequestService, VppRequestService>();
+builder.Services.AddScoped<IVppImportService, VppImportService>();
+builder.Services.AddScoped<IVppDispatchService, VppDispatchService>();
+builder.Services.AddScoped<IVppStockCountService, VppStockCountService>();
 builder.Services.AddScoped<WebAppAPI.Services.SapoService>();
 
 //context
