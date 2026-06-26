@@ -51,6 +51,8 @@ builder.Services.AddScoped<IRecruitmentCandidateHistoryRepository, RecruitmentCa
 builder.Services.AddScoped<IRecruitmentSettingsRepository, RecruitmentSettingsRepository>();
 builder.Services.AddScoped<IRecruitmentCategoryRepository, RecruitmentCategoryRepository>();
 builder.Services.AddScoped<IRecruitmentMailTemplateRepository, RecruitmentMailTemplateRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+builder.Services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
 
 //Cache
 builder.Services.AddMemoryCache();

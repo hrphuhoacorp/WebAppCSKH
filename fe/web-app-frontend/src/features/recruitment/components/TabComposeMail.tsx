@@ -35,7 +35,8 @@ const fieldSx = {
 
 const MAIL_TYPES = [
     { value: 'invite', label: 'Thư mời phỏng vấn' },
-    { value: 'pass', label: 'Thông báo đậu / Mời nhận việc' },
+    { value: 'pass', label: 'Thông báo đậu phỏng vấn' },
+    { value: 'onboard', label: 'Thư mời nhận việc' },
     { value: 'fail', label: 'Thông báo không phù hợp' },
     { value: 'reschedule', label: 'Hẹn lại lịch phỏng vấn' },
     { value: 'custom', label: 'Tùy chỉnh' },
@@ -48,82 +49,15 @@ function esc(s: string) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function buildHtmlMail(d: {
-    type: string; title: string; name: string; position: string;
-    date: string; time: string; method: string; contact: string; phone: string; location: string;
-    offer: string; note: string; signature: string; onboardDate: string;
-}): string {
-    const nm = esc(d.name || 'TÊN ỨNG VIÊN');
-    const pos = esc(d.position || 'VỊ TRÍ');
-    const dt = d.date ? d.date : 'NGÀY';
-    const tm = d.time ? d.time : 'GIỜ';
-    const mth = esc(d.method || 'Trực tiếp tại văn phòng');
-    const ct = esc(d.contact || '');
-    const ph = esc(d.phone || '');
-    const loc = esc(d.location || '');
-    const sig = d.signature || '';
-    const ttl = esc(d.title || 'Anh/Chị');
-    const offerNote = esc(d.offer || '');
-    const noteText = esc(d.note || '');
-
-    const base = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px;line-height:1.7">`;
-    const close = `</div>`;
-    const greeting = `<p>Kính gửi <strong>${ttl} ${nm}</strong>,</p>`;
-    const footer = `${noteText ? `<p><em>${noteText}</em></p>` : ''}${sig ? `<br/><div style="border-top:1px solid #e2e8f0;padding-top:12px;color:#555;font-size:13px">${sig}</div>` : ''}`;
-
-    if (d.type === 'invite') {
-        return `${base}${greeting}
-<p>Cảm ơn ${ttl} đã quan tâm và nộp hồ sơ ứng tuyển vị trí <strong>${pos}</strong> tại công ty chúng tôi.</p>
-<p>Sau khi xem xét hồ sơ, chúng tôi rất vui được mời ${ttl} tham gia buổi phỏng vấn với thông tin như sau:</p>
-<table style="border-collapse:collapse;width:100%;margin:12px 0">
-  <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700;width:160px">Thời gian</td><td style="padding:8px 12px;border:1px solid #e2e8f0">${dt} — ${tm}</td></tr>
-  <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700">Hình thức</td><td style="padding:8px 12px;border:1px solid #e2e8f0">${mth}</td></tr>
-  ${loc ? `<tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700">Địa điểm / Link</td><td style="padding:8px 12px;border:1px solid #e2e8f0">${loc}</td></tr>` : ''}
-  ${ct ? `<tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700">Người liên hệ</td><td style="padding:8px 12px;border:1px solid #e2e8f0">${ct}${ph ? ` — ${ph}` : ''}</td></tr>` : ''}
-</table>
-<p>Vui lòng xác nhận tham dự bằng cách trả lời email này hoặc liên hệ trực tiếp. Nếu ${ttl} có bất kỳ thắc mắc nào, đừng ngần ngại liên hệ với chúng tôi.</p>
-<p>Chúng tôi rất mong được gặp ${ttl}!</p>
-${footer}${close}`;
-    }
-
-    if (d.type === 'pass') {
-        const ob = esc(d.onboardDate || '');
-        return `${base}${greeting}
-<p>Cảm ơn ${ttl} đã tham gia buổi phỏng vấn vị trí <strong>${pos}</strong> tại công ty chúng tôi.</p>
-<p>Chúng tôi rất vui thông báo rằng ${ttl} đã <strong style="color:#16a34a">vượt qua vòng phỏng vấn</strong> và được mời tham gia làm việc tại công ty.</p>
-${offerNote ? `<p><strong>Thông tin đề xuất:</strong> ${offerNote}</p>` : ''}
-${ob ? `<p><strong>Ngày bắt đầu dự kiến:</strong> ${ob}</p>` : ''}
-<p>Chúng tôi sẽ gửi thư mời nhận việc chính thức trong thời gian sớm nhất. Vui lòng xác nhận bằng cách trả lời email này.</p>
-<p>Chào mừng ${ttl} đến với đội ngũ của chúng tôi!</p>
-${footer}${close}`;
-    }
-
-    if (d.type === 'fail') {
-        return `${base}${greeting}
-<p>Cảm ơn ${ttl} đã quan tâm và tham gia ứng tuyển vị trí <strong>${pos}</strong> tại công ty chúng tôi.</p>
-<p>Sau khi cân nhắc kỹ lưỡng, chúng tôi rất tiếc phải thông báo rằng hồ sơ của ${ttl} chưa phù hợp với yêu cầu hiện tại của vị trí này.</p>
-<p>Chúng tôi đánh giá cao sự quan tâm của ${ttl} và hy vọng sẽ có cơ hội hợp tác trong tương lai khi có vị trí phù hợp hơn.</p>
-<p>Chúc ${ttl} thành công trong con đường sự nghiệp!</p>
-${footer}${close}`;
-    }
-
-    if (d.type === 'reschedule') {
-        return `${base}${greeting}
-<p>Liên quan đến buổi phỏng vấn vị trí <strong>${pos}</strong>, chúng tôi xin thông báo về lịch phỏng vấn mới như sau:</p>
-<table style="border-collapse:collapse;width:100%;margin:12px 0">
-  <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700;width:160px">Thời gian mới</td><td style="padding:8px 12px;border:1px solid #e2e8f0">${dt} — ${tm}</td></tr>
-  <tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700">Hình thức</td><td style="padding:8px 12px;border:1px solid #e2e8f0">${mth}</td></tr>
-  ${loc ? `<tr><td style="padding:8px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700">Địa điểm / Link</td><td style="padding:8px 12px;border:1px solid #e2e8f0">${loc}</td></tr>` : ''}
-</table>
-<p>Vui lòng xác nhận lịch mới bằng cách trả lời email này. Chúng tôi xin lỗi về sự bất tiện này.</p>
-${footer}${close}`;
-    }
-
-    // custom
-    return `${base}${greeting}<p>(Nhập nội dung tùy chỉnh)</p>${footer}${close}`;
+function applyTemplate(content: string, vals: Record<string, string>): string {
+    return Object.entries(vals).reduce(
+        (html, [k, v]) => html.replaceAll(`{{${k}}}`, esc(v)),
+        content
+    );
 }
 
-function buildPlainText(d: { type: string; name: string; position: string; date: string; time: string; method: string; contact: string; phone: string; location: string; offer: string; note: string }): string {
+
+function buildPlainText(d: { type: string; name: string; position: string; date: string; time: string; method: string; contact: string; phone: string; location: string; offer: string; onboardDate: string; onboardTime: string; note: string }): string {
     const lines: string[] = [];
     if (d.type === 'invite') {
         lines.push(`Kính gửi ${d.name},\n`);
@@ -136,6 +70,13 @@ function buildPlainText(d: { type: string; name: string; position: string; date:
         lines.push(`Kính gửi ${d.name},\n`);
         lines.push(`Chúc mừng bạn đã vượt qua vòng phỏng vấn vị trí ${d.position}!`);
         if (d.offer) lines.push(`Thông tin đề xuất: ${d.offer}`);
+    } else if (d.type === 'onboard') {
+        lines.push(`Kính gửi ${d.name},\n`);
+        lines.push(`Trân trọng mời bạn chính thức nhận việc vị trí ${d.position}.`);
+        if (d.onboardDate) lines.push(`Ngày bắt đầu: ${d.onboardDate}${d.onboardTime ? ' - ' + d.onboardTime : ''}`);
+        if (d.location) lines.push(`Địa điểm: ${d.location}`);
+        if (d.offer) lines.push(`Mức lương / đề xuất: ${d.offer}`);
+        if (d.contact) lines.push(`Liên hệ: ${d.contact}${d.phone ? ' - ' + d.phone : ''}`);
     } else if (d.type === 'fail') {
         lines.push(`Kính gửi ${d.name},\n`);
         lines.push(`Rất tiếc thông báo rằng hồ sơ của bạn cho vị trí ${d.position} chưa phù hợp với yêu cầu hiện tại.`);
@@ -154,6 +95,7 @@ function composeSubject(type: string, position: string): string {
     const pos = position || 'VỊ TRÍ';
     if (type === 'invite') return `Thư mời phỏng vấn vị trí ${pos}`;
     if (type === 'pass') return `Thông báo kết quả phỏng vấn vị trí ${pos} - Đậu`;
+    if (type === 'onboard') return `Thư mời nhận việc vị trí ${pos}`;
     if (type === 'fail') return `Thông báo kết quả phỏng vấn vị trí ${pos}`;
     if (type === 'reschedule') return `Thay đổi lịch phỏng vấn vị trí ${pos}`;
     return `Thông tin tuyển dụng vị trí ${pos}`;
@@ -184,6 +126,7 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
     const [location, setLocation] = useState('');
     const [offer, setOffer] = useState('');
     const [onboardDate, setOnboardDate] = useState('');
+    const [onboardTime, setOnboardTime] = useState('');
     const [note, setNote] = useState('');
     const [subject, setSubject] = useState('');
     const [customBody, setCustomBody] = useState('');
@@ -200,16 +143,21 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
         queryKey: ['recruitment-settings'],
         queryFn: () => recruitmentSettingsApi.getSettings(),
     });
+    const { data: tplData } = useQuery({
+        queryKey: ['recruitment-mail-templates'],
+        queryFn: () => recruitmentSettingsApi.getMailTemplates(),
+    });
 
     const candidates = (cData?.content ?? []).filter(c => !DONE_STATUSES_MAIL.includes(c.status));
     const settings = sData?.content;
+    const templates = tplData?.content ?? [];
 
     // Apply prefill from kanban card
     useEffect(() => {
         if (!prefill) return;
         setSelected(prefill.candidate);
         setMailType(prefill.mailType);
-        setSubject(composeSubject(prefill.mailType, prefill.candidate.position || ''));
+        setSubject(subjectFromTemplate(prefill.mailType, prefill.candidate.position || '', prefill.candidate.candidateName || ''));
         if (settings) {
             setContact(settings.defaultContact || '');
             setPhone(settings.defaultPhone || '');
@@ -233,10 +181,16 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
         if (settings && !location) setLocation(settings.defaultLocation || '');
     }, [settings]);
 
+    function subjectFromTemplate(type: string, pos: string, name: string): string {
+        const tpl = templates.find(x => x.templateType === type);
+        if (tpl?.subject) return tpl.subject.replaceAll('{{position}}', pos).replaceAll('{{name}}', name);
+        return composeSubject(type, pos);
+    }
+
     function handleCandidateChange(c: RecruitmentCandidateDto | null) {
         setSelected(c);
         if (c) {
-            setSubject(composeSubject(mailType, c.position || ''));
+            setSubject(subjectFromTemplate(mailType, c.position || '', c.candidateName || ''));
             if (c.interviewTime) {
                 const parts = c.interviewTime.split(' ');
                 setDate(parts[0] || '');
@@ -248,23 +202,40 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
 
     function handleTypeChange(t: string) {
         setMailType(t);
-        if (selected) setSubject(composeSubject(t, selected.position || ''));
+        if (selected) setSubject(subjectFromTemplate(t, selected.position || '', selected.candidateName || ''));
     }
 
     const composeData = {
-        type: mailType, title: 'Anh/Chị', name: selected?.candidateName || '',
+        type: mailType, name: selected?.candidateName || '',
         position: selected?.position || '', date, time, method, contact, phone, location,
-        offer, onboardDate, note, signature: settings?.signature || '',
+        offer, onboardDate, onboardTime, note,
     };
 
-    const previewHtml = buildHtmlMail(composeData);
+    const logoUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/images/Logo/PHF_FALOGO.png`
+        : '';
+    const logoWhiteUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/images/Logo/PHF_LOGOWhite.png`
+        : '';
+
+    const signatureHtml = settings?.signature || '';
+
+    const templateVals: Record<string, string> = {
+        name: selected?.candidateName || '', position: selected?.position || '',
+        date, time, method, contact, phone, location, offer, onboardDate, onboardTime, note,
+        logoUrl, logoWhiteUrl,
+    };
+    const activeTemplate = templates.find(t => t.templateType === mailType);
+    const previewHtml = activeTemplate
+        ? applyTemplate(activeTemplate.content.replaceAll('{{signature}}', signatureHtml), templateVals)
+        : `<p style="padding:24px;color:#94a3b8;font-size:13px;text-align:center;">Chưa có template cho loại thư này.<br/>Vào <strong>Cài đặt → Mail Template</strong> để tạo.</p>`;
     const finalBody = useCustomBody ? customBody : previewHtml;
 
     function handleClearForm() {
         setSelected(null); setMailType('invite');
         setDate(''); setTime(''); setMethod(METHODS[0]);
         setContact(settings?.defaultContact || ''); setPhone(settings?.defaultPhone || '');
-        setLocation(settings?.defaultLocation || ''); setOffer(''); setOnboardDate(''); setNote('');
+        setLocation(settings?.defaultLocation || ''); setOffer(''); setOnboardDate(''); setOnboardTime(''); setNote('');
         setSubject(''); setCustomBody(''); setUseCustomBody(false);
         setAttachments([]);
     }
@@ -398,6 +369,17 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
                         </>
                     )}
 
+                    {mailType === 'onboard' && (
+                        <>
+                            <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                <TextField label="Ngày nhận việc" value={onboardDate} onChange={e => setOnboardDate(e.target.value)} size="small" sx={{ flex: 1, ...fieldSx }} placeholder="dd/mm/yyyy" />
+                                <TextField label="Giờ có mặt" value={onboardTime} onChange={e => setOnboardTime(e.target.value)} size="small" sx={{ flex: 1, ...fieldSx }} placeholder="08:00" />
+                            </Box>
+                            <TextField label="Mức lương / Đề xuất" value={offer} onChange={e => setOffer(e.target.value)} size="small" fullWidth sx={fieldSx} />
+                            <TextField label="Địa điểm nhận việc" value={location} onChange={e => setLocation(e.target.value)} size="small" fullWidth sx={fieldSx} />
+                        </>
+                    )}
+
                     <TextField label="Ghi chú thêm (sẽ hiện trong thư)" value={note} onChange={e => setNote(e.target.value)} size="small" fullWidth multiline rows={2} sx={fieldSx} />
 
                     {/* File attachments */}
@@ -498,7 +480,7 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
                                 placeholder="Nhập HTML tùy chỉnh..."
                             />
                         ) : (
-                            <Box sx={{ p: 2, maxHeight: 460, overflowY: 'auto', fontSize: 13,
+                            <Box sx={{ p: 2, maxHeight: 450, overflowY: 'auto', fontSize: 13,
                                 '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: '#e2e8f0', borderRadius: 2 },
                             }}
                                 dangerouslySetInnerHTML={{ __html: previewHtml }}
