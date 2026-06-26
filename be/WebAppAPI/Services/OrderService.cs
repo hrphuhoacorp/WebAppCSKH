@@ -143,7 +143,7 @@ public class OrderService : IOrderService
             var statuses = await _orderStatusRepository
                 .GetAll()
                 .AsNoTracking()
-                .ToDictionaryAsync(x => x.TrangThai.Trim());
+                .ToDictionaryAsync(x => x.Status.Trim());
             var branches = await _branchRepository
                 .GetAll()
                 .AsNoTracking()
@@ -175,7 +175,7 @@ public class OrderService : IOrderService
 
             var dbFingerprints = rawFps
                 .Select(x =>
-                    $"{x.OrderCode}|{x.PurchaseDate:yyyyMMdd}|{x.Revenue}|{Math.Round(x.Quantity ?? 0m, 4)}|{x.Sku}|{x.ServiceName}"
+                    $"{x.OrderCode}|{x.PurchaseDate:yyyyMMdd}|{x.Revenue}|{Math.Round(x.Quantity, 4)}|{x.Sku}|{x.ServiceName}"
                 )
                 .ToHashSet();
 
@@ -807,7 +807,7 @@ public class OrderService : IOrderService
                 CreatedAt = o.CreatedAt,
                 CustomerName = o.Customer.Name,
                 CustomerPhone = o.Customer.Phone,
-                StatusName = o.Status.TrangThai,
+                StatusName = o.Status.Status,
                 BranchName = o.Branches.Name,
                 Items = o
                     .OrderItems.Select(oi => new OrderItemDTO
@@ -918,7 +918,7 @@ public class OrderService : IOrderService
                 CreatedAt = o.CreatedAt,
                 CustomerName = o.Customer.Name,
                 CustomerPhone = o.Customer.Phone,
-                StatusName = o.Status.TrangThai,
+                StatusName = o.Status.Status,
                 BranchName = o.Branches.Name,
                 Items = o
                     .OrderItems.Select(oi => new OrderItemDTO
@@ -975,7 +975,7 @@ public class OrderService : IOrderService
             CreatedAt = order.CreatedAt,
             CustomerName = order.Customer.Name,
             CustomerPhone = order.Customer.Phone,
-            StatusName = order.Status.TrangThai,
+            StatusName = order.Status.Status,
             BranchName = order.Branches.Name,
             Items = order
                 .OrderItems.Select(oi => new OrderItemDTO
@@ -998,7 +998,7 @@ public class OrderService : IOrderService
         var statuses = await _orderStatusRepository
             .GetAll()
             .AsNoTracking()
-            .Select(s => new StatusDTO { Id = s.Id, Name = s.TrangThai })
+            .Select(s => new StatusDTO { Id = s.Id, Name = s.Status })
             .ToArrayAsync();
 
         return statuses;

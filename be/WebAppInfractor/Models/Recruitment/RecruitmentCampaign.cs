@@ -1,5 +1,9 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace WebAppInfractor.Models.Recruitment;
 
+[Index(nameof(Status))]
+[Index(nameof(DeletedAt))]
 public class RecruitmentCampaign
 {
     public int Id { get; set; }

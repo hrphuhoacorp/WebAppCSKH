@@ -280,7 +280,7 @@ public class SapoService
     private async Task<Dictionary<string, List<SapoCodeMapping>>> BuildMappingIndexAsync()
     {
         var rows = await _db
-            .SapoCodeMappings.Where(r => r.Active.ToUpper() != "FALSE")
+            .SapoCodeMappings.Where(r => r.Active)
             .ToListAsync();
 
         var index = new Dictionary<string, List<SapoCodeMapping>>();
@@ -919,8 +919,8 @@ public class SapoService
                     Note = Cell(r, idxNote),
                     Active =
                         idxActive >= 0
-                            ? (Cell(r, idxActive) is var a && !string.IsNullOrEmpty(a) ? a : "TRUE")
-                            : "TRUE",
+                            ? (Cell(r, idxActive) is var a && !string.IsNullOrEmpty(a) ? !a.Equals("FALSE", StringComparison.OrdinalIgnoreCase) : true)
+                            : true,
                     UploadedAt = uploadedAt,
                     Source = fileName,
                 }

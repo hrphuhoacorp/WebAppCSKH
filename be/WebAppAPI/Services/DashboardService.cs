@@ -97,7 +97,7 @@ public class DashboardService : IDashboardService
                 .CountAsync();
 
             var ordersByStatus = await ordersQuery
-                .GroupBy(o => o.Status.TrangThai)
+                .GroupBy(o => o.Status.Status)
                 .Select(g => new ChartItemDTO { Name = g.Key, Value = g.Count() })
                 .ToListAsync();
 
@@ -301,7 +301,7 @@ public class DashboardService : IDashboardService
                 .CountAsync();
 
             var ordersByStatus = await ordersQuery
-                .GroupBy(o => o.Status.TrangThai)
+                .GroupBy(o => o.Status.Status)
                 .Select(g => new ChartItemDTO { Name = g.Key, Value = g.Count() })
                 .ToListAsync();
 

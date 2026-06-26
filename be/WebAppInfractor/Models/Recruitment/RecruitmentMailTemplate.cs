@@ -1,5 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace WebAppInfractor.Models.Recruitment;
 
+[Index(nameof(TemplateType), IsUnique = true)]
 public class RecruitmentMailTemplate
 {
     public int Id { get; set; }

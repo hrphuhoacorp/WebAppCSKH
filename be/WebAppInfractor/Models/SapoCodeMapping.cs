@@ -8,7 +8,7 @@ public class SapoCodeMapping
     public decimal? Price { get; set; }
     public string? EffectiveDate { get; set; }
     public string? Note { get; set; }
-    public string Active { get; set; } = "TRUE";
+    public bool Active { get; set; } = true;
     public string? UploadedAt { get; set; }
     public string? Source { get; set; }
     public DateTime? CreatedAt { get; set; }

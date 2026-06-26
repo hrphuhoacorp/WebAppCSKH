@@ -27,7 +27,7 @@ public class OrderItemDTO
     public string? ProductName { get; set; }
     public string? SKU { get; set; }
     public decimal UnitPrice { get; set; }
-    public decimal? Quantity { get; set; }
+    public decimal Quantity { get; set; }
     public string? ServiceName { get; set; }
     public string? Unit { get; set; }
 }

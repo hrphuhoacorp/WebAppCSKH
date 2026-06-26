@@ -65,8 +65,7 @@ public class UserService : IUserService
         if (pageSize <= 0)
             pageSize = 10;
 
-        bool isAdmin =
-            currentUserRoles != null && currentUserRoles.Any(r => r.Trim() == "Admin");
+        bool isAdmin = currentUserRoles != null && currentUserRoles.Any(r => r.Trim() == "Admin");
 
         var query = _userRepository
             .GetAll()
@@ -285,8 +284,8 @@ public class UserService : IUserService
                 .ToListAsync();
 
             // Capture old roles for audit (names already loaded via Include)
-            var oldRoleInfo = user.UserRoles
-                .Select(ur => new { id = ur.RoleId, name = ur.Role?.Name ?? "" })
+            var oldRoleInfo = user
+                .UserRoles.Select(ur => new { id = ur.RoleId, name = ur.Role?.Name ?? "" })
                 .ToList();
 
             var rolesToRemove = currentRoles.Where(x => !dto.RoleIds.Contains(x.RoleId)).ToList();
@@ -299,7 +298,8 @@ public class UserService : IUserService
                 .ToList();
 
             // Capture new role names for audit
-            var newRoleInfo = await _roleRepository.GetAll()
+            var newRoleInfo = await _roleRepository
+                .GetAll()
                 .Where(r => dto.RoleIds.Contains(r.Id))
                 .Select(r => new { id = r.Id, name = r.Name })
                 .ToListAsync();
@@ -318,16 +318,29 @@ public class UserService : IUserService
 
             // Audit log — after commit so it's not rolled back with the transaction
             var actorId = int.TryParse(
-                _httpContextAccessor.HttpContext?.User.FindFirst("Id")?.Value, out var aid)
-                ? (int?)aid : null;
+                _httpContextAccessor.HttpContext?.User.FindFirst("Id")?.Value,
+                out var aid
+            )
+                ? (int?)aid
+                : null;
             await _activityService.SaveLogAsync(
                 actorId,
                 null,
                 "UPDATE_ROLES",
                 "users",
                 id,
-                new { targetUserId = id, targetUserName = user.Name, roles = oldRoleInfo },
-                new { targetUserId = id, targetUserName = user.Name, roles = newRoleInfo }
+                new
+                {
+                    targetUserId = id,
+                    targetUserName = user.Name,
+                    roles = oldRoleInfo,
+                },
+                new
+                {
+                    targetUserId = id,
+                    targetUserName = user.Name,
+                    roles = newRoleInfo,
+                }
             );
 
             return new UserDTO

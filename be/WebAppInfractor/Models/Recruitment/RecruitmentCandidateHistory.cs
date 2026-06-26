@@ -1,5 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace WebAppInfractor.Models.Recruitment;
 
+[Index(nameof(CandidateId))]
 public class RecruitmentCandidateHistory
 {
     public int Id { get; set; }

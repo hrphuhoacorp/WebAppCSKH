@@ -93,7 +93,7 @@ public class CustomerService : ICustomerService
                         CreatedAt = o.CreatedAt,
                         CustomerName = o.Customer.Name,
                         CustomerPhone = o.Customer.Phone,
-                        StatusName = o.Status.TrangThai,
+                        StatusName = o.Status.Status,
                         BranchName = o.Branches.Name,
                     })
                     .ToList(),
@@ -156,7 +156,7 @@ public class CustomerService : ICustomerService
                     CreatedAt = o.CreatedAt,
                     CustomerName = o.Customer.Name,
                     CustomerPhone = o.Customer.Phone,
-                    StatusName = o.Status.TrangThai,
+                    StatusName = o.Status.Status,
                     BranchName = o.Branches.Name,
                     Items = o
                         .OrderItems.Select(oi => new OrderItemDTO

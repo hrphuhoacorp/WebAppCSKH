@@ -553,7 +553,7 @@ public partial class MemBerContext : DbContext
             entity.ToTable("order_status");
 
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.TrangThai).HasMaxLength(100).HasColumnName("trang_thai");
+            entity.Property(e => e.Status).HasMaxLength(100).HasColumnName("status");
         });
 
         modelBuilder.Entity<Role>(entity =>
@@ -938,7 +938,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Price).HasPrecision(18, 2).HasColumnName("price");
             entity.Property(e => e.EffectiveDate).HasMaxLength(20).HasColumnName("effective_date");
             entity.Property(e => e.Note).HasColumnName("note");
-            entity.Property(e => e.Active).HasMaxLength(10).HasDefaultValue("TRUE").HasColumnName("active");
+            entity.Property(e => e.Active).HasDefaultValue(true).HasColumnName("active");
             entity.Property(e => e.UploadedAt).HasMaxLength(30).HasColumnName("uploaded_at");
             entity.Property(e => e.Source).HasMaxLength(100).HasColumnName("source");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
