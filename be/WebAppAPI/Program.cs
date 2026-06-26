@@ -258,6 +258,7 @@ builder.Services.AddScoped<IMessageReportService, MessageReportService>();
 builder.Services.AddScoped<IRecruitmentCampaignService, RecruitmentCampaignService>();
 builder.Services.AddScoped<IRecruitmentCandidateService, RecruitmentCandidateService>();
 builder.Services.AddScoped<IRecruitmentSettingsService, RecruitmentSettingsService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<WebAppAPI.Services.SapoService>();
 
 //context

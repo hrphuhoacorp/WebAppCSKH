@@ -1,92 +1,35 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using WebAppAPI.Authorization;
-using WebAppInfractor.Data;
-using WebAppInfractor.Models;
 
 namespace WebAppAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class PermissionController : ControllerBase
 {
-    private readonly MemBerContext _context;
-    private readonly IActivityService _activityService;
+    private readonly IPermissionService _service;
 
-    public PermissionController(MemBerContext context, IActivityService activityService)
+    public PermissionController(IPermissionService service)
     {
-        _context = context;
-        _activityService = activityService;
+        _service = service;
     }
 
     [RequirePermission("staff.manage_permissions")]
     [HttpGet("All")]
     public async Task<ResponseValue<List<PermissionGroupDTO>>> GetAll()
     {
-        var perms = await _context
-            .Permissions.AsNoTracking()
-            .OrderBy(p => p.Module)
-            .ThenBy(p => p.Code)
-            .ToListAsync();
-
-        var groups = perms
-            .GroupBy(p => p.Module)
-            .Select(g => new PermissionGroupDTO
-            {
-                Module = g.Key,
-                Permissions = g.Select(p => new PermissionDTO
-                    {
-                        Id = p.Id,
-                        Code = p.Code,
-                        Name = p.Name,
-                    })
-                    .ToList(),
-            })
-            .ToList();
-
-        return new ResponseValue<List<PermissionGroupDTO>>(
-            groups,
-            "Lấy danh sách quyền thành công",
-            StatusReponse.Success
-        );
+        var result = await _service.GetAllAsync();
+        return new ResponseValue<List<PermissionGroupDTO>>(result, "Lấy danh sách quyền thành công", StatusReponse.Success);
     }
 
     [RequirePermission("staff.manage_permissions")]
     [HttpGet("User/{userId}")]
     public async Task<ResponseValue<UserPermissionDetailDTO>> GetUserPermissions(int userId)
     {
-        var user =
-            await _context
-                .Users.Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-                .ThenInclude(r => r.RolePermissions)
-                .ThenInclude(rp => rp.Permission)
-                .Include(u => u.UserPermissions)
-                .ThenInclude(up => up.Permission)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null)
-            ?? throw new NotFoundException("Không tìm thấy người dùng");
-
-        var rolePermCodes = user
-            .UserRoles.SelectMany(ur => ur.Role.RolePermissions)
-            .Select(rp => rp.Permission.Code)
-            .ToHashSet();
-
-        var extraPermIds = user.UserPermissions.Select(up => up.PermissionId).ToHashSet();
-
-        var result = new UserPermissionDetailDTO
-        {
-            UserId = user.Id,
-            UserName = user.Name,
-            RolePermissionCodes = rolePermCodes.ToList(),
-            ExtraPermissionIds = extraPermIds.ToList(),
-        };
-
-        return new ResponseValue<UserPermissionDetailDTO>(
-            result,
-            "Lấy quyền người dùng thành công",
-            StatusReponse.Success
-        );
+        var result = await _service.GetUserPermissionsAsync(userId);
+        return new ResponseValue<UserPermissionDetailDTO>(result, "Lấy quyền người dùng thành công", StatusReponse.Success);
     }
 
     [RequirePermission("staff.manage_permissions")]
@@ -96,75 +39,8 @@ public class PermissionController : ControllerBase
         [FromBody] UpdateUserPermissionsDTO dto
     )
     {
-        var user =
-            await _context
-                .Users.Include(u => u.UserPermissions)
-                .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null)
-            ?? throw new NotFoundException("Không tìm thấy người dùng");
-
-        // Capture old state for audit
-        var oldPermIds = user.UserPermissions.Select(up => up.PermissionId).ToList();
-        var oldPerms = await _context.Permissions
-            .Where(p => oldPermIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Code, p.Name })
-            .ToListAsync();
-
-        // Xóa tất cả user_permissions hiện tại
-        _context.UserPermissions.RemoveRange(user.UserPermissions);
-
-        // Thêm lại các permission mới (chỉ extra, không gồm role defaults)
-        foreach (var permId in dto.ExtraPermissionIds.Distinct())
-        {
-            _context.UserPermissions.Add(
-                new UserPermission { UserId = userId, PermissionId = permId }
-            );
-        }
-
-        await _context.SaveChangesAsync();
-
-        // Capture new state and write audit log
-        var newPerms = await _context.Permissions
-            .Where(p => dto.ExtraPermissionIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Code, p.Name })
-            .ToListAsync();
-
         var actorId = int.TryParse(User.FindFirst("Id")?.Value, out var aid) ? (int?)aid : null;
-        await _activityService.SaveLogAsync(
-            actorId,
-            null,
-            "UPDATE_PERMISSIONS",
-            "users",
-            userId,
-            new { targetUserId = userId, targetUserName = user.Name, permissions = oldPerms },
-            new { targetUserId = userId, targetUserName = user.Name, permissions = newPerms }
-        );
-
+        await _service.UpdateUserPermissionsAsync(userId, dto, actorId);
         return new ResponseValue<string>("OK", "Cập nhật quyền thành công", StatusReponse.Success);
     }
-}
-
-public class PermissionGroupDTO
-{
-    public string Module { get; set; } = null!;
-    public List<PermissionDTO> Permissions { get; set; } = new();
-}
-
-public class PermissionDTO
-{
-    public int Id { get; set; }
-    public string Code { get; set; } = null!;
-    public string Name { get; set; } = null!;
-}
-
-public class UserPermissionDetailDTO
-{
-    public int UserId { get; set; }
-    public string UserName { get; set; } = null!;
-    public List<string> RolePermissionCodes { get; set; } = new();
-    public List<int> ExtraPermissionIds { get; set; } = new();
-}
-
-public class UpdateUserPermissionsDTO
-{
-    public List<int> ExtraPermissionIds { get; set; } = new();
 }

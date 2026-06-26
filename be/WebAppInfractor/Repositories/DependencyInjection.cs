@@ -16,7 +16,9 @@ public static class RepositoryServiceRegistration
         services.AddScoped<IUserRoleRepository, UserRoleRepository>();
         services.AddScoped<IGiftBasketRepository, GiftBasketRepository>();
         services.AddScoped<IGiftCodeMappingRepository, GiftCodeMappingRepository>();
-services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
+        services.AddScoped<IGiftCodeChangeRequestRepository, GiftCodeChangeRequestRepository>();
+        services.AddScoped<IPermissionRepository, PermissionRepository>();
+        services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
         return services;
     }
 }
