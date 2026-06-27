@@ -13,11 +13,12 @@ public class VppDispatchController : ControllerBase
     public VppDispatchController(IVppDispatchService service) => _service = service;
 
     [HttpGet]
-    public async Task<ResponseValue<IEnumerable<VppDispatchDto>>> GetAll(
-        [FromQuery] int? month, [FromQuery] int? year, [FromQuery] string? department)
+    public async Task<ResponseValue<PagedResult<VppDispatchDto>>> GetAll(
+        [FromQuery] int? month, [FromQuery] int? year, [FromQuery] string? department,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var result = await _service.GetAllAsync(month, year, department);
-        return new ResponseValue<IEnumerable<VppDispatchDto>>(result, "OK", StatusReponse.Success);
+        var result = await _service.GetAllAsync(month, year, department, page, pageSize);
+        return new ResponseValue<PagedResult<VppDispatchDto>>(result, "OK", StatusReponse.Success);
     }
 
     [HttpGet("{id:int}")]

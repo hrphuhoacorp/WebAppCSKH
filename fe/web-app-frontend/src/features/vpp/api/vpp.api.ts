@@ -3,11 +3,21 @@ import { api } from '@/services/axios';
 export const VPP_GREEN = '#086839';
 export const VPP_GROUPS = [
     { value: 'VPP', label: 'Văn phòng phẩm' },
+    { value: 'VT', label: 'Vật tư tiêu hao' },
+    { value: 'VS', label: 'Vật tư vệ sinh' },
+
     { value: 'CCDC', label: 'Công cụ – Dụng cụ' },
     { value: 'TB', label: 'Thiết bị' },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface PagedResult<T> {
+    totalItems: number;
+    page: number;
+    pageSize: number;
+    items: T[];
+}
 
 export interface VppItemDto {
     id: number;
@@ -28,7 +38,6 @@ export interface VppItemUpsertDto {
     name: string;
     unit: string;
     unitPrice: number;
-    vatRate: number;
     minStock: number;
     maxStock: number;
     note?: string;
@@ -195,21 +204,25 @@ export interface VppStockCountDetailDto extends VppStockCountDto {
 
 export const vppApi = {
     // Items
-    getItems: async (params?: { group?: string; search?: string }) => {
+    getItems: async (params?: { group?: string; search?: string; page?: number; pageSize?: number }) => {
         const res = await api.get('/vpp/items', { params });
-        return res.data.data as VppItemDto[];
+        return res.data.content as PagedResult<VppItemDto>;
+    },
+    getItemsAll: async () => {
+        const res = await api.get('/vpp/items', { params: { page: 1, pageSize: 9999 } });
+        return (res.data.content as PagedResult<VppItemDto>)?.items ?? [];
     },
     getItemById: async (id: number) => {
         const res = await api.get(`/vpp/items/${id}`);
-        return res.data.data as VppItemDto;
+        return res.data.content as VppItemDto;
     },
     createItem: async (dto: VppItemUpsertDto) => {
         const res = await api.post('/vpp/items', dto);
-        return res.data.data as VppItemDto;
+        return res.data.content as VppItemDto;
     },
     updateItem: async (id: number, dto: VppItemUpsertDto) => {
         const res = await api.put(`/vpp/items/${id}`, dto);
-        return res.data.data as VppItemDto;
+        return res.data.content as VppItemDto;
     },
     deleteItem: async (id: number) => {
         await api.delete(`/vpp/items/${id}`);
@@ -218,82 +231,82 @@ export const vppApi = {
     // Inventory
     getInventory: async (month: number, year: number) => {
         const res = await api.get('/vpp/inventory', { params: { month, year } });
-        return res.data.data as VppInventorySummaryDto;
+        return (res.data.content ?? null) as VppInventorySummaryDto | null;
     },
 
     // Requests
     getRequests: async (params?: { status?: string; page?: number; pageSize?: number }) => {
         const res = await api.get('/vpp/requests', { params });
-        return res.data.data as { items: VppRequestDto[]; totalItems: number; page: number; pageSize: number };
+        return (res.data.content ?? { items: [], totalItems: 0, page: 1, pageSize: 20 }) as PagedResult<VppRequestDto>;
     },
     getRequestById: async (id: number) => {
         const res = await api.get(`/vpp/requests/${id}`);
-        return res.data.data as VppRequestDetailDto;
+        return res.data.content as VppRequestDetailDto;
     },
     createRequest: async (dto: VppRequestCreateDto) => {
         const res = await api.post('/vpp/requests', dto);
-        return res.data.data as VppRequestDto;
+        return res.data.content as VppRequestDto;
     },
     approveRequest: async (id: number) => {
         const res = await api.post(`/vpp/requests/${id}/approve`);
-        return res.data.data as VppRequestDto;
+        return res.data.content as VppRequestDto;
     },
     rejectRequest: async (id: number, adminNote: string) => {
         await api.post(`/vpp/requests/${id}/reject`, { adminNote });
     },
 
     // Imports
-    getImports: async (params?: { month?: number; year?: number }) => {
+    getImports: async (params?: { month?: number; year?: number; page?: number; pageSize?: number }) => {
         const res = await api.get('/vpp/imports', { params });
-        return res.data.data as VppImportDto[];
+        return res.data.content as PagedResult<VppImportDto>;
     },
     getImportById: async (id: number) => {
         const res = await api.get(`/vpp/imports/${id}`);
-        return res.data.data as VppImportDetailDto;
+        return res.data.content as VppImportDetailDto;
     },
     createImport: async (dto: VppImportCreateDto) => {
         const res = await api.post('/vpp/imports', dto);
-        return res.data.data as VppImportDetailDto;
+        return res.data.content as VppImportDetailDto;
     },
     deleteImport: async (id: number) => {
         await api.delete(`/vpp/imports/${id}`);
     },
 
     // Dispatches
-    getDispatches: async (params?: { month?: number; year?: number; department?: string }) => {
+    getDispatches: async (params?: { month?: number; year?: number; department?: string; page?: number; pageSize?: number }) => {
         const res = await api.get('/vpp/dispatches', { params });
-        return res.data.data as VppDispatchDto[];
+        return res.data.content as PagedResult<VppDispatchDto>;
     },
     getDispatchById: async (id: number) => {
         const res = await api.get(`/vpp/dispatches/${id}`);
-        return res.data.data as VppDispatchDetailDto;
+        return res.data.content as VppDispatchDetailDto;
     },
     createDispatch: async (dto: VppDispatchCreateDto) => {
         const res = await api.post('/vpp/dispatches', dto);
-        return res.data.data as VppDispatchDetailDto;
+        return res.data.content as VppDispatchDetailDto;
     },
     deleteDispatch: async (id: number) => {
         await api.delete(`/vpp/dispatches/${id}`);
     },
 
     // Stock counts
-    getStockCounts: async (params?: { month?: number; year?: number }) => {
+    getStockCounts: async (params?: { month?: number; year?: number; page?: number; pageSize?: number }) => {
         const res = await api.get('/vpp/stock-counts', { params });
-        return res.data.data as VppStockCountDto[];
+        return res.data.content as PagedResult<VppStockCountDto>;
     },
     getStockCountById: async (id: number) => {
         const res = await api.get(`/vpp/stock-counts/${id}`);
-        return res.data.data as VppStockCountDetailDto;
+        return res.data.content as VppStockCountDetailDto;
     },
     createStockCount: async (dto: { countDate: string; periodMonth: number; periodYear: number; note?: string }) => {
         const res = await api.post('/vpp/stock-counts', dto);
-        return res.data.data as VppStockCountDetailDto;
+        return res.data.content as VppStockCountDetailDto;
     },
     updateStockCountLine: async (id: number, lineId: number, actualQty: number, note?: string) => {
         await api.put(`/vpp/stock-counts/${id}/lines/${lineId}`, { actualQty, note });
     },
     confirmStockCount: async (id: number) => {
         const res = await api.post(`/vpp/stock-counts/${id}/confirm`);
-        return res.data.data as VppStockCountDetailDto;
+        return res.data.content as VppStockCountDetailDto;
     },
 };

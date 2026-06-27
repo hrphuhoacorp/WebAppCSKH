@@ -77,18 +77,31 @@ namespace WebAppAPI.Controllers
 
         [RequirePermission("recruitment.settings")]
         [HttpPost("categories")]
-        public async Task<ResponseValue<CategoryItemDto>> CreateCategory([FromBody] CategoryUpsertDto dto)
+        public async Task<ResponseValue<CategoryItemDto>> CreateCategory(
+            [FromBody] CategoryUpsertDto dto
+        )
         {
             var result = await _service.CreateCategoryAsync(dto);
-            return new ResponseValue<CategoryItemDto>(result, "Thêm danh mục thành công", StatusReponse.Success);
+            return new ResponseValue<CategoryItemDto>(
+                result,
+                "Thêm danh mục thành công",
+                StatusReponse.Success
+            );
         }
 
         [RequirePermission("recruitment.settings")]
         [HttpPut("categories/{id:int}")]
-        public async Task<ResponseValue<CategoryItemDto>> UpdateCategory(int id, [FromBody] CategoryUpsertDto dto)
+        public async Task<ResponseValue<CategoryItemDto>> UpdateCategory(
+            int id,
+            [FromBody] CategoryUpsertDto dto
+        )
         {
             var result = await _service.UpdateCategoryAsync(id, dto);
-            return new ResponseValue<CategoryItemDto>(result, "Cập nhật thành công", StatusReponse.Success);
+            return new ResponseValue<CategoryItemDto>(
+                result,
+                "Cập nhật thành công",
+                StatusReponse.Success
+            );
         }
 
         [RequirePermission("recruitment.settings")]
@@ -96,15 +109,25 @@ namespace WebAppAPI.Controllers
         public async Task<ResponseValue<object>> DeleteCategory(int id)
         {
             await _service.DeleteCategoryAsync(id);
-            return new ResponseValue<object>(new { success = true }, "Đã xóa danh mục", StatusReponse.Success);
+            return new ResponseValue<object>(
+                new { success = true },
+                "Đã xóa danh mục",
+                StatusReponse.Success
+            );
         }
 
         [RequirePermission("recruitment.settings")]
         [HttpPost("mail-templates")]
-        public async Task<ResponseValue<MailTemplateDto>> CreateMailTemplate([FromBody] MailTemplateCreateDto dto)
+        public async Task<ResponseValue<MailTemplateDto>> CreateMailTemplate(
+            [FromBody] MailTemplateCreateDto dto
+        )
         {
             var result = await _service.CreateMailTemplateAsync(dto);
-            return new ResponseValue<MailTemplateDto>(result, "Thêm template thành công", StatusReponse.Success);
+            return new ResponseValue<MailTemplateDto>(
+                result,
+                "Thêm template thành công",
+                StatusReponse.Success
+            );
         }
     }
 }

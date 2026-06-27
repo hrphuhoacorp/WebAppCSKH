@@ -12,6 +12,8 @@ import {
     Library,
     Import,
     Briefcase,
+    Package,
+    ClipboardList,
 } from 'lucide-react';
 import React from 'react';
 
@@ -121,20 +123,26 @@ export const sidebarMenu: SidebarGroup[] = [
         title: 'Quản Trị Tổng Hợp',
         children: [
             {
-                title: 'Danh Sách Nhân Viên',
-                href: '/dashboard/staff/staff_list',
-                icon: Users,
-                permissions: ['staff.view_list'],
+                title: 'Quản Lý VPP',
+                href: '/dashboard/administration/vpp',
+                icon: Package,
+                permissions: ['vpp.view', 'staff.view_list'],
             },
             {
                 title: 'Tuyển Dụng',
-                href: '/dashboard/staff/recruitment',
+                href: '/dashboard/administration/recruitment',
                 icon: Briefcase,
                 permissions: ['recruitment.view'],
             },
             {
+                title: 'Danh Sách Nhân Viên',
+                href: '/dashboard/administration/staff_list',
+                icon: Users,
+                permissions: ['staff.view_list'],
+            },
+            {
                 title: 'Lịch Sử Thao Tác',
-                href: '/dashboard/staff/history',
+                href: '/dashboard/administration/history',
                 icon: History,
                 permissions: ['staff.view_activity_log'],
             },
@@ -155,6 +163,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: MailCheck,
                 isExternal: true,
                 permissions: ['staff.view_list']
+            },
+            {
+                title: 'Đề Nghị Cấp Phát VPP',
+                href: '/dashboard/links/vpp-request',
+                icon: ClipboardList,
             },
             {
                 title: 'Tổng Hợp Link',

@@ -3,7 +3,7 @@ using WebAppInfractor.Models.Vpp;
 
 public interface IVppStockCountService
 {
-    Task<IEnumerable<VppStockCountDto>> GetAllAsync(int? month, int? year);
+    Task<PagedResult<VppStockCountDto>> GetAllAsync(int? month, int? year, int page = 1, int pageSize = 20);
     Task<VppStockCountDetailDto?> GetByIdAsync(int id);
     Task<VppStockCountDetailDto> CreateAsync(VppStockCountCreateDto dto, string createdBy);
     Task UpdateLineAsync(int id, int lineId, decimal actualQty, string? note);
@@ -33,15 +33,23 @@ public class VppStockCountService : IVppStockCountService
         _uow = uow;
     }
 
-    public async Task<IEnumerable<VppStockCountDto>> GetAllAsync(int? month, int? year)
+    public async Task<PagedResult<VppStockCountDto>> GetAllAsync(int? month, int? year, int page = 1, int pageSize = 20)
     {
         var query = _repo.GetAll().AsNoTracking();
         if (month.HasValue)
             query = query.Where(x => x.PeriodMonth == month.Value);
         if (year.HasValue)
             query = query.Where(x => x.PeriodYear == year.Value);
-        var list = await query.OrderByDescending(x => x.CountDate).ToListAsync();
-        return list.Select(ToDto);
+        var total = await query.CountAsync();
+        var list = await query.OrderByDescending(x => x.CountDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+        return new PagedResult<VppStockCountDto>
+        {
+            TotalItems = total, Page = page, PageSize = pageSize,
+            Items = list.Select(ToDto).ToList()
+        };
     }
 
     public async Task<VppStockCountDetailDto?> GetByIdAsync(int id)

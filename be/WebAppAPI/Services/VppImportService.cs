@@ -3,7 +3,7 @@ using WebAppInfractor.Models.Vpp;
 
 public interface IVppImportService
 {
-    Task<IEnumerable<VppImportDto>> GetAllAsync(int? month, int? year);
+    Task<PagedResult<VppImportDto>> GetAllAsync(int? month, int? year, int page = 1, int pageSize = 20);
     Task<VppImportDetailDto?> GetByIdAsync(int id);
     Task<VppImportDetailDto> CreateAsync(VppImportCreateDto dto, string createdBy);
     Task DeleteAsync(int id);
@@ -28,12 +28,17 @@ public class VppImportService : IVppImportService
         _uow = uow;
     }
 
-    public async Task<IEnumerable<VppImportDto>> GetAllAsync(int? month, int? year)
+    public async Task<PagedResult<VppImportDto>> GetAllAsync(int? month, int? year, int page = 1, int pageSize = 20)
     {
         var query = _repo.GetAll().AsNoTracking().Where(x => x.DeletedAt == null);
         if (month.HasValue) query = query.Where(x => x.PeriodMonth == month.Value);
         if (year.HasValue) query = query.Where(x => x.PeriodYear == year.Value);
-        var list = await query.OrderByDescending(x => x.ImportDate).ToListAsync();
+
+        var total = await query.CountAsync();
+        var list = await query.OrderByDescending(x => x.ImportDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
         var ids = list.Select(x => x.Id).ToList();
         var lineCounts = await _lineRepo.GetAll().AsNoTracking()
@@ -42,22 +47,28 @@ public class VppImportService : IVppImportService
             .Select(g => new { ImportId = g.Key, Total = g.Sum(l => l.TotalAmount), Count = g.Count() })
             .ToListAsync();
 
-        return list.Select(e =>
+        return new PagedResult<VppImportDto>
         {
-            var lc = lineCounts.FirstOrDefault(x => x.ImportId == e.Id);
-            return new VppImportDto
+            TotalItems = total,
+            Page = page,
+            PageSize = pageSize,
+            Items = list.Select(e =>
             {
-                Id = e.Id,
-                ImportDate = e.ImportDate.AddHours(7).ToString("dd/MM/yyyy"),
-                PeriodMonth = e.PeriodMonth,
-                PeriodYear = e.PeriodYear,
-                Note = e.Note ?? "",
-                CreatedBy = e.CreatedBy ?? "",
-                TotalAmount = lc?.Total ?? 0,
-                ItemCount = lc?.Count ?? 0,
-                CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
-            };
-        });
+                var lc = lineCounts.FirstOrDefault(x => x.ImportId == e.Id);
+                return new VppImportDto
+                {
+                    Id = e.Id,
+                    ImportDate = e.ImportDate.AddHours(7).ToString("dd/MM/yyyy"),
+                    PeriodMonth = e.PeriodMonth,
+                    PeriodYear = e.PeriodYear,
+                    Note = e.Note ?? "",
+                    CreatedBy = e.CreatedBy ?? "",
+                    TotalAmount = lc?.Total ?? 0,
+                    ItemCount = lc?.Count ?? 0,
+                    CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+                };
+            }).ToList()
+        };
     }
 
     public async Task<VppImportDetailDto?> GetByIdAsync(int id)

@@ -3,7 +3,7 @@ using WebAppInfractor.Models.Vpp;
 
 public interface IVppDispatchService
 {
-    Task<IEnumerable<VppDispatchDto>> GetAllAsync(int? month, int? year, string? department);
+    Task<PagedResult<VppDispatchDto>> GetAllAsync(int? month, int? year, string? department, int page = 1, int pageSize = 20);
     Task<VppDispatchDetailDto?> GetByIdAsync(int id);
     Task<VppDispatchDetailDto> CreateAsync(VppDispatchCreateDto dto, string createdBy);
     Task DeleteAsync(int id);
@@ -28,14 +28,19 @@ public class VppDispatchService : IVppDispatchService
         _uow = uow;
     }
 
-    public async Task<IEnumerable<VppDispatchDto>> GetAllAsync(int? month, int? year, string? department)
+    public async Task<PagedResult<VppDispatchDto>> GetAllAsync(int? month, int? year, string? department, int page = 1, int pageSize = 20)
     {
         var query = _repo.GetAll().AsNoTracking().Where(x => x.DeletedAt == null);
         if (month.HasValue) query = query.Where(x => x.DispatchDate.Month == month.Value);
         if (year.HasValue) query = query.Where(x => x.DispatchDate.Year == year.Value);
         if (!string.IsNullOrWhiteSpace(department)) query = query.Where(x => x.Department == department);
 
-        var list = await query.OrderByDescending(x => x.DispatchDate).ToListAsync();
+        var total = await query.CountAsync();
+        var list = await query.OrderByDescending(x => x.DispatchDate)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
         var ids = list.Select(x => x.Id).ToList();
         var totals = await _lineRepo.GetAll().AsNoTracking()
             .Where(l => ids.Contains(l.DispatchId))
@@ -43,24 +48,30 @@ public class VppDispatchService : IVppDispatchService
             .Select(g => new { DispatchId = g.Key, Total = g.Sum(l => l.TotalAmount), Count = g.Count() })
             .ToListAsync();
 
-        return list.Select(e =>
+        return new PagedResult<VppDispatchDto>
         {
-            var t = totals.FirstOrDefault(x => x.DispatchId == e.Id);
-            return new VppDispatchDto
+            TotalItems = total,
+            Page = page,
+            PageSize = pageSize,
+            Items = list.Select(e =>
             {
-                Id = e.Id,
-                Code = e.Code,
-                DispatchDate = e.DispatchDate.AddHours(7).ToString("dd/MM/yyyy"),
-                Department = e.Department ?? "",
-                Branch = e.Branch ?? "",
-                RequestId = e.RequestId,
-                Note = e.Note ?? "",
-                CreatedBy = e.CreatedBy ?? "",
-                TotalAmount = t?.Total ?? 0,
-                ItemCount = t?.Count ?? 0,
-                CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
-            };
-        });
+                var t = totals.FirstOrDefault(x => x.DispatchId == e.Id);
+                return new VppDispatchDto
+                {
+                    Id = e.Id,
+                    Code = e.Code,
+                    DispatchDate = e.DispatchDate.AddHours(7).ToString("dd/MM/yyyy"),
+                    Department = e.Department ?? "",
+                    Branch = e.Branch ?? "",
+                    RequestId = e.RequestId,
+                    Note = e.Note ?? "",
+                    CreatedBy = e.CreatedBy ?? "",
+                    TotalAmount = t?.Total ?? 0,
+                    ItemCount = t?.Count ?? 0,
+                    CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+                };
+            }).ToList()
+        };
     }
 
     public async Task<VppDispatchDetailDto?> GetByIdAsync(int id)

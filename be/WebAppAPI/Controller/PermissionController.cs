@@ -21,7 +21,11 @@ public class PermissionController : ControllerBase
     public async Task<ResponseValue<List<PermissionGroupDTO>>> GetAll()
     {
         var result = await _service.GetAllAsync();
-        return new ResponseValue<List<PermissionGroupDTO>>(result, "Lấy danh sách quyền thành công", StatusReponse.Success);
+        return new ResponseValue<List<PermissionGroupDTO>>(
+            result,
+            "Lấy danh sách quyền thành công",
+            StatusReponse.Success
+        );
     }
 
     [RequirePermission("staff.manage_permissions")]
@@ -29,7 +33,11 @@ public class PermissionController : ControllerBase
     public async Task<ResponseValue<UserPermissionDetailDTO>> GetUserPermissions(int userId)
     {
         var result = await _service.GetUserPermissionsAsync(userId);
-        return new ResponseValue<UserPermissionDetailDTO>(result, "Lấy quyền người dùng thành công", StatusReponse.Success);
+        return new ResponseValue<UserPermissionDetailDTO>(
+            result,
+            "Lấy quyền người dùng thành công",
+            StatusReponse.Success
+        );
     }
 
     [RequirePermission("staff.manage_permissions")]

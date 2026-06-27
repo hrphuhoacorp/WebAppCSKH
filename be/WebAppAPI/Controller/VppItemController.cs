@@ -12,11 +12,12 @@ public class VppItemController : ControllerBase
     public VppItemController(IVppItemService service) => _service = service;
 
     [HttpGet]
-    public async Task<ResponseValue<IEnumerable<VppItemDto>>> GetAll(
-        [FromQuery] string? group, [FromQuery] string? search)
+    public async Task<ResponseValue<PagedResult<VppItemDto>>> GetAll(
+        [FromQuery] string? group, [FromQuery] string? search,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var result = await _service.GetAllAsync(group, search);
-        return new ResponseValue<IEnumerable<VppItemDto>>(result, "OK", StatusReponse.Success);
+        var result = await _service.GetAllAsync(group, search, page, pageSize);
+        return new ResponseValue<PagedResult<VppItemDto>>(result, "OK", StatusReponse.Success);
     }
 
     [HttpGet("{id:int}")]

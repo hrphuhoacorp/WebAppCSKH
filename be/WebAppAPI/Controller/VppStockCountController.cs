@@ -14,13 +14,15 @@ public class VppStockCountController : ControllerBase
     public VppStockCountController(IVppStockCountService service) => _service = service;
 
     [HttpGet]
-    public async Task<ResponseValue<IEnumerable<VppStockCountDto>>> GetAll(
+    public async Task<ResponseValue<PagedResult<VppStockCountDto>>> GetAll(
         [FromQuery] int? month,
-        [FromQuery] int? year
+        [FromQuery] int? year,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20
     )
     {
-        var result = await _service.GetAllAsync(month, year);
-        return new ResponseValue<IEnumerable<VppStockCountDto>>(
+        var result = await _service.GetAllAsync(month, year, page, pageSize);
+        return new ResponseValue<PagedResult<VppStockCountDto>>(
             result,
             "OK",
             StatusReponse.Success
