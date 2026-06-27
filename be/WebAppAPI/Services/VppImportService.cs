@@ -3,7 +3,12 @@ using WebAppInfractor.Models.Vpp;
 
 public interface IVppImportService
 {
-    Task<PagedResult<VppImportDto>> GetAllAsync(int? month, int? year, int page = 1, int pageSize = 20);
+    Task<PagedResult<VppImportDto>> GetAllAsync(
+        int? month,
+        int? year,
+        int page = 1,
+        int pageSize = 20
+    );
     Task<VppImportDetailDto?> GetByIdAsync(int id);
     Task<VppImportDetailDto> CreateAsync(VppImportCreateDto dto, string createdBy);
     Task DeleteAsync(int id);
@@ -20,7 +25,8 @@ public class VppImportService : IVppImportService
         IVppImportRepository repo,
         IVppImportLineRepository lineRepo,
         IVppItemRepository itemRepo,
-        IUnitOfWork uow)
+        IUnitOfWork uow
+    )
     {
         _repo = repo;
         _lineRepo = lineRepo;
@@ -28,23 +34,38 @@ public class VppImportService : IVppImportService
         _uow = uow;
     }
 
-    public async Task<PagedResult<VppImportDto>> GetAllAsync(int? month, int? year, int page = 1, int pageSize = 20)
+    public async Task<PagedResult<VppImportDto>> GetAllAsync(
+        int? month,
+        int? year,
+        int page = 1,
+        int pageSize = 20
+    )
     {
         var query = _repo.GetAll().AsNoTracking().Where(x => x.DeletedAt == null);
-        if (month.HasValue) query = query.Where(x => x.PeriodMonth == month.Value);
-        if (year.HasValue) query = query.Where(x => x.PeriodYear == year.Value);
+        if (month.HasValue)
+            query = query.Where(x => x.PeriodMonth == month.Value);
+        if (year.HasValue)
+            query = query.Where(x => x.PeriodYear == year.Value);
 
         var total = await query.CountAsync();
-        var list = await query.OrderByDescending(x => x.ImportDate)
+        var list = await query
+            .OrderByDescending(x => x.ImportDate)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
         var ids = list.Select(x => x.Id).ToList();
-        var lineCounts = await _lineRepo.GetAll().AsNoTracking()
+        var lineCounts = await _lineRepo
+            .GetAll()
+            .AsNoTracking()
             .Where(l => ids.Contains(l.ImportId))
             .GroupBy(l => l.ImportId)
-            .Select(g => new { ImportId = g.Key, Total = g.Sum(l => l.TotalAmount), Count = g.Count() })
+            .Select(g => new
+            {
+                ImportId = g.Key,
+                Total = g.Sum(l => l.TotalAmount),
+                Count = g.Count(),
+            })
             .ToListAsync();
 
         return new PagedResult<VppImportDto>
@@ -53,35 +74,45 @@ public class VppImportService : IVppImportService
             Page = page,
             PageSize = pageSize,
             Items = list.Select(e =>
-            {
-                var lc = lineCounts.FirstOrDefault(x => x.ImportId == e.Id);
-                return new VppImportDto
                 {
-                    Id = e.Id,
-                    ImportDate = e.ImportDate.AddHours(7).ToString("dd/MM/yyyy"),
-                    PeriodMonth = e.PeriodMonth,
-                    PeriodYear = e.PeriodYear,
-                    Note = e.Note ?? "",
-                    CreatedBy = e.CreatedBy ?? "",
-                    TotalAmount = lc?.Total ?? 0,
-                    ItemCount = lc?.Count ?? 0,
-                    CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
-                };
-            }).ToList()
+                    var lc = lineCounts.FirstOrDefault(x => x.ImportId == e.Id);
+                    return new VppImportDto
+                    {
+                        Id = e.Id,
+                        ImportDate = e.ImportDate.AddHours(7).ToString("dd/MM/yyyy"),
+                        PeriodMonth = e.PeriodMonth,
+                        PeriodYear = e.PeriodYear,
+                        Note = e.Note ?? "",
+                        CreatedBy = e.CreatedBy ?? "",
+                        TotalAmount = lc?.Total ?? 0,
+                        ItemCount = lc?.Count ?? 0,
+                        CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+                    };
+                })
+                .ToList(),
         };
     }
 
     public async Task<VppImportDetailDto?> GetByIdAsync(int id)
     {
-        var e = await _repo.GetAll().AsNoTracking()
+        var e = await _repo
+            .GetAll()
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.DeletedAt == null);
-        if (e == null) return null;
+        if (e == null)
+            return null;
 
-        var lines = await _lineRepo.GetAll().AsNoTracking()
-            .Where(l => l.ImportId == id).ToListAsync();
+        var lines = await _lineRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(l => l.ImportId == id)
+            .ToListAsync();
         var itemIds = lines.Select(l => l.ItemId).ToList();
-        var items = await _itemRepo.GetAll().AsNoTracking()
-            .Where(x => itemIds.Contains(x.Id)).ToListAsync();
+        var items = await _itemRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(x => itemIds.Contains(x.Id))
+            .ToListAsync();
 
         return new VppImportDetailDto
         {
@@ -95,30 +126,35 @@ public class VppImportService : IVppImportService
             CreatedBy = e.CreatedBy ?? "",
             TotalAmount = lines.Sum(l => l.TotalAmount),
             CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
-            Lines = lines.Select(l =>
-            {
-                var item = items.FirstOrDefault(i => i.Id == l.ItemId);
-                return new VppImportLineDto
+            Lines = lines
+                .Select(l =>
                 {
-                    Id = l.Id,
-                    ItemId = l.ItemId,
-                    ItemCode = item?.Code ?? "",
-                    ItemName = item?.Name ?? "",
-                    Unit = item?.Unit ?? "",
-                    Quantity = l.Quantity,
-                    UnitPrice = l.UnitPrice,
-                    VatAmount = l.VatAmount,
-                    TotalAmount = l.TotalAmount,
-                };
-            }).ToList(),
+                    var item = items.FirstOrDefault(i => i.Id == l.ItemId);
+                    return new VppImportLineDto
+                    {
+                        Id = l.Id,
+                        ItemId = l.ItemId,
+                        ItemCode = item?.Code ?? "",
+                        ItemName = item?.Name ?? "",
+                        Unit = item?.Unit ?? "",
+                        Quantity = l.Quantity,
+                        UnitPrice = l.UnitPrice,
+                        VatAmount = l.VatAmount,
+                        TotalAmount = l.TotalAmount,
+                    };
+                })
+                .ToList(),
         };
     }
 
     public async Task<VppImportDetailDto> CreateAsync(VppImportCreateDto dto, string createdBy)
     {
         var itemIds = dto.Lines.Select(l => l.ItemId).ToList();
-        var items = await _itemRepo.GetAll().AsNoTracking()
-            .Where(x => itemIds.Contains(x.Id)).ToListAsync();
+        var items = await _itemRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(x => itemIds.Contains(x.Id))
+            .ToListAsync();
 
         var entity = new VppImport
         {
@@ -135,19 +171,22 @@ public class VppImportService : IVppImportService
 
         foreach (var line in dto.Lines)
         {
-            var item = items.FirstOrDefault(i => i.Id == line.ItemId)
+            var item =
+                items.FirstOrDefault(i => i.Id == line.ItemId)
                 ?? throw new BadRequestException($"Không tìm thấy vật tư ID {line.ItemId}");
             var price = line.UnitPrice > 0 ? line.UnitPrice : item.UnitPrice;
             var vatAmount = price * item.VatRate * line.Quantity;
-            await _lineRepo.AddAsync(new VppImportLine
-            {
-                ImportId = entity.Id,
-                ItemId = line.ItemId,
-                Quantity = line.Quantity,
-                UnitPrice = price,
-                VatAmount = vatAmount,
-                TotalAmount = price * line.Quantity + vatAmount,
-            });
+            await _lineRepo.AddAsync(
+                new VppImportLine
+                {
+                    ImportId = entity.Id,
+                    ItemId = line.ItemId,
+                    Quantity = line.Quantity,
+                    UnitPrice = price,
+                    VatAmount = vatAmount,
+                    TotalAmount = price * line.Quantity + vatAmount,
+                }
+            );
 
             // Cập nhật giá nhập mới nhất lên vật tư
             if (line.UnitPrice > 0)
@@ -166,9 +205,11 @@ public class VppImportService : IVppImportService
 
     public async Task DeleteAsync(int id)
     {
-        var entity = await _repo.GetByIdAsync(id)
+        var entity =
+            await _repo.GetByIdAsync(id)
             ?? throw new NotFoundException("Không tìm thấy phiếu nhập");
-        if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy phiếu nhập");
+        if (entity.DeletedAt != null)
+            throw new NotFoundException("Không tìm thấy phiếu nhập");
         entity.DeletedAt = DateTime.UtcNow.AddHours(7);
         await _uow.SaveChangesAsync();
     }

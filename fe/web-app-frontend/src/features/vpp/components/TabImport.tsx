@@ -228,10 +228,10 @@ export default function TabImport() {
                                             />
                                         </TableCell>
                                         <TableCell sx={{ width: 110 }}>
-                                            <TextField size="small" type="number" value={line.quantity} onChange={e => updateLine(idx, { quantity: Math.max(1, +e.target.value) })} inputProps={{ min: 1 }} sx={fieldSx} />
+                                            <TextField size="small" type="number" value={line.quantity} onChange={e => updateLine(idx, { quantity: Math.max(1, +e.target.value) })} slotProps={{ htmlInput: { min: 1 } }} sx={fieldSx} />
                                         </TableCell>
                                         <TableCell sx={{ width: 140 }}>
-                                            <TextField size="small" type="number" value={line.unitPrice} onChange={e => updateLine(idx, { unitPrice: Math.max(0, +e.target.value) })} inputProps={{ min: 0 }} sx={fieldSx} />
+                                            <TextField size="small" type="number" value={line.unitPrice} onChange={e => updateLine(idx, { unitPrice: Math.max(0, +e.target.value) })} slotProps={{ htmlInput: { min: 0 } }} sx={fieldSx} />
                                         </TableCell>
                                         <TableCell sx={{ color: '#0f766e', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                             {(line.quantity * line.unitPrice).toLocaleString('vi-VN')}đ

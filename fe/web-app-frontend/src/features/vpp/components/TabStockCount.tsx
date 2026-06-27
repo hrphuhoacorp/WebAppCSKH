@@ -275,7 +275,7 @@ export default function TabStockCount() {
                                                             <TextField
                                                                 size="small" type="number" value={actualQty}
                                                                 onChange={e => setActual(l.id, l.actualQty, Math.max(0, +e.target.value), noteVal)}
-                                                                inputProps={{ min: 0 }}
+                                                                slotProps={{ htmlInput: { min: 0 } }}
                                                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', '&.Mui-focused fieldset': { borderColor: TEAL } }, '& input': { textAlign: 'center', fontWeight: 700 } }}
                                                             />
                                                         ) : (
