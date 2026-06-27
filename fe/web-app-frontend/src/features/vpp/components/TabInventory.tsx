@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import {
-    Box, Chip, MenuItem, Paper, Table, TableBody, TableCell,
+    Box, Chip, InputAdornment, MenuItem, Paper, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useQuery } from '@tanstack/react-query';
 import { vppApi, VPP_GREEN, VPP_GROUPS } from '../api/vpp.api';
 
@@ -27,6 +28,7 @@ export default function TabInventory() {
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
+    const [search, setSearch] = useState('');
 
     const { data: inv, isLoading } = useQuery({
         queryKey: ['vpp-inventory', month, year],
@@ -34,12 +36,22 @@ export default function TabInventory() {
     });
 
     const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
+    const q = search.trim().toLowerCase();
+    const rows = (inv?.rows ?? []).filter(r =>
+        !q || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q)
+    );
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Filter + summary */}
             <Paper elevation={0} sx={{ p: 2.5, borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', mb: 2, boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <TextField
+                        size="small" placeholder="Tìm mã / tên vật tư..."
+                        value={search} onChange={e => setSearch(e.target.value)}
+                        sx={{ ...fieldSx, width: 240 }}
+                        slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> } }}
+                    />
                     <TextField select size="small" label="Tháng" value={month} onChange={e => setMonth(+e.target.value)} sx={{ ...fieldSx, minWidth: 130 }}>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <MenuItem key={m} value={m}>Tháng {m}</MenuItem>)}
                     </TextField>
@@ -76,11 +88,11 @@ export default function TabInventory() {
                     <TableBody>
                         {isLoading ? (
                             <TableRow><TableCell colSpan={11} align="center" sx={{ py: 6, color: '#94a3b8' }}>Đang tải...</TableCell></TableRow>
-                        ) : !inv || inv.rows.length === 0 ? (
+                        ) : rows.length === 0 ? (
                             <TableRow><TableCell colSpan={11} align="center" sx={{ py: 8 }}>
-                                <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>Chưa có dữ liệu tồn kho tháng {month}/{year}</Typography>
+                                <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>{!inv ? `Chưa có dữ liệu tồn kho tháng ${month}/${year}` : 'Không tìm thấy vật tư phù hợp'}</Typography>
                             </TableCell></TableRow>
-                        ) : inv.rows.map((row, i) => (
+                        ) : rows.map((row, i) => (
                             <TableRow key={row.itemId} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#fbfefc', '&:hover': { bgcolor: '#f0fdf4 !important' }, transition: 'background 0.15s', '& > *': { borderBottom: '1px solid #f1f5f9 !important' } }}>
                                 <TableCell sx={{ py: 1.5 }}>
                                     <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', bgcolor: '#f1f5f9', px: 1, py: 0.4, borderRadius: '6px', display: 'inline-block' }}>{row.code}</Box>

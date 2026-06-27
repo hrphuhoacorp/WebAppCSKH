@@ -32,7 +32,7 @@ public class VppDispatchController : ControllerBase
     [HttpPost]
     public async Task<ResponseValue<VppDispatchDetailDto>> Create([FromBody] VppDispatchCreateDto dto)
     {
-        var name = User.FindFirstValue(ClaimTypes.Name) ?? "";
+        var name = User.FindFirstValue("name") ?? "";
         var result = await _service.CreateAsync(dto, name);
         return new ResponseValue<VppDispatchDetailDto>(result, "Tạo phiếu xuất thành công", StatusReponse.Success);
     }

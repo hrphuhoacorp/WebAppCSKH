@@ -55,6 +55,7 @@ function parsePrice(v: unknown): number {
 export default function TabCatalog() {
     const qc = useQueryClient();
     const [group, setGroup] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editItem, setEditItem] = useState<VppItemDto | null>(null);
@@ -77,15 +78,23 @@ export default function TabCatalog() {
     const items = pagedData?.items ?? [];
     const totalItems = pagedData?.totalItems ?? 0;
 
-    useEffect(() => { setPage(0); }, [group, search]);
+    useEffect(() => { setPage(0); }, [group]);
+    useEffect(() => {
+        const t = setTimeout(() => { setSearch(searchInput); setPage(0); }, 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
 
     const createMut = useMutation({
         mutationFn: (dto: VppItemUpsertDto) => vppApi.createItem(dto),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); handleClose(); },
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); handleClose(); toast.success('Đã thêm vật tư'); },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onError: (err: any) => { toast.error(err?.response?.data?.message || err?.response?.data?.Message || 'Tạo vật tư thất bại'); },
     });
     const updateMut = useMutation({
         mutationFn: ({ id, dto }: { id: number; dto: VppItemUpsertDto }) => vppApi.updateItem(id, dto),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); handleClose(); },
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); handleClose(); toast.success('Đã cập nhật vật tư'); },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onError: (err: any) => { toast.error(err?.response?.data?.message || err?.response?.data?.Message || 'Cập nhật thất bại'); },
     });
     const deleteMut = useMutation({
         mutationFn: (id: number) => vppApi.deleteItem(id),
@@ -219,7 +228,7 @@ export default function TabCatalog() {
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                     <TextField
                         size="small" placeholder="Tìm mã / tên vật tư..."
-                        value={search} onChange={e => setSearch(e.target.value)}
+                        value={searchInput} onChange={e => setSearchInput(e.target.value)}
                         sx={{ ...fieldSx, width: 280 }}
                         slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> } }}
                     />
@@ -252,7 +261,7 @@ export default function TabCatalog() {
                 <Table stickyHeader size="small">
                     <TableHead>
                         <TableRow>
-                            {['Mã', 'Nhóm', 'Tên vật tư', 'ĐVT', 'Giá nhập', 'VAT', 'Tồn min', 'Tồn max', ''].map(h => (
+                            {['Mã', 'Nhóm', 'Tên vật tư', 'ĐVT', 'Giá nhập', 'VAT', 'Tồn min', 'Tồn max', 'Thao tác'].map(h => (
                                 <TableCell key={h} sx={{ fontWeight: 800, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', py: 1.8, bgcolor: GREEN }}>{h}</TableCell>
                             ))}
                         </TableRow>

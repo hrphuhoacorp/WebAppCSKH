@@ -127,20 +127,22 @@ export interface VppImportLineDto {
     unitPrice: number;
     vatAmount: number;
     totalAmount: number;
+    attachments: VppAttachmentItem[];
+}
+
+export interface VppAttachmentItem {
+    url: string;
+    name: string;
 }
 
 export interface VppImportDetailDto extends VppImportDto {
-    attachmentInvoice: string;
-    attachmentApproval: string;
     lines: VppImportLineDto[];
 }
 
 export interface VppImportCreateDto {
     importDate: string;
-    attachmentInvoice?: string;
-    attachmentApproval?: string;
     note?: string;
-    lines: { itemId: number; quantity: number; unitPrice: number }[];
+    lines: { itemId: number; quantity: number; unitPrice: number; attachments?: VppAttachmentItem[] }[];
 }
 
 export interface VppDispatchDto {
@@ -235,7 +237,7 @@ export const vppApi = {
     },
 
     // Requests
-    getRequests: async (params?: { status?: string; page?: number; pageSize?: number }) => {
+    getRequests: async (params?: { status?: string; requesterId?: number; page?: number; pageSize?: number }) => {
         const res = await api.get('/vpp/requests', { params });
         return (res.data.content ?? { items: [], totalItems: 0, page: 1, pageSize: 20 }) as PagedResult<VppRequestDto>;
     },
@@ -247,12 +249,22 @@ export const vppApi = {
         const res = await api.post('/vpp/requests', dto);
         return res.data.content as VppRequestDto;
     },
-    approveRequest: async (id: number) => {
-        const res = await api.post(`/vpp/requests/${id}/approve`);
+    approveRequest: async (id: number, adminNote?: string, lines?: { lineId: number; quantity: number }[]) => {
+        const res = await api.post(`/vpp/requests/${id}/approve`, { adminNote: adminNote ?? '', lines });
         return res.data.content as VppRequestDto;
     },
     rejectRequest: async (id: number, adminNote: string) => {
         await api.post(`/vpp/requests/${id}/reject`, { adminNote });
+    },
+
+    // VPP file upload
+    uploadAttachments: async (files: File[]) => {
+        const form = new FormData();
+        files.forEach(f => form.append('files', f));
+        const res = await api.post('/vpp/upload', form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return res.data.content as { url: string; name: string; size: number }[];
     },
 
     // Imports

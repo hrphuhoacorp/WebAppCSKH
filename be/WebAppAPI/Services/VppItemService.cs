@@ -37,7 +37,12 @@ public class VppItemService : IVppItemService
         if (!string.IsNullOrWhiteSpace(group))
             query = query.Where(x => x.Group == group);
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(x => x.Name.Contains(search) || x.Code.Contains(search));
+        {
+            var lower = search.ToLower();
+            query = query.Where(x =>
+                x.Name.ToLower().Contains(lower) || x.Code.ToLower().Contains(lower)
+            );
+        }
         var total = await query.CountAsync();
         var list = await query
             .OrderBy(x => x.Code)
@@ -105,7 +110,7 @@ public class VppItemService : IVppItemService
         entity.Name = dto.Name;
         entity.Unit = dto.Unit;
         entity.UnitPrice = dto.UnitPrice;
-        entity.VatRate = dto.UnitPrice * 8 / 100m;
+        entity.VatRate = 0.08m;
         entity.MinStock = dto.MinStock;
         entity.MaxStock = dto.MaxStock;
         entity.Note = dto.Note;
@@ -165,7 +170,7 @@ public class VppItemService : IVppItemService
             MinStock = e.MinStock,
             MaxStock = e.MaxStock,
             Note = e.Note ?? "",
-            CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+            CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
         };
 }
 

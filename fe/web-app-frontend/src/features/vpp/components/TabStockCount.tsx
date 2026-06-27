@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-    IconButton, MenuItem, Paper, Table, TableBody, TableCell,
+    IconButton, InputAdornment, MenuItem, Paper, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, TextField, Tooltip, Typography, alpha,
 } from '@mui/material';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
@@ -25,9 +26,11 @@ const fieldSx = {
     '& label.Mui-focused': { color: TEAL },
 };
 
-function fmtDate(s?: string) {
+function fmtDate(s?: string | null) {
     if (!s) return '-';
-    return new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function StatusChip({ status }: { status: string }) {
@@ -48,6 +51,12 @@ export default function TabStockCount() {
     const [countDate, setCountDate] = useState(now.toISOString().split('T')[0]);
     const [createNote, setCreateNote] = useState('');
     const [edited, setEdited] = useState<EditedLines>({});
+    const [searchInput, setSearchInput] = useState('');
+    const [search, setSearch] = useState('');
+    useEffect(() => {
+        const t = setTimeout(() => setSearch(searchInput), 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
 
     const { data: stockCountPage, isLoading } = useQuery({
         queryKey: ['vpp-stock-counts', month, year],
@@ -108,6 +117,10 @@ export default function TabStockCount() {
     }
 
     const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
+    const q = search.trim().toLowerCase();
+    const filtered = counts.filter(r =>
+        !q || (r.note ?? '').toLowerCase().includes(q) || r.createdBy.toLowerCase().includes(q)
+    );
     const detailLines = detail?.lines ?? [];
     const isDraft = detail?.status === 'draft';
 
@@ -116,6 +129,12 @@ export default function TabStockCount() {
             {/* Filter */}
             <Paper elevation={0} sx={{ p: 2.5, borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', mb: 2, boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <TextField
+                        size="small" placeholder="Tìm ghi chú / người tạo..."
+                        value={searchInput} onChange={e => setSearchInput(e.target.value)}
+                        sx={{ ...fieldSx, width: 220 }}
+                        slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> } }}
+                    />
                     <TextField select size="small" label="Tháng" value={month} onChange={e => setMonth(+e.target.value)} sx={{ ...fieldSx, minWidth: 130 }}>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <MenuItem key={m} value={m}>Tháng {m}</MenuItem>)}
                     </TextField>
@@ -143,11 +162,11 @@ export default function TabStockCount() {
                     <TableBody>
                         {isLoading ? (
                             <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6, color: '#94a3b8' }}>Đang tải...</TableCell></TableRow>
-                        ) : counts.length === 0 ? (
+                        ) : filtered.length === 0 ? (
                             <TableRow><TableCell colSpan={8} align="center" sx={{ py: 8 }}>
-                                <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>Chưa có phiếu kiểm kho trong tháng {month}/{year}</Typography>
+                                <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>{counts.length === 0 ? `Chưa có phiếu kiểm kho trong tháng ${month}/${year}` : 'Không tìm thấy kết quả phù hợp'}</Typography>
                             </TableCell></TableRow>
-                        ) : counts.map((c, i) => (
+                        ) : filtered.map((c, i) => (
                             <TableRow key={c.id} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#f0fdfa', '&:hover': { bgcolor: '#ccfbf1 !important' }, transition: 'background 0.15s', '& > *': { borderBottom: '1px solid #f1f5f9 !important' } }}>
                                 <TableCell sx={{ fontWeight: 700, color: '#475569', fontFamily: 'monospace', py: 1.5 }}>#{c.id}</TableCell>
                                 <TableCell sx={{ whiteSpace: 'nowrap', py: 1.5 }}>{fmtDate(c.countDate)}</TableCell>

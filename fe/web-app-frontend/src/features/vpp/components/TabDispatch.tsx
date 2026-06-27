@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import {
     Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-    Divider, IconButton, MenuItem, Paper, Table, TableBody, TableCell,
+    Divider, IconButton, InputAdornment, MenuItem, Paper, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, TablePagination, TextField, Tooltip, Typography, alpha,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
@@ -25,9 +26,11 @@ const fieldSx = {
     '& label.Mui-focused': { color: PURPLE },
 };
 
-function fmtDate(s?: string) {
+function fmtDate(s?: string | null) {
     if (!s) return '-';
-    return new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 interface DispatchLine { itemId: number; quantity: number; unitPrice: number; }
@@ -48,6 +51,12 @@ export default function TabDispatch() {
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(20);
+    const [searchInput, setSearchInput] = useState('');
+    const [search, setSearch] = useState('');
+    useEffect(() => {
+        const t = setTimeout(() => setSearch(searchInput), 400);
+        return () => clearTimeout(t);
+    }, [searchInput]);
 
     const { data: pagedData, isLoading } = useQuery({
         queryKey: ['vpp-dispatches', month, year, page, rowsPerPage],
@@ -101,12 +110,24 @@ export default function TabDispatch() {
 
     const totalAmount = lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
     const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
+    const q = search.trim().toLowerCase();
+    const filtered = dispatches.filter(r =>
+        !q || r.code.toLowerCase().includes(q) || (r.department ?? '').toLowerCase().includes(q)
+            || (r.branch ?? '').toLowerCase().includes(q) || (r.note ?? '').toLowerCase().includes(q)
+            || r.createdBy.toLowerCase().includes(q)
+    );
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Filter */}
             <Paper elevation={0} sx={{ p: 2.5, borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', mb: 2, boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <TextField
+                        size="small" placeholder="Tìm mã / bộ phận / người tạo..."
+                        value={searchInput} onChange={e => setSearchInput(e.target.value)}
+                        sx={{ ...fieldSx, width: 240 }}
+                        slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> } }}
+                    />
                     <TextField select size="small" label="Tháng" value={month} onChange={e => setMonth(+e.target.value)} sx={{ ...fieldSx, minWidth: 130 }}>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <MenuItem key={m} value={m}>Tháng {m}</MenuItem>)}
                     </TextField>
@@ -134,11 +155,11 @@ export default function TabDispatch() {
                     <TableBody>
                         {isLoading ? (
                             <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6, color: '#94a3b8' }}>Đang tải...</TableCell></TableRow>
-                        ) : dispatches.length === 0 ? (
+                        ) : filtered.length === 0 ? (
                             <TableRow><TableCell colSpan={8} align="center" sx={{ py: 8 }}>
-                                <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>Chưa có phiếu xuất trong tháng {month}/{year}</Typography>
+                                <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>{dispatches.length === 0 ? `Chưa có phiếu xuất trong tháng ${month}/${year}` : 'Không tìm thấy kết quả phù hợp'}</Typography>
                             </TableCell></TableRow>
-                        ) : dispatches.map((d, i) => (
+                        ) : filtered.map((d, i) => (
                             <TableRow key={d.id} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#fdf8ff', '&:hover': { bgcolor: '#f5f3ff !important' }, transition: 'background 0.15s', '& > *': { borderBottom: '1px solid #f1f5f9 !important' } }}>
                                 <TableCell sx={{ py: 1.5 }}>
                                     <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', bgcolor: '#f1f5f9', px: 1, py: 0.4, borderRadius: '6px', display: 'inline-block' }}>{d.code}</Box>

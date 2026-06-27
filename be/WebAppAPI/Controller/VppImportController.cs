@@ -37,7 +37,7 @@ public class VppImportController : ControllerBase
     [HttpPost]
     public async Task<ResponseValue<VppImportDetailDto>> Create([FromBody] VppImportCreateDto dto)
     {
-        var name = User.FindFirstValue(ClaimTypes.Name) ?? "";
+        var name = User.FindFirstValue("name") ?? "";
         var result = await _service.CreateAsync(dto, name);
         return new ResponseValue<VppImportDetailDto>(
             result,

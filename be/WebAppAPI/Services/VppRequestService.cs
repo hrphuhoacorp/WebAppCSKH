@@ -6,7 +6,7 @@ public interface IVppRequestService
     Task<PagedResult<VppRequestDto>> GetAllAsync(VppRequestFilter filter);
     Task<VppRequestDetailDto?> GetByIdAsync(int id);
     Task<VppRequestDto> CreateAsync(VppRequestCreateDto dto, int requesterId);
-    Task<VppRequestDto> ApproveAsync(int id, string createdBy);
+    Task<VppRequestDto> ApproveAsync(int id, string createdBy, string? adminNote = null, List<VppApproveLineDto>? lineOverrides = null);
     Task RejectAsync(int id, string adminNote);
 }
 
@@ -18,6 +18,7 @@ public class VppRequestService : IVppRequestService
     private readonly IVppDispatchRepository _dispatchRepo;
     private readonly IVppDispatchLineRepository _dispatchLineRepo;
     private readonly IUserRepository _userRepo;
+    private readonly IVppInventoryService _inventoryService;
     private readonly IUnitOfWork _uow;
 
     public VppRequestService(
@@ -27,6 +28,7 @@ public class VppRequestService : IVppRequestService
         IVppDispatchRepository dispatchRepo,
         IVppDispatchLineRepository dispatchLineRepo,
         IUserRepository userRepo,
+        IVppInventoryService inventoryService,
         IUnitOfWork uow)
     {
         _repo = repo;
@@ -35,6 +37,7 @@ public class VppRequestService : IVppRequestService
         _dispatchRepo = dispatchRepo;
         _dispatchLineRepo = dispatchLineRepo;
         _userRepo = userRepo;
+        _inventoryService = inventoryService;
         _uow = uow;
     }
 
@@ -103,7 +106,7 @@ public class VppRequestService : IVppRequestService
             Status = r.Status,
             AdminNote = r.AdminNote ?? "",
             DispatchId = r.DispatchId,
-            CreatedAt = r.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+            CreatedAt = r.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
             Lines = lines.Select(l =>
             {
                 var item = items.FirstOrDefault(i => i.Id == l.ItemId);
@@ -131,6 +134,7 @@ public class VppRequestService : IVppRequestService
             Reason = dto.Reason,
             ReferencePrice = dto.ReferencePrice,
             Status = "pending",
+            CreatedAt = DateTime.UtcNow,
         };
         await _repo.AddAsync(entity);
         await _uow.SaveChangesAsync();
@@ -160,7 +164,7 @@ public class VppRequestService : IVppRequestService
         return ToDto(entity, user?.Name ?? "", user?.BranchName ?? "");
     }
 
-    public async Task<VppRequestDto> ApproveAsync(int id, string createdBy)
+    public async Task<VppRequestDto> ApproveAsync(int id, string createdBy, string? adminNote = null, List<VppApproveLineDto>? lineOverrides = null)
     {
         var request = await _repo.GetByIdAsync(id)
             ?? throw new NotFoundException("Không tìm thấy đề nghị");
@@ -173,6 +177,44 @@ public class VppRequestService : IVppRequestService
         var items = await _itemRepo.GetAll().AsNoTracking()
             .Where(x => itemIds.Contains(x.Id)).ToListAsync();
 
+        // Tính số lượng thực tế sẽ xuất (dùng lineOverrides nếu admin điều chỉnh)
+        var linesToDispatch = new List<(VppRequestLine Line, decimal Quantity)>();
+        foreach (var line in lines)
+        {
+            decimal qty;
+            if (lineOverrides != null)
+            {
+                var ov = lineOverrides.FirstOrDefault(o => o.LineId == line.Id);
+                qty = ov?.Quantity ?? 0;
+            }
+            else
+            {
+                qty = line.Quantity;
+            }
+            if (qty > 0)
+                linesToDispatch.Add((line, qty));
+        }
+
+        if (linesToDispatch.Count == 0)
+            throw new BadRequestException("Không có dòng nào hợp lệ để xuất kho");
+
+        // Kiểm tra tồn kho theo số lượng thực tế sẽ xuất
+        var now = DateTime.UtcNow.AddHours(7);
+        var inventory = await _inventoryService.GetByPeriodAsync(now.Month, now.Year);
+        var insufficient = new List<string>();
+        foreach (var (line, qty) in linesToDispatch)
+        {
+            var inv = inventory.Rows.FirstOrDefault(r => r.ItemId == line.ItemId);
+            var available = inv?.ClosingQty ?? 0m;
+            if (qty > available)
+            {
+                var item = items.FirstOrDefault(i => i.Id == line.ItemId);
+                insufficient.Add($"{item?.Name ?? $"ID {line.ItemId}"}: xuất {qty}, tồn {available}");
+            }
+        }
+        if (insufficient.Count > 0)
+            throw new BadRequestException($"Không đủ tồn kho — {string.Join("; ", insufficient)}");
+
         var user = await _userRepo.GetAll().AsNoTracking()
             .Where(u => u.Id == request.RequesterId)
             .Select(u => new { u.Name, BranchName = u.Branches != null ? u.Branches.Name : "" })
@@ -182,33 +224,34 @@ public class VppRequestService : IVppRequestService
         var dispatch = new VppDispatch
         {
             Code = code,
-            DispatchDate = DateTime.UtcNow.AddHours(7),
+            DispatchDate = now,
             Department = request.Department,
             Branch = user?.BranchName ?? "",
             RequestId = id,
             CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow,
         };
         await _dispatchRepo.AddAsync(dispatch);
         await _uow.SaveChangesAsync();
 
-        foreach (var line in lines)
+        foreach (var (line, qty) in linesToDispatch)
         {
             var item = items.First(i => i.Id == line.ItemId);
-            var vatAmount = item.UnitPrice * item.VatRate * line.Quantity;
-            var total = item.UnitPrice * line.Quantity + vatAmount;
+            var vatAmount = item.UnitPrice * item.VatRate * qty;
             await _dispatchLineRepo.AddAsync(new VppDispatchLine
             {
                 DispatchId = dispatch.Id,
                 ItemId = line.ItemId,
-                Quantity = line.Quantity,
+                Quantity = qty,
                 UnitPrice = item.UnitPrice,
                 VatAmount = vatAmount,
-                TotalAmount = total,
+                TotalAmount = item.UnitPrice * qty + vatAmount,
             });
         }
 
         request.Status = "dispatched";
         request.DispatchId = dispatch.Id;
+        request.AdminNote = adminNote;
         request.UpdatedAt = DateTime.UtcNow.AddHours(7);
         await _uow.SaveChangesAsync();
 
@@ -245,7 +288,7 @@ public class VppRequestService : IVppRequestService
         Reason = r.Reason ?? "",
         Status = r.Status,
         DispatchId = r.DispatchId,
-        CreatedAt = r.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+        CreatedAt = r.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
     };
 }
 
@@ -301,4 +344,10 @@ public class VppRequestFilter
     public int? RequesterId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
+}
+
+public class VppApproveLineDto
+{
+    public int LineId { get; set; }
+    public decimal Quantity { get; set; }
 }

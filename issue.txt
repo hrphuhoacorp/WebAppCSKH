@@ -1,25 +1,5 @@
-Các vấn đề cần fix
 
-1. phân trang
-- trang tổng quan chỗ vật tư sắp hết
-- trang tồn kho 
-= đề nghị cấp
-- phiếu nhập
-- phiếu xuất
-- kiểm kho
-=> nguyên li scrollbar vui lòng kham khảo các table khác để làm cho đúng
-- danh mục bảng chỗ xóa sửa thêm header thao tác
 
-2. Search 
-- tất cả đều dùng debonce kh phân biệt hoa thường và có search theo mã nữa
-- thêm search tồn kho
-
-=> vấn đề này ở những file khác có r mà sao để nhắc mãi v
-
-3. header ngày
-- những chỗ có ngày đang bị invalid date
-
-4. Tồn đầu: logic nào để nhập bắt kì tồn đầu
 
 5. Dashboard thêm biểu đồ thống kê (2 -3 biểu đồ)
 
@@ -30,7 +10,11 @@ Các vấn đề cần fix
 - xuất/in chi tiết 1 phiếu xuất, chỗ Chi tiết phiếu xuất chưa lấy được người tạo
 - xuất/in phiếu kiểm kho chỗ phiếu kiểm kho chưa láy được người tạo
 
-7. Logic xuất kho/cấp vpp
-- phải có luồng để chỉnh sửa đề nghị cấp đó hoặc sao đó chứ đang bị lỗi logic là xin cấp vượt số lượng -> vẫn duyệt được -> nếu có cộng dồn cũng sai logic
-- giá kham khảo và ghi chú admin kh điền được, và ở trang đề nghị cấp văn phòng phẩm phải có lịch sử để xem lại đề nghị cấp phát và xem chi tiết được
-- đề nghị cấp phát -> bộ phận lấy từ chi nhánh thông qua profile
+
+
+
+
+
+9. nhập hàng 
+Đính kèm hóa đơn mua hàng	Đính kèm duyệt BGĐ - ĐNMH & ĐNTT -> gộp chung là chứng từ liên quan -> có thể tải lên và tải về -> logic upload tương tự
+-> lỗi

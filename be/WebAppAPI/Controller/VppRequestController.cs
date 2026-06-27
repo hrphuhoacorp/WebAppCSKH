@@ -36,10 +36,10 @@ public class VppRequestController : ControllerBase
     }
 
     [HttpPost("{id:int}/approve")]
-    public async Task<ResponseValue<VppRequestDto>> Approve(int id)
+    public async Task<ResponseValue<VppRequestDto>> Approve(int id, [FromBody] VppApproveDto dto)
     {
-        var name = User.FindFirstValue(ClaimTypes.Name) ?? "";
-        var result = await _service.ApproveAsync(id, name);
+        var name = User.FindFirstValue("name") ?? "";
+        var result = await _service.ApproveAsync(id, name, dto.AdminNote, dto.Lines);
         return new ResponseValue<VppRequestDto>(result, "Đã duyệt và tạo phiếu xuất", StatusReponse.Success);
     }
 
@@ -49,6 +49,12 @@ public class VppRequestController : ControllerBase
         await _service.RejectAsync(id, dto.AdminNote);
         return new ResponseValue<object>(new { success = true }, "Đã từ chối đề nghị", StatusReponse.Success);
     }
+}
+
+public class VppApproveDto
+{
+    public string? AdminNote { get; set; }
+    public List<VppApproveLineDto>? Lines { get; set; }
 }
 
 public class VppRejectDto

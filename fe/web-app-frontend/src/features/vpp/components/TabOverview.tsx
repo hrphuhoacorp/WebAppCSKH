@@ -54,7 +54,7 @@ export default function TabOverview() {
     const alertRows = inv?.rows.filter(r => r.stockStatus !== 'normal') ?? [];
 
     return (
-        <Box>
+        <Box sx={{ height: '100%', overflow: 'auto' }}>
             {/* Stat cards */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
                 <StatCard label="Tổng vật tư" value={inv?.rows.length ?? 0} sub="Đang theo dõi" color={GREEN} icon={<InventoryRoundedIcon />} loading={isLoading} />
@@ -69,7 +69,7 @@ export default function TabOverview() {
                     <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 1.5 }}>
                         Cần chú ý — vật tư sắp hết / hết hàng
                     </Typography>
-                    <TableContainer component={Paper} elevation={0} sx={{ borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
+                    <TableContainer component={Paper} elevation={0} sx={{ borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)', overflow: 'auto' }}>
                         <Table stickyHeader size="small">
                             <TableHead>
                                 <TableRow>

@@ -42,7 +42,7 @@ public class VppStockCountController : ControllerBase
         [FromBody] VppStockCountCreateDto dto
     )
     {
-        var name = User.FindFirstValue(ClaimTypes.Name) ?? "";
+        var name = User.FindFirstValue("name") ?? "";
         var result = await _service.CreateAsync(dto, name);
         return new ResponseValue<VppStockCountDetailDto>(
             result,
@@ -69,7 +69,7 @@ public class VppStockCountController : ControllerBase
     [HttpPost("{id:int}/confirm")]
     public async Task<ResponseValue<VppStockCountDetailDto>> Confirm(int id)
     {
-        var name = User.FindFirstValue(ClaimTypes.Name) ?? "";
+        var name = User.FindFirstValue("name") ?? "";
         var result = await _service.ConfirmAsync(id, name);
         return new ResponseValue<VppStockCountDetailDto>(
             result,

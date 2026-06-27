@@ -73,14 +73,14 @@ public class VppStockCountService : IVppStockCountService
         return new VppStockCountDetailDto
         {
             Id = e.Id,
-            CountDate = e.CountDate.AddHours(7).ToString("dd/MM/yyyy"),
+            CountDate = e.CountDate.AddHours(7).ToString("yyyy-MM-dd"),
             PeriodMonth = e.PeriodMonth,
             PeriodYear = e.PeriodYear,
             Status = e.Status,
             Note = e.Note ?? "",
             CreatedBy = e.CreatedBy ?? "",
-            ConfirmedAt = e.ConfirmedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
-            CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+            ConfirmedAt = e.ConfirmedAt?.AddHours(7).ToString("yyyy-MM-dd"),
+            CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
             Lines = lines
                 .Select(l =>
                 {
@@ -117,6 +117,7 @@ public class VppStockCountService : IVppStockCountService
             Status = "draft",
             Note = dto.Note,
             CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow,
         };
         await _repo.AddAsync(entity);
         await _uow.SaveChangesAsync();
@@ -177,14 +178,14 @@ public class VppStockCountService : IVppStockCountService
         new()
         {
             Id = e.Id,
-            CountDate = e.CountDate.AddHours(7).ToString("dd/MM/yyyy"),
+            CountDate = e.CountDate.AddHours(7).ToString("yyyy-MM-dd"),
             PeriodMonth = e.PeriodMonth,
             PeriodYear = e.PeriodYear,
             Status = e.Status,
             Note = e.Note ?? "",
             CreatedBy = e.CreatedBy ?? "",
-            ConfirmedAt = e.ConfirmedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
-            CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+            ConfirmedAt = e.ConfirmedAt?.AddHours(7).ToString("yyyy-MM-dd"),
+            CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
         };
 }
 

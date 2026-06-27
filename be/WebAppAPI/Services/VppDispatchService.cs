@@ -14,17 +14,20 @@ public class VppDispatchService : IVppDispatchService
     private readonly IVppDispatchRepository _repo;
     private readonly IVppDispatchLineRepository _lineRepo;
     private readonly IVppItemRepository _itemRepo;
+    private readonly IVppInventoryService _inventoryService;
     private readonly IUnitOfWork _uow;
 
     public VppDispatchService(
         IVppDispatchRepository repo,
         IVppDispatchLineRepository lineRepo,
         IVppItemRepository itemRepo,
+        IVppInventoryService inventoryService,
         IUnitOfWork uow)
     {
         _repo = repo;
         _lineRepo = lineRepo;
         _itemRepo = itemRepo;
+        _inventoryService = inventoryService;
         _uow = uow;
     }
 
@@ -60,7 +63,7 @@ public class VppDispatchService : IVppDispatchService
                 {
                     Id = e.Id,
                     Code = e.Code,
-                    DispatchDate = e.DispatchDate.AddHours(7).ToString("dd/MM/yyyy"),
+                    DispatchDate = e.DispatchDate.AddHours(7).ToString("yyyy-MM-dd"),
                     Department = e.Department ?? "",
                     Branch = e.Branch ?? "",
                     RequestId = e.RequestId,
@@ -68,7 +71,7 @@ public class VppDispatchService : IVppDispatchService
                     CreatedBy = e.CreatedBy ?? "",
                     TotalAmount = t?.Total ?? 0,
                     ItemCount = t?.Count ?? 0,
-                    CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+                    CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
                 };
             }).ToList()
         };
@@ -90,7 +93,7 @@ public class VppDispatchService : IVppDispatchService
         {
             Id = e.Id,
             Code = e.Code,
-            DispatchDate = e.DispatchDate.AddHours(7).ToString("dd/MM/yyyy"),
+            DispatchDate = e.DispatchDate.AddHours(7).ToString("yyyy-MM-dd"),
             Department = e.Department ?? "",
             Branch = e.Branch ?? "",
             RequestId = e.RequestId,
@@ -99,7 +102,7 @@ public class VppDispatchService : IVppDispatchService
             Note = e.Note ?? "",
             CreatedBy = e.CreatedBy ?? "",
             TotalAmount = lines.Sum(l => l.TotalAmount),
-            CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+            CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
             Lines = lines.Select(l =>
             {
                 var item = items.FirstOrDefault(i => i.Id == l.ItemId);
@@ -125,6 +128,9 @@ public class VppDispatchService : IVppDispatchService
         var items = await _itemRepo.GetAll().AsNoTracking()
             .Where(x => itemIds.Contains(x.Id)).ToListAsync();
 
+        var avgPrices = await _inventoryService.GetAvgPricesAsync(
+            dto.DispatchDate.Month, dto.DispatchDate.Year, itemIds);
+
         var code = await GenerateCodeAsync(dto.DispatchDate);
         var entity = new VppDispatch
         {
@@ -137,6 +143,7 @@ public class VppDispatchService : IVppDispatchService
             AttachmentApproval = dto.AttachmentApproval,
             Note = dto.Note,
             CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow,
         };
         await _repo.AddAsync(entity);
         await _uow.SaveChangesAsync();
@@ -145,7 +152,8 @@ public class VppDispatchService : IVppDispatchService
         {
             var item = items.FirstOrDefault(i => i.Id == line.ItemId)
                 ?? throw new BadRequestException($"Không tìm thấy vật tư ID {line.ItemId}");
-            var price = line.UnitPrice > 0 ? line.UnitPrice : item.UnitPrice;
+            var avgPrice = avgPrices.TryGetValue(line.ItemId, out var ap) && ap > 0 ? ap : item.UnitPrice;
+            var price = line.UnitPrice > 0 ? line.UnitPrice : avgPrice;
             var vatAmount = price * item.VatRate * line.Quantity;
             await _lineRepo.AddAsync(new VppDispatchLine
             {

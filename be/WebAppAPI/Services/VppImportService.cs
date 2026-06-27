@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Models.Vpp;
 
@@ -79,14 +80,14 @@ public class VppImportService : IVppImportService
                     return new VppImportDto
                     {
                         Id = e.Id,
-                        ImportDate = e.ImportDate.AddHours(7).ToString("dd/MM/yyyy"),
+                        ImportDate = e.ImportDate.AddHours(7).ToString("yyyy-MM-dd"),
                         PeriodMonth = e.PeriodMonth,
                         PeriodYear = e.PeriodYear,
                         Note = e.Note ?? "",
                         CreatedBy = e.CreatedBy ?? "",
                         TotalAmount = lc?.Total ?? 0,
                         ItemCount = lc?.Count ?? 0,
-                        CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+                        CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
                     };
                 })
                 .ToList(),
@@ -117,15 +118,13 @@ public class VppImportService : IVppImportService
         return new VppImportDetailDto
         {
             Id = e.Id,
-            ImportDate = e.ImportDate.AddHours(7).ToString("dd/MM/yyyy"),
+            ImportDate = e.ImportDate.AddHours(7).ToString("yyyy-MM-dd"),
             PeriodMonth = e.PeriodMonth,
             PeriodYear = e.PeriodYear,
-            AttachmentInvoice = e.AttachmentInvoice ?? "",
-            AttachmentApproval = e.AttachmentApproval ?? "",
             Note = e.Note ?? "",
             CreatedBy = e.CreatedBy ?? "",
             TotalAmount = lines.Sum(l => l.TotalAmount),
-            CreatedAt = e.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm"),
+            CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
             Lines = lines
                 .Select(l =>
                 {
@@ -141,6 +140,7 @@ public class VppImportService : IVppImportService
                         UnitPrice = l.UnitPrice,
                         VatAmount = l.VatAmount,
                         TotalAmount = l.TotalAmount,
+                        Attachments = ParseAttachments(l.Attachments),
                     };
                 })
                 .ToList(),
@@ -161,10 +161,9 @@ public class VppImportService : IVppImportService
             ImportDate = dto.ImportDate,
             PeriodMonth = dto.ImportDate.Month,
             PeriodYear = dto.ImportDate.Year,
-            AttachmentInvoice = dto.AttachmentInvoice,
-            AttachmentApproval = dto.AttachmentApproval,
             Note = dto.Note,
             CreatedBy = createdBy,
+            CreatedAt = DateTime.UtcNow,
         };
         await _repo.AddAsync(entity);
         await _uow.SaveChangesAsync();
@@ -185,6 +184,9 @@ public class VppImportService : IVppImportService
                     UnitPrice = price,
                     VatAmount = vatAmount,
                     TotalAmount = price * line.Quantity + vatAmount,
+                    Attachments = line.Attachments is { Count: > 0 }
+                        ? JsonSerializer.Serialize(line.Attachments)
+                        : null,
                 }
             );
 
@@ -213,6 +215,16 @@ public class VppImportService : IVppImportService
         entity.DeletedAt = DateTime.UtcNow.AddHours(7);
         await _uow.SaveChangesAsync();
     }
+
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    private static List<VppAttachmentSaveDto> ParseAttachments(string? json)
+    {
+        if (string.IsNullOrEmpty(json) || !json.TrimStart().StartsWith('['))
+            return [];
+        try { return JsonSerializer.Deserialize<List<VppAttachmentSaveDto>>(json, _jsonOpts) ?? []; }
+        catch { return []; }
+    }
 }
 
 public class VppImportDto
@@ -230,8 +242,6 @@ public class VppImportDto
 
 public class VppImportDetailDto : VppImportDto
 {
-    public string AttachmentInvoice { get; set; } = "";
-    public string AttachmentApproval { get; set; } = "";
     public List<VppImportLineDto> Lines { get; set; } = new();
 }
 
@@ -246,13 +256,12 @@ public class VppImportLineDto
     public decimal UnitPrice { get; set; }
     public decimal VatAmount { get; set; }
     public decimal TotalAmount { get; set; }
+    public List<VppAttachmentSaveDto> Attachments { get; set; } = new();
 }
 
 public class VppImportCreateDto
 {
     public DateTime ImportDate { get; set; }
-    public string? AttachmentInvoice { get; set; }
-    public string? AttachmentApproval { get; set; }
     public string? Note { get; set; }
     public List<VppImportLineCreateDto> Lines { get; set; } = new();
 }
@@ -262,4 +271,11 @@ public class VppImportLineCreateDto
     public int ItemId { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public List<VppAttachmentSaveDto>? Attachments { get; set; }
+}
+
+public class VppAttachmentSaveDto
+{
+    public string Url { get; set; } = "";
+    public string Name { get; set; } = "";
 }
