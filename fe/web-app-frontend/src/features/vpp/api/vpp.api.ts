@@ -174,6 +174,14 @@ export interface VppDispatchCreateDto {
     lines: { itemId: number; quantity: number; unitPrice: number }[];
 }
 
+export interface VppDispatchDeptStatsDto {
+    department: string;
+    branch: string;
+    dispatchCount: number;
+    totalItems: number;
+    totalAmount: number;
+}
+
 export interface VppStockCountDto {
     id: number;
     countDate: string;
@@ -299,6 +307,10 @@ export const vppApi = {
     },
     deleteDispatch: async (id: number) => {
         await api.delete(`/vpp/dispatches/${id}`);
+    },
+    getDispatchStats: async (month: number, year: number) => {
+        const res = await api.get('/vpp/dispatches/stats', { params: { month, year } });
+        return res.data.content as VppDispatchDeptStatsDto[];
     },
 
     // Stock counts

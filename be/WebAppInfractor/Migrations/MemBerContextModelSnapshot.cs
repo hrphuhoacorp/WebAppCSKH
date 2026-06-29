@@ -2513,7 +2513,8 @@ namespace WebAppInfractor.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Attachments")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("attachments");
 
                     b.Property<int>("ImportId")
                         .HasColumnType("integer")

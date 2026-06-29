@@ -1,9 +1,7 @@
 
-
-
-5. Dashboard thêm biểu đồ thống kê (2 -3 biểu đồ)
-
-6. Xuất excel
+1. Dashboard thêm biểu đồ thống kê (2 -3 biểu đồ)
+- tạo phiếu xuất chỗ thành tiền hiện giá chưa có thuế -> cần fix
+2. Xuất excel
 - Xuất/in tồn kho theo dữ liệu đã lọc
 - xuất/in phiếu đề nghị cấp ở trang đề nghị cấp vpp
 - xuất/in chi tiết 1 phiếu nhập ( template gửi sau)
@@ -11,10 +9,11 @@
 - xuất/in phiếu kiểm kho chỗ phiếu kiểm kho chưa láy được người tạo
 
 
-
+3. Thêm chức năng tồn áo ( tương tự như vpp nó sẽ chung table): nhưng cái áo này nó có như là hoàn trả áo về nữa nên tôi chưa biết mở rông sao
 
 
 
 9. nhập hàng 
 Đính kèm hóa đơn mua hàng	Đính kèm duyệt BGĐ - ĐNMH & ĐNTT -> gộp chung là chứng từ liên quan -> có thể tải lên và tải về -> logic upload tương tự
 -> lỗi
+

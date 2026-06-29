@@ -7,6 +7,7 @@ public interface IVppDispatchService
     Task<VppDispatchDetailDto?> GetByIdAsync(int id);
     Task<VppDispatchDetailDto> CreateAsync(VppDispatchCreateDto dto, string createdBy);
     Task DeleteAsync(int id);
+    Task<List<VppDispatchDeptStatsDto>> GetStatsAsync(int month, int year);
 }
 
 public class VppDispatchService : IVppDispatchService
@@ -178,6 +179,38 @@ public class VppDispatchService : IVppDispatchService
         await _uow.SaveChangesAsync();
     }
 
+    public async Task<List<VppDispatchDeptStatsDto>> GetStatsAsync(int month, int year)
+    {
+        var dispatches = await _repo.GetAll().AsNoTracking()
+            .Where(x => x.DeletedAt == null && x.DispatchDate.Month == month && x.DispatchDate.Year == year)
+            .ToListAsync();
+
+        var dispatchIds = dispatches.Select(x => x.Id).ToList();
+        var lineTotals = await _lineRepo.GetAll().AsNoTracking()
+            .Where(l => dispatchIds.Contains(l.DispatchId))
+            .GroupBy(l => l.DispatchId)
+            .Select(g => new { DispatchId = g.Key, Total = g.Sum(l => l.TotalAmount), Count = g.Count() })
+            .ToListAsync();
+
+        return dispatches
+            .GroupBy(d => new { Department = d.Department ?? "", Branch = d.Branch ?? "" })
+            .Select(g =>
+            {
+                var ids = g.Select(x => x.Id).ToList();
+                var stats = lineTotals.Where(l => ids.Contains(l.DispatchId));
+                return new VppDispatchDeptStatsDto
+                {
+                    Department = g.Key.Department,
+                    Branch = g.Key.Branch,
+                    DispatchCount = g.Count(),
+                    TotalItems = stats.Sum(s => s.Count),
+                    TotalAmount = stats.Sum(s => s.Total),
+                };
+            })
+            .OrderByDescending(x => x.TotalAmount)
+            .ToList();
+    }
+
     private async Task<string> GenerateCodeAsync(DateTime date)
     {
         var prefix = $"BK{date.Month:D2}{date.Year}";
@@ -232,6 +265,15 @@ public class VppDispatchCreateDto
     public string? AttachmentApproval { get; set; }
     public string? Note { get; set; }
     public List<VppDispatchLineCreateDto> Lines { get; set; } = new();
+}
+
+public class VppDispatchDeptStatsDto
+{
+    public string Department { get; set; } = "";
+    public string Branch { get; set; } = "";
+    public int DispatchCount { get; set; }
+    public int TotalItems { get; set; }
+    public decimal TotalAmount { get; set; }
 }
 
 public class VppDispatchLineCreateDto

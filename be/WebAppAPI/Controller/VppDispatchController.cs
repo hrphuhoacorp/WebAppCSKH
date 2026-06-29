@@ -37,6 +37,16 @@ public class VppDispatchController : ControllerBase
         return new ResponseValue<VppDispatchDetailDto>(result, "Tạo phiếu xuất thành công", StatusReponse.Success);
     }
 
+    [HttpGet("stats")]
+    public async Task<ResponseValue<List<VppDispatchDeptStatsDto>>> GetStats(
+        [FromQuery] int? month, [FromQuery] int? year)
+    {
+        var m = month ?? DateTime.Now.Month;
+        var y = year ?? DateTime.Now.Year;
+        var result = await _service.GetStatsAsync(m, y);
+        return new ResponseValue<List<VppDispatchDeptStatsDto>>(result, "OK", StatusReponse.Success);
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<ResponseValue<object>> Delete(int id)
     {

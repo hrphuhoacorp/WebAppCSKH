@@ -12,8 +12,8 @@ using WebAppInfractor.Data;
 namespace WebAppInfractor.Migrations
 {
     [DbContext(typeof(MemBerContext))]
-    [Migration("20260627090350_FixPendingModelChanges")]
-    partial class FixPendingModelChanges
+    [Migration("20260629030603_AddAttachmentsToVppImportLine")]
+    partial class AddAttachmentsToVppImportLine
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -2516,7 +2516,8 @@ namespace WebAppInfractor.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Attachments")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("attachments");
 
                     b.Property<int>("ImportId")
                         .HasColumnType("integer")

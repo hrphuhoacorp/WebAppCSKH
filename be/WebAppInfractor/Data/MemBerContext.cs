@@ -1190,6 +1190,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.UnitPrice).HasPrecision(18, 2).HasColumnName("unit_price");
             entity.Property(e => e.VatAmount).HasPrecision(18, 2).HasColumnName("vat_amount");
             entity.Property(e => e.TotalAmount).HasPrecision(18, 2).HasColumnName("total_amount");
+            entity.Property(e => e.Attachments).HasColumnName("attachments");
         });
 
         modelBuilder.Entity<VppDispatch>(entity =>

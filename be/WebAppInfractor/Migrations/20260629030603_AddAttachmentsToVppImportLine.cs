@@ -5,24 +5,24 @@
 namespace WebAppInfractor.Migrations
 {
     /// <inheritdoc />
-    public partial class FixPendingModelChanges : Migration
+    public partial class AddAttachmentsToVppImportLine : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
+            migrationBuilder.AddColumn<string>(
                 name: "attachments",
                 table: "vpp_import_lines",
-                newName: "Attachments");
+                type: "text",
+                nullable: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
-                name: "Attachments",
-                table: "vpp_import_lines",
-                newName: "attachments");
+            migrationBuilder.DropColumn(
+                name: "attachments",
+                table: "vpp_import_lines");
         }
     }
 }
