@@ -1130,6 +1130,8 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.MinStock).HasDefaultValue(0).HasColumnName("min_stock");
             entity.Property(e => e.MaxStock).HasDefaultValue(0).HasColumnName("max_stock");
             entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.IsActive).HasDefaultValue(true).HasColumnName("is_active");
+            entity.Property(e => e.UniformReturnHistory).HasColumnName("uniform_return_history");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");

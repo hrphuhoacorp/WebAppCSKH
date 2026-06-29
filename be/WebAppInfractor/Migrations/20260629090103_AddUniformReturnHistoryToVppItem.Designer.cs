@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebAppInfractor.Data;
@@ -11,9 +12,11 @@ using WebAppInfractor.Data;
 namespace WebAppInfractor.Migrations
 {
     [DbContext(typeof(MemBerContext))]
-    partial class MemBerContextModelSnapshot : ModelSnapshot
+    [Migration("20260629090103_AddUniformReturnHistoryToVppItem")]
+    partial class AddUniformReturnHistoryToVppItem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2607,15 +2610,8 @@ namespace WebAppInfractor.Migrations
                         .HasColumnType("text")
                         .HasColumnName("note");
 
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
-
                     b.Property<string>("UniformReturnHistory")
-                        .HasColumnType("text")
-                        .HasColumnName("uniform_return_history");
+                        .HasColumnType("text");
 
                     b.Property<string>("Unit")
                         .IsRequired()

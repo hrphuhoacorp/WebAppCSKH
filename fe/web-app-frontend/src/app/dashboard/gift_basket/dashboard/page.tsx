@@ -170,75 +170,41 @@ function StatCard({ label, value, sub, color, icon, loading }: {
     label: string; value: string | number; sub?: string; color: string; icon: React.ReactNode; loading?: boolean;
 }) {
     return (
-        <Paper
-            elevation={0}
-            sx={{
-                ...hoverCardSx,
-                minHeight: 118,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 2,
-                '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 3,
-                    bgcolor: color,
-                },
-            }}
-        >
-            <Box
-                sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: '13px',
-                    bgcolor: alpha(color, 0.1),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    border: `1px solid ${alpha(color, 0.14)}`,
-                    '& svg': { fontSize: 21 },
-                }}
-            >
-                {loading ? <Skeleton variant="circular" width={20} height={20} /> : <Box sx={{ color }}>{icon}</Box>}
-            </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography
-                    sx={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: '#94a3b8',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.55px',
-                        lineHeight: 1.35,
-                        mb: 0.8,
-                    }}
-                >
-                    {label}
-                </Typography>
-                {loading
-                    ? <Skeleton width="66%" height={32} sx={{ borderRadius: '8px' }} />
-                    : (
-                        <Typography
-                            sx={{
-                                fontSize: typeof value === 'string' && value.length > 14 ? 20 : 26,
-                                fontWeight: 900,
-                                color: '#1e293b',
-                                lineHeight: 1.05,
-                                letterSpacing: '-0.6px',
-                            }}
-                        >
+        <Paper elevation={0} sx={{
+            p: 2.5, borderRadius: '20px',
+            border: `1px solid ${alpha(color, 0.18)}`,
+            background: `linear-gradient(135deg, #fff 60%, ${alpha(color, 0.06)} 100%)`,
+            boxShadow: `0 4px 24px ${alpha(color, 0.1)}`,
+            position: 'relative', overflow: 'hidden',
+            transition: 'box-shadow 0.2s, transform 0.2s',
+            '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 8px 32px ${alpha(color, 0.18)}` },
+        }}>
+            <Box sx={{ position: 'absolute', top: -18, right: -18, width: 80, height: 80, borderRadius: '50%', bgcolor: alpha(color, 0.07) }} />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <Box sx={{
+                    width: 44, height: 44, borderRadius: '14px', flexShrink: 0,
+                    background: `linear-gradient(135deg, ${color}, ${alpha(color, 0.65)})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `0 4px 12px ${alpha(color, 0.35)}`,
+                    '& svg': { fontSize: 21, color: '#fff' },
+                }}>
+                    {loading ? <Skeleton variant="circular" width={22} height={22} sx={{ bgcolor: 'rgba(255,255,255,0.4)' }} /> : icon}
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 0.4 }}>
+                        {label}
+                    </Typography>
+                    {loading
+                        ? <Skeleton width={80} height={32} />
+                        : <Typography sx={{ fontSize: typeof value === 'string' && value.length > 10 ? 18 : 26, fontWeight: 900, color: '#1e293b', lineHeight: 1.1 }}>
                             {value}
-                        </Typography>
-                    )
-                }
-                {loading
-                    ? <Skeleton width="78%" height={16} sx={{ mt: 0.6, borderRadius: '4px' }} />
-                    : sub && <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.7 }}>{sub}</Typography>
-                }
+                          </Typography>
+                    }
+                    {loading
+                        ? <Skeleton width="78%" height={16} sx={{ mt: 0.4 }} />
+                        : sub && <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.5 }}>{sub}</Typography>
+                    }
+                </Box>
             </Box>
         </Paper>
     );

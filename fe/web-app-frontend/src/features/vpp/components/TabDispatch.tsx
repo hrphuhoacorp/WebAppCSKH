@@ -296,17 +296,22 @@ export default function TabDispatch() {
                                                 isOptionEqualToValue={(o, v) => o.id === v.id}
                                                 noOptionsText="Không tìm thấy"
                                                 renderInput={params => <TextField {...params} placeholder="Tìm vật tư..." sx={fieldSx} />}
-                                                renderOption={(props, it) => (
-                                                    <Box component="li" {...props}>
-                                                        <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8', mr: 1 }}>{it.code}</Box>
-                                                        {it.name}
-                                                    </Box>
-                                                )}
+                                                renderOption={(props, it) => {
+                                                    const { key, ...rest } = props as any;
+                                                    return (
+                                                        <Box key={key} component="li" {...rest}>
+                                                            <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8', mr: 1 }}>{it.code}</Box>
+                                                            {it.name}
+                                                        </Box>
+                                                    );
+                                                }}
                                             />
                                         </TableCell>
                                         <TableCell sx={{ width: 110 }}>
-                                            <TextField size="small" type="number" value={line.quantity}
-                                                onChange={e => updateLine(idx, { quantity: Math.max(1, Number(e.target.value)) })}
+                                            <TextField size="small" type="number"
+                                                value={line.quantity === 0 ? '' : line.quantity}
+                                                onChange={e => updateLine(idx, { quantity: e.target.value === '' ? 0 : Math.max(1, +e.target.value) })}
+                                                onBlur={() => { if (!line.quantity) updateLine(idx, { quantity: 1 }); }}
                                                 slotProps={{ htmlInput: { min: 1 } }} sx={fieldSx} />
                                         </TableCell>
                                         <TableCell sx={{ width: 140 }}>

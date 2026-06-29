@@ -92,7 +92,10 @@ public class VppInventoryService : IVppInventoryService
                 avgPrice = item.UnitPrice;
 
             var closing = availQty - dispatched + adjusted;
-            var status = closing <= 0 ? "out_of_stock" : closing < item.MinStock ? "low" : "normal";
+            var status = !item.IsActive ? "inactive"
+                : closing <= 0 ? "out_of_stock"
+                : closing < item.MinStock ? "low"
+                : "normal";
 
             return new VppInventoryRowDto
             {
@@ -104,6 +107,7 @@ public class VppInventoryService : IVppInventoryService
                 UnitPrice = avgPrice,
                 MinStock = item.MinStock,
                 MaxStock = item.MaxStock,
+                IsActive = item.IsActive,
                 OpeningQty = openQty,
                 ImportedQty = periodImpQty,
                 DispatchedQty = dispatched,
@@ -120,8 +124,8 @@ public class VppInventoryService : IVppInventoryService
             Year = year,
             Rows = rows,
             TotalValue = rows.Sum(r => r.TotalValue),
-            OutOfStockCount = rows.Count(r => r.StockStatus == "out_of_stock"),
-            LowStockCount = rows.Count(r => r.StockStatus == "low"),
+            OutOfStockCount = rows.Count(r => r.StockStatus == "out_of_stock" && r.IsActive),
+            LowStockCount = rows.Count(r => r.StockStatus == "low" && r.IsActive),
         };
     }
 
@@ -276,5 +280,6 @@ public class VppInventoryRowDto
     public decimal AdjustedQty { get; set; }
     public decimal ClosingQty { get; set; }
     public decimal TotalValue { get; set; }
+    public bool IsActive { get; set; } = true;
     public string StockStatus { get; set; } = "normal";
 }

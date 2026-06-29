@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
@@ -125,15 +125,10 @@ export default function UsersPage() {
         }).format(new Date(value));
     };
 
-    // Debounce search
-    const handleSearchChange = (value: string) => {
-        setSearch(value);
-        clearTimeout((handleSearchChange as any)._timer);
-        (handleSearchChange as any)._timer = setTimeout(() => {
-            setDebouncedSearch(value.trim());
-            setPage(0);
-        }, 500);
-    };
+    useEffect(() => {
+        const t = setTimeout(() => { setDebouncedSearch(search.trim()); setPage(0); }, 400);
+        return () => clearTimeout(t);
+    }, [search]);
 
     const { data: usersData, isFetching: loading } = useQuery({
         queryKey: ['users', page, pageSize, debouncedSearch, role, branchId],
@@ -316,7 +311,7 @@ export default function UsersPage() {
                         label="Tìm kiếm nhân sự"
                         placeholder="Nhập tên, email, số điện thoại..."
                         value={search}
-                        onChange={(e) => handleSearchChange(e.target.value)}
+                        onChange={(e) => setSearch(e.target.value)}
                         slotProps={{
                             input: {
                                 startAdornment: (

@@ -9,6 +9,8 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
+import ToggleOnRoundedIcon from '@mui/icons-material/ToggleOnRounded';
+import ToggleOffRoundedIcon from '@mui/icons-material/ToggleOffRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
@@ -44,7 +46,7 @@ const fieldSx = {
     '& label.Mui-focused': { color: GREEN },
 };
 
-interface ImportRow { name: string; unit: string; unitPrice: number; note: string; }
+interface ImportRow { name: string; unit: string; unitPrice: number; note: string; initialQty: number; }
 
 function parsePrice(v: unknown): number {
     if (v === null || v === undefined || v === '') return 0;
@@ -61,6 +63,7 @@ export default function TabCatalog() {
     const [editItem, setEditItem] = useState<VppItemDto | null>(null);
     const [form, setForm] = useState<VppItemUpsertDto>(EMPTY_FORM);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [initialQty, setInitialQty] = useState(0);
 
     // Import state
     const [importOpen, setImportOpen] = useState(false);
@@ -86,7 +89,6 @@ export default function TabCatalog() {
 
     const createMut = useMutation({
         mutationFn: (dto: VppItemUpsertDto) => vppApi.createItem(dto),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); handleClose(); toast.success('Đã thêm vật tư'); },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: (err: any) => { toast.error(err?.response?.data?.message || err?.response?.data?.Message || 'Tạo vật tư thất bại'); },
     });
@@ -100,6 +102,13 @@ export default function TabCatalog() {
         mutationFn: (id: number) => vppApi.deleteItem(id),
         onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); setDeleteId(null); },
     });
+    const toggleMut = useMutation({
+        mutationFn: (id: number) => vppApi.toggleActive(id),
+        onSuccess: (res) => {
+            qc.invalidateQueries({ queryKey: ['vpp-items'] });
+            toast.success(res.isActive ? 'Đã kích hoạt vật tư' : 'Đã đặt thành ngừng nhập');
+        },
+    });
 
     function handleOpen(item?: VppItemDto) {
         if (item) {
@@ -109,13 +118,34 @@ export default function TabCatalog() {
             setEditItem(null);
             setForm(EMPTY_FORM);
         }
+        setInitialQty(0);
         setDialogOpen(true);
     }
     function handleClose() { setDialogOpen(false); setEditItem(null); }
-    function handleSubmit() {
+    async function handleSubmit() {
         if (!form.name.trim() || !form.unit.trim()) return;
-        if (editItem) updateMut.mutate({ id: editItem.id, dto: form });
-        else createMut.mutate(form);
+        if (editItem) { updateMut.mutate({ id: editItem.id, dto: form }); return; }
+        try {
+            const newItem = await createMut.mutateAsync(form);
+            qc.invalidateQueries({ queryKey: ['vpp-items'] });
+            if (initialQty > 0) {
+                try {
+                    await vppApi.createImport({
+                        importDate: new Date().toISOString().slice(0, 10),
+                        note: 'Nhập ban đầu',
+                        lines: [{ itemId: newItem.id, quantity: initialQty, unitPrice: form.unitPrice }],
+                    });
+                    qc.invalidateQueries({ queryKey: ['vpp-imports'] });
+                    qc.invalidateQueries({ queryKey: ['vpp-inventory'] });
+                    toast.success(`Đã thêm vật tư và nhập kho ${initialQty} ${newItem.unit}`);
+                } catch {
+                    toast.error('Tạo vật tư thành công nhưng nhập kho ban đầu thất bại');
+                }
+            } else {
+                toast.success('Đã thêm vật tư');
+            }
+            handleClose();
+        } catch { /* handled by onError */ }
     }
     const isPending = createMut.isPending || updateMut.isPending;
 
@@ -132,7 +162,8 @@ export default function TabCatalog() {
             const headers = (raw[headerIdx] as string[]).map(h => String(h).toLowerCase());
             const colName    = headers.findIndex(h => h.includes('tên'));
             const colUnit    = headers.findIndex(h => h.includes('đơn vị') || h.includes('dvt') || h.includes('đvt'));
-            const colPrice   = headers.findIndex(h => h.includes('giá nhập') || h.includes('gia nhap'));
+            const colPrice   = headers.findIndex(h => h.includes('giá nhập') || h.includes('gia nhap') || h.includes('giá nhap'));
+            const colQty     = headers.findIndex(h => h.includes('số lượng') || h.includes('sl ban đầu') || h.includes('sl ban dau'));
 
             const rows: ImportRow[] = [];
             for (let i = headerIdx + 1; i < raw.length; i++) {
@@ -141,9 +172,10 @@ export default function TabCatalog() {
                 if (!name) continue;
                 rows.push({
                     name,
-                    unit:      colUnit  >= 0 ? String(r[colUnit]  ?? '').trim() : '',
-                    unitPrice: colPrice >= 0 ? parsePrice(r[colPrice]) : 0,
+                    unit:       colUnit  >= 0 ? String(r[colUnit]  ?? '').trim() : '',
+                    unitPrice:  colPrice >= 0 ? parsePrice(r[colPrice]) : 0,
                     note: '',
+                    initialQty: colQty   >= 0 ? (parseInt(String(r[colQty] ?? '0'), 10) || 0) : 0,
                 });
             }
             setImportRows(rows);
@@ -158,10 +190,16 @@ export default function TabCatalog() {
         let failed = 0;
         const errors: string[] = [];
 
+        const today = new Date().toISOString().slice(0, 10);
         for (const row of importRows) {
             try {
-                await vppApi.createItem({ group: importGroup, name: row.name, unit: row.unit, unitPrice: row.unitPrice, minStock: 0, maxStock: 0, note: row.note });
+                const newItem = await vppApi.createItem({ group: importGroup, name: row.name, unit: row.unit, unitPrice: row.unitPrice, minStock: 0, maxStock: 0, note: row.note });
                 success++;
+                if (row.initialQty > 0) {
+                    try {
+                        await vppApi.createImport({ importDate: today, note: 'Nhập ban đầu từ Excel', lines: [{ itemId: newItem.id, quantity: row.initialQty, unitPrice: row.unitPrice }] });
+                    } catch { /* non-fatal */ }
+                }
             } catch (e: unknown) {
                 failed++;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -188,6 +226,22 @@ export default function TabCatalog() {
                 style: { maxWidth: 480, whiteSpace: 'pre-line' },
             });
         }
+    }
+
+    function downloadTemplate() {
+        const headers = [
+            'Tên VPP\n(cùng sản phẩm khác giá bắt buộc tạo mã mới)',
+            'Đơn vị tính',
+            'Giá nhập',
+            'Số lượng ban đầu\n(tùy chọn — tự tạo phiếu nhập)',
+        ];
+        const example = ['Bút bi Thiên Long', 'Hộp (20 cây)', 18000, 10];
+        const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+        ws['!cols'] = [44, 18, 14, 24].map(w => ({ wch: w }));
+        ws['!rows'] = [{ hpt: 44 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Danh mục VPP');
+        XLSX.writeFile(wb, 'Template_VatTu_VPP.xlsx');
     }
 
     function exportExcel() {
@@ -261,22 +315,22 @@ export default function TabCatalog() {
                 <Table stickyHeader size="small">
                     <TableHead>
                         <TableRow>
-                            {['Mã', 'Nhóm', 'Tên vật tư', 'ĐVT', 'Giá nhập', 'VAT', 'Tồn min', 'Tồn max', 'Thao tác'].map(h => (
+                            {['Mã', 'Nhóm', 'Tên vật tư', 'ĐVT', 'Giá nhập', 'VAT', 'Tổng tiền', 'Tồn min', 'Tồn max', 'Thao tác'].map(h => (
                                 <TableCell key={h} sx={{ fontWeight: 800, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', py: 1.8, bgcolor: GREEN }}>{h}</TableCell>
                             ))}
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {isLoading ? (
-                            <TableRow><TableCell colSpan={9} align="center" sx={{ py: 6, color: '#94a3b8' }}>Đang tải...</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={10} align="center" sx={{ py: 6, color: '#94a3b8' }}>Đang tải...</TableCell></TableRow>
                         ) : items.length === 0 ? (
-                            <TableRow><TableCell colSpan={9} align="center" sx={{ py: 8 }}>
+                            <TableRow><TableCell colSpan={10} align="center" sx={{ py: 8 }}>
                                 <Typography sx={{ fontWeight: 700, color: '#64748b', fontSize: 14 }}>Chưa có vật tư nào</Typography>
                             </TableCell></TableRow>
                         ) : items.map((item, i) => {
                             const gc = GROUP_COLORS[item.group] ?? { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' };
                             return (
-                                <TableRow key={item.id} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#fbfefc', '&:hover': { bgcolor: '#f0fdf4 !important' }, transition: 'background 0.15s', '& > *': { borderBottom: '1px solid #f1f5f9 !important' } }}>
+                                <TableRow key={item.id} sx={{ bgcolor: item.isActive === false ? '#f8fafc' : i % 2 === 0 ? '#fff' : '#fbfefc', opacity: item.isActive === false ? 0.6 : 1, '&:hover': { bgcolor: item.isActive === false ? '#f1f5f9 !important' : '#f0fdf4 !important' }, transition: 'background 0.15s', '& > *': { borderBottom: '1px solid #f1f5f9 !important' } }}>
                                     <TableCell sx={{ py: 1.5 }}>
                                         <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#475569', bgcolor: '#f1f5f9', px: 1, py: 0.4, borderRadius: '6px', display: 'inline-block' }}>{item.code}</Box>
                                     </TableCell>
@@ -284,13 +338,25 @@ export default function TabCatalog() {
                                         <Chip label={VPP_GROUPS.find(g => g.value === item.group)?.label ?? item.group} size="small"
                                             sx={{ fontSize: 11, fontWeight: 700, bgcolor: gc.bg, color: gc.color, border: `1px solid ${gc.border}`, borderRadius: '8px', height: 22 }} />
                                     </TableCell>
-                                    <TableCell sx={{ fontWeight: 600, maxWidth: 220, fontSize: 13, py: 1.5 }}>{item.name}</TableCell>
+                                    <TableCell sx={{ fontWeight: 600, maxWidth: 220, fontSize: 13, py: 1.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                            {item.name}
+                                            {item.isActive === false && <Chip label="Ngừng nhập" size="small" sx={{ fontSize: 10, height: 18, bgcolor: '#f1f5f9', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: '6px' }} />}
+                                        </Box>
+                                    </TableCell>
                                     <TableCell sx={{ color: '#64748b', py: 1.5 }}>{item.unit}</TableCell>
                                     <TableCell sx={{ color: '#0f766e', fontWeight: 700, py: 1.5 }}>{item.unitPrice.toLocaleString('vi-VN')}đ</TableCell>
                                     <TableCell sx={{ color: '#64748b', py: 1.5 }}>{(item.vatRate * 100).toFixed(0)}%</TableCell>
+                                    <TableCell sx={{ color: '#7c3aed', fontWeight: 700, py: 1.5 }}>{Math.round(item.unitPrice * (1 + item.vatRate)).toLocaleString('vi-VN')}đ</TableCell>
                                     <TableCell align="center" sx={{ py: 1.5 }}>{item.minStock}</TableCell>
                                     <TableCell align="center" sx={{ py: 1.5 }}>{item.maxStock}</TableCell>
                                     <TableCell align="right" sx={{ py: 1.5 }}>
+                                        <Tooltip title={item.isActive !== false ? 'Đặt ngừng nhập' : 'Kích hoạt lại'} arrow>
+                                            <IconButton size="small" onClick={() => toggleMut.mutate(item.id)} disabled={toggleMut.isPending}
+                                                sx={{ color: item.isActive !== false ? '#22c55e' : '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { bgcolor: item.isActive !== false ? alpha('#22c55e', 0.08) : alpha('#94a3b8', 0.08) } }}>
+                                                {item.isActive !== false ? <ToggleOnRoundedIcon sx={{ fontSize: 20 }} /> : <ToggleOffRoundedIcon sx={{ fontSize: 20 }} />}
+                                            </IconButton>
+                                        </Tooltip>
                                         <Tooltip title="Sửa" arrow>
                                             <IconButton size="small" onClick={() => handleOpen(item)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) } }}>
                                                 <EditRoundedIcon sx={{ fontSize: 16 }} />
@@ -337,6 +403,14 @@ export default function TabCatalog() {
                         <TextField label="Tồn tối thiểu" size="small" type="number" sx={{ ...fieldSx, flex: 1 }} value={form.minStock} onChange={e => setForm(f => ({ ...f, minStock: +e.target.value }))} />
                         <TextField label="Tồn tối đa" size="small" type="number" sx={{ ...fieldSx, flex: 1 }} value={form.maxStock} onChange={e => setForm(f => ({ ...f, maxStock: +e.target.value }))} />
                     </Box>
+                    {!editItem && (
+                        <TextField label="Số lượng ban đầu" size="small" type="number"
+                            value={initialQty === 0 ? '' : initialQty}
+                            onChange={e => setInitialQty(e.target.value === '' ? 0 : Math.max(0, +e.target.value))}
+                            onBlur={() => setInitialQty(q => Math.max(0, q))}
+                            helperText={initialQty > 0 ? `Sẽ tự tạo phiếu nhập ${initialQty} ${form.unit || 'cái'} với đơn giá trên` : 'Tùy chọn — để trống nếu chưa có hàng'}
+                            sx={fieldSx} />
+                    )}
                     <TextField label="Ghi chú" size="small" fullWidth multiline rows={2} value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} sx={fieldSx} />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
@@ -361,7 +435,7 @@ export default function TabCatalog() {
                             <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#15803d' }}>Tải file mẫu để nhập đúng định dạng</Typography>
                             <Typography sx={{ fontSize: 12, color: '#64748b', mt: 0.2 }}>Điền dữ liệu vào template rồi upload bên dưới</Typography>
                         </Box>
-                        <Button component="a" href="/templates/vpp/Template_VatTu_VPP.xlsx" download startIcon={<DownloadRoundedIcon />}
+                        <Button startIcon={<DownloadRoundedIcon />} onClick={downloadTemplate}
                             sx={{ bgcolor: '#fff', border: '1px solid #bbf7d0', color: '#15803d', textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&:hover': { bgcolor: '#dcfce7' }, whiteSpace: 'nowrap' }}>
                             Tải template
                         </Button>

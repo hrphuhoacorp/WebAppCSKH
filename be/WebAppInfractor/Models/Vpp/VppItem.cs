@@ -17,6 +17,8 @@ public class VppItem
     public int MinStock { get; set; }
     public int MaxStock { get; set; }
     public string? Note { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? UniformReturnHistory { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }

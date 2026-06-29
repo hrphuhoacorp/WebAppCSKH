@@ -5,9 +5,9 @@ export const VPP_GROUPS = [
     { value: 'VPP', label: 'Văn phòng phẩm' },
     { value: 'VT', label: 'Vật tư tiêu hao' },
     { value: 'VS', label: 'Vật tư vệ sinh' },
-
     { value: 'CCDC', label: 'Công cụ – Dụng cụ' },
     { value: 'TB', label: 'Thiết bị' },
+    { value: 'DP', label: 'Đồng phục' },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -17,6 +17,13 @@ export interface PagedResult<T> {
     page: number;
     pageSize: number;
     items: T[];
+}
+
+export interface UniformReturnRecord {
+    date: string;
+    quantity: number;
+    returnedBy: string;
+    note: string;
 }
 
 export interface VppItemDto {
@@ -30,6 +37,8 @@ export interface VppItemDto {
     minStock: number;
     maxStock: number;
     note: string;
+    isActive: boolean;
+    uniformReturnHistory?: string;
     createdAt?: string;
 }
 
@@ -58,7 +67,8 @@ export interface VppInventoryRowDto {
     adjustedQty: number;
     closingQty: number;
     totalValue: number;
-    stockStatus: 'normal' | 'low' | 'out_of_stock';
+    isActive: boolean;
+    stockStatus: 'normal' | 'low' | 'out_of_stock' | 'inactive';
 }
 
 export interface VppInventorySummaryDto {
@@ -332,5 +342,21 @@ export const vppApi = {
     confirmStockCount: async (id: number) => {
         const res = await api.post(`/vpp/stock-counts/${id}/confirm`);
         return res.data.content as VppStockCountDetailDto;
+    },
+
+    // Toggle active
+    toggleActive: async (id: number) => {
+        const res = await api.patch(`/vpp/items/${id}/toggle-active`);
+        return res.data.content as VppItemDto;
+    },
+
+    // Uniform returns
+    appendUniformReturn: async (id: number, record: Omit<UniformReturnRecord, never>) => {
+        const res = await api.post(`/vpp/items/${id}/uniform-returns`, record);
+        return res.data.content as VppItemDto;
+    },
+    deleteUniformReturn: async (id: number, index: number) => {
+        const res = await api.delete(`/vpp/items/${id}/uniform-returns/${index}`);
+        return res.data.content as VppItemDto;
     },
 };

@@ -17,7 +17,7 @@ import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vppApi, VppImportCreateDto, VppAttachmentItem, VPP_GREEN } from '../api/vpp.api';
+import { vppApi, VppImportCreateDto, VppItemDto, VppItemUpsertDto, VppAttachmentItem, VPP_GREEN, VPP_GROUPS } from '../api/vpp.api';
 import toast from 'react-hot-toast';
 
 const GREEN = VPP_GREEN;
@@ -119,6 +119,25 @@ export default function TabImport() {
             setDeleteId(null);
             toast.success('Đã xóa phiếu nhập');
         },
+    });
+
+    // Quick-create catalog item from within import form
+    const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+    const [quickCreateLineIdx, setQuickCreateLineIdx] = useState(-1);
+    const [quickCreateForm, setQuickCreateForm] = useState<VppItemUpsertDto>({
+        group: 'VPP', name: '', unit: '', unitPrice: 0, minStock: 0, maxStock: 0, note: '',
+    });
+    const quickCreateMut = useMutation({
+        mutationFn: (dto: VppItemUpsertDto) => vppApi.createItem(dto),
+        onSuccess: (newItem) => {
+            const cur = qc.getQueryData<VppItemDto[]>(['vpp-items-all']) ?? [];
+            qc.setQueryData(['vpp-items-all'], [...cur, newItem]);
+            qc.invalidateQueries({ queryKey: ['vpp-items-all'] });
+            updateLine(quickCreateLineIdx, { itemId: newItem.id, unitPrice: newItem.unitPrice });
+            setQuickCreateOpen(false);
+            toast.success('Đã thêm vật tư mới vào danh mục');
+        },
+        onError: (err: any) => { toast.error(err?.response?.data?.message || 'Tạo vật tư thất bại'); },
     });
 
     function resetForm() {
@@ -289,7 +308,7 @@ export default function TabImport() {
                         <Table size="small">
                             <TableHead>
                                 <TableRow>
-                                    {['Vật tư *', 'Số lượng', 'Đơn giá (đ)', 'Thành tiền', 'CT', ''].map(h => (
+                                    {['Vật tư *', 'SL', 'ĐVT', 'Đơn giá (đ)', 'Thành tiền', 'CT', ''].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#f8fafc', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
@@ -299,23 +318,57 @@ export default function TabImport() {
                                     <TableRow key={idx} sx={{ '&:last-child td': { border: 0 } }}>
                                         <TableCell sx={{ minWidth: 260 }}>
                                             <Autocomplete
-                                                size="small" options={allItems}
-                                                getOptionLabel={it => `${it.code} — ${it.name}`}
+                                                size="small"
+                                                options={allItems}
+                                                getOptionLabel={it => it.id === -1 ? it.name : `${it.code} — ${it.name}`}
                                                 value={allItems.find(x => x.id === line.itemId) ?? null}
-                                                onChange={(_, it) => updateLine(idx, { itemId: it?.id ?? 0, unitPrice: it?.unitPrice ?? 0 })}
+                                                filterOptions={(options, { inputValue }) => {
+                                                    const q = inputValue.toLowerCase().trim();
+                                                    const filtered = q
+                                                        ? options.filter(o => o.name.toLowerCase().includes(q) || o.code.toLowerCase().includes(q))
+                                                        : options;
+                                                    if (q) filtered.push({ id: -1, code: '', name: inputValue.trim(), group: '', unit: '', unitPrice: 0, vatRate: 0, minStock: 0, maxStock: 0, note: '', isActive: true } as VppItemDto);
+                                                    return filtered;
+                                                }}
+                                                onChange={(_, it) => {
+                                                    if (!it) { updateLine(idx, { itemId: 0, unitPrice: 0 }); return; }
+                                                    if (it.id === -1) {
+                                                        setQuickCreateForm({ group: '', name: it.name, unit: '', unitPrice: line.unitPrice || 0, minStock: 0, maxStock: 0, note: '' });
+                                                        setQuickCreateLineIdx(idx);
+                                                        setQuickCreateOpen(true);
+                                                        return;
+                                                    }
+                                                    updateLine(idx, { itemId: it.id, unitPrice: it.unitPrice });
+                                                }}
                                                 isOptionEqualToValue={(o, v) => o.id === v.id}
                                                 noOptionsText="Không tìm thấy"
                                                 renderInput={params => <TextField {...params} placeholder="Tìm vật tư..." sx={fieldSx} />}
-                                                renderOption={(props, it) => (
-                                                    <Box component="li" {...props}>
-                                                        <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8', mr: 1 }}>{it.code}</Box>
-                                                        {it.name}
-                                                    </Box>
-                                                )}
+                                                renderOption={(props, it) => {
+                                                    const { key, ...rest } = props as any;
+                                                    if (it.id === -1) return (
+                                                        <Box key={key} component="li" {...rest} sx={{ color: BLUE, fontWeight: 700, gap: 0.8 }}>
+                                                            <AddCircleOutlineRoundedIcon sx={{ fontSize: 15, flexShrink: 0 }} />
+                                                            Thêm &ldquo;{it.name}&rdquo; vào danh mục
+                                                        </Box>
+                                                    );
+                                                    return (
+                                                        <Box key={key} component="li" {...rest}>
+                                                            <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8', mr: 1 }}>{it.code}</Box>
+                                                            {it.name}
+                                                        </Box>
+                                                    );
+                                                }}
                                             />
                                         </TableCell>
                                         <TableCell sx={{ width: 110 }}>
-                                            <TextField size="small" type="number" value={line.quantity} onChange={e => updateLine(idx, { quantity: Math.max(1, +e.target.value) })} slotProps={{ htmlInput: { min: 1 } }} sx={fieldSx} />
+                                            <TextField size="small" type="number"
+                                                value={line.quantity === 0 ? '' : line.quantity}
+                                                onChange={e => updateLine(idx, { quantity: e.target.value === '' ? 0 : Math.max(1, +e.target.value) })}
+                                                onBlur={() => { if (!line.quantity) updateLine(idx, { quantity: 1 }); }}
+                                                slotProps={{ htmlInput: { min: 1 } }} sx={fieldSx} />
+                                        </TableCell>
+                                        <TableCell sx={{ width: 72, color: '#64748b', fontSize: 12 }}>
+                                            {allItems.find(x => x.id === line.itemId)?.unit ?? '—'}
                                         </TableCell>
                                         <TableCell sx={{ width: 140 }}>
                                             <TextField size="small" type="number" value={line.unitPrice} onChange={e => updateLine(idx, { unitPrice: Math.max(0, +e.target.value) })} slotProps={{ htmlInput: { min: 0 } }} sx={fieldSx} />
@@ -521,6 +574,38 @@ export default function TabImport() {
                     <Button fullWidth variant="outlined" onClick={() => setDeleteId(null)} sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: BORDER, color: '#64748b' }}>Hủy</Button>
                     <Button fullWidth variant="contained" color="error" onClick={() => deleteId && deleteMut.mutate(deleteId)} disabled={deleteMut.isPending} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '12px' }}>
                         {deleteMut.isPending ? 'Đang xóa...' : 'Xóa phiếu nhập'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* ── Quick-create catalog item ── */}
+            <Dialog open={quickCreateOpen} onClose={() => setQuickCreateOpen(false)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS, p: 1 } } }}>
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>Thêm vật tư mới vào danh mục</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
+                    <TextField select size="small" label="Nhóm *" value={quickCreateForm.group}
+                        onChange={e => setQuickCreateForm(f => ({ ...f, group: e.target.value }))} sx={fieldSx}>
+                        {VPP_GROUPS.map(g => <MenuItem key={g.value} value={g.value}>{g.value} — {g.label}</MenuItem>)}
+                    </TextField>
+                    <TextField label="Tên vật tư *" size="small" fullWidth value={quickCreateForm.name}
+                        onChange={e => setQuickCreateForm(f => ({ ...f, name: e.target.value }))} sx={fieldSx} />
+                    <Box sx={{ display: 'flex', gap: 1.5 }}>
+                        <TextField label="Đơn vị tính *" size="small" sx={{ ...fieldSx, flex: 1 }}
+                            value={quickCreateForm.unit} onChange={e => setQuickCreateForm(f => ({ ...f, unit: e.target.value }))} />
+                        <TextField label="Đơn giá (đ)" size="small" type="number" sx={{ ...fieldSx, flex: 1 }}
+                            value={quickCreateForm.unitPrice}
+                            onChange={e => setQuickCreateForm(f => ({ ...f, unitPrice: Math.max(0, +e.target.value) }))} />
+                    </Box>
+                    <Typography sx={{ fontSize: 11.5, color: '#64748b', bgcolor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', px: 1.5, py: 1 }}>
+                        Đơn giá này sẽ được lưu vào danh mục. Bạn vẫn có thể sửa đơn giá trong phiếu nhập.
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+                    <Button fullWidth variant="outlined" onClick={() => setQuickCreateOpen(false)} disabled={quickCreateMut.isPending}
+                        sx={{ textTransform: 'none', borderRadius: '12px', borderColor: BORDER, color: '#64748b' }}>Hủy</Button>
+                    <Button fullWidth variant="contained" onClick={() => quickCreateMut.mutate(quickCreateForm)}
+                        disabled={quickCreateMut.isPending || !quickCreateForm.group || !quickCreateForm.name.trim() || !quickCreateForm.unit.trim()}
+                        sx={{ bgcolor: BLUE, '&:hover': { bgcolor: '#0369a1' }, textTransform: 'none', fontWeight: 700, borderRadius: '12px' }}>
+                        {quickCreateMut.isPending ? 'Đang tạo...' : 'Tạo & chọn'}
                     </Button>
                 </DialogActions>
             </Dialog>

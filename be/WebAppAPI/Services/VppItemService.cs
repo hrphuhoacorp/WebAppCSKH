@@ -13,6 +13,9 @@ public interface IVppItemService
     Task<VppItemDto> CreateAsync(VppItemUpsertDto dto);
     Task<VppItemDto> UpdateAsync(int id, VppItemUpsertDto dto);
     Task DeleteAsync(int id);
+    Task<VppItemDto> AppendUniformReturnAsync(int id, UniformReturnRecordDto dto);
+    Task<VppItemDto> DeleteUniformReturnAsync(int id, int index);
+    Task<VppItemDto> ToggleActiveAsync(int id);
 }
 
 public class VppItemService : IVppItemService
@@ -129,6 +132,62 @@ public class VppItemService : IVppItemService
         await _uow.SaveChangesAsync();
     }
 
+    public async Task<VppItemDto> AppendUniformReturnAsync(int id, UniformReturnRecordDto dto)
+    {
+        var entity = await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy vật tư");
+        if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy vật tư");
+
+        var records = string.IsNullOrEmpty(entity.UniformReturnHistory)
+            ? new List<UniformReturnRecord>()
+            : System.Text.Json.JsonSerializer.Deserialize<List<UniformReturnRecord>>(entity.UniformReturnHistory)
+              ?? new List<UniformReturnRecord>();
+
+        records.Add(new UniformReturnRecord
+        {
+            Date = dto.Date,
+            Quantity = dto.Quantity,
+            ReturnedBy = dto.ReturnedBy,
+            Note = dto.Note ?? "",
+        });
+
+        entity.UniformReturnHistory = System.Text.Json.JsonSerializer.Serialize(records);
+        entity.UpdatedAt = DateTime.UtcNow.AddHours(7);
+        await _uow.SaveChangesAsync();
+        return ToDto(entity);
+    }
+
+    public async Task<VppItemDto> DeleteUniformReturnAsync(int id, int index)
+    {
+        var entity = await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy vật tư");
+        if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy vật tư");
+
+        var records = string.IsNullOrEmpty(entity.UniformReturnHistory)
+            ? new List<UniformReturnRecord>()
+            : System.Text.Json.JsonSerializer.Deserialize<List<UniformReturnRecord>>(entity.UniformReturnHistory)
+              ?? new List<UniformReturnRecord>();
+
+        if (index < 0 || index >= records.Count)
+            throw new NotFoundException("Không tìm thấy bản ghi hoàn trả");
+
+        records.RemoveAt(index);
+        entity.UniformReturnHistory = records.Count > 0
+            ? System.Text.Json.JsonSerializer.Serialize(records)
+            : null;
+        entity.UpdatedAt = DateTime.UtcNow.AddHours(7);
+        await _uow.SaveChangesAsync();
+        return ToDto(entity);
+    }
+
+    public async Task<VppItemDto> ToggleActiveAsync(int id)
+    {
+        var entity = await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy vật tư");
+        if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy vật tư");
+        entity.IsActive = !entity.IsActive;
+        entity.UpdatedAt = DateTime.UtcNow.AddHours(7);
+        await _uow.SaveChangesAsync();
+        return ToDto(entity);
+    }
+
     private async Task<string> GenerateCodeAsync(string group)
     {
         var prefix = group.ToUpper();
@@ -170,6 +229,8 @@ public class VppItemService : IVppItemService
             MinStock = e.MinStock,
             MaxStock = e.MaxStock,
             Note = e.Note ?? "",
+            IsActive = e.IsActive,
+            UniformReturnHistory = e.UniformReturnHistory,
             CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
         };
 }
@@ -186,6 +247,8 @@ public class VppItemDto
     public int MinStock { get; set; }
     public int MaxStock { get; set; }
     public string Note { get; set; } = "";
+    public bool IsActive { get; set; }
+    public string? UniformReturnHistory { get; set; }
     public string? CreatedAt { get; set; }
 }
 
@@ -197,5 +260,25 @@ public class VppItemUpsertDto
     public decimal UnitPrice { get; set; }
     public int MinStock { get; set; }
     public int MaxStock { get; set; }
+    public string? Note { get; set; }
+}
+
+public class UniformReturnRecord
+{
+    [System.Text.Json.Serialization.JsonPropertyName("date")]
+    public string Date { get; set; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("quantity")]
+    public int Quantity { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("returnedBy")]
+    public string ReturnedBy { get; set; } = "";
+    [System.Text.Json.Serialization.JsonPropertyName("note")]
+    public string Note { get; set; } = "";
+}
+
+public class UniformReturnRecordDto
+{
+    public string Date { get; set; } = null!;
+    public int Quantity { get; set; }
+    public string ReturnedBy { get; set; } = null!;
     public string? Note { get; set; }
 }

@@ -48,4 +48,25 @@ public class VppItemController : ControllerBase
         await _service.DeleteAsync(id);
         return new ResponseValue<object>(new { success = true }, "Đã xóa vật tư", StatusReponse.Success);
     }
+
+    [HttpPatch("{id:int}/toggle-active")]
+    public async Task<ResponseValue<VppItemDto>> ToggleActive(int id)
+    {
+        var result = await _service.ToggleActiveAsync(id);
+        return new ResponseValue<VppItemDto>(result, "Đã cập nhật trạng thái", StatusReponse.Success);
+    }
+
+    [HttpPost("{id:int}/uniform-returns")]
+    public async Task<ResponseValue<VppItemDto>> AppendUniformReturn(int id, [FromBody] UniformReturnRecordDto dto)
+    {
+        var result = await _service.AppendUniformReturnAsync(id, dto);
+        return new ResponseValue<VppItemDto>(result, "Đã ghi nhận hoàn trả", StatusReponse.Success);
+    }
+
+    [HttpDelete("{id:int}/uniform-returns/{index:int}")]
+    public async Task<ResponseValue<VppItemDto>> DeleteUniformReturn(int id, int index)
+    {
+        var result = await _service.DeleteUniformReturnAsync(id, index);
+        return new ResponseValue<VppItemDto>(result, "Đã xóa bản ghi hoàn trả", StatusReponse.Success);
+    }
 }
