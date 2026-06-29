@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
+import type { ApexOptions } from 'apexcharts';
 import {
     Box, Chip, Paper, Skeleton, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Typography, alpha,
@@ -10,53 +12,83 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import MonetizationOnRoundedIcon from '@mui/icons-material/MonetizationOnRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import {
-    ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RTooltip, Legend,
-    BarChart, Bar, XAxis, YAxis, CartesianGrid,
-} from 'recharts';
+import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import { useQuery } from '@tanstack/react-query';
 import { vppApi, VPP_GREEN, VPP_GROUPS } from '../api/vpp.api';
 
+const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
+
 const GREEN = VPP_GREEN;
+const BLUE = '#0284c7';
 const PURPLE = '#7c3aed';
 const CARD_RADIUS = '20px';
 const BORDER = '#e2e8f0';
-
 const GROUP_COLORS = ['#0284c7', '#f59e0b', '#22c55e', '#8b5cf6', '#ec4899'];
 const NHAP_COLOR = '#0284c7';
 const XUAT_COLOR = GREEN;
 
-function StatCard({ label, value, sub, color, icon, loading }: {
-    label: string; value: string | number; sub: string; color: string; icon: React.ReactNode; loading?: boolean;
+function fmtVND(v: number) {
+    if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1) + 'tỷ';
+    if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'tr';
+    return Math.round(v).toLocaleString('vi-VN') + 'đ';
+}
+
+function StatCard({ label, value, sub, color, icon, loading, accent }: {
+    label: string; value: string | number; sub: string;
+    color: string; icon: React.ReactNode; loading?: boolean; accent?: string;
 }) {
     return (
         <Paper elevation={0} sx={{
-            p: 2.5, borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff',
-            boxShadow: '0 2px 16px rgba(8,104,57,0.05)', position: 'relative', overflow: 'hidden',
-            '&::after': { content: '""', position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, bgcolor: color },
+            p: 2.5, borderRadius: CARD_RADIUS, border: `1px solid ${alpha(color, 0.18)}`,
+            background: `linear-gradient(135deg, #fff 60%, ${alpha(color, 0.06)} 100%)`,
+            boxShadow: `0 4px 24px ${alpha(color, 0.1)}`,
+            position: 'relative', overflow: 'hidden',
         }}>
+            <Box sx={{
+                position: 'absolute', top: -18, right: -18, width: 80, height: 80,
+                borderRadius: '50%', bgcolor: alpha(color, 0.07),
+            }} />
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                <Box sx={{ width: 42, height: 42, borderRadius: '13px', bgcolor: alpha(color, 0.1), display: 'flex', alignItems: 'center', justifyContent: 'center', '& svg': { fontSize: 21, color }, border: `1px solid ${alpha(color, 0.14)}`, flexShrink: 0 }}>
+                <Box sx={{
+                    width: 44, height: 44, borderRadius: '14px', flexShrink: 0,
+                    background: `linear-gradient(135deg, ${color}, ${alpha(color, 0.6)})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `0 4px 12px ${alpha(color, 0.35)}`,
+                    '& svg': { fontSize: 21, color: '#fff' },
+                }}>
                     {icon}
                 </Box>
                 <Box>
-                    <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.55px', mb: 0.5 }}>{label}</Typography>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 0.4 }}>{label}</Typography>
                     {loading
-                        ? <Skeleton width={60} height={32} />
-                        : <Typography sx={{ fontSize: typeof value === 'string' && value.length > 10 ? 18 : 28, fontWeight: 900, color: '#1e293b', lineHeight: 1.1 }}>{value}</Typography>
+                        ? <Skeleton width={64} height={32} />
+                        : <Typography sx={{ fontSize: typeof value === 'string' && value.length > 10 ? 18 : 26, fontWeight: 900, color: '#1e293b', lineHeight: 1.1 }}>{value}</Typography>
                     }
-                    <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.5 }}>{sub}</Typography>
+                    <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                        {accent && <TrendingUpRoundedIcon sx={{ fontSize: 13, color }} />}
+                        {sub}
+                    </Typography>
                 </Box>
             </Box>
         </Paper>
     );
 }
 
-function ChartCard({ title, children, loading, height = 220 }: { title: string; children: React.ReactNode; loading?: boolean; height?: number }) {
+function ChartCard({ title, subtitle, children, loading, height = 260 }: {
+    title: string; subtitle?: string; children: React.ReactNode; loading?: boolean; height?: number;
+}) {
     return (
-        <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)', p: 2.5 }}>
-            <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 2 }}>{title}</Typography>
-            {loading ? <Skeleton variant="rectangular" height={height} sx={{ borderRadius: '12px' }} /> : children}
+        <Paper elevation={0} sx={{
+            borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff',
+            boxShadow: '0 2px 20px rgba(0,0,0,0.06)', overflow: 'hidden',
+        }}>
+            <Box sx={{ px: 2.5, pt: 2.5, pb: 0 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#1e293b', letterSpacing: '0.2px' }}>{title}</Typography>
+                {subtitle && <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.3 }}>{subtitle}</Typography>}
+            </Box>
+            <Box sx={{ px: 1, pt: 1, pb: 0.5 }}>
+                {loading ? <Skeleton variant="rectangular" height={height} sx={{ borderRadius: '12px', mx: 1.5, mb: 1.5 }} /> : children}
+            </Box>
         </Paper>
     );
 }
@@ -70,7 +102,6 @@ export default function TabOverview() {
         queryKey: ['vpp-inventory', month, year],
         queryFn: () => vppApi.getInventory(month, year),
     });
-
     const { data: dispatchStats = [], isLoading: statsLoading } = useQuery({
         queryKey: ['vpp-dispatch-stats', month, year],
         queryFn: () => vppApi.getDispatchStats(month, year),
@@ -78,27 +109,16 @@ export default function TabOverview() {
 
     const alertRows = inv?.rows.filter(r => r.stockStatus !== 'normal') ?? [];
 
-    // Donut data — giữ field fill cho Pie/Cell
     const donutData = VPP_GROUPS.map((g, i) => {
         const rows = inv?.rows.filter(r => r.group === g.value) ?? [];
-        return {
-            name: g.label,
-            giaTriTon: Math.round(rows.reduce((s, r) => s + r.totalValue, 0)),
-            fill: GROUP_COLORS[i],
-        };
-    }).filter(g => g.giaTriTon > 0);
+        return { name: g.label, value: Math.round(rows.reduce((s, r) => s + r.totalValue, 0)), color: GROUP_COLORS[i] };
+    }).filter(g => g.value > 0);
 
-    // Bar data nhập/xuất — KHÔNG có field fill để tránh Recharts override màu
-    const importExportData = VPP_GROUPS.map((g) => {
+    const importExportGroups = VPP_GROUPS.map(g => {
         const rows = inv?.rows.filter(r => r.group === g.value) ?? [];
-        return {
-            name: g.label,
-            'Nhập kho': Math.round(rows.reduce((s, r) => s + r.importedQty, 0)),
-            'Xuất kho': Math.round(rows.reduce((s, r) => s + r.dispatchedQty, 0)),
-        };
-    }).filter(g => g['Nhập kho'] > 0 || g['Xuất kho'] > 0);
+        return { name: g.label, nhap: Math.round(rows.reduce((s, r) => s + r.importedQty, 0)), xuat: Math.round(rows.reduce((s, r) => s + r.dispatchedQty, 0)) };
+    }).filter(g => g.nhap > 0 || g.xuat > 0);
 
-    // Top 8 vật tư tồn kho cao nhất (cột đứng)
     const topItems = [...(inv?.rows ?? [])]
         .filter(r => r.closingQty > 0)
         .sort((a, b) => b.closingQty - a.closingQty)
@@ -106,18 +126,107 @@ export default function TabOverview() {
         .map(r => ({
             name: r.name.length > 12 ? r.name.slice(0, 10) + '…' : r.name,
             fullName: r.name,
-            closingQty: r.closingQty,
-            fill: r.stockStatus === 'out_of_stock' ? '#dc2626' : r.stockStatus === 'low' ? '#f59e0b' : GREEN,
+            value: r.closingQty,
+            color: r.stockStatus === 'out_of_stock' ? '#dc2626' : r.stockStatus === 'low' ? '#f59e0b' : GREEN,
         }));
 
-    // Biểu đồ xuất kho theo bộ phận/chi nhánh
-    const deptDispatchData = dispatchStats.slice(0, 8).map(s => ({
+    const deptData = dispatchStats.slice(0, 8).map(s => ({
         name: [s.department, s.branch].filter(Boolean).join(' / ') || '—',
-        'Tổng tiền': Math.round(s.totalAmount),
-        'Số phiếu': s.dispatchCount,
+        value: Math.round(s.totalAmount),
     }));
 
-    const totalValue = donutData.reduce((s, g) => s + g.giaTriTon, 0);
+    // ── ApexCharts options ──────────────────────────────────────────────────────
+
+    const donutOpts: ApexOptions = {
+        chart: { type: 'donut', animations: { enabled: true, speed: 900, animateGradually: { enabled: true, delay: 120 } }, fontFamily: 'inherit' },
+        colors: donutData.map(d => d.color),
+        labels: donutData.map(d => d.name),
+        fill: { type: 'gradient', gradient: { shade: 'dark', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.8 } },
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '66%',
+                    labels: {
+                        show: true,
+                        total: {
+                            show: true,
+                            label: 'Tổng giá trị',
+                            fontSize: '11px',
+                            color: '#94a3b8',
+                            fontWeight: 600,
+                            formatter: w => {
+                                const total: number = w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0);
+                                return Math.round(total).toLocaleString('vi-VN') + 'đ';
+                            },
+                        },
+                        value: {
+                            fontSize: '15px', fontWeight: 800, color: '#1e293b',
+                            formatter: (v: string) => Math.round(Number(v)).toLocaleString('vi-VN') + 'đ',
+                        },
+                    },
+                },
+            },
+        },
+        dataLabels: { enabled: false },
+        legend: { position: 'bottom', fontSize: '12px', fontFamily: 'inherit', markers: { size: 8 } },
+        stroke: { show: false },
+        tooltip: { y: { formatter: (v: number) => v.toLocaleString('vi-VN') + 'đ' }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
+
+    const barGroupOpts: ApexOptions = {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', animations: { enabled: true, speed: 700 } },
+        plotOptions: { bar: { borderRadius: 6, columnWidth: '62%', borderRadiusApplication: 'end' } },
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.15, opacityFrom: 1, opacityTo: 0.8 } },
+        colors: [NHAP_COLOR, XUAT_COLOR],
+        dataLabels: { enabled: false },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4, xaxis: { lines: { show: false } } },
+        xaxis: {
+            categories: importExportGroups.map(d => d.name),
+            labels: { style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' }, trim: true, maxHeight: 60 },
+            axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { labels: { style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' } } },
+        legend: { fontFamily: 'inherit', fontSize: '12px', markers: { size: 8 } },
+        tooltip: { y: { formatter: (v: number) => v.toLocaleString('vi-VN') }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
+
+    const topOpts: ApexOptions = {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', animations: { enabled: true, speed: 700 } },
+        plotOptions: { bar: { borderRadius: 8, columnWidth: '56%', borderRadiusApplication: 'end', distributed: true } },
+        fill: { type: 'gradient', gradient: { shade: 'dark', type: 'vertical', shadeIntensity: 0.4, opacityFrom: 1, opacityTo: 0.65 } },
+        colors: topItems.map(t => t.color),
+        dataLabels: { enabled: false },
+        legend: { show: false },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4, xaxis: { lines: { show: false } } },
+        xaxis: {
+            categories: topItems.map(t => t.name),
+            labels: { style: { fontSize: '10px', colors: '#64748b', fontFamily: 'inherit' }, rotate: -30 },
+            axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { labels: { style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' } } },
+        tooltip: {
+            y: { formatter: (v: number) => v.toLocaleString('vi-VN') + ' cái', title: { formatter: () => 'Tồn kho' } },
+            style: { fontFamily: 'inherit', fontSize: '12px' },
+        },
+    };
+
+    const deptOpts: ApexOptions = {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', animations: { enabled: true, speed: 700 } },
+        plotOptions: { bar: { borderRadius: 6, horizontal: true, barHeight: '54%', borderRadiusApplication: 'end' } },
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'horizontal', shadeIntensity: 0.2, opacityFrom: 1, opacityTo: 0.75, gradientToColors: ['#a78bfa'] } },
+        colors: [PURPLE],
+        dataLabels: { enabled: false },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4, yaxis: { lines: { show: false } } },
+        xaxis: {
+            labels: {
+                formatter: (v: string) => { const n = Number(v); return n >= 1_000_000 ? (n / 1_000_000).toFixed(0) + 'tr' : n.toLocaleString('vi-VN'); },
+                style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' },
+            },
+            axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { labels: { style: { fontSize: '11px', colors: '#475569', fontFamily: 'inherit' }, maxWidth: 130 } },
+        tooltip: { y: { formatter: (v: number) => v.toLocaleString('vi-VN') + 'đ', title: { formatter: () => 'Tổng tiền' } }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
 
     return (
         <Box sx={{ height: '100%', overflow: 'auto', pb: 2 }}>
@@ -126,126 +235,49 @@ export default function TabOverview() {
                 <StatCard label="Tổng vật tư" value={inv?.rows.length ?? 0} sub="Đang theo dõi" color={GREEN} icon={<InventoryRoundedIcon />} loading={isLoading} />
                 <StatCard label="Sắp hết hàng" value={inv?.lowStockCount ?? 0} sub="Dưới mức tối thiểu" color="#f59e0b" icon={<WarningAmberRoundedIcon />} loading={isLoading} />
                 <StatCard label="Hết hàng" value={inv?.outOfStockCount ?? 0} sub="Tồn kho = 0" color="#dc2626" icon={<ErrorOutlineRoundedIcon />} loading={isLoading} />
-                <StatCard label="Tổng giá trị kho" value={inv ? (inv.totalValue.toLocaleString('vi-VN') + 'đ') : '—'} sub={`Tháng ${month}/${year}`} color="#0284c7" icon={<MonetizationOnRoundedIcon />} loading={isLoading} />
+                <StatCard label="Tổng giá trị kho" value={inv ? Math.round(inv.totalValue).toLocaleString('vi-VN') + 'đ' : '—'} sub={`Tháng ${month}/${year}`} color="#0284c7" icon={<MonetizationOnRoundedIcon />} loading={isLoading} />
             </Box>
 
-            {/* Row 2: Donut + Nhập/Xuất grouped bar (màu đồng nhất) */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.6fr' }, gap: 2, mb: 2 }}>
-                {/* Chart 1: Donut */}
-                <ChartCard title="Cơ cấu giá trị tồn kho" loading={isLoading}>
-                    {donutData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={230}>
-                            <PieChart>
-                                <Pie data={donutData} cx="50%" cy="50%" innerRadius={65} outerRadius={95} dataKey="giaTriTon" paddingAngle={3}>
-                                    {donutData.map((entry, i) => (
-                                        <Cell key={i} fill={entry.fill} />
-                                    ))}
-                                </Pie>
-                                <RTooltip
-                                    formatter={(v) => [Number(v).toLocaleString('vi-VN') + 'đ', 'Giá trị']}
-                                    contentStyle={{ borderRadius: '12px', border: `1px solid ${BORDER}`, fontSize: 12 }}
-                                />
-                                <Legend formatter={(value) => <span style={{ fontSize: 12, color: '#475569' }}>{value}</span>} wrapperStyle={{ paddingTop: 8 }} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <Box sx={{ height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography>
-                        </Box>
-                    )}
-                    {totalValue > 0 && (
-                        <Typography sx={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', mt: -1 }}>
-                            Tổng: <strong style={{ color: '#0284c7' }}>{totalValue.toLocaleString('vi-VN')}đ</strong>
-                        </Typography>
-                    )}
+            {/* Row 2: Donut + Nhập/Xuất */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.7fr' }, gap: 2, mb: 2 }}>
+                <ChartCard title="Cơ cấu giá trị tồn kho" subtitle={`Tháng ${month}/${year}`} loading={isLoading} height={280}>
+                    {donutData.length > 0
+                        ? <ReactApexChart type="donut" series={donutData.map(d => d.value)} options={donutOpts} height={280} />
+                        : <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography></Box>
+                    }
                 </ChartCard>
 
-                {/* Chart 2: Grouped bar nhập/xuất — dùng importExportData (không có fill) */}
-                <ChartCard title={`Nhập / Xuất kho — Tháng ${month}/${year}`} loading={isLoading}>
-                    {importExportData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={230}>
-                            <BarChart data={importExportData} margin={{ top: 4, right: 12, left: -10, bottom: 0 }} barGap={3} barCategoryGap="30%">
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                <RTooltip
-                                    contentStyle={{ borderRadius: '12px', border: `1px solid ${BORDER}`, fontSize: 12 }}
-                                    formatter={(v, name) => [Number(v).toLocaleString('vi-VN'), name]}
-                                />
-                                <Legend formatter={(v) => <span style={{ fontSize: 12, color: '#475569' }}>{v}</span>} />
-                                <Bar dataKey="Nhập kho" fill={NHAP_COLOR} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
-                                <Bar dataKey="Xuất kho" fill={XUAT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <Box sx={{ height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có nhập/xuất trong tháng</Typography>
-                        </Box>
-                    )}
+                <ChartCard title="Nhập / Xuất kho theo nhóm" subtitle={`Tháng ${month}/${year}`} loading={isLoading} height={280}>
+                    {importExportGroups.length > 0
+                        ? <ReactApexChart type="bar" height={280}
+                            series={[
+                                { name: 'Nhập kho', data: importExportGroups.map(d => d.nhap) },
+                                { name: 'Xuất kho', data: importExportGroups.map(d => d.xuat) },
+                            ]}
+                            options={barGroupOpts} />
+                        : <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có nhập/xuất trong tháng</Typography></Box>
+                    }
                 </ChartCard>
             </Box>
 
-            {/* Row 3: Top tồn kho (cột đứng) + Xuất kho theo bộ phận */}
+            {/* Row 3: Top tồn kho + Xuất kho theo bộ phận */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 2 }}>
-                {/* Chart 3: Vertical bar — Top tồn kho */}
-                <ChartCard title="Top vật tư tồn kho cao nhất" loading={isLoading} height={240}>
-                    {topItems.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={240}>
-                            <BarChart data={topItems} margin={{ top: 4, right: 8, left: -10, bottom: 48 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                                <XAxis
-                                    dataKey="name"
-                                    tick={{ fontSize: 10, fill: '#64748b' }}
-                                    axisLine={false} tickLine={false}
-                                    interval={0}
-                                    angle={-35}
-                                    textAnchor="end"
-                                />
-                                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                                <RTooltip
-                                    contentStyle={{ borderRadius: '12px', border: `1px solid ${BORDER}`, fontSize: 12 }}
-                                    formatter={(v) => [Number(v).toLocaleString('vi-VN'), 'Tồn kho']}
-                                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName ?? ''}
-                                />
-                                <Bar dataKey="closingQty" name="Tồn kho" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive={false}>
-                                    {topItems.map((entry, i) => (
-                                        <Cell key={i} fill={entry.fill} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu tồn kho</Typography>
-                        </Box>
-                    )}
+                <ChartCard title="Top vật tư tồn kho cao nhất" loading={isLoading} height={270}>
+                    {topItems.length > 0
+                        ? <ReactApexChart type="bar" height={270}
+                            series={[{ name: 'Tồn kho', data: topItems.map(t => t.value) }]}
+                            options={topOpts} />
+                        : <Box sx={{ height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu tồn kho</Typography></Box>
+                    }
                 </ChartCard>
 
-                {/* Chart 4: Xuất kho theo bộ phận / chi nhánh */}
-                <ChartCard title={`Xuất kho theo bộ phận — Tháng ${month}/${year}`} loading={statsLoading} height={240}>
-                    {deptDispatchData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={240}>
-                            <BarChart data={deptDispatchData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false}
-                                    tickFormatter={(v) => v >= 1_000_000 ? (v / 1_000_000).toFixed(0) + 'tr' : v.toLocaleString('vi-VN')}
-                                />
-                                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: '#475569' }} axisLine={false} tickLine={false} />
-                                <RTooltip
-                                    contentStyle={{ borderRadius: '12px', border: `1px solid ${BORDER}`, fontSize: 12 }}
-                                    formatter={(v, name) => [
-                                        name === 'Tổng tiền' ? Number(v).toLocaleString('vi-VN') + 'đ' : v,
-                                        name,
-                                    ]}
-                                />
-                                <Bar dataKey="Tổng tiền" fill={PURPLE} radius={[0, 6, 6, 0]} maxBarSize={22} isAnimationActive={false} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có xuất kho trong tháng</Typography>
-                        </Box>
-                    )}
+                <ChartCard title="Xuất kho theo bộ phận" subtitle={`Tháng ${month}/${year}`} loading={statsLoading} height={270}>
+                    {deptData.length > 0
+                        ? <ReactApexChart type="bar" height={270}
+                            series={[{ name: 'Tổng tiền', data: deptData.map(d => d.value) }]}
+                            options={{ ...deptOpts, xaxis: { ...deptOpts.xaxis, categories: deptData.map(d => d.name) } }} />
+                        : <Box sx={{ height: 270, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có xuất kho trong tháng</Typography></Box>
+                    }
                 </ChartCard>
             </Box>
 

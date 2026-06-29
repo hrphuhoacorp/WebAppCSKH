@@ -117,6 +117,11 @@ export interface VppImportDto {
     createdAt?: string;
 }
 
+export interface VppAttachmentItem {
+    url: string;
+    name: string;
+}
+
 export interface VppImportLineDto {
     id: number;
     itemId: number;
@@ -128,11 +133,6 @@ export interface VppImportLineDto {
     vatAmount: number;
     totalAmount: number;
     attachments: VppAttachmentItem[];
-}
-
-export interface VppAttachmentItem {
-    url: string;
-    name: string;
 }
 
 export interface VppImportDetailDto extends VppImportDto {

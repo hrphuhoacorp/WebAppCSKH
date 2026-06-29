@@ -17,3 +17,91 @@
 Đính kèm hóa đơn mua hàng	Đính kèm duyệt BGĐ - ĐNMH & ĐNTT -> gộp chung là chứng từ liên quan -> có thể tải lên và tải về -> logic upload tương tự
 -> lỗi
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Tôi đang làm việc với dự án WebAppCSKH tại d:\Project\WebAppCSKH.
+
+### Stack
+- Backend: .NET 9 (C#), ASP.NET Core Web API, EF Core Code First, PostgreSQL
+- Frontend: Next.js 16 (App Router), TypeScript, MUI v6, TanStack Query, Recharts 3.9, ApexCharts
+- Pattern: Repository + UnitOfWork, ResponseValue<T> wrapper (camelCase JSON, field `content`)
+
+### Cấu trúc thư mục
+- be/WebAppAPI/         → Controllers, Services
+- be/WebAppInfractor/   → Models, Data (DbContext), Migrations, Repositories
+- fe/web-app-frontend/  → Next.js app
+
+### Conventions quan trọng
+
+**DateTime (backend C#):**
+- CreatedAt / UpdatedAt: để DB tự set bằng DEFAULT (không gán trong code)
+- DeletedAt: dùng DateTime.UtcNow.AddHours(7)
+- Ngoại lệ VPP module: gán CreatedAt = DateTime.UtcNow trực tiếp trong code
+
+**API Response:**
+- Luôn wrap bằng ResponseValue<T>
+- FE đọc: res.data.content
+- Throw NotFoundException thay vì return error response
+
+**EF Core Migration:**
+- Luôn tạo cả file .cs và .Designer.cs
+- Cập nhật MemBerContextModelSnapshot.cs
+- Backend phải tắt khi chạy migration (DLL bị lock)
+
+**Frontend:**
+- fmtVND: Math.round(v).toLocaleString('vi-VN') + 'đ' (không dùng toFixed, không rút gọn)
+- Tất cả currency display không làm tròn tắt — hiện số đầy đủ
+- ApexCharts: dùng dynamic import (ssr: false) vì Next.js App Router
+- Recharts 3.x: field `fill` trên data object override màu Bar — tách riêng donutData và barData
+
+**Git:**
+- Commit message: tiếng Anh
+- KHÔNG commit be/WebAppAPI/appsettings.Development.json (chứa Gmail App Password)
+
+### Module VPP (Văn phòng phẩm)
+**Backend services:** VppItemService, VppInventoryService, VppRequestService, 
+VppImportService, VppDispatchService, VppStockCountService
+
+**DB tables:** vpp_items, vpp_requests, vpp_request_lines, vpp_imports, 
+vpp_import_lines, vpp_dispatches, vpp_dispatch_lines, vpp_stock_counts, vpp_stock_count_lines
+
+**vpp_import_lines.attachments:** text column, lưu JSON [{url, name}] — per-line attachments
+
+**FE components:** fe/web-app-frontend/src/features/vpp/
+- api/vpp.api.ts          → tất cả types + API calls
+- components/TabOverview  → Dashboard với ApexCharts
+- components/TabImport    → Phiếu nhập (per-line attachment dùng Popover)
+- components/TabDispatch  → Phiếu xuất (Autocomplete roles/branches)
+- components/TabCatalog, TabInventory, TabRequest, TabStockCount
+
+**Upload files:** POST /vpp/upload → trả về [{url, name, size}], serve tại /media/vpp-docs/
+
+**Dispatch stats:** GET /vpp/dispatches/stats?month=&year= → VppDispatchDeptStatsDto[]
+
+### ApexCharts config VPP Dashboard
+- Donut: labels phải set trong options.labels (không tự lấy từ series)
+- Center label: formatter dùng toLocaleString('vi-VN') + 'đ' (không rút gọn)
+- Gradient bar: shade:'dark', type:'vertical', shadeIntensity:0.35-0.4
+- Distributed bar (màu riêng từng cột): distributed:true trong plotOptions.bar + colors array
+- Dept horizontal bar: gradientToColors:['#a78bfa'], colors:[PURPLE]
+
+
+
+
+
+

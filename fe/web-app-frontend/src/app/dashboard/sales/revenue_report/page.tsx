@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     Box,
-    Card,
-    CardContent,
     Paper,
     TextField,
     Typography,
@@ -18,6 +16,8 @@ import {
     Chip,
     Avatar,
     Divider,
+    Skeleton,
+    alpha,
 } from '@mui/material';
 import { BarChart, PieChart } from '@mui/x-charts';
 import toast from 'react-hot-toast';
@@ -205,34 +205,34 @@ export default function DashboardPage() {
                         <KpiCard
                             title="Tổng đơn hàng"
                             value={dashboard.totalOrders}
-                            icon={<ShoppingCartIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            sub="Đơn trong kỳ"
+                            icon={<ShoppingCartIcon />}
                             color="#ef4444"
-                            lightColor="#fee2e2"
                         />
                         <KpiCard
                             title="Tổng khách hàng"
                             value={dashboard.totalCustomers}
-                            icon={<PeopleAltIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            sub="Khách trong kỳ"
+                            icon={<PeopleAltIcon />}
                             color="#0ea5e9"
-                            lightColor="#e0f2fe"
                         />
                         <KpiCard
                             title="Tổng doanh thu"
                             value={formatMoney(dashboard.totalRevenue)}
-                            icon={<MonetizationOnIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            sub="Doanh thu gộp"
+                            icon={<MonetizationOnIcon />}
                             color="#086839"
-                            lightColor="#dcfce7"
                         />
                         <KpiCard
                             title="Trung bình / đơn"
                             value={formatMoney(dashboard.averageOrderValue)}
-                            icon={<TrendingUpIcon sx={{ fontSize: 22, color: '#fff' }} />}
+                            sub="Giá trị trung bình"
+                            icon={<TrendingUpIcon />}
                             color="#8b5cf6"
-                            lightColor="#ede9fe"
                         />
                     </Box>
 
-                    {/* ── Revenue Bar Chart + Order Status Pie ── */}
+                    {/* ── Revenue Bar Chart ── */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr' }, gap: 3, mb: 3, alignItems: 'stretch' }}>
                         <ChartCard title={revenueGroupBy === 'day' ? 'Doanh thu theo ngày' : revenueGroupBy === 'week' ? 'Doanh thu theo tuần' : 'Doanh thu theo tháng'} icon="📈">
                             <BarChart
@@ -254,17 +254,13 @@ export default function DashboardPage() {
                                     valueFormatter: (v) => formatMoney(v ?? 0),
                                 }]}
                                 sx={{
-                                    '.MuiBarElement-root': {
-                                        fill: 'url(#greenGrad)',
-                                    },
                                     '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
                                     '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
                                 }}
                             />
                         </ChartCard>
-
-
                     </Box>
+
                     {/* ── Doanh thu theo loại sản phẩm ── */}
                     {dashboard.revenueByCategory?.length > 0 && (
                         <Box sx={{ mb: 3 }}>
@@ -308,16 +304,13 @@ export default function DashboardPage() {
                                         '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
                                         '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
                                         '.MuiChartsLegend-label': { fontSize: 12, fill: '#475569' },
-
                                     }}
                                 />
                             </ChartCard>
                         </Box>
                     )}
-                    <Box sx={{ mb: 3 }}>
 
-                    </Box>
-                    {/* ── By Source + By Branch ── */}
+                    {/* ── By Source + By Branch + Status ── */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr' }, gap: 3, mb: 3 }}>
                         <ChartCard title="Khách hàng từ các nguồn" icon="🌐">
                             <BarChart
@@ -361,10 +354,8 @@ export default function DashboardPage() {
                                 }}
                             />
                         </ChartCard>
-                        <ChartCard
-                            title="Phân bổ trạng thái đơn"
-                            icon="🥧"
-                        >
+
+                        <ChartCard title="Phân bổ trạng thái đơn" icon="🥧">
                             <PieChart
                                 height={300}
                                 colors={['#086839', '#22c55e', '#86efac', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']}
@@ -384,23 +375,15 @@ export default function DashboardPage() {
                                     legend: {
                                         direction: 'vertical',
                                         position: { vertical: 'middle', horizontal: 'end' },
-
                                     },
                                 }}
                                 sx={{
-                                    '& .MuiChartsLegend-label': {
-                                        fontSize: 11,
-                                        fill: '#475569',
-                                    },
-                                    '& .MuiChartsLegend-mark': {
-                                        transform: 'scale(0.8)',
-                                    },
+                                    '& .MuiChartsLegend-label': { fontSize: 11, fill: '#475569' },
+                                    '& .MuiChartsLegend-mark': { transform: 'scale(0.8)' },
                                 }}
                             />
                         </ChartCard>
                     </Box>
-
-
 
                     {/* ── Top Customers + Birthdays ── */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.6fr 1fr' }, gap: 3 }}>
@@ -589,73 +572,50 @@ const filterFieldSx = {
 // ── Sub-components ────────────────────────────────────────────
 
 function KpiCard({
-    title, value, icon, color, lightColor,
+    title, value, sub, icon, color, loading,
 }: {
     title: string;
     value: string | number;
+    sub: string;
     icon: React.ReactNode;
     color: string;
-    lightColor: string;
+    loading?: boolean;
 }) {
     return (
-        <Card
-            elevation={0}
-            sx={{
-                bgcolor: '#fff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '20px',
-                boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
-                transition: 'all 0.2s',
-                position: 'relative',
-                overflow: 'hidden',
-                '&:hover': {
-                    transform: 'translateY(-3px)',
-                    boxShadow: '0 8px 28px rgba(0,0,0,0.1)',
-                },
-                '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    bottom: 0, left: 0, right: 0,
-                    height: 3,
-                    bgcolor: color,
-                    borderRadius: '0 0 4px 4px',
-                },
-            }}
-        >
-            <CardContent sx={{ p: '20px !important' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                    <Typography sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', lineHeight: 1.4, maxWidth: '60%' }}>
+        <Paper elevation={0} sx={{
+            p: 2.5, borderRadius: '20px',
+            border: `1px solid ${alpha(color, 0.18)}`,
+            background: `linear-gradient(135deg, #fff 60%, ${alpha(color, 0.06)} 100%)`,
+            boxShadow: `0 4px 24px ${alpha(color, 0.1)}`,
+            position: 'relative', overflow: 'hidden',
+            transition: 'box-shadow 0.2s, transform 0.2s',
+            '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 8px 32px ${alpha(color, 0.18)}` },
+        }}>
+            <Box sx={{ position: 'absolute', top: -18, right: -18, width: 80, height: 80, borderRadius: '50%', bgcolor: alpha(color, 0.07) }} />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <Box sx={{
+                    width: 44, height: 44, borderRadius: '14px', flexShrink: 0,
+                    background: `linear-gradient(135deg, ${color}, ${alpha(color, 0.65)})`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `0 4px 12px ${alpha(color, 0.35)}`,
+                    '& svg': { fontSize: 21, color: '#fff' },
+                }}>
+                    {icon}
+                </Box>
+                <Box>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 0.4 }}>
                         {title}
                     </Typography>
-                    <Box
-                        sx={{
-                            width: 38, height: 38,
-                            borderRadius: '12px',
-                            bgcolor: lightColor,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            flexShrink: 0,
-                        }}
-                    >
-                        {/* Clone icon with correct color */}
-                        <Box sx={{ '& svg': { color: `${color} !important`, fontSize: '20px !important' } }}>
-                            {icon}
-                        </Box>
-                    </Box>
+                    {loading
+                        ? <Skeleton width={80} height={32} />
+                        : <Typography sx={{ fontSize: typeof value === 'string' && value.length > 10 ? 18 : 26, fontWeight: 900, color: '#1e293b', lineHeight: 1.1 }}>
+                            {value}
+                          </Typography>
+                    }
+                    <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.5 }}>{sub}</Typography>
                 </Box>
-                <Typography
-                    sx={{
-                        fontSize: typeof value === 'string' && value.length > 12 ? 18 : 28,
-                        fontWeight: 800,
-                        color: '#1e293b',
-                        lineHeight: 1.2,
-                        letterSpacing: '-0.5px',
-                    }}
-                >
-                    {value}
-                </Typography>
-            </CardContent>
-
-        </Card>
+            </Box>
+        </Paper>
     );
 }
 
