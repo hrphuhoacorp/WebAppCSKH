@@ -117,7 +117,13 @@ public class OrderService : IOrderService
             int iCustName = FindImportCol(rawHeaders, "ten khach hang", "ten khach", "khach hang");
             int iPhone = FindImportCol(rawHeaders, "dien thoai", "so dien thoai", "sdt");
             int iCustCode = FindImportCol(rawHeaders, "ma khach hang", "ma khach");
-            int iCategory = FindImportCol(rawHeaders, "loai san pham", "nhom hang", "danh muc", "loai hang");
+            int iCategory = FindImportCol(
+                rawHeaders,
+                "loai san pham",
+                "nhom hang",
+                "danh muc",
+                "loai hang"
+            );
             int iProduct = FindImportCol(rawHeaders, "ten hang", "ten san pham");
             int iSku = FindImportCol(rawHeaders, "ma hang", "sku", "ma sku");
             int iUnitPrice = FindImportCol(rawHeaders, "don gia", "gia ban");
@@ -133,8 +139,20 @@ public class OrderService : IOrderService
             int iGrossProfit = FindImportCol(rawHeaders, "loi nhuan gop", "loi nhuan");
 
             // Số lượng: ưu tiên "SL hàng thực bán" (col thực tế), fallback "SL hàng bán ra"
-            int iQtyStr = FindImportCol(rawHeaders, "sl hang ban ra", "so luong hang ban", "so luong");
-            int iQty    = FindImportCol(rawHeaders, "sl hang thuc ban", "sl thuc ban", "so luong thuc ban", "sl hang ban ra", "so luong");
+            int iQtyStr = FindImportCol(
+                rawHeaders,
+                "sl hang ban ra",
+                "so luong hang ban",
+                "so luong"
+            );
+            int iQty = FindImportCol(
+                rawHeaders,
+                "sl hang thuc ban",
+                "sl thuc ban",
+                "so luong thuc ban",
+                "sl hang ban ra",
+                "so luong"
+            );
 
             // Validate các cột bắt buộc
             var missingCols = new List<string>();
