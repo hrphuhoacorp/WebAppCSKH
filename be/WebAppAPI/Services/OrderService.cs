@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.SignalR;
@@ -100,8 +101,65 @@ public class OrderService : IOrderService
 
             using var workbook = new XLWorkbook(ms);
             var worksheet = workbook.Worksheet(1);
-            var rows = worksheet.RangeUsed().RowsUsed().Skip(1).ToList(); // Bỏ qua header
-            var totalRows = rows.Count();
+            var allRows = worksheet.RangeUsed()?.RowsUsed().ToList() ?? new List<IXLRangeRow>();
+            if (allRows.Count < 2)
+                throw new BadRequestException(
+                    "File Excel không có dữ liệu hoặc thiếu dòng tiêu đề."
+                );
+
+            // Đọc và validate header row
+            var rawHeaders = Enumerable
+                .Range(1, allRows[0].LastCellUsed()?.Address.ColumnNumber ?? 30)
+                .Select(c => NormalizeImportHeader(allRows[0].Cell(c).GetString()))
+                .ToList();
+
+            int iDate = FindImportCol(rawHeaders, "ngay mua", "ngay dat hang", "ngay");
+            int iCustName = FindImportCol(rawHeaders, "ten khach hang", "ten khach", "khach hang");
+            int iPhone = FindImportCol(rawHeaders, "dien thoai", "so dien thoai", "sdt");
+            int iCustCode = FindImportCol(rawHeaders, "ma khach hang", "ma khach");
+            int iCategory = FindImportCol(rawHeaders, "loai san pham", "nhom hang", "danh muc", "loai hang");
+            int iProduct = FindImportCol(rawHeaders, "ten hang", "ten san pham");
+            int iSku = FindImportCol(rawHeaders, "ma hang", "sku", "ma sku");
+            int iUnitPrice = FindImportCol(rawHeaders, "don gia", "gia ban");
+            int iService = FindImportCol(rawHeaders, "ten dich vu", "dich vu");
+            int iUnit = FindImportCol(rawHeaders, "dvt", "don vi tinh", "don vi");
+            int iOrderCode = FindImportCol(rawHeaders, "ma don hang", "ma don", "so don");
+            int iStatus = FindImportCol(rawHeaders, "trang thai");
+            int iBranch = FindImportCol(rawHeaders, "chi nhanh");
+            int iSource = FindImportCol(rawHeaders, "kenh ban", "nguon", "kenh");
+            int iRevenue = FindImportCol(rawHeaders, "doanh thu", "thanh tien");
+            int iShipping = FindImportCol(rawHeaders, "phi van chuyen", "phi ship", "phi giao");
+            int iTax = FindImportCol(rawHeaders, "thue", "vat", "tien thue");
+            int iGrossProfit = FindImportCol(rawHeaders, "loi nhuan gop", "loi nhuan");
+
+            // Số lượng: ưu tiên "SL hàng thực bán" (col thực tế), fallback "SL hàng bán ra"
+            int iQtyStr = FindImportCol(rawHeaders, "sl hang ban ra", "so luong hang ban", "so luong");
+            int iQty    = FindImportCol(rawHeaders, "sl hang thuc ban", "sl thuc ban", "so luong thuc ban", "sl hang ban ra", "so luong");
+
+            // Validate các cột bắt buộc
+            var missingCols = new List<string>();
+            if (iDate < 0)
+                missingCols.Add("Ngày mua");
+            if (iCustCode < 0)
+                missingCols.Add("Mã khách hàng");
+            if (iOrderCode < 0)
+                missingCols.Add("Mã đơn hàng");
+            if (iStatus < 0)
+                missingCols.Add("Trạng thái");
+            if (iBranch < 0)
+                missingCols.Add("Chi nhánh");
+            if (iRevenue < 0)
+                missingCols.Add("Doanh thu");
+            if (iQty < 0)
+                missingCols.Add("Số lượng");
+            if (missingCols.Any())
+                throw new BadRequestException(
+                    $"File Excel không đúng định dạng — thiếu cột: {string.Join(", ", missingCols)}. "
+                        + "Vui lòng xuất lại file từ Sapo đúng mẫu."
+                );
+
+            var rows = allRows.Skip(1).ToList();
+            var totalRows = rows.Count;
 
             // BƯỚC 1: TẠO TRƯỚC IMPORT HISTORY ĐỂ LẤY ID THẬT TỪ DATABASE
 
@@ -153,8 +211,34 @@ public class OrderService : IOrderService
                 .AsNoTracking()
                 .ToDictionaryAsync(x => x.CustomerCode);
 
+            // Pre-check trùng dữ liệu theo mã đơn hàng (khác tên file nhưng cùng data)
+            var orderCodesUniqueScan = rows.Select(r => r.Cell(iOrderCode + 1).GetString().Trim())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct()
+                .ToList();
+            if (orderCodesUniqueScan.Any())
+            {
+                var existingOrderCount = await _orderRepository
+                    .GetAll()
+                    .AsNoTracking()
+                    .CountAsync(o =>
+                        orderCodesUniqueScan.Contains(o.OrderCode) && o.DeletedAt == null
+                    );
+                var dupRate = (double)existingOrderCount / orderCodesUniqueScan.Count;
+                if (dupRate >= 1.0)
+                    throw new BadRequestException(
+                        $"Toàn bộ {orderCodesUniqueScan.Count} mã đơn hàng trong file này đã tồn tại trong hệ thống. "
+                            + "File có thể đã được import trước đó với tên khác."
+                    );
+                if (dupRate >= 0.8)
+                    throw new BadRequestException(
+                        $"{existingOrderCount}/{orderCodesUniqueScan.Count} mã đơn hàng ({dupRate:P0}) đã tồn tại. "
+                            + "File này có thể đã được import trước đó. Kiểm tra lịch sử import trước khi tiếp tục."
+                    );
+            }
+
             // Cấp 2: Fingerprint dedup — chỉ bỏ qua dòng TRÙNG HOÀN TOÀN với DB (mã+ngày+doanh thu+SL)
-            var orderCodesInFile = rows.Select(r => r.Cell(11).GetString().Trim())
+            var orderCodesInFile = rows.Select(r => r.Cell(iOrderCode + 1).GetString().Trim())
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .ToHashSet();
 
@@ -193,8 +277,8 @@ public class OrderService : IOrderService
                 {
                     Console.WriteLine($"Đang xử lý dòng {row.RowNumber()} / {totalRows}");
 
-                    // Đọc dữ liệu thô
-                    var dateCell = row.Cell(1).GetString().Trim();
+                    // Đọc dữ liệu thô theo index động (chống lệch cột)
+                    var dateCell = row.Cell(iDate + 1).GetString().Trim();
                     if (
                         !DateTime.TryParseExact(
                             dateCell,
@@ -205,31 +289,32 @@ public class OrderService : IOrderService
                         )
                     )
                     {
-                        throw new BadRequestException("Ngày mua không hợp lệ");
+                        throw new BadRequestException($"Ngày mua không hợp lệ: '{dateCell}'");
                     }
 
-                    var customerName = row.Cell(2).GetString().Trim();
-                    var customerPhone = row.Cell(3).GetString().Trim();
-                    var customerCode = row.Cell(4).GetString().Trim();
-
-                    var category = row.Cell(5).GetString().Trim();
-                    var productName = row.Cell(6).GetString().Trim();
-                    var sku = row.Cell(7).GetString().Trim();
-                    var unitPrice = GetDecimal(row.Cell(8));
-                    var serviceName = row.Cell(9).GetString().Trim();
-                    var unit = row.Cell(10).GetString().Trim();
-
-                    var orderCode = row.Cell(11).GetString().Trim();
-                    var statusName = row.Cell(12).GetString().Trim();
-                    var branchName = row.Cell(13).GetString().Trim();
-                    var source = row.Cell(14).GetString().Trim();
-                    var quantity = row.Cell(15).GetString().Trim();
-
-                    var revenue = GetDecimal(row.Cell(23));
-                    var grossProfit = GetDecimal(row.Cell(24));
-                    var shippingFee = GetDecimal(row.Cell(22));
-                    var taxAmount = GetDecimal(row.Cell(21));
-                    var qty = GetDecimal(row.Cell(17));
+                    var customerName =
+                        iCustName >= 0 ? row.Cell(iCustName + 1).GetString().Trim() : "";
+                    var customerPhone = iPhone >= 0 ? row.Cell(iPhone + 1).GetString().Trim() : "";
+                    var customerCode = row.Cell(iCustCode + 1).GetString().Trim();
+                    var category = iCategory >= 0 ? row.Cell(iCategory + 1).GetString().Trim() : "";
+                    var productName =
+                        iProduct >= 0 ? row.Cell(iProduct + 1).GetString().Trim() : "";
+                    var sku = iSku >= 0 ? row.Cell(iSku + 1).GetString().Trim() : "";
+                    var unitPrice = iUnitPrice >= 0 ? GetDecimal(row.Cell(iUnitPrice + 1)) : 0;
+                    var serviceName =
+                        iService >= 0 ? row.Cell(iService + 1).GetString().Trim() : "";
+                    var unit = iUnit >= 0 ? row.Cell(iUnit + 1).GetString().Trim() : "";
+                    var orderCode = row.Cell(iOrderCode + 1).GetString().Trim();
+                    var statusName = row.Cell(iStatus + 1).GetString().Trim();
+                    var branchName = row.Cell(iBranch + 1).GetString().Trim();
+                    var source = iSource >= 0 ? row.Cell(iSource + 1).GetString().Trim() : "";
+                    var quantity = iQtyStr >= 0 ? row.Cell(iQtyStr + 1).GetString().Trim() : "";
+                    var revenue = GetDecimal(row.Cell(iRevenue + 1));
+                    var grossProfit =
+                        iGrossProfit >= 0 ? GetDecimal(row.Cell(iGrossProfit + 1)) : 0;
+                    var shippingFee = iShipping >= 0 ? GetDecimal(row.Cell(iShipping + 1)) : 0;
+                    var taxAmount = iTax >= 0 ? GetDecimal(row.Cell(iTax + 1)) : 0;
+                    var qty = GetDecimal(row.Cell(iQty + 1));
 
                     // Validate dữ liệu bắt buộc
                     if (string.IsNullOrWhiteSpace(customerCode))
@@ -688,6 +773,83 @@ public class OrderService : IOrderService
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    private static string NormalizeImportHeader(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return "";
+        var normalized = raw.Trim().ToLowerInvariant();
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (
+                c
+                is 'à'
+                    or 'á'
+                    or 'ả'
+                    or 'ã'
+                    or 'ạ'
+                    or 'ă'
+                    or 'ắ'
+                    or 'ặ'
+                    or 'ằ'
+                    or 'ẳ'
+                    or 'ẵ'
+                    or 'â'
+                    or 'ấ'
+                    or 'ầ'
+                    or 'ẩ'
+                    or 'ẫ'
+                    or 'ậ'
+            )
+                sb.Append('a');
+            else if (c is 'è' or 'é' or 'ẻ' or 'ẽ' or 'ẹ' or 'ê' or 'ế' or 'ề' or 'ể' or 'ễ' or 'ệ')
+                sb.Append('e');
+            else if (c is 'ì' or 'í' or 'ỉ' or 'ĩ' or 'ị')
+                sb.Append('i');
+            else if (
+                c
+                is 'ò'
+                    or 'ó'
+                    or 'ỏ'
+                    or 'õ'
+                    or 'ọ'
+                    or 'ô'
+                    or 'ố'
+                    or 'ồ'
+                    or 'ổ'
+                    or 'ỗ'
+                    or 'ộ'
+                    or 'ơ'
+                    or 'ớ'
+                    or 'ờ'
+                    or 'ở'
+                    or 'ỡ'
+                    or 'ợ'
+            )
+                sb.Append('o');
+            else if (c is 'ù' or 'ú' or 'ủ' or 'ũ' or 'ụ' or 'ư' or 'ứ' or 'ừ' or 'ử' or 'ữ' or 'ự')
+                sb.Append('u');
+            else if (c is 'ỳ' or 'ý' or 'ỷ' or 'ỹ' or 'ỵ')
+                sb.Append('y');
+            else if (c == 'đ')
+                sb.Append('d');
+            else if (char.IsLetterOrDigit(c))
+                sb.Append(c);
+            else if (c == ' ' || c == '_' || c == '-')
+                sb.Append(' ');
+        }
+        return string.Join(" ", sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static int FindImportCol(List<string> headers, params string[] candidates)
+    {
+        foreach (var candidate in candidates)
+            for (int i = 0; i < headers.Count; i++)
+                if (headers[i] == candidate || headers[i].Contains(candidate))
+                    return i;
+        return -1;
     }
 
     private decimal GetDecimal(IXLCell cell)
