@@ -43,9 +43,9 @@ interface EditedLines { [lineId: number]: { actualQty: number; note: string } }
 
 export default function TabStockCount() {
     const qc = useQueryClient();
-    const canCreate  = usePermission('vpp.stock_count.create');
-    const canEdit    = usePermission('vpp.stock_count.edit');
-    const canConfirm = usePermission('vpp.stock_count.confirm');
+    const canCreate  = usePermission('vpp.manage');
+    const canEdit    = usePermission('vpp.manage');
+    const canConfirm = usePermission('vpp.manage');
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());

@@ -14,7 +14,7 @@ public class VppImportController : ControllerBase
 
     public VppImportController(IVppImportService service) => _service = service;
 
-    [RequirePermission("vpp.import.view")]
+    [RequirePermission("vpp.manage")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppImportDto>>> GetAll(
         [FromQuery] int? month,
@@ -27,7 +27,7 @@ public class VppImportController : ControllerBase
         return new ResponseValue<PagedResult<VppImportDto>>(result, "OK", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.import.view")]
+    [RequirePermission("vpp.manage")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppImportDetailDto>> GetById(int id)
     {
@@ -37,28 +37,20 @@ public class VppImportController : ControllerBase
         return new ResponseValue<VppImportDetailDto>(result, "OK", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.import.create")]
+    [RequirePermission("vpp.manage")]
     [HttpPost]
     public async Task<ResponseValue<VppImportDetailDto>> Create([FromBody] VppImportCreateDto dto)
     {
         var name = User.FindFirstValue("name") ?? "";
         var result = await _service.CreateAsync(dto, name);
-        return new ResponseValue<VppImportDetailDto>(
-            result,
-            "Tạo phiếu nhập thành công",
-            StatusReponse.Success
-        );
+        return new ResponseValue<VppImportDetailDto>(result, "Tạo phiếu nhập thành công", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.import.delete")]
+    [RequirePermission("vpp.manage")]
     [HttpDelete("{id:int}")]
     public async Task<ResponseValue<object>> Delete(int id)
     {
         await _service.DeleteAsync(id);
-        return new ResponseValue<object>(
-            new { success = true },
-            "Đã xóa phiếu nhập",
-            StatusReponse.Success
-        );
+        return new ResponseValue<object>(new { success = true }, "Đã xóa phiếu nhập", StatusReponse.Success);
     }
 }

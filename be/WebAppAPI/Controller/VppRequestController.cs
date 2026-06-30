@@ -13,7 +13,7 @@ public class VppRequestController : ControllerBase
     private readonly IVppRequestService _service;
     public VppRequestController(IVppRequestService service) => _service = service;
 
-    [RequirePermission("vpp.request.view")]
+    [RequirePermission("vpp.manage")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppRequestDto>>> GetAll([FromQuery] VppRequestFilter filter)
     {
@@ -21,7 +21,7 @@ public class VppRequestController : ControllerBase
         return new ResponseValue<PagedResult<VppRequestDto>>(result, "OK", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.request.view")]
+    [RequirePermission("vpp.manage")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppRequestDetailDto>> GetById(int id)
     {

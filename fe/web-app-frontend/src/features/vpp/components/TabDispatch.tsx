@@ -46,8 +46,8 @@ function lineTotal(l: DispatchLine) { return l.quantity * l.unitPrice * (1 + l.v
 
 export default function TabDispatch() {
     const qc = useQueryClient();
-    const canCreate = usePermission('vpp.dispatch.create');
-    const canDelete = usePermission('vpp.dispatch.delete');
+    const canCreate = usePermission('vpp.manage');
+    const canDelete = usePermission('vpp.manage');
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());

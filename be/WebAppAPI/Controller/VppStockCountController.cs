@@ -14,7 +14,7 @@ public class VppStockCountController : ControllerBase
 
     public VppStockCountController(IVppStockCountService service) => _service = service;
 
-    [RequirePermission("vpp.stock_count.view")]
+    [RequirePermission("vpp.manage")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppStockCountDto>>> GetAll(
         [FromQuery] int? month,
@@ -31,7 +31,7 @@ public class VppStockCountController : ControllerBase
         );
     }
 
-    [RequirePermission("vpp.stock_count.view")]
+    [RequirePermission("vpp.manage")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppStockCountDetailDto>> GetById(int id)
     {
@@ -40,7 +40,7 @@ public class VppStockCountController : ControllerBase
         return new ResponseValue<VppStockCountDetailDto>(result, "OK", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.stock_count.create")]
+    [RequirePermission("vpp.manage")]
     [HttpPost]
     public async Task<ResponseValue<VppStockCountDetailDto>> Create(
         [FromBody] VppStockCountCreateDto dto
@@ -55,7 +55,7 @@ public class VppStockCountController : ControllerBase
         );
     }
 
-    [RequirePermission("vpp.stock_count.edit")]
+    [RequirePermission("vpp.manage")]
     [HttpPut("{id:int}/lines/{lineId:int}")]
     public async Task<ResponseValue<object>> UpdateLine(
         int id,
@@ -71,7 +71,7 @@ public class VppStockCountController : ControllerBase
         );
     }
 
-    [RequirePermission("vpp.stock_count.confirm")]
+    [RequirePermission("vpp.manage")]
     [HttpPost("{id:int}/confirm")]
     public async Task<ResponseValue<VppStockCountDetailDto>> Confirm(int id)
     {

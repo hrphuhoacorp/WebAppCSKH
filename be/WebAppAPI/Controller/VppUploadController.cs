@@ -18,7 +18,7 @@ public class VppUploadController : ControllerBase
 
     public VppUploadController(IConfiguration config) => _config = config;
 
-    [RequirePermission("vpp.upload")]
+    [RequirePermission("vpp.manage")]
     [HttpPost]
     public async Task<ResponseValue<List<VppFileUploadResultDto>>> Upload([FromForm] List<IFormFile> files)
     {

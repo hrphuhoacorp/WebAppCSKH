@@ -50,8 +50,8 @@ interface ImportLine {
 
 export default function TabImport() {
     const qc = useQueryClient();
-    const canCreate = usePermission('vpp.import.create');
-    const canDelete = usePermission('vpp.import.delete');
+    const canCreate = usePermission('vpp.manage');
+    const canDelete = usePermission('vpp.manage');
     const fileInputsRef = useRef<(HTMLInputElement | null)[]>([]);
     const [activeLineIdx, setActiveLineIdx] = useState<number | null>(null);
     const now = new Date();

@@ -57,9 +57,9 @@ function parsePrice(v: unknown): number {
 
 export default function TabCatalog() {
     const qc = useQueryClient();
-    const canCreate = usePermission('vpp.item.create');
-    const canEdit   = usePermission('vpp.item.edit');
-    const canDelete = usePermission('vpp.item.delete');
+    const canCreate = usePermission('vpp.manage');
+    const canEdit   = usePermission('vpp.manage');
+    const canDelete = usePermission('vpp.manage');
     const [group, setGroup] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');

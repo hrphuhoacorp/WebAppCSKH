@@ -31,7 +31,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "OK", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.item.create")]
+    [RequirePermission("vpp.manage")]
     [HttpPost]
     public async Task<ResponseValue<VppItemDto>> Create([FromBody] VppItemUpsertDto dto)
     {
@@ -39,7 +39,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Tạo vật tư thành công", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.item.edit")]
+    [RequirePermission("vpp.manage")]
     [HttpPut("{id:int}")]
     public async Task<ResponseValue<VppItemDto>> Update(int id, [FromBody] VppItemUpsertDto dto)
     {
@@ -47,7 +47,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Cập nhật thành công", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.item.delete")]
+    [RequirePermission("vpp.manage")]
     [HttpDelete("{id:int}")]
     public async Task<ResponseValue<object>> Delete(int id)
     {
@@ -55,7 +55,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<object>(new { success = true }, "Đã xóa vật tư", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.item.edit")]
+    [RequirePermission("vpp.manage")]
     [HttpPatch("{id:int}/toggle-active")]
     public async Task<ResponseValue<VppItemDto>> ToggleActive(int id)
     {
@@ -63,7 +63,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Đã cập nhật trạng thái", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.item.uniform_return")]
+    [RequirePermission("vpp.manage")]
     [HttpPost("{id:int}/uniform-returns")]
     public async Task<ResponseValue<VppItemDto>> AppendUniformReturn(int id, [FromBody] UniformReturnRecordDto dto)
     {
@@ -71,7 +71,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Đã ghi nhận hoàn trả", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.item.uniform_return")]
+    [RequirePermission("vpp.manage")]
     [HttpDelete("{id:int}/uniform-returns/{index:int}")]
     public async Task<ResponseValue<VppItemDto>> DeleteUniformReturn(int id, int index)
     {
