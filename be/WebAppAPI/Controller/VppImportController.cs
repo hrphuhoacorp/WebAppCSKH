@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers;
 
@@ -13,6 +14,7 @@ public class VppImportController : ControllerBase
 
     public VppImportController(IVppImportService service) => _service = service;
 
+    [RequirePermission("vpp.import.view")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppImportDto>>> GetAll(
         [FromQuery] int? month,
@@ -25,6 +27,7 @@ public class VppImportController : ControllerBase
         return new ResponseValue<PagedResult<VppImportDto>>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.import.view")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppImportDetailDto>> GetById(int id)
     {
@@ -34,6 +37,7 @@ public class VppImportController : ControllerBase
         return new ResponseValue<VppImportDetailDto>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.import.create")]
     [HttpPost]
     public async Task<ResponseValue<VppImportDetailDto>> Create([FromBody] VppImportCreateDto dto)
     {
@@ -46,6 +50,7 @@ public class VppImportController : ControllerBase
         );
     }
 
+    [RequirePermission("vpp.import.delete")]
     [HttpDelete("{id:int}")]
     public async Task<ResponseValue<object>> Delete(int id)
     {

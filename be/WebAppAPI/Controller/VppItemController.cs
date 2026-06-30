@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers;
 
@@ -11,6 +12,7 @@ public class VppItemController : ControllerBase
     private readonly IVppItemService _service;
     public VppItemController(IVppItemService service) => _service = service;
 
+    [RequirePermission("vpp.view")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppItemDto>>> GetAll(
         [FromQuery] string? group, [FromQuery] string? search,
@@ -20,6 +22,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<PagedResult<VppItemDto>>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.view")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppItemDto>> GetById(int id)
     {
@@ -28,6 +31,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.item.create")]
     [HttpPost]
     public async Task<ResponseValue<VppItemDto>> Create([FromBody] VppItemUpsertDto dto)
     {
@@ -35,6 +39,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Tạo vật tư thành công", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.item.edit")]
     [HttpPut("{id:int}")]
     public async Task<ResponseValue<VppItemDto>> Update(int id, [FromBody] VppItemUpsertDto dto)
     {
@@ -42,6 +47,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Cập nhật thành công", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.item.delete")]
     [HttpDelete("{id:int}")]
     public async Task<ResponseValue<object>> Delete(int id)
     {
@@ -49,6 +55,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<object>(new { success = true }, "Đã xóa vật tư", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.item.edit")]
     [HttpPatch("{id:int}/toggle-active")]
     public async Task<ResponseValue<VppItemDto>> ToggleActive(int id)
     {
@@ -56,6 +63,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Đã cập nhật trạng thái", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.item.uniform_return")]
     [HttpPost("{id:int}/uniform-returns")]
     public async Task<ResponseValue<VppItemDto>> AppendUniformReturn(int id, [FromBody] UniformReturnRecordDto dto)
     {
@@ -63,6 +71,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<VppItemDto>(result, "Đã ghi nhận hoàn trả", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.item.uniform_return")]
     [HttpDelete("{id:int}/uniform-returns/{index:int}")]
     public async Task<ResponseValue<VppItemDto>> DeleteUniformReturn(int id, int index)
     {

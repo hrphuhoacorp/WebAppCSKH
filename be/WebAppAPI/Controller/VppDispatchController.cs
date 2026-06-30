@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers;
 
@@ -12,6 +13,7 @@ public class VppDispatchController : ControllerBase
     private readonly IVppDispatchService _service;
     public VppDispatchController(IVppDispatchService service) => _service = service;
 
+    [RequirePermission("vpp.dispatch.view")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppDispatchDto>>> GetAll(
         [FromQuery] int? month, [FromQuery] int? year, [FromQuery] string? department,
@@ -21,6 +23,7 @@ public class VppDispatchController : ControllerBase
         return new ResponseValue<PagedResult<VppDispatchDto>>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.dispatch.view")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppDispatchDetailDto>> GetById(int id)
     {
@@ -29,6 +32,7 @@ public class VppDispatchController : ControllerBase
         return new ResponseValue<VppDispatchDetailDto>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.dispatch.create")]
     [HttpPost]
     public async Task<ResponseValue<VppDispatchDetailDto>> Create([FromBody] VppDispatchCreateDto dto)
     {
@@ -37,6 +41,7 @@ public class VppDispatchController : ControllerBase
         return new ResponseValue<VppDispatchDetailDto>(result, "Tạo phiếu xuất thành công", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.dispatch.view")]
     [HttpGet("stats")]
     public async Task<ResponseValue<List<VppDispatchDeptStatsDto>>> GetStats(
         [FromQuery] int? month, [FromQuery] int? year)
@@ -47,6 +52,7 @@ public class VppDispatchController : ControllerBase
         return new ResponseValue<List<VppDispatchDeptStatsDto>>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.dispatch.delete")]
     [HttpDelete("{id:int}")]
     public async Task<ResponseValue<object>> Delete(int id)
     {

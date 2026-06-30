@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers;
 
@@ -11,6 +12,7 @@ public class VppInventoryController : ControllerBase
     private readonly IVppInventoryService _service;
     public VppInventoryController(IVppInventoryService service) => _service = service;
 
+    [RequirePermission("vpp.view")]
     [HttpGet]
     public async Task<ResponseValue<VppInventorySummaryDto>> Get(
         [FromQuery] int? month, [FromQuery] int? year)

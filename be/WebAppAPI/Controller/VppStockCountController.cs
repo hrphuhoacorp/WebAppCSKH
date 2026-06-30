@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers;
 
@@ -13,6 +14,7 @@ public class VppStockCountController : ControllerBase
 
     public VppStockCountController(IVppStockCountService service) => _service = service;
 
+    [RequirePermission("vpp.stock_count.view")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppStockCountDto>>> GetAll(
         [FromQuery] int? month,
@@ -29,6 +31,7 @@ public class VppStockCountController : ControllerBase
         );
     }
 
+    [RequirePermission("vpp.stock_count.view")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppStockCountDetailDto>> GetById(int id)
     {
@@ -37,6 +40,7 @@ public class VppStockCountController : ControllerBase
         return new ResponseValue<VppStockCountDetailDto>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.stock_count.create")]
     [HttpPost]
     public async Task<ResponseValue<VppStockCountDetailDto>> Create(
         [FromBody] VppStockCountCreateDto dto
@@ -51,6 +55,7 @@ public class VppStockCountController : ControllerBase
         );
     }
 
+    [RequirePermission("vpp.stock_count.edit")]
     [HttpPut("{id:int}/lines/{lineId:int}")]
     public async Task<ResponseValue<object>> UpdateLine(
         int id,
@@ -66,6 +71,7 @@ public class VppStockCountController : ControllerBase
         );
     }
 
+    [RequirePermission("vpp.stock_count.confirm")]
     [HttpPost("{id:int}/confirm")]
     public async Task<ResponseValue<VppStockCountDetailDto>> Confirm(int id)
     {

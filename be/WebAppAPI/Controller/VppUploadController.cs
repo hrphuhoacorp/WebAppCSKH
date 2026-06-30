@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers;
 
@@ -17,6 +18,7 @@ public class VppUploadController : ControllerBase
 
     public VppUploadController(IConfiguration config) => _config = config;
 
+    [RequirePermission("vpp.upload")]
     [HttpPost]
     public async Task<ResponseValue<List<VppFileUploadResultDto>>> Upload([FromForm] List<IFormFile> files)
     {

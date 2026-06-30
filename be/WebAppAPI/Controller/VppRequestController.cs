@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers;
 
@@ -12,6 +13,7 @@ public class VppRequestController : ControllerBase
     private readonly IVppRequestService _service;
     public VppRequestController(IVppRequestService service) => _service = service;
 
+    [RequirePermission("vpp.request.view")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppRequestDto>>> GetAll([FromQuery] VppRequestFilter filter)
     {
@@ -19,6 +21,7 @@ public class VppRequestController : ControllerBase
         return new ResponseValue<PagedResult<VppRequestDto>>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.request.view")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppRequestDetailDto>> GetById(int id)
     {
@@ -27,6 +30,7 @@ public class VppRequestController : ControllerBase
         return new ResponseValue<VppRequestDetailDto>(result, "OK", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.request.create")]
     [HttpPost]
     public async Task<ResponseValue<VppRequestDto>> Create([FromBody] VppRequestCreateDto dto)
     {
@@ -35,6 +39,7 @@ public class VppRequestController : ControllerBase
         return new ResponseValue<VppRequestDto>(result, "Gửi đề nghị thành công", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.request.approve")]
     [HttpPost("{id:int}/approve")]
     public async Task<ResponseValue<VppRequestDto>> Approve(int id, [FromBody] VppApproveDto dto)
     {
@@ -43,6 +48,7 @@ public class VppRequestController : ControllerBase
         return new ResponseValue<VppRequestDto>(result, "Đã duyệt và tạo phiếu xuất", StatusReponse.Success);
     }
 
+    [RequirePermission("vpp.request.approve")]
     [HttpPost("{id:int}/reject")]
     public async Task<ResponseValue<object>> Reject(int id, [FromBody] VppRejectDto dto)
     {
