@@ -18,21 +18,32 @@ import TabRequests from '@/features/vpp/components/TabRequests';
 import TabImport from '@/features/vpp/components/TabImport';
 import TabDispatch from '@/features/vpp/components/TabDispatch';
 import TabStockCount from '@/features/vpp/components/TabStockCount';
+import { usePermission } from '@/hooks/usePermission';
 
 const GREEN = '#086839';
 
-const TABS = [
-    { label: 'Tổng quan',    icon: <BarChartRoundedIcon      sx={{ fontSize: 16 }} /> },
-    { label: 'Tồn kho',      icon: <WarehouseRoundedIcon     sx={{ fontSize: 16 }} /> },
-    { label: 'Danh mục',     icon: <ListAltRoundedIcon       sx={{ fontSize: 16 }} /> },
-    { label: 'Đề nghị cấp',  icon: <AssignmentRoundedIcon    sx={{ fontSize: 16 }} /> },
-    { label: 'Phiếu nhập',   icon: <FileDownloadRoundedIcon  sx={{ fontSize: 16 }} /> },
-    { label: 'Phiếu xuất',   icon: <LocalShippingRoundedIcon sx={{ fontSize: 16 }} /> },
-    { label: 'Kiểm kho',     icon: <FactCheckRoundedIcon     sx={{ fontSize: 16 }} /> },
-];
-
 export default function VppPage() {
     const [tab, setTab] = useState(0);
+
+    const canView         = usePermission('vpp.view');
+    const canViewRequest  = usePermission('vpp.request.view');
+    const canApprove      = usePermission('vpp.request.approve');
+    const canViewImport   = usePermission('vpp.import.view');
+    const canViewDispatch = usePermission('vpp.dispatch.view');
+    const canViewStock    = usePermission('vpp.stock_count.view');
+
+    const ALL_TABS = [
+        { label: 'Tổng quan',   icon: <BarChartRoundedIcon    sx={{ fontSize: 16 }} />, show: canView,                         component: <TabOverview /> },
+        { label: 'Tồn kho',     icon: <WarehouseRoundedIcon   sx={{ fontSize: 16 }} />, show: canView,                         component: <TabInventory /> },
+        { label: 'Danh mục',    icon: <ListAltRoundedIcon     sx={{ fontSize: 16 }} />, show: canView,                         component: <TabCatalog /> },
+        { label: 'Đề nghị cấp', icon: <AssignmentRoundedIcon  sx={{ fontSize: 16 }} />, show: canViewRequest || canApprove,    component: <TabRequests /> },
+        { label: 'Phiếu nhập',  icon: <FileDownloadRoundedIcon sx={{ fontSize: 16 }} />, show: canViewImport,                  component: <TabImport /> },
+        { label: 'Phiếu xuất',  icon: <LocalShippingRoundedIcon sx={{ fontSize: 16 }} />, show: canViewDispatch,               component: <TabDispatch /> },
+        { label: 'Kiểm kho',    icon: <FactCheckRoundedIcon   sx={{ fontSize: 16 }} />, show: canViewStock,                    component: <TabStockCount /> },
+    ];
+
+    const visibleTabs = ALL_TABS.filter(t => t.show);
+    const safeTab = Math.min(tab, visibleTabs.length - 1);
 
     return (
         <Box sx={{
@@ -56,7 +67,7 @@ export default function VppPage() {
                 flexShrink: 0,
             }}>
                 <Tabs
-                    value={tab}
+                    value={safeTab}
                     onChange={(_, v) => setTab(v)}
                     variant="scrollable"
                     scrollButtons="auto"
@@ -69,7 +80,7 @@ export default function VppPage() {
                         },
                     }}
                 >
-                    {TABS.map(t => (
+                    {visibleTabs.map(t => (
                         <Tab key={t.label} icon={t.icon} iconPosition="start" label={t.label} />
                     ))}
                 </Tabs>
@@ -81,13 +92,7 @@ export default function VppPage() {
                 '&::-webkit-scrollbar-track': { bgcolor: '#f8fafc' },
                 '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3, '&:hover': { bgcolor: '#94a3b8' } },
             }}>
-                {tab === 0 && <TabOverview />}
-                {tab === 1 && <TabInventory />}
-                {tab === 2 && <TabCatalog />}
-                {tab === 3 && <TabRequests />}
-                {tab === 4 && <TabImport />}
-                {tab === 5 && <TabDispatch />}
-                {tab === 6 && <TabStockCount />}
+                {visibleTabs[safeTab]?.component}
             </Box>
         </Box>
     );

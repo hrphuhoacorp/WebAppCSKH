@@ -14,6 +14,7 @@ import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VPP_GREEN } from '../api/vpp.api';
 import toast from 'react-hot-toast';
+import { usePermission } from '@/hooks/usePermission';
 
 const GREEN = VPP_GREEN;
 const CARD_RADIUS = '20px';
@@ -40,6 +41,7 @@ function fmtDate(s?: string | null) {
 
 export default function TabRequests() {
     const qc = useQueryClient();
+    const canApprove = usePermission('vpp.request.approve');
     const [status, setStatus] = useState('');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -182,7 +184,7 @@ export default function TabRequests() {
                                                     <VisibilityRoundedIcon sx={{ fontSize: 16 }} />
                                                 </IconButton>
                                             </Tooltip>
-                                            {req.status === 'pending' && (
+                                            {canApprove && req.status === 'pending' && (
                                                 <>
                                                     <Tooltip title="Duyệt" arrow>
                                                         <IconButton size="small" onClick={() => setApproveId(req.id)}

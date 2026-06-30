@@ -14,6 +14,7 @@ import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRou
 import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VppDispatchCreateDto, VPP_GREEN } from '../api/vpp.api';
+import { usePermission } from '@/hooks/usePermission';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import { userApi } from '@/features/user/api/user.api';
 import toast from 'react-hot-toast';
@@ -45,6 +46,8 @@ function lineTotal(l: DispatchLine) { return l.quantity * l.unitPrice * (1 + l.v
 
 export default function TabDispatch() {
     const qc = useQueryClient();
+    const canCreate = usePermission('vpp.dispatch.create');
+    const canDelete = usePermission('vpp.dispatch.delete');
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
@@ -165,10 +168,12 @@ export default function TabDispatch() {
                         {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
                     </TextField>
                     <Box sx={{ flex: 1 }} />
-                    <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}
-                        sx={{ bgcolor: PURPLE, '&:hover': { bgcolor: '#6d28d9' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
-                        Tạo phiếu xuất
-                    </Button>
+                    {canCreate && (
+                        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}
+                            sx={{ bgcolor: PURPLE, '&:hover': { bgcolor: '#6d28d9' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
+                            Tạo phiếu xuất
+                        </Button>
+                    )}
                 </Box>
             </Paper>
 
@@ -211,11 +216,13 @@ export default function TabDispatch() {
                                                 <VisibilityRoundedIcon sx={{ fontSize: 16 }} />
                                             </IconButton>
                                         </Tooltip>
-                                        <Tooltip title="Xóa" arrow>
-                                            <IconButton size="small" onClick={() => setDeleteId(d.id)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) } }}>
-                                                <DeleteRoundedIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+                                        {canDelete && (
+                                            <Tooltip title="Xóa" arrow>
+                                                <IconButton size="small" onClick={() => setDeleteId(d.id)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) } }}>
+                                                    <DeleteRoundedIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
                                     </Box>
                                 </TableCell>
                             </TableRow>

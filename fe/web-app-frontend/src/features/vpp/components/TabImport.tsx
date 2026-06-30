@@ -19,6 +19,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VppImportCreateDto, VppItemDto, VppItemUpsertDto, VppAttachmentItem, VPP_GREEN, VPP_GROUPS } from '../api/vpp.api';
 import toast from 'react-hot-toast';
+import { usePermission } from '@/hooks/usePermission';
 
 const GREEN = VPP_GREEN;
 const BLUE = '#0284c7';
@@ -49,6 +50,8 @@ interface ImportLine {
 
 export default function TabImport() {
     const qc = useQueryClient();
+    const canCreate = usePermission('vpp.import.create');
+    const canDelete = usePermission('vpp.import.delete');
     const fileInputsRef = useRef<(HTMLInputElement | null)[]>([]);
     const [activeLineIdx, setActiveLineIdx] = useState<number | null>(null);
     const now = new Date();
@@ -221,10 +224,12 @@ export default function TabImport() {
                         {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
                     </TextField>
                     <Box sx={{ flex: 1 }} />
-                    <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}
-                        sx={{ bgcolor: BLUE, '&:hover': { bgcolor: '#0369a1' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
-                        Tạo phiếu nhập
-                    </Button>
+                    {canCreate && (
+                        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}
+                            sx={{ bgcolor: BLUE, '&:hover': { bgcolor: '#0369a1' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
+                            Tạo phiếu nhập
+                        </Button>
+                    )}
                 </Box>
             </Paper>
 
@@ -265,11 +270,13 @@ export default function TabImport() {
                                                 <VisibilityRoundedIcon sx={{ fontSize: 16 }} />
                                             </IconButton>
                                         </Tooltip>
-                                        <Tooltip title="Xóa" arrow>
-                                            <IconButton size="small" onClick={() => setDeleteId(imp.id)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) } }}>
-                                                <DeleteRoundedIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+                                        {canDelete && (
+                                            <Tooltip title="Xóa" arrow>
+                                                <IconButton size="small" onClick={() => setDeleteId(imp.id)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) } }}>
+                                                    <DeleteRoundedIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
                                     </Box>
                                 </TableCell>
                             </TableRow>

@@ -126,7 +126,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Quản Lý VPP',
                 href: '/dashboard/administration/vpp',
                 icon: Package,
-                permissions: ['vpp.view', 'staff.view_list'],
+                permissions: ['vpp.view'],
             },
             {
                 title: 'Tuyển Dụng',

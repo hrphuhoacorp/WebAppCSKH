@@ -20,6 +20,7 @@ import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRound
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VppItemDto, VppItemUpsertDto, VPP_GREEN, VPP_GROUPS } from '../api/vpp.api';
 import toast from 'react-hot-toast';
+import { usePermission } from '@/hooks/usePermission';
 import * as XLSX from 'xlsx';
 
 const GREEN = VPP_GREEN;
@@ -56,6 +57,9 @@ function parsePrice(v: unknown): number {
 
 export default function TabCatalog() {
     const qc = useQueryClient();
+    const canCreate = usePermission('vpp.item.create');
+    const canEdit   = usePermission('vpp.item.edit');
+    const canDelete = usePermission('vpp.item.delete');
     const [group, setGroup] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
@@ -295,18 +299,22 @@ export default function TabCatalog() {
                         <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)' }} />
                         <Typography sx={{ fontWeight: 700, color: GREEN, fontSize: 13 }}>{totalItems} vật tư</Typography>
                     </Box>
-                    <Button variant="outlined" startIcon={<FileUploadRoundedIcon />} onClick={() => { setImportRows([]); setImportFileName(''); setImportOpen(true); }}
-                        sx={{ borderColor: BORDER, color: '#475569', '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
-                        Nhập Excel
-                    </Button>
+                    {canCreate && (
+                        <Button variant="outlined" startIcon={<FileUploadRoundedIcon />} onClick={() => { setImportRows([]); setImportFileName(''); setImportOpen(true); }}
+                            sx={{ borderColor: BORDER, color: '#475569', '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
+                            Nhập Excel
+                        </Button>
+                    )}
                     <Button variant="outlined" startIcon={<FileDownloadRoundedIcon />} onClick={exportExcel} disabled={items.length === 0}
                         sx={{ borderColor: '#22c55e', color: '#15803d', '&:hover': { bgcolor: '#f0fdf4', borderColor: '#16a34a' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
                         Xuất Excel
                     </Button>
-                    <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => handleOpen()}
-                        sx={{ bgcolor: GREEN, '&:hover': { bgcolor: '#065f35' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
-                        Thêm vật tư
-                    </Button>
+                    {canCreate && (
+                        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => handleOpen()}
+                            sx={{ bgcolor: GREEN, '&:hover': { bgcolor: '#065f35' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
+                            Thêm vật tư
+                        </Button>
+                    )}
                 </Box>
             </Paper>
 
@@ -351,22 +359,28 @@ export default function TabCatalog() {
                                     <TableCell align="center" sx={{ py: 1.5 }}>{item.minStock}</TableCell>
                                     <TableCell align="center" sx={{ py: 1.5 }}>{item.maxStock}</TableCell>
                                     <TableCell align="right" sx={{ py: 1.5 }}>
-                                        <Tooltip title={item.isActive !== false ? 'Đặt ngừng nhập' : 'Kích hoạt lại'} arrow>
-                                            <IconButton size="small" onClick={() => toggleMut.mutate(item.id)} disabled={toggleMut.isPending}
-                                                sx={{ color: item.isActive !== false ? '#22c55e' : '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { bgcolor: item.isActive !== false ? alpha('#22c55e', 0.08) : alpha('#94a3b8', 0.08) } }}>
-                                                {item.isActive !== false ? <ToggleOnRoundedIcon sx={{ fontSize: 20 }} /> : <ToggleOffRoundedIcon sx={{ fontSize: 20 }} />}
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Sửa" arrow>
-                                            <IconButton size="small" onClick={() => handleOpen(item)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) } }}>
-                                                <EditRoundedIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Xóa" arrow>
-                                            <IconButton size="small" onClick={() => setDeleteId(item.id)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) } }}>
-                                                <DeleteRoundedIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                        </Tooltip>
+                                        {canEdit && (
+                                            <Tooltip title={item.isActive !== false ? 'Đặt ngừng nhập' : 'Kích hoạt lại'} arrow>
+                                                <IconButton size="small" onClick={() => toggleMut.mutate(item.id)} disabled={toggleMut.isPending}
+                                                    sx={{ color: item.isActive !== false ? '#22c55e' : '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { bgcolor: item.isActive !== false ? alpha('#22c55e', 0.08) : alpha('#94a3b8', 0.08) } }}>
+                                                    {item.isActive !== false ? <ToggleOnRoundedIcon sx={{ fontSize: 20 }} /> : <ToggleOffRoundedIcon sx={{ fontSize: 20 }} />}
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+                                        {canEdit && (
+                                            <Tooltip title="Sửa" arrow>
+                                                <IconButton size="small" onClick={() => handleOpen(item)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#2563eb', bgcolor: alpha('#2563eb', 0.08) } }}>
+                                                    <EditRoundedIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+                                        {canDelete && (
+                                            <Tooltip title="Xóa" arrow>
+                                                <IconButton size="small" onClick={() => setDeleteId(item.id)} sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: '#dc2626', bgcolor: alpha('#dc2626', 0.08) } }}>
+                                                    <DeleteRoundedIcon sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             );

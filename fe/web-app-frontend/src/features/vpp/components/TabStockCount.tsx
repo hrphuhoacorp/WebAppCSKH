@@ -15,6 +15,7 @@ import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VPP_GREEN } from '../api/vpp.api';
 import toast from 'react-hot-toast';
+import { usePermission } from '@/hooks/usePermission';
 
 const GREEN = VPP_GREEN;
 const TEAL = '#0f766e';
@@ -42,6 +43,9 @@ interface EditedLines { [lineId: number]: { actualQty: number; note: string } }
 
 export default function TabStockCount() {
     const qc = useQueryClient();
+    const canCreate  = usePermission('vpp.stock_count.create');
+    const canEdit    = usePermission('vpp.stock_count.edit');
+    const canConfirm = usePermission('vpp.stock_count.confirm');
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
@@ -142,10 +146,12 @@ export default function TabStockCount() {
                         {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
                     </TextField>
                     <Box sx={{ flex: 1 }} />
-                    <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}
-                        sx={{ bgcolor: TEAL, '&:hover': { bgcolor: '#0d6461' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
-                        Tạo phiếu kiểm kho
-                    </Button>
+                    {canCreate && (
+                        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}
+                            sx={{ bgcolor: TEAL, '&:hover': { bgcolor: '#0d6461' }, borderRadius: '12px', textTransform: 'none', fontWeight: 700, height: 40 }}>
+                            Tạo phiếu kiểm kho
+                        </Button>
+                    )}
                 </Box>
             </Paper>
 
@@ -227,7 +233,7 @@ export default function TabStockCount() {
                     Phiếu kiểm kho #{detailId}
                     {detail && <StatusChip status={detail.status} />}
                     <Box sx={{ flex: 1 }} />
-                    {isDraft && (
+                    {isDraft && canConfirm && (
                         <Button variant="outlined" size="small" startIcon={<CheckCircleRoundedIcon />} onClick={() => setConfirmId(detailId)}
                             sx={{ textTransform: 'none', borderRadius: '10px', borderColor: '#15803d', color: '#15803d', fontWeight: 700, '&:hover': { bgcolor: '#dcfce7', borderColor: '#15803d' } }}>
                             Xác nhận kiểm kho
@@ -253,7 +259,7 @@ export default function TabStockCount() {
                                 ))}
                             </Box>
 
-                            {isDraft && (
+                            {isDraft && canEdit && (
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                                     <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                         Nhập số lượng thực tế
