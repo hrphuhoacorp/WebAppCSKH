@@ -545,7 +545,7 @@ export default function TabImport() {
                     </Typography>
                     {(detailLine?.attachments?.length ?? 0) > 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {detailLine.attachments.map((att, i) => (
+                            {detailLine?.attachments.map((att, i) => (
                                 <Button key={i} component="a" href={att.url} target="_blank" rel="noopener noreferrer"
                                     startIcon={<InsertDriveFileRoundedIcon sx={{ fontSize: 13, color: '#64748b' }} />}
                                     endIcon={<DownloadRoundedIcon sx={{ fontSize: 13 }} />}
