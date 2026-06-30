@@ -1,31 +1,16 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
+import React from 'react';
+import dynamic from 'next/dynamic';
+import type { ApexOptions } from 'apexcharts';
 import { useQuery } from '@tanstack/react-query';
 import {
-    Box,
-    Paper,
-    TextField,
-    Typography,
-    MenuItem,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableRow,
-    Chip,
-    Avatar,
-    Divider,
-    Skeleton,
-    alpha,
+    Box, Paper, TextField, Typography, MenuItem,
+    Table, TableBody, TableCell, TableHead, TableRow,
+    Chip, Avatar, Divider, Skeleton, alpha,
 } from '@mui/material';
-import { BarChart, PieChart } from '@mui/x-charts';
-import toast from 'react-hot-toast';
-import LoadingOverlay from '@/components/common/LoadingOverlay';
-import PageHeader from '@/components/common/PageHeader';
 import { InsightsRounded } from '@mui/icons-material';
-import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
-import { ordersApi } from '@/features/orders/api/orders.api';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -33,557 +18,39 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import CakeIcon from '@mui/icons-material/Cake';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import PageHeader from '@/components/common/PageHeader';
+import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
+import { ordersApi } from '@/features/orders/api/orders.api';
 import LoyalCustomerDetailDialog from '@/features/customer/components/LoyalCustomerDetailDialog';
 import { LoyalCustomerDTO } from '@/features/customer/api/returnRate.api';
+import toast from 'react-hot-toast';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 
-export default function DashboardPage() {
-    const [fromDate, setFromDate] = useState('');
-    const [toDate, setToDate] = useState('');
-    const [month, setMonth] = useState<number | ''>(
-        new Date().getMonth() + 1
-    );
-    const [year, setYear] = useState('');
-    const [source, setSource] = useState('');
-    const [branchId, setBranchId] = useState('');
-    const [revenueGroupBy, setRevenueGroupBy] = useState<'day' | 'week' | 'month'>('day');
+const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
-    const [selectedCustomer, setSelectedCustomer] = useState<LoyalCustomerDTO | null>(null);
-    const [selectedSegmentIdx, setSelectedSegmentIdx] = useState(0);
+const GREEN = '#086839';
+const BLUE = '#0ea5e9';
+const PURPLE = '#8b5cf6';
+const RED = '#ef4444';
+const PINK = '#ec4899';
+const AMBER = '#f59e0b';
+const TEAL = '#10b981';
+const INDIGO = '#6366f1';
+const CARD_RADIUS = '20px';
+const BORDER = '#e2e8f0';
+const CAT_COLORS = [GREEN, BLUE, PURPLE, AMBER, RED, PINK, TEAL, INDIGO];
 
-    const formatMoney = (value: number) =>
-        new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value ?? 0);
+const fmt = (v: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v ?? 0);
+const fmtShort = (v: number) => v >= 1_000_000_000 ? (Math.floor(v / 100_000_000) / 10).toFixed(1) + ' tỷ' : v >= 1_000_000 ? (Math.floor(v / 100_000) / 10).toFixed(1) + 'tr' : Math.round(v).toLocaleString('vi-VN') + 'đ';
 
-    const { data: branches = [] } = useQuery({
-        queryKey: ['branches'],
-        queryFn: async () => {
-            const r = await ordersApi.getBranches();
-            return r.content ?? r ?? [];
-        },
-        staleTime: 5 * 60 * 1000,
-    });
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
-    const { data: dashboard, isFetching: loading } = useQuery({
-        queryKey: ['dashboard-sales', fromDate, toDate, month, year, source, branchId, revenueGroupBy],
-        queryFn: async () => {
-            try {
-                const res = await dashboardApi.getDashboardForSales({
-                    fromDate: fromDate || undefined,
-                    toDate: toDate || undefined,
-                    month: month ? Number(month) : undefined,
-                    year: year ? Number(year) : undefined,
-                    source: source || undefined,
-                    branchId: branchId ? Number(branchId) : undefined,
-                    revenueGroupBy,
-                });
-                return res.content;
-            } catch (error: any) {
-                toast.error(error?.response?.data?.Message ?? 'Không tải được dashboard');
-                return null;
-            }
-        },
-        placeholderData: (prev) => prev,
-    });
-
-    const hasFilter = fromDate || toDate || month || year || source || branchId || revenueGroupBy;
-
-    return (
-        <Box
-            sx={{
-                minHeight: '100vh',
-                bgcolor: '#f0f7f3',
-                backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
-                p: { xs: 2, md: 4 },
-            }}
-        >
-            <LoadingOverlay open={loading} fullScreen text="Đang tải dashboard..." />
-
-            <PageHeader
-                title="Tổng Quan Bán Hàng"
-                subtitle="Báo cáo kinh doanh tổng quan theo thời gian thực"
-                icon={<InsightsRounded />}
-                gradient="linear-gradient(135deg, #086839 0%, #16a34a 100%)"
-                shadowColor="rgba(8,104,57,0.28)"
-            />
-
-            {/* ── Filter Bar ── */}
-            <Paper
-                elevation={0}
-                sx={{
-                    p: 2.5,
-                    borderRadius: '20px',
-                    mb: 3,
-                    border: '1px solid #e2e8f0',
-                    bgcolor: '#fff',
-                    boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
-                }}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                    <FilterListIcon sx={{ color: '#086839', fontSize: 18 }} />
-                    <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>Bộ lọc</Typography>
-                    {hasFilter && (
-                        <Chip
-                            label="Đang lọc"
-                            size="small"
-                            sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }}
-                        />
-                    )}
-                </Box>
-
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(7,1fr)' }, gap: 2 }}>
-                    {[
-                        { label: 'Từ ngày', type: 'date', value: fromDate, onChange: setFromDate },
-                        { label: 'Đến ngày', type: 'date', value: toDate, onChange: setToDate },
-                    ].map(({ label, type, value, onChange }) => (
-                        <TextField
-                            key={label}
-                            size="small"
-                            type={type}
-                            label={label}
-                            value={value}
-                            onChange={(e) => onChange(e.target.value)}
-                            slotProps={{ inputLabel: { shrink: true } }}
-                            fullWidth
-                            sx={filterFieldSx}
-                        />
-                    ))}
-                    <TextField
-                        select
-                        size="small"
-                        label="Biểu đồ doanh thu"
-                        value={revenueGroupBy}
-                        onChange={(e) => setRevenueGroupBy(e.target.value as 'day' | 'week' | 'month')}
-                        fullWidth
-                        sx={filterFieldSx}
-                    >
-                        <MenuItem value="day">Theo ngày</MenuItem>
-                        <MenuItem value="week">Theo tuần</MenuItem>
-                        <MenuItem value="month">Theo tháng</MenuItem>
-                    </TextField>
-                    <TextField select size="small" label="Tháng" value={month} onChange={(e) =>
-                        setMonth(
-                            e.target.value === ''
-                                ? ''
-                                : Number(e.target.value)
-                        )
-                    } fullWidth sx={filterFieldSx}>
-                        <MenuItem value="">Tất cả tháng</MenuItem>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                            <MenuItem key={m} value={m}>Tháng {m}</MenuItem>
-                        ))}
-                    </TextField>
-
-                    <TextField select size="small" label="Năm" value={year} onChange={(e) => setYear(e.target.value)} fullWidth sx={filterFieldSx}>
-                        <MenuItem value="">Tất cả năm</MenuItem>
-                        {[2024, 2025, 2026, 2027].map((y) => (
-                            <MenuItem key={y} value={y}>Năm {y}</MenuItem>
-                        ))}
-                    </TextField>
-
-                    <TextField select size="small" label="Nguồn khách" value={source} onChange={(e) => setSource(e.target.value)} fullWidth sx={filterFieldSx}>
-                        <MenuItem value="">Tất cả các nguồn</MenuItem>
-                        {['Zalo', 'Facebook', 'GrabMart', 'ShopeeFood', 'ShopeeMart', 'Livestream', 'Pos', 'Khách đặt tại quầy', 'Khác'].map((s) => (
-                            <MenuItem key={s} value={s}>{s}</MenuItem>
-                        ))}
-                    </TextField>
-
-                    <TextField select size="small" label="Chi nhánh" value={branchId} onChange={(e) => setBranchId(e.target.value)} fullWidth sx={filterFieldSx}>
-                        <MenuItem value="">Tất cả chi nhánh</MenuItem>
-                        {branches.map((b: any) => (
-                            <MenuItem key={b.id || b.branchId} value={b.id || b.branchId}>
-                                {b.name || b.branchName}
-                            </MenuItem>
-                        ))}
-                    </TextField>
-
-                </Box>
-            </Paper>
-
-            {dashboard && (
-                <>
-                    {/* ── KPI Cards ── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4,1fr)' }, gap: 2.5, mb: 3 }}>
-                        <KpiCard
-                            title="Tổng đơn hàng"
-                            value={dashboard.totalOrders}
-                            sub="Đơn trong kỳ"
-                            icon={<ShoppingCartIcon />}
-                            color="#ef4444"
-                        />
-                        <KpiCard
-                            title="Tổng khách hàng"
-                            value={dashboard.totalCustomers}
-                            sub="Khách trong kỳ"
-                            icon={<PeopleAltIcon />}
-                            color="#0ea5e9"
-                        />
-                        <KpiCard
-                            title="Tổng doanh thu"
-                            value={formatMoney(dashboard.totalRevenue)}
-                            sub="Doanh thu gộp"
-                            icon={<MonetizationOnIcon />}
-                            color="#086839"
-                        />
-                        <KpiCard
-                            title="Trung bình / đơn"
-                            value={formatMoney(dashboard.averageOrderValue)}
-                            sub="Giá trị trung bình"
-                            icon={<TrendingUpIcon />}
-                            color="#8b5cf6"
-                        />
-                    </Box>
-
-                    {/* ── Revenue Bar Chart ── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr' }, gap: 3, mb: 3, alignItems: 'stretch' }}>
-                        <ChartCard title={revenueGroupBy === 'day' ? 'Doanh thu theo ngày' : revenueGroupBy === 'week' ? 'Doanh thu theo tuần' : 'Doanh thu theo tháng'} icon="📈">
-                            <BarChart
-                                height={300}
-                                width={undefined}
-                                colors={['#086839']}
-                                borderRadius={8}
-                                xAxis={[{
-                                    scaleType: 'band',
-                                    data: dashboard.revenueByMonth.map((x: any) => x.period),
-                                    tickLabelStyle: { fontSize: 12, fill: '#64748b' },
-                                }]}
-                                yAxis={[{
-                                    tickLabelStyle: { fontSize: 11, fill: '#94a3b8' },
-                                }]}
-                                series={[{
-                                    data: dashboard.revenueByMonth.map((x: any) => x.revenue),
-                                    label: 'Doanh thu (VNĐ)',
-                                    valueFormatter: (v) => formatMoney(v ?? 0),
-                                }]}
-                                sx={{
-                                    '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
-                                    '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
-                                }}
-                            />
-                        </ChartCard>
-                    </Box>
-
-                    {/* ── Doanh thu theo loại sản phẩm ── */}
-                    {dashboard.revenueByCategory?.length > 0 && (
-                        <Box sx={{ mb: 3 }}>
-                            <ChartCard title="Doanh thu theo loại sản phẩm" icon="📦">
-                                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
-                                    {(() => {
-                                        const CAT_COLORS = ['#086839', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#ec4899', '#10b981', '#6366f1'];
-                                        const total = dashboard.revenueByCategory.reduce((s: number, c: any) => s + c.value, 0);
-                                        return dashboard.revenueByCategory.map((x: any, i: number) => {
-                                            const color = CAT_COLORS[i % CAT_COLORS.length];
-                                            const pct = total > 0 ? ((x.value / total) * 100).toFixed(2) : '0.00';
-                                            return (
-                                                <Box key={x.name} sx={{ px: 1.5, py: 0.5, borderRadius: '10px', bgcolor: `${color}14`, border: `1px solid ${color}30` }}>
-                                                    <Typography component="span" sx={{ fontSize: 11, color, fontWeight: 700 }}>{x.name}: </Typography>
-                                                    <Typography component="span" sx={{ fontSize: 12, color, fontWeight: 800 }}>{pct}% · {formatMoney(x.value)}</Typography>
-                                                </Box>
-                                            );
-                                        });
-                                    })()}
-                                </Box>
-                                <BarChart
-                                    height={320}
-                                    borderRadius={8}
-                                    xAxis={[{
-                                        scaleType: 'band',
-                                        data: dashboard.revenueByCategory.map((x: any) => x.name),
-                                        valueFormatter: (name: string, ctx: any) =>
-                                            ctx?.location === 'tick' && name.length > 12
-                                                ? name.slice(0, 12) + '…'
-                                                : name,
-                                        tickLabelStyle: { fontSize: 10, fill: '#94a3b8' },
-                                    }]}
-                                    yAxis={[{ tickLabelStyle: { fontSize: 11, fill: '#94a3b8' } }]}
-                                    series={[{
-                                        data: dashboard.revenueByCategory.map((x: any) => x.value),
-                                        label: 'Doanh thu (VNĐ)',
-                                        valueFormatter: (v) => formatMoney(v ?? 0),
-                                        color: '#086839',
-                                    }]}
-                                    sx={{
-                                        '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
-                                        '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
-                                        '.MuiChartsLegend-label': { fontSize: 12, fill: '#475569' },
-                                    }}
-                                />
-                            </ChartCard>
-                        </Box>
-                    )}
-
-                    {/* ── By Source + By Branch + Status ── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr' }, gap: 3, mb: 3 }}>
-                        <ChartCard title="Khách hàng từ các nguồn" icon="🌐">
-                            <BarChart
-                                height={280}
-                                colors={['#ec4899']}
-                                borderRadius={8}
-                                xAxis={[{
-                                    scaleType: 'band',
-                                    data: dashboard.customersBySource.map((x: any) => x.name),
-                                    tickLabelStyle: { fontSize: 12, fill: '#64748b' },
-                                }]}
-                                series={[{
-                                    data: dashboard.customersBySource.map((x: any) => x.value),
-                                    label: 'Số lượng khách',
-                                }]}
-                                sx={{
-                                    '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
-                                    '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
-                                }}
-                            />
-                        </ChartCard>
-
-                        <ChartCard title="Doanh thu theo chi nhánh" icon="🏪">
-                            <BarChart
-                                height={280}
-                                colors={['#0ea5e9']}
-                                borderRadius={8}
-                                xAxis={[{
-                                    scaleType: 'band',
-                                    data: dashboard.revenueByBranch.map((x: any) => x.name),
-                                    tickLabelStyle: { fontSize: 12, fill: '#64748b' },
-                                }]}
-                                series={[{
-                                    data: dashboard.revenueByBranch.map((x: any) => x.value),
-                                    label: 'Doanh thu',
-                                    valueFormatter: (v) => formatMoney(v ?? 0),
-                                }]}
-                                sx={{
-                                    '.MuiChartsAxis-line': { stroke: '#e2e8f0' },
-                                    '.MuiChartsAxis-tick': { stroke: '#e2e8f0' },
-                                }}
-                            />
-                        </ChartCard>
-
-                        <ChartCard title="Phân bổ trạng thái đơn" icon="🥧">
-                            <PieChart
-                                height={300}
-                                colors={['#086839', '#22c55e', '#86efac', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9']}
-                                series={[{
-                                    data: dashboard.ordersByStatus.map((x: any, i: number) => ({
-                                        id: i,
-                                        value: x.value,
-                                        label: `${x.name} (${x.value})`,
-                                    })),
-                                    innerRadius: 60,
-                                    outerRadius: 105,
-                                    paddingAngle: 4,
-                                    cornerRadius: 8,
-                                    cx: '50%',
-                                }]}
-                                slotProps={{
-                                    legend: {
-                                        direction: 'vertical',
-                                        position: { vertical: 'middle', horizontal: 'end' },
-                                    },
-                                }}
-                                sx={{
-                                    '& .MuiChartsLegend-label': { fontSize: 11, fill: '#475569' },
-                                    '& .MuiChartsLegend-mark': { transform: 'scale(0.8)' },
-                                }}
-                            />
-                        </ChartCard>
-                    </Box>
-
-                    {/* ── Top Customers + Birthdays ── */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.6fr 1fr' }, gap: 3 }}>
-                        {/* Top Customers */}
-                        <Paper elevation={0} sx={cardSx}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                                <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <EmojiEventsIcon sx={{ color: '#d97706', fontSize: 20 }} />
-                                </Box>
-                                <Box>
-                                    <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
-                                        Vinh danh khách hàng
-                                    </Typography>
-                                    <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Top doanh thu cao nhất</Typography>
-                                </Box>
-                            </Box>
-
-                            <Box sx={{ overflowX: 'auto' }}>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            {['#', 'Khách hàng', 'SĐT', 'Đơn', 'Chi tiêu'].map((h, i) => (
-                                                <TableCell
-                                                    key={h}
-                                                    align={i >= 3 ? 'right' : 'left'}
-                                                    sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', borderColor: '#f1f5f9', py: 1.2 }}
-                                                >
-                                                    {h}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {dashboard.topCustomersByRevenue.map((item: any, idx: number) => (
-                                            <TableRow
-                                                key={item.customerId}
-                                                onClick={() => setSelectedCustomer({
-                                                    id: item.customerId,
-                                                    name: item.customerName,
-                                                    customerCode: '',
-                                                    phone: item.phone,
-                                                    orderCount: item.totalOrders,
-                                                    totalRevenue: item.totalRevenue,
-                                                    avgOrderValue: item.totalOrders > 0 ? item.totalRevenue / item.totalOrders : 0,
-                                                    avgDaysBetweenOrders: 0,
-                                                } as LoyalCustomerDTO)}
-                                                sx={{
-                                                    cursor: 'pointer',
-                                                    '&:hover': { bgcolor: '#fef9ec' },
-                                                    '& td': { borderColor: '#f1f5f9', py: 1.5 },
-                                                    transition: 'background 0.12s',
-                                                }}
-                                            >
-                                                <TableCell sx={{ width: 44, fontSize: 18 }}>
-                                                    {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
-                                                        <Typography sx={{ fontWeight: 700, color: '#cbd5e1', fontSize: 14, pl: 0.5 }}>{idx + 1}</Typography>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                        <Avatar
-                                                            sx={{
-                                                                width: 32, height: 32, fontSize: 13,
-                                                                bgcolor: idx === 0 ? '#fef3c7' : idx === 1 ? '#f1f5f9' : idx === 2 ? '#fff7ed' : '#f0fdf4',
-                                                                color: idx === 0 ? '#d97706' : idx === 1 ? '#64748b' : idx === 2 ? '#ea580c' : '#086839',
-                                                                fontWeight: 800,
-                                                                border: `2px solid ${idx === 0 ? '#fde68a' : idx === 1 ? '#e2e8f0' : idx === 2 ? '#fed7aa' : '#bbf7d0'}`,
-                                                            }}
-                                                        >
-                                                            {item.customerName?.[0]}
-                                                        </Avatar>
-                                                        <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap' }}>
-                                                            {item.customerName}
-                                                        </Typography>
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.phone}</TableCell>
-                                                <TableCell align="right">
-                                                    <Chip
-                                                        label={item.totalOrders}
-                                                        size="small"
-                                                        sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 12, height: 22, border: '1px solid #bbf7d0' }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ fontWeight: 800, color: '#d97706', fontSize: 13, whiteSpace: 'nowrap' }}>
-                                                    {formatMoney(item.totalRevenue)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </Box>
-                        </Paper>
-
-                        {/* Birthday Customers */}
-                        <Paper elevation={0} sx={cardSx}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                                <Box sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: '#fce7f3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <CakeIcon sx={{ color: '#db2777', fontSize: 20 }} />
-                                </Box>
-                                <Box>
-                                    <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
-                                        Sinh nhật tháng này
-                                    </Typography>
-                                    <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Khách hàng cần chúc mừng</Typography>
-                                </Box>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                {dashboard.birthdayCustomersThisMonth.map((item: any, idx: number) => (
-                                    <Box key={item.customerId}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
-                                            <Avatar
-                                                sx={{
-                                                    width: 38, height: 38, fontSize: 15,
-                                                    bgcolor: '#fce7f3',
-                                                    color: '#db2777',
-                                                    fontWeight: 800,
-                                                    border: '2px solid #fbcfe8',
-                                                }}
-                                            >
-                                                {item.customerName?.[0]}
-                                            </Avatar>
-                                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, mb: 0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {item.customerName}
-                                                </Typography>
-                                                <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>
-                                                    {item.phone}
-                                                </Typography>
-                                            </Box>
-                                            <Chip
-                                                label={new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(item.dayOfBirth))}
-                                                size="small"
-                                                sx={{
-                                                    bgcolor: '#fce7f3',
-                                                    color: '#db2777',
-                                                    fontWeight: 700,
-                                                    fontSize: 12,
-                                                    border: '1px solid #fbcfe8',
-                                                    height: 24,
-                                                    flexShrink: 0,
-                                                }}
-                                            />
-                                        </Box>
-                                        {idx < dashboard.birthdayCustomersThisMonth.length - 1 && (
-                                            <Divider sx={{ borderColor: '#f1f5f9' }} />
-                                        )}
-                                    </Box>
-                                ))}
-                            </Box>
-                        </Paper>
-                    </Box>
-                </>
-            )}
-            <LoyalCustomerDetailDialog
-                customer={selectedCustomer}
-                onClose={() => setSelectedCustomer(null)}
-                badge="Top khách hàng"
-                badgeColor="#d97706"
-            />
-        </Box>
-    );
-}
-
-// ── Shared styles ──────────────────────────────────────────────
-
-const cardSx = {
-    bgcolor: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '20px',
-    p: 3,
-    boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
-    transition: 'box-shadow 0.2s',
-    '&:hover': { boxShadow: '0 6px 24px rgba(8,104,57,0.1)' },
-};
-
-const filterFieldSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: '12px',
-        '&.Mui-focused fieldset': { borderColor: '#086839' },
-    },
-    '& label.Mui-focused': { color: '#086839' },
-};
-
-// ── Sub-components ────────────────────────────────────────────
-
-function KpiCard({
-    title, value, sub, icon, color, loading,
-}: {
-    title: string;
-    value: string | number;
-    sub: string;
-    icon: React.ReactNode;
-    color: string;
-    loading?: boolean;
+function StatCard({ label, value, sub, color, icon, loading }: {
+    label: string; value: string | number; sub?: string; color: string; icon: React.ReactNode; loading?: boolean;
 }) {
     return (
         <Paper elevation={0} sx={{
-            p: 2.5, borderRadius: '20px',
+            p: 2.5, borderRadius: CARD_RADIUS,
             border: `1px solid ${alpha(color, 0.18)}`,
             background: `linear-gradient(135deg, #fff 60%, ${alpha(color, 0.06)} 100%)`,
             boxShadow: `0 4px 24px ${alpha(color, 0.1)}`,
@@ -600,47 +67,439 @@ function KpiCard({
                     boxShadow: `0 4px 12px ${alpha(color, 0.35)}`,
                     '& svg': { fontSize: 21, color: '#fff' },
                 }}>
-                    {icon}
+                    {loading ? <Skeleton variant="circular" width={22} height={22} sx={{ bgcolor: 'rgba(255,255,255,0.4)' }} /> : icon}
                 </Box>
-                <Box>
-                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 0.4 }}>
-                        {title}
-                    </Typography>
-                    {loading
-                        ? <Skeleton width={80} height={32} />
-                        : <Typography sx={{ fontSize: typeof value === 'string' && value.length > 10 ? 18 : 26, fontWeight: 900, color: '#1e293b', lineHeight: 1.1 }}>
-                            {value}
-                          </Typography>
-                    }
-                    <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.5 }}>{sub}</Typography>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 0.4 }}>{label}</Typography>
+                    {loading ? <Skeleton width={80} height={32} />
+                        : <Typography sx={{ fontSize: typeof value === 'string' && value.length > 10 ? 18 : 26, fontWeight: 900, color: '#1e293b', lineHeight: 1.1 }}>{value}</Typography>}
+                    {loading ? <Skeleton width="75%" height={16} sx={{ mt: 0.4 }} />
+                        : sub && <Typography sx={{ fontSize: 11.5, color: '#94a3b8', mt: 0.5 }}>{sub}</Typography>}
                 </Box>
             </Box>
         </Paper>
     );
 }
 
-function ChartCard({ title, icon, children }: { title: string; icon?: string; children: React.ReactNode }) {
+function ChartCard({ title, subtitle, children, loading, height = 300, action }: {
+    title: string; subtitle?: string; children: React.ReactNode; loading?: boolean; height?: number; action?: React.ReactNode;
+}) {
     return (
-        <Paper elevation={0} sx={cardSx}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                {icon && (
-                    <Box
-                        sx={{
-                            width: 32, height: 32,
-                            borderRadius: '9px',
-                            bgcolor: '#dcfce7',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 16,
-                        }}
-                    >
-                        {icon}
-                    </Box>
-                )}
-                <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>
-                    {title}
-                </Typography>
+        <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 20px rgba(0,0,0,0.06)', overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ px: 2.5, pt: 2.5, pb: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, flexShrink: 0 }}>
+                <Box>
+                    <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#1e293b' }}>{title}</Typography>
+                    {subtitle && <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.3 }}>{subtitle}</Typography>}
+                </Box>
+                {action && <Box sx={{ flexShrink: 0, pt: 0.3 }}>{action}</Box>}
             </Box>
-            {children}
+            <Box sx={{ px: 1, pt: 0.5, pb: 0.5, flex: 1, minHeight: 0 }}>
+                {loading ? <Skeleton variant="rectangular" height={height} sx={{ borderRadius: '12px', mx: 1.5, mb: 1.5, mt: 1 }} /> : children}
+            </Box>
         </Paper>
     );
 }
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
+
+export default function SalesOverviewPage() {
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+    const [month, setMonth] = useState<number | ''>(new Date().getMonth() + 1);
+    const [year, setYear] = useState('');
+    const [source, setSource] = useState('');
+    const [branchId, setBranchId] = useState('');
+    const [revenueGroupBy, setRevenueGroupBy] = useState<'day' | 'week' | 'month'>('day');
+    const [selectedCustomer, setSelectedCustomer] = useState<LoyalCustomerDTO | null>(null);
+
+    const { data: branches = [] } = useQuery({
+        queryKey: ['branches'],
+        queryFn: async () => { const r = await ordersApi.getBranches(); return r.content ?? r ?? []; },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: dashboard, isFetching: loading } = useQuery({
+        queryKey: ['dashboard-sales', fromDate, toDate, month, year, source, branchId, revenueGroupBy],
+        queryFn: async () => {
+            try {
+                const res = await dashboardApi.getDashboardForSales({
+                    fromDate: fromDate || undefined, toDate: toDate || undefined,
+                    month: month ? Number(month) : undefined, year: year ? Number(year) : undefined,
+                    source: source || undefined, branchId: branchId ? Number(branchId) : undefined,
+                    revenueGroupBy,
+                });
+                return res.content;
+            } catch (err: any) {
+                toast.error(err?.response?.data?.Message ?? 'Không tải được dashboard');
+                return null;
+            }
+        },
+        placeholderData: (prev) => prev,
+    });
+
+    const hasFilter = fromDate || toDate || month || year || source || branchId;
+    const revenueData: { period: string; revenue: number }[] = dashboard?.revenueByMonth ?? [];
+    const catData: { name: string; value: number }[] = (dashboard?.revenueByCategory ?? []).slice().sort((a: { name: string; value: number }, b: { name: string; value: number }) => b.value - a.value).slice(0, 10);
+    const sourceData: { name: string; value: number }[] = dashboard?.customersBySource ?? [];
+    const branchData: { name: string; value: number }[] = dashboard?.revenueByBranch ?? [];
+    const statusData: { name: string; value: number }[] = dashboard?.ordersByStatus ?? [];
+
+    // ── ApexCharts options ─────────────────────────────────────────────────────
+
+    const revenueTrendOpts: ApexOptions = {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', animations: { enabled: true, speed: 900 } },
+        plotOptions: { bar: { borderRadius: 6, columnWidth: revenueData.length > 20 ? '82%' : '52%', borderRadiusApplication: 'end' } },
+        colors: [GREEN],
+        fill: { type: 'gradient', gradient: { shade: 'dark', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.7 } },
+        dataLabels: { enabled: false },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4, xaxis: { lines: { show: false } } },
+        xaxis: {
+            categories: revenueData.map(x => x.period),
+            labels: { style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' }, rotate: revenueData.length > 20 ? -35 : 0, hideOverlappingLabels: true },
+            axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { labels: { formatter: (v: number) => fmtShort(v), style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' } } },
+        legend: { show: false },
+        tooltip: { intersect: false, y: { formatter: (v: number) => fmt(v) }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
+
+    const catBarOpts: ApexOptions = {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', animations: { enabled: true, speed: 700 } },
+        plotOptions: { bar: { borderRadius: 7, horizontal: true, barHeight: '56%', borderRadiusApplication: 'end', distributed: true } },
+        colors: CAT_COLORS,
+        fill: { type: 'gradient', gradient: { shade: 'light', type: 'horizontal', shadeIntensity: 0.2, opacityFrom: 1, opacityTo: 0.8 } },
+        dataLabels: { enabled: false },
+        legend: { show: false },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4, yaxis: { lines: { show: false } } },
+        xaxis: {
+            categories: catData.map(x => x.name),
+            labels: { formatter: (v: string) => fmtShort(Number(v)), style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' } },
+            axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { labels: { style: { fontSize: '12px', colors: '#475569', fontFamily: 'inherit' }, maxWidth: 150 } },
+        tooltip: { y: { formatter: (v: number) => fmt(v) }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
+
+    const sourceBarOpts: ApexOptions = {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', animations: { enabled: true, speed: 700 } },
+        plotOptions: { bar: { borderRadius: 7, horizontal: true, barHeight: '52%', borderRadiusApplication: 'end', distributed: true } },
+        colors: CAT_COLORS.slice(0).reverse(),
+        fill: { type: 'gradient', gradient: { shade: 'dark', type: 'horizontal', shadeIntensity: 0.3, opacityFrom: 1, opacityTo: 0.8 } },
+        dataLabels: {
+            enabled: true,
+            formatter: (v: number) => v > 0 ? v.toLocaleString('vi-VN') + ' KH' : '',
+            style: { fontSize: '11px', fontFamily: 'inherit', colors: ['#fff'] },
+        },
+        legend: { show: false },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4, yaxis: { lines: { show: false } } },
+        xaxis: {
+            categories: sourceData.map(x => x.name),
+            labels: { formatter: (v: string) => Number(v).toLocaleString('vi-VN'), style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' } },
+            axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { labels: { style: { fontSize: '12px', colors: '#475569', fontFamily: 'inherit' }, maxWidth: 150 } },
+        tooltip: { y: { formatter: (v: number) => `${v.toLocaleString('vi-VN')} khách`, title: { formatter: () => '' } }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
+
+    const branchBarOpts: ApexOptions = {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'inherit', animations: { enabled: true, speed: 700 } },
+        plotOptions: { bar: { borderRadius: 7, columnWidth: branchData.length <= 4 ? '40%' : '55%', borderRadiusApplication: 'end', distributed: true } },
+        colors: [GREEN, BLUE, PURPLE, AMBER, RED, PINK],
+        fill: { type: 'gradient', gradient: { shade: 'dark', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.75 } },
+        dataLabels: {
+            enabled: true,
+            formatter: (v: number) => v > 0 ? fmtShort(v) : '',
+            style: { fontSize: '11px', fontFamily: 'inherit', colors: ['#1e293b'] },
+            offsetY: -6,
+        },
+        legend: { show: false },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4, xaxis: { lines: { show: false } } },
+        xaxis: {
+            categories: branchData.map(x => x.name),
+            labels: { style: { fontSize: '12px', colors: '#475569', fontFamily: 'inherit' } },
+            axisBorder: { show: false }, axisTicks: { show: false },
+        },
+        yaxis: { labels: { formatter: (v: number) => fmtShort(v), style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' } } },
+        tooltip: { y: { formatter: (v: number) => fmt(v) }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
+
+    const STATUS_COLOR_MAP: Record<string, string> = {
+        'đang giao dịch': AMBER,
+        'giao dịch': AMBER,
+        'đang xử lý': AMBER,
+        'hoàn trả': RED,
+        'trả hàng': RED,
+        'hoàn thành': TEAL,
+        'hoàn tất': TEAL,
+        'thành công': TEAL,
+        'hủy': '#94a3b8',
+        'đã hủy': '#94a3b8',
+        'chờ xử lý': BLUE,
+        'chờ thanh toán': BLUE,
+        'đang giao': PURPLE,
+        'đang giao hàng': PURPLE,
+    };
+    const statusColors = statusData.map(x => STATUS_COLOR_MAP[x.name?.toLowerCase()?.trim()] ?? INDIGO);
+    const donutOpts: ApexOptions = {
+        chart: { type: 'donut', fontFamily: 'inherit', animations: { enabled: true, speed: 900, animateGradually: { enabled: true, delay: 100 } } },
+        colors: statusColors,
+        labels: statusData.map(x => x.name),
+        fill: { type: 'gradient', gradient: { shade: 'dark', type: 'vertical', shadeIntensity: 0.35, opacityFrom: 1, opacityTo: 0.8 } },
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '62%',
+                    labels: {
+                        show: true,
+                        total: {
+                            show: true, label: 'Tổng đơn', fontSize: '11px', color: '#94a3b8', fontWeight: 600,
+                            formatter: w => w.globals.seriesTotals.reduce((a: number, b: number) => a + b, 0).toLocaleString('vi-VN'),
+                        },
+                        value: { fontSize: '18px', fontWeight: 800, color: '#1e293b', formatter: (v: string) => Number(v).toLocaleString('vi-VN') },
+                    },
+                },
+            },
+        },
+        dataLabels: { enabled: false },
+        stroke: { show: false },
+        legend: { position: 'bottom', fontSize: '12px', fontFamily: 'inherit', markers: { size: 8 } },
+        tooltip: { y: { formatter: (v: number) => `${v.toLocaleString('vi-VN')} đơn` }, style: { fontFamily: 'inherit', fontSize: '12px' } },
+    };
+
+    return (
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', p: { xs: 2, md: 4 }, position: 'relative' }}>
+            <LoadingOverlay open={loading} fullScreen />
+            <PageHeader
+                title="Tổng Quan Bán Hàng"
+                subtitle="Báo cáo kinh doanh tổng quan theo thời gian thực"
+                icon={<InsightsRounded />}
+                gradient="linear-gradient(135deg, #064e3b 0%, #086839 100%)"
+                shadowColor="rgba(8,104,57,0.28)"
+            />
+
+            {/* ── Filter bar ───────────────────────────────────────────────── */}
+            <Paper elevation={0} sx={{ p: 2.5, borderRadius: CARD_RADIUS, mb: 3, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <FilterListIcon sx={{ color: GREEN, fontSize: 18 }} />
+                    <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>Bộ lọc</Typography>
+                    {hasFilter && <Chip label="Đang lọc" size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }} />}
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)', lg: 'repeat(7,1fr)' }, gap: 2 }}>
+                    {[
+                        { label: 'Từ ngày', type: 'date', value: fromDate, set: setFromDate },
+                        { label: 'Đến ngày', type: 'date', value: toDate, set: setToDate },
+                    ].map(f => (
+                        <TextField key={f.label} size="small" type={f.type} label={f.label} value={f.value}
+                            onChange={e => f.set(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth sx={fieldSx} />
+                    ))}
+                    <TextField select size="small" label="Biểu đồ DT" value={revenueGroupBy}
+                        onChange={e => setRevenueGroupBy(e.target.value as 'day' | 'week' | 'month')} fullWidth sx={fieldSx}>
+                        <MenuItem value="day">Theo ngày</MenuItem>
+                        <MenuItem value="week">Theo tuần</MenuItem>
+                        <MenuItem value="month">Theo tháng</MenuItem>
+                    </TextField>
+                    <TextField select size="small" label="Tháng" value={month}
+                        onChange={e => setMonth(e.target.value === '' ? '' : Number(e.target.value))} fullWidth sx={fieldSx}>
+                        <MenuItem value="">Tất cả tháng</MenuItem>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <MenuItem key={m} value={m}>Tháng {m}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" label="Năm" value={year} onChange={e => setYear(e.target.value)} fullWidth sx={fieldSx}>
+                        <MenuItem value="">Tất cả năm</MenuItem>
+                        {[2024, 2025, 2026, 2027].map(y => <MenuItem key={y} value={y}>Năm {y}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" label="Nguồn khách" value={source} onChange={e => setSource(e.target.value)} fullWidth sx={fieldSx}>
+                        <MenuItem value="">Tất cả nguồn</MenuItem>
+                        {['Zalo', 'Facebook', 'GrabMart', 'ShopeeFood', 'ShopeeMart', 'Livestream', 'Pos', 'Khách đặt tại quầy', 'Khác'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" label="Chi nhánh" value={branchId} onChange={e => setBranchId(e.target.value)} fullWidth sx={fieldSx}>
+                        <MenuItem value="">Tất cả chi nhánh</MenuItem>
+                        {branches.map((b: any) => <MenuItem key={b.id ?? b.branchId} value={b.id ?? b.branchId}>{b.name ?? b.branchName}</MenuItem>)}
+                    </TextField>
+                </Box>
+            </Paper>
+
+            {/* ── Stat cards ───────────────────────────────────────────────── */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4,1fr)' }, gap: 1.5, mb: 3 }}>
+                <StatCard label="Tổng đơn hàng" value={dashboard?.totalOrders ?? 0} sub="Đơn trong kỳ" icon={<ShoppingCartIcon />} color={RED} loading={loading} />
+                <StatCard label="Tổng khách hàng" value={dashboard?.totalCustomers ?? 0} sub="Khách trong kỳ" icon={<PeopleAltIcon />} color={BLUE} loading={loading} />
+                <StatCard label="Tổng doanh thu" value={dashboard ? fmt(dashboard.totalRevenue) : '—'} sub="Doanh thu gộp" icon={<MonetizationOnIcon />} color={GREEN} loading={loading} />
+                <StatCard label="Trung bình / đơn" value={dashboard ? fmt(dashboard.averageOrderValue) : '—'} sub="Giá trị trung bình" icon={<TrendingUpIcon />} color={PURPLE} loading={loading} />
+            </Box>
+
+            {/* ── Revenue trend (full width) ────────────────────────────────── */}
+            <Box sx={{ mb: 2 }}>
+                <ChartCard
+                    title={revenueGroupBy === 'day' ? 'Doanh thu theo ngày' : revenueGroupBy === 'week' ? 'Doanh thu theo tuần' : 'Doanh thu theo tháng'}
+                    subtitle="Xu hướng doanh thu trong kỳ"
+                    loading={loading} height={300}
+                    action={
+                        revenueData.length > 0 ? (
+                            <Chip size="small"
+                                label={`Tổng: ${fmtShort(revenueData.reduce((s, x) => s + x.revenue, 0))}`}
+                                sx={{ bgcolor: alpha(GREEN, 0.1), color: GREEN, fontWeight: 700, fontSize: 12, height: 24, border: `1px solid ${alpha(GREEN, 0.2)}` }} />
+                        ) : undefined
+                    }
+                >
+                    {revenueData.length > 0
+                        ? <ReactApexChart type="bar" height={300}
+                            series={[{ name: 'Doanh thu', data: revenueData.map(x => x.revenue) }]}
+                            options={revenueTrendOpts} />
+                        : <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography></Box>
+                    }
+                </ChartCard>
+            </Box>
+
+            {/* ── 6 khung: grid 2 cột, 6 item flow tự động thành 3 hàng ─────── */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1.3fr 1fr' }, gap: 2 }}>
+
+                {/* Hàng 1 trái: Category */}
+
+
+                {/* Hàng 2 trái: Branch */}
+                <ChartCard title="Doanh thu theo chi nhánh" subtitle="So sánh hiệu suất từng chi nhánh" loading={loading} height={280}>
+                    {branchData.length > 0
+                        ? <ReactApexChart type="bar" height={280} series={[{ name: 'Doanh thu', data: branchData.map(x => x.value) }]} options={branchBarOpts} />
+                        : <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography></Box>
+                    }
+                </ChartCard>
+
+                {/* Hàng 2 phải: Donut */}
+                <ChartCard title="Phân bổ trạng thái đơn hàng" loading={loading} height={310}>
+                    {statusData.length > 0
+                        ? <ReactApexChart type="donut" height={310} series={statusData.map(x => x.value)} options={donutOpts} />
+                        : <Box sx={{ height: 310, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography></Box>
+                    }
+                </ChartCard>
+
+                {(() => {
+                    const catH = Math.max(160, catData.length * 36 + 48);
+                    const catTotal = (dashboard?.revenueByCategory ?? []).reduce((s: number, c: { name: string; value: number }) => s + c.value, 0);
+                    const topCat = catData[0];
+                    return (
+                        <ChartCard title="Doanh thu theo loại sản phẩm"
+                            subtitle={`Top 10 danh mục doanh thu cao nhất${(dashboard?.revenueByCategory?.length ?? 0) > 10 ? ` / ${dashboard!.revenueByCategory.length} danh mục` : ''}`}
+                            loading={loading} height={catH}
+                            action={topCat ? <Chip size="small" label={`Hot: ${topCat.name} (${catTotal > 0 ? Math.round(topCat.value / catTotal * 100) : 0}%)`}
+                                sx={{ bgcolor: alpha(GREEN, 0.1), color: GREEN, fontWeight: 700, fontSize: 11, height: 22 }} /> : undefined}
+                        >
+                            {catData.length > 0
+                                ? <ReactApexChart type="bar" height={catH} series={[{ name: 'Doanh thu', data: catData.map(x => x.value) }]} options={catBarOpts} />
+                                : <Box sx={{ height: catH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography></Box>
+                            }
+                        </ChartCard>
+                    );
+                })()}
+
+                {/* Hàng 1 phải: Source */}
+                <ChartCard title="Khách hàng từ các nguồn" subtitle="Phân bổ theo kênh mua hàng" loading={loading} height={Math.max(240, sourceData.length * 52)}>
+                    {sourceData.length > 0
+                        ? <ReactApexChart type="bar" height={Math.max(240, sourceData.length * 52)} series={[{ name: 'Khách hàng', data: sourceData.map(x => x.value) }]} options={sourceBarOpts} />
+                        : <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography></Box>
+                    }
+                </ChartCard>
+
+                {/* Hàng 3 trái: Top Customers */}
+                {dashboard ? (
+                    <Paper elevation={0} sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: CARD_RADIUS, p: 3, boxShadow: '0 2px 20px rgba(0,0,0,0.06)', height: '100%' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+                            <Box sx={{ width: 40, height: 40, borderRadius: '12px', background: 'linear-gradient(135deg, #fde68a, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+                                <EmojiEventsIcon sx={{ color: '#fff', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>Vinh danh khách hàng</Typography>
+                                <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Top doanh thu cao nhất</Typography>
+                            </Box>
+                        </Box>
+                        <Box sx={{ overflowX: 'auto' }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        {['#', 'Khách hàng', 'SĐT', 'Đơn', 'Chi tiêu'].map((h, i) => (
+                                            <TableCell key={h} align={i >= 3 ? 'right' : 'left'}
+                                                sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', borderColor: '#f1f5f9', py: 1.2 }}>{h}</TableCell>
+                                        ))}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {dashboard.topCustomersByRevenue.map((item: any, idx: number) => (
+                                        <TableRow key={item.customerId}
+                                            onClick={() => setSelectedCustomer({ id: item.customerId, name: item.customerName, customerCode: '', phone: item.phone, orderCount: item.totalOrders, totalRevenue: item.totalRevenue, avgOrderValue: item.totalOrders > 0 ? item.totalRevenue / item.totalOrders : 0, avgDaysBetweenOrders: 0 } as LoyalCustomerDTO)}
+                                            sx={{ cursor: 'pointer', '&:hover': { bgcolor: '#fef9ec' }, '& td': { borderColor: '#f1f5f9', py: 1.5 }, transition: 'background 0.12s' }}>
+                                            <TableCell sx={{ width: 44, fontSize: 18 }}>
+                                                {idx === 0 ? '🏆' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
+                                                    <Typography sx={{ fontWeight: 700, color: '#cbd5e1', fontSize: 14, pl: 0.5 }}>{idx + 1}</Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                    <Avatar sx={{
+                                                        width: 32, height: 32, fontSize: 13, fontWeight: 800,
+                                                        bgcolor: idx === 0 ? '#fef3c7' : idx === 1 ? '#f1f5f9' : idx === 2 ? '#fff7ed' : '#f0fdf4',
+                                                        color: idx === 0 ? '#d97706' : idx === 1 ? '#64748b' : idx === 2 ? '#ea580c' : '#086839',
+                                                        border: `2px solid ${idx === 0 ? '#fde68a' : idx === 1 ? '#e2e8f0' : idx === 2 ? '#fed7aa' : '#bbf7d0'}`,
+                                                    }}>{item.customerName?.[0]}</Avatar>
+                                                    <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, whiteSpace: 'nowrap' }}>{item.customerName}</Typography>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell sx={{ color: '#64748b', fontSize: 13 }}>{item.phone}</TableCell>
+                                            <TableCell align="right">
+                                                <Chip label={item.totalOrders} size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 12, height: 22, border: '1px solid #bbf7d0' }} />
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 800, color: '#d97706', fontSize: 13, whiteSpace: 'nowrap' }}>
+                                                {fmt(item.totalRevenue)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </Box>
+                    </Paper>
+                ) : <Box />}
+
+                {/* Hàng 3 phải: Birthday */}
+                {dashboard ? (
+                    <Paper elevation={0} sx={{ bgcolor: '#fff', border: `1px solid ${BORDER}`, borderRadius: CARD_RADIUS, p: 3, boxShadow: '0 2px 20px rgba(0,0,0,0.06)', height: '100%' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+                            <Box sx={{ width: 40, height: 40, borderRadius: '12px', background: 'linear-gradient(135deg, #fbcfe8, #ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(236,72,153,0.3)' }}>
+                                <CakeIcon sx={{ color: '#fff', fontSize: 20 }} />
+                            </Box>
+                            <Box>
+                                <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>Sinh nhật tháng này</Typography>
+                                <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Khách hàng cần chúc mừng</Typography>
+                            </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                            {dashboard.birthdayCustomersThisMonth.map((item: any, idx: number) => (
+                                <Box key={item.customerId}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}>
+                                        <Avatar sx={{ width: 38, height: 38, fontSize: 15, fontWeight: 800, bgcolor: '#fce7f3', color: '#db2777', border: '2px solid #fbcfe8' }}>
+                                            {item.customerName?.[0]}
+                                        </Avatar>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: 13, mb: 0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.customerName}</Typography>
+                                            <Typography sx={{ color: '#94a3b8', fontSize: 12 }}>{item.phone}</Typography>
+                                        </Box>
+                                        <Chip label={new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(item.dayOfBirth))}
+                                            size="small" sx={{ bgcolor: '#fce7f3', color: '#db2777', fontWeight: 700, fontSize: 12, border: '1px solid #fbcfe8', height: 24, flexShrink: 0 }} />
+                                    </Box>
+                                    {idx < dashboard.birthdayCustomersThisMonth.length - 1 && <Divider sx={{ borderColor: '#f1f5f9' }} />}
+                                </Box>
+                            ))}
+                        </Box>
+                    </Paper>
+                ) : <Box />}
+
+            </Box>
+
+
+            <LoyalCustomerDetailDialog customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} badge="Top khách hàng" badgeColor="#d97706" />
+        </Box>
+    );
+}
+
+// ── Shared styles ──────────────────────────────────────────────────────────────
+
+const fieldSx = {
+    '& .MuiOutlinedInput-root': { borderRadius: '12px', '&.Mui-focused fieldset': { borderColor: GREEN } },
+    '& label.Mui-focused': { color: GREEN },
+};

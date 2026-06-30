@@ -412,7 +412,7 @@ export default function MediaGalleryPage() {
             bgcolor: '#f5f5f5',
         }}>
             {/* Loading Overlay */}
-            <LoadingOverlay open={isLoading || processing} text={loadingMessage} />
+            <LoadingOverlay open={isLoading || processing} text={loadingMessage} fullScreen />
 
             {/* Loading bar ở top */}
             {(isLoading || processing) && (

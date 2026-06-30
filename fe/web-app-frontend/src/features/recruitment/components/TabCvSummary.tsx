@@ -154,23 +154,27 @@ export default function TabCvSummary({ onOpenCompose }: TabCvSummaryProps) {
 
     return (
         <>
-            <LoadingOverlay open={quickUpdating} />
+            <LoadingOverlay open={quickUpdating} fullScreen />
 
             {/* KPI row */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1.5, mb: 2.5 }}>
                 {kpis.map(k => (
                     <Paper key={k.label} elevation={0} sx={{
-                        p: 1.5, borderRadius: '14px', border: `1px solid ${BORDER}`,
-                        bgcolor: k.bg, boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        p: 2, borderRadius: '16px',
+                        border: `1px solid ${alpha(k.color, 0.15)}`,
+                        background: `linear-gradient(135deg, #fff 60%, ${alpha(k.color, 0.06)} 100%)`,
+                        boxShadow: `0 4px 20px ${alpha(k.color, 0.1)}`,
+                        position: 'relative', overflow: 'hidden',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 8px 28px ${alpha(k.color, 0.18)}` },
                     }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                            <Box sx={{ color: k.color, opacity: 0.7 }}>{k.icon}</Box>
-                        </Box>
+                        <Box sx={{ position: 'absolute', top: -16, right: -16, width: 60, height: 60, borderRadius: '50%', bgcolor: alpha(k.color, 0.07) }} />
+                        <Box sx={{ color: k.color, opacity: 0.8, mb: 0.5 }}>{k.icon}</Box>
                         {lk
                             ? <Skeleton width={40} height={32} />
-                            : <Typography sx={{ fontSize: 26, fontWeight: 900, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
+                            : <Typography sx={{ fontSize: 28, fontWeight: 900, color: k.color, lineHeight: 1 }}>{k.value}</Typography>
                         }
-                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: k.color, mt: 0.4 }}>{k.label}</Typography>
+                        <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px', mt: 0.5 }}>{k.label}</Typography>
                         <Typography sx={{ fontSize: 10, color: '#94a3b8', mt: 0.2 }}>{k.sub}</Typography>
                     </Paper>
                 ))}

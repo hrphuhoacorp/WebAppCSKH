@@ -190,7 +190,7 @@ export default function UsersPage() {
                 overflow: 'hidden',
             }}
         >
-            <LoadingOverlay open={loading} text="Đang tải danh sách nhân sự..." />
+            <LoadingOverlay open={loading} text="Đang tải danh sách nhân sự..." fullScreen />
 
             <PageHeader
                 title="Danh Sách Nhân Sự"

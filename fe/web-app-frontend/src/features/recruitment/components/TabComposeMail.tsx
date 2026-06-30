@@ -304,7 +304,7 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
 
     return (
         <>
-            <LoadingOverlay open={sending} />
+            <LoadingOverlay open={sending} fullScreen />
             <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
                 {/* Left: compose form */}

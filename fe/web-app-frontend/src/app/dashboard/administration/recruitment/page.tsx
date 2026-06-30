@@ -18,8 +18,18 @@ import TabComposeMail, { ComposePrefill } from '@/features/recruitment/component
 import TabSettings from '@/features/recruitment/components/TabSettings';
 import { RecruitmentCandidateDto } from '@/features/recruitment/api/recruitment.api';
 
-// Tab index constants
 const T = { overview: 0, cvSummary: 1, campaigns: 2, candidates: 3, compose: 4, settings: 5 } as const;
+
+const ACCENT = '#086839';
+
+const TABS = [
+    { icon: <DashboardRoundedIcon sx={{ fontSize: 15 }} />, label: 'Tổng hợp' },
+    { icon: <AssignmentRoundedIcon sx={{ fontSize: 15 }} />, label: 'Tổng hợp CV' },
+    { icon: <GroupsRoundedIcon sx={{ fontSize: 15 }} />, label: 'Chiến dịch' },
+    { icon: <PeopleAltRoundedIcon sx={{ fontSize: 15 }} />, label: 'Chi tiết xử lý' },
+    { icon: <MailOutlineRoundedIcon sx={{ fontSize: 15 }} />, label: 'Soạn mail' },
+    { icon: <SettingsRoundedIcon sx={{ fontSize: 15 }} />, label: 'Cài đặt' },
+];
 
 export default function RecruitmentPage() {
     const [tab, setTab] = useState(0);
@@ -44,29 +54,52 @@ export default function RecruitmentPage() {
                 title="Tuyển Dụng"
                 subtitle="Quản lý chiến dịch, ứng viên và quy trình tuyển dụng"
                 icon={<WorkRoundedIcon />}
+                gradient="linear-gradient(135deg, #064e3b 0%, #086839 100%)"
+                shadowColor="rgba(8,104,57,0.28)"
             />
 
-            <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{
-                mb: 2,
-                '& .MuiTabs-indicator': { bgcolor: '#086839', height: 3 },
-                '& .MuiTab-root': {
-                    fontWeight: 700, textTransform: 'none', fontSize: 13,
-                    color: '#64748b', minHeight: 44,
-                    '&.Mui-selected': { color: '#086839' },
-                },
-            }}>
-                <Tab icon={<DashboardRoundedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Tổng hợp" />
-                <Tab icon={<AssignmentRoundedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Tổng hợp CV" />
-                <Tab icon={<GroupsRoundedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Chiến dịch" />
-                <Tab icon={<PeopleAltRoundedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Chi tiết xử lý" />
-                <Tab icon={<MailOutlineRoundedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Soạn mail" />
-                <Tab icon={<SettingsRoundedIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Cài đặt" />
-            </Tabs>
-
+            {/* ── Tab bar ──────────────────────────────────────────────────── */}
             <Box sx={{
-                flex: 1, minHeight: 0, overflow: 'auto',
+                bgcolor: '#fff',
+                borderRadius: '16px',
+                border: '1px solid #e2e8f0',
+                mb: 2,
+                boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
+                flexShrink: 0,
+            }}>
+                <Tabs
+                    value={tab}
+                    onChange={(_, v) => setTab(v)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{
+                        '& .MuiTabs-indicator': { bgcolor: ACCENT, height: 3, borderRadius: '3px 3px 0 0' },
+                        '& .MuiTab-root': {
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            fontSize: 13,
+                            color: '#64748b',
+                            minHeight: 48,
+                            px: 2.5,
+                            '&:hover': { color: ACCENT },
+                            '&.Mui-selected': { color: ACCENT },
+                        },
+                    }}
+                >
+                    {TABS.map((t, i) => (
+                        <Tab key={i} icon={t.icon} iconPosition="start" label={t.label} />
+                    ))}
+                </Tabs>
+            </Box>
+
+            {/* ── Tab content ───────────────────────────────────────────────── */}
+            <Box sx={{
+                flex: 1,
+                minHeight: 0,
+                overflow: 'auto',
                 '&::-webkit-scrollbar': { width: 6 },
                 '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3 },
+                '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
             }}>
                 {tab === T.overview && <TabOverview onGoToTab={setTab} />}
                 {tab === T.cvSummary && <TabCvSummary onOpenCompose={handleOpenCompose} />}

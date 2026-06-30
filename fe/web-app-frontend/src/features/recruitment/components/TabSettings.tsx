@@ -162,7 +162,7 @@ export default function TabSettings() {
 
     return (
         <>
-            <LoadingOverlay open={saving} />
+            <LoadingOverlay open={saving} fullScreen />
 
             <Tabs value={sectTab} onChange={(_, v) => setSectTab(v)} sx={{
                 mb: 2,

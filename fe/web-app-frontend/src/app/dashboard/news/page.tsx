@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -212,7 +212,7 @@ export default function NewsManagePage() {
 
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, minHeight: '100vh', bgcolor: '#f8fafc' }}>
-            <LoadingOverlay open={loading} text="Đang xử lý..." />
+            <LoadingOverlay open={loading} text="Đang xử lý..." fullScreen />
 
             <PageHeader
                 title="Quản Lý Tin Nội Bộ"

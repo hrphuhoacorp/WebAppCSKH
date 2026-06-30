@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -233,7 +233,7 @@ export default function SystemHistoryPage() {
                 overflow: 'hidden',
             }}
         >
-            <LoadingOverlay open={loading} text="Đang xử lý dữ liệu..." />
+            <LoadingOverlay open={loading} text="Đang xử lý dữ liệu..." fullScreen />
 
             <PageHeader
                 title="Nhật Ký & Lịch Sử Hệ Thống"

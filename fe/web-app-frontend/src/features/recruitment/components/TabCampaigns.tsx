@@ -110,7 +110,7 @@ export default function TabCampaigns() {
 
     return (
         <>
-            <LoadingOverlay open={saving || deleting} />
+            <LoadingOverlay open={saving || deleting} fullScreen />
 
             {/* Filter bar */}
             <Paper elevation={0} sx={{ p: 2, borderRadius: R, mb: 2, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>

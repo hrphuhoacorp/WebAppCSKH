@@ -314,7 +314,18 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const a = document.createElement('a'); a.href = url; a.download = candidate.cvFileName || 'cv.pdf'; a.click();
             window.URL.revokeObjectURL(url);
-        } catch { toast.error('Tải CV thất bại'); }
+        } catch (err: any) {
+            // responseType:'blob' khiến error response cũng là Blob — cần parse ra text
+            const blob: Blob | undefined = err?.response?.data;
+            if (blob instanceof Blob) {
+                try {
+                    const json = JSON.parse(await blob.text());
+                    toast.error(json.Message || json.message || 'Tải CV thất bại');
+                } catch { toast.error('Tải CV thất bại'); }
+            } else {
+                toast.error(err?.response?.data?.Message || 'Tải CV thất bại');
+            }
+        }
     }
 
     async function handleDelete() {
@@ -434,7 +445,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
 
     return (
         <>
-            <LoadingOverlay open={saving || deleting || uploading || quickUpdating} />
+            <LoadingOverlay open={saving || deleting || uploading || quickUpdating} fullScreen />
 
             {/* Filter bar */}
             <Paper elevation={0} sx={{ p: 2, borderRadius: R, mb: 1.5, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
@@ -490,7 +501,12 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                 </Box>
 
                 {/* Quick chips */}
-                <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
+                <Box sx={{
+                    display: 'flex', gap: 0.8, flexWrap: 'nowrap', overflowX: 'auto',
+                    pb: 0.5,
+                    '&::-webkit-scrollbar': { height: 3 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: '#e2e8f0', borderRadius: 2 },
+                }}>
                     {QUICK_CHIPS.map(chip => (
                         <Chip key={chip.id} label={chip.label} size="small" clickable
                             onClick={() => setQuickChip(chip.id)}
@@ -551,7 +567,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             {/* Kanban or Table */}
             {viewMode === 'kanban' ? (
                 <Box sx={{
-                    flex: 1, minHeight: 0, overflow: 'auto',
+                    maxHeight: 'calc(100vh - 260px)', overflow: 'auto',
                     '&::-webkit-scrollbar': { width: 6, height: 6 },
                     '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3 },
                 }}>
@@ -569,7 +585,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                             {KANBAN_COLUMNS.map(col => {
                                 const cards = displayRows.filter(c => col.statuses.includes(c.status));
                                 return (
-                                    <Box key={col.id} sx={{ width: 270, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                                    <Box key={col.id} sx={{ width: 434, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                                         <Paper elevation={0} sx={{
                                             borderRadius: '14px', border: `1px solid ${BORDER}`,
                                             overflow: 'hidden', display: 'flex', flexDirection: 'column',

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -252,7 +252,7 @@ export default function OrdersPage() {
                 backgroundImage: `radial-gradient(ellipse 80% 40% at 50% -5%, rgba(8,104,57,0.07) 0%, transparent 70%)`,
             }}
         >
-            <LoadingOverlay open={loading} text="Đang tải đơn hàng..." />
+            <LoadingOverlay open={loading} text="Đang tải đơn hàng..." fullScreen />
 
             <PageHeader
                 title="Danh Sách Đơn Hàng"
