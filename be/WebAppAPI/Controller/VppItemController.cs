@@ -12,7 +12,7 @@ public class VppItemController : ControllerBase
     private readonly IVppItemService _service;
     public VppItemController(IVppItemService service) => _service = service;
 
-    [RequirePermission("vpp.view")]
+    [RequirePermission("vpp.request.create")]
     [HttpGet]
     public async Task<ResponseValue<PagedResult<VppItemDto>>> GetAll(
         [FromQuery] string? group, [FromQuery] string? search,
@@ -22,7 +22,7 @@ public class VppItemController : ControllerBase
         return new ResponseValue<PagedResult<VppItemDto>>(result, "OK", StatusReponse.Success);
     }
 
-    [RequirePermission("vpp.view")]
+    [RequirePermission("vpp.request.create")]
     [HttpGet("{id:int}")]
     public async Task<ResponseValue<VppItemDto>> GetById(int id)
     {

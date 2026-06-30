@@ -25,16 +25,14 @@ const GREEN = '#086839';
 export default function VppPage() {
     const [tab, setTab] = useState(0);
 
-    const canView    = usePermission('vpp.view');
     const canManage  = usePermission('vpp.manage');
     const canApprove = usePermission('vpp.request.approve');
-    const canRequest = usePermission('vpp.request.create');
 
     const ALL_TABS = [
         { label: 'Tổng quan',   icon: <BarChartRoundedIcon      sx={{ fontSize: 16 }} />, show: canManage,              component: <TabOverview /> },
         { label: 'Tồn kho',     icon: <WarehouseRoundedIcon     sx={{ fontSize: 16 }} />, show: canManage,              component: <TabInventory /> },
-        { label: 'Danh mục',    icon: <ListAltRoundedIcon       sx={{ fontSize: 16 }} />, show: canView,                component: <TabCatalog /> },
-        { label: 'Đề nghị cấp', icon: <AssignmentRoundedIcon    sx={{ fontSize: 16 }} />, show: canRequest || canApprove, component: <TabRequests /> },
+        { label: 'Danh mục',    icon: <ListAltRoundedIcon       sx={{ fontSize: 16 }} />, show: canManage,              component: <TabCatalog /> },
+        { label: 'Đề nghị cấp', icon: <AssignmentRoundedIcon    sx={{ fontSize: 16 }} />, show: canManage || canApprove, component: <TabRequests /> },
         { label: 'Phiếu nhập',  icon: <FileDownloadRoundedIcon  sx={{ fontSize: 16 }} />, show: canManage,              component: <TabImport /> },
         { label: 'Phiếu xuất',  icon: <LocalShippingRoundedIcon sx={{ fontSize: 16 }} />, show: canManage,              component: <TabDispatch /> },
         { label: 'Kiểm kho',    icon: <FactCheckRoundedIcon     sx={{ fontSize: 16 }} />, show: canManage,              component: <TabStockCount /> },

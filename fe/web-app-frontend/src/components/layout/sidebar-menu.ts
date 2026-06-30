@@ -56,6 +56,41 @@ export const sidebarMenu: SidebarGroup[] = [
         ],
     },
     {
+        title: 'Bán Hàng',
+        children: [
+            {
+                title: 'Tổng Quan Bán Hàng',
+                href: '/dashboard/sales/revenue_report',
+                icon: LayoutDashboard,
+                permissions: ['sales.dashboard.view'],
+            },
+            {
+                title: 'Danh Sách Đơn Hàng',
+                href: '/dashboard/sales/orders',
+                icon: ShoppingCart,
+                permissions: ['sales.order.view_list'],
+            },
+            {
+                title: 'Danh Sách Khách Hàng',
+                href: '/dashboard/customer_care/customers',
+                icon: Users,
+                permissions: ['cskh.customer.view_list'],
+            },
+            {
+                title: 'Kiểm Giỏ Quà',
+                href: '/dashboard/sales/xnt',
+                icon: Import,
+                permissions: ['sales.nxt.view'],
+            },
+            {
+                title: 'Tỉ Lệ Quay Lại',
+                href: '/dashboard/sales/return_rate',
+                icon: TrendingUp,
+                permissions: ['cskh.customer.return_rate'],
+            },
+        ],
+    },
+    {
         title: 'Giỏ Quà',
         children: [
             {
@@ -90,35 +125,7 @@ export const sidebarMenu: SidebarGroup[] = [
             },
         ],
     },
-    {
-        title: 'Bán Hàng',
-        children: [
-            {
-                title: 'Tổng Quan Bán Hàng',
-                href: '/dashboard/sales/revenue_report',
-                icon: LayoutDashboard,
-                permissions: ['sales.dashboard.view'],
-            },
-            {
-                title: 'Danh Sách Đơn Hàng',
-                href: '/dashboard/sales/orders',
-                icon: ShoppingCart,
-                permissions: ['sales.order.view_list'],
-            },
-            {
-                title: 'Kiểm Giỏ Quà',
-                href: '/dashboard/sales/xnt',
-                icon: Import,
-                permissions: ['sales.nxt.view'],
-            },
-            {
-                title: 'Tỉ Lệ Quay Lại',
-                href: '/dashboard/sales/return_rate',
-                icon: TrendingUp,
-                permissions: ['cskh.customer.return_rate'],
-            },
-        ],
-    },
+  
     {
         title: 'Quản Trị Tổng Hợp',
         children: [
@@ -126,7 +133,7 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Quản Lý VPP',
                 href: '/dashboard/administration/vpp',
                 icon: Package,
-                permissions: ['vpp.view'],
+                permissions: ['vpp.manage'],
             },
             {
                 title: 'Tuyển Dụng',

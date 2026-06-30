@@ -12,7 +12,7 @@ public class VppInventoryController : ControllerBase
     private readonly IVppInventoryService _service;
     public VppInventoryController(IVppInventoryService service) => _service = service;
 
-    [RequirePermission("vpp.view")]
+    [RequirePermission("vpp.manage")]
     [HttpGet]
     public async Task<ResponseValue<VppInventorySummaryDto>> Get(
         [FromQuery] int? month, [FromQuery] int? year)
