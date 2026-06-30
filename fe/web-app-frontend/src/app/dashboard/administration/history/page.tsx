@@ -156,7 +156,11 @@ export default function SystemHistoryPage() {
     const logs = historyData?.logs ?? [];
     const imports = historyData?.imports ?? [];
     const total = historyData?.total ?? 0;
-    const refreshHistory = () => queryClient.invalidateQueries({ queryKey: ['history'] });
+    const refreshHistory = () => {
+        queryClient.invalidateQueries({ queryKey: ['history'] });
+        queryClient.invalidateQueries({ queryKey: ['orders-sales'] });
+        queryClient.invalidateQueries({ queryKey: ['orders-online'] });
+    };
 
     // Reset bộ lọc và phân trang khi đổi Tab qua lại
     const handleTabChange = (_: any, newValue: number) => {

@@ -194,8 +194,6 @@ public class OrderService : IOrderService
                 missingCols.Add("Phí giao hàng");
             if (iRevenue < 0)
                 missingCols.Add("Doanh thu");
-            if (iGrossProfit < 0)
-                missingCols.Add("Lợi nhuận gộp");
             if (missingCols.Any())
                 throw new BadRequestException(
                     $"File Excel không đúng định dạng — không tìm thấy {missingCols.Count} cột: {string.Join(", ", missingCols)}. "
@@ -262,26 +260,26 @@ public class OrderService : IOrderService
                 .ToList();
             if (orderCodesUniqueScan.Any())
             {
-                var existingOrderCount = await _orderRepository
+                var existingOrders = await _orderRepository
                     .GetAll()
                     .AsNoTracking()
-                    .CountAsync(o =>
-                        orderCodesUniqueScan.Contains(o.OrderCode) && o.DeletedAt == null
-                    );
+                    .Where(o => orderCodesUniqueScan.Contains(o.OrderCode) && o.DeletedAt == null)
+                    .Select(o => o.OrderCode)
+                    .Distinct()
+                    .ToListAsync();
+                var existingOrderCount = existingOrders.Count;
                 var dupRate = (double)existingOrderCount / orderCodesUniqueScan.Count;
                 if (dupRate >= 1.0)
                     throw new BadRequestException(
-                        $"Toàn bộ {orderCodesUniqueScan.Count} mã đơn hàng trong file này đã tồn tại trong hệ thống. "
-                            + "File có thể đã được import trước đó với tên khác."
+                        $"Toàn bộ {orderCodesUniqueScan.Count} mã đơn hàng trong file đã tồn tại trong hệ thống: "
+                            + string.Join(", ", existingOrders.Take(20))
+                            + (existingOrders.Count > 20 ? $"... (và {existingOrders.Count - 20} mã khác)" : "")
+                            + ". File có thể đã được import trước đó với tên khác."
                     );
-                if (dupRate >= 0.8)
-                    throw new BadRequestException(
-                        $"{existingOrderCount}/{orderCodesUniqueScan.Count} mã đơn hàng ({dupRate:P0}) đã tồn tại. "
-                            + "File này có thể đã được import trước đó. Kiểm tra lịch sử import trước khi tiếp tục."
-                    );
+                // Nếu <100%: cho qua, fingerprint check sẽ tự skip từng dòng đã tồn tại
             }
 
-            // Cấp 2: Fingerprint dedup — chỉ bỏ qua dòng TRÙNG HOÀN TOÀN với DB (mã+ngày+doanh thu+SL)
+            // Cấp 2: Fingerprint dedup — phân biệt đơn gốc và đơn hoàn trả (cùng mã nhưng qty/revenue âm)
             var orderCodesInFile = rows.Select(r => r.Cell(iOrderCode + 1).GetString().Trim())
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .ToHashSet();
@@ -301,10 +299,12 @@ public class OrderService : IOrderService
                 }
             ).AsNoTracking().ToListAsync();
 
+            // Normalize decimal để tránh precision mismatch (320714.50 vs 320714.5)
+            static string MakeFp(string code, DateTime date, decimal rev, decimal qty, string sku, string svc) =>
+                $"{code}|{date:yyyyMMdd}|{Math.Round(rev, 0, MidpointRounding.AwayFromZero)}|{Math.Round(qty, 4)}|{sku}|{svc}";
+
             var dbFingerprints = rawFps
-                .Select(x =>
-                    $"{x.OrderCode}|{x.PurchaseDate:yyyyMMdd}|{x.Revenue}|{Math.Round(x.Quantity, 4)}|{x.Sku}|{x.ServiceName}"
-                )
+                .Select(x => MakeFp(x.OrderCode, x.PurchaseDate, x.Revenue, x.Quantity, x.Sku ?? "", x.ServiceName ?? ""))
                 .ToHashSet();
 
             var fileFingerprints = new HashSet<string>();
@@ -377,13 +377,9 @@ public class OrderService : IOrderService
                     )
                         status = hoanTraStatus;
 
-                    // Fingerprint: trùng mã đơn + ngày + doanh thu + SL → bỏ qua (đã import trước đó)
-                    var fingerprint =
-                        $"{orderCode}|{orderDate:yyyyMMdd}|{revenue}|{Math.Round(qty, 4)}|{sku}|{serviceName}";
-                    if (
-                        dbFingerprints.Contains(fingerprint)
-                        || fileFingerprints.Contains(fingerprint)
-                    )
+                    // Fingerprint: trùng DB hoặc trùng dòng khác trong file → bỏ qua
+                    var fingerprint = MakeFp(orderCode, orderDate, revenue, qty, sku, serviceName);
+                    if (dbFingerprints.Contains(fingerprint) || fileFingerprints.Contains(fingerprint))
                     {
                         skippedCount++;
                         skippedMessages.Add(

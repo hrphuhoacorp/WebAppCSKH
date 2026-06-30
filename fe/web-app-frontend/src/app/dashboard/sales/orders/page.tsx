@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as signalR from '@microsoft/signalr';
 import * as React from 'react';
 import { CircularProgress, InputAdornment, LinearProgress, Stack } from '@mui/material';
 import {
@@ -153,6 +154,25 @@ export default function OrdersStaffPage() {
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
     const [progress, setProgress] = useState({ current: 0, total: 0 });
+
+    useEffect(() => {
+        let cleanedUp = false;
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl(`${process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN}/hubs/import`, { withCredentials: true })
+            .withAutomaticReconnect()
+            .configureLogging(signalR.LogLevel.None)
+            .build();
+
+        connection.on('ImportProgress', (data: { current: number; total: number }) => {
+            setProgress({ current: data.current, total: data.total });
+        });
+
+        connection.start()
+            .catch((err) => { if (!cleanedUp) console.error('[SignalR] Connection failed:', err); });
+
+        return () => { cleanedUp = true; connection.stop(); };
+    }, []);
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
@@ -496,14 +516,16 @@ export default function OrdersStaffPage() {
                 subtitle="Theo dõi, quản lý doanh thu và trạng thái đơn hàng thời gian thực"
                 icon={<ReceiptLongRounded />}
                 actions={<Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                    {importing && progress.total > 0 && (
-                        <Box sx={{ minWidth: 200, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
+                    {importing && (
+                        <Box sx={{ minWidth: 220, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
                             <Typography sx={{ fontSize: 12, color: '#64748b', mb: 0.5 }}>
-                                Đã import {progress.current} / {progress.total} dòng
+                                {progress.total > 0
+                                    ? `Đã import ${progress.current} / ${progress.total} dòng`
+                                    : 'Đang xử lý file...'}
                             </Typography>
                             <LinearProgress
-                                variant="determinate"
-                                value={(progress.current / progress.total) * 100}
+                                variant={progress.total > 0 ? 'determinate' : 'indeterminate'}
+                                value={progress.total > 0 ? (progress.current / progress.total) * 100 : undefined}
                                 sx={{ height: 6, borderRadius: 99, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#086839', borderRadius: 99 } }}
                             />
                         </Box>
