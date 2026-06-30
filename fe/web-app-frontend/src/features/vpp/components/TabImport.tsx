@@ -543,7 +543,7 @@ export default function TabImport() {
                     <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#475569', mb: 1 }}>
                         Chứng từ — {detailLine?.itemName}
                     </Typography>
-                    {detailLine?.attachments?.length > 0 ? (
+                    {(detailLine?.attachments?.length ?? 0) > 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                             {detailLine.attachments.map((att, i) => (
                                 <Button key={i} component="a" href={att.url} target="_blank" rel="noopener noreferrer"
