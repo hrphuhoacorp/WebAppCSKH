@@ -154,25 +154,51 @@ public class OrderService : IOrderService
                 "so luong"
             );
 
-            // Validate các cột bắt buộc
+            // Validate toàn bộ các cột theo đúng tên Sapo
             var missingCols = new List<string>();
             if (iDate < 0)
-                missingCols.Add("Ngày mua");
+                missingCols.Add("Ngày");
+            if (iCustName < 0)
+                missingCols.Add("Tên khách hàng");
+            if (iPhone < 0)
+                missingCols.Add("SĐT khách hàng");
             if (iCustCode < 0)
                 missingCols.Add("Mã khách hàng");
+            if (iCategory < 0)
+                missingCols.Add("Loại sản phẩm");
+            if (iProduct < 0)
+                missingCols.Add("Tên sản phẩm");
+            if (iSku < 0)
+                missingCols.Add("Mã SKU");
+            if (iUnitPrice < 0)
+                missingCols.Add("Đơn giá bán");
+            if (iService < 0)
+                missingCols.Add("Tên dịch vụ");
+            if (iUnit < 0)
+                missingCols.Add("Đơn vị tính");
             if (iOrderCode < 0)
                 missingCols.Add("Mã đơn hàng");
             if (iStatus < 0)
-                missingCols.Add("Trạng thái");
+                missingCols.Add("Trạng thái đơn hàng");
             if (iBranch < 0)
-                missingCols.Add("Chi nhánh");
+                missingCols.Add("Tên chi nhánh");
+            if (iSource < 0)
+                missingCols.Add("Tên nguồn đơn hàng");
+            if (iQtyStr < 0)
+                missingCols.Add("SL hàng bán ra");
+            if (iQty < 0)
+                missingCols.Add("SL hàng thực bán");
+            if (iTax < 0)
+                missingCols.Add("Tiền thuế");
+            if (iShipping < 0)
+                missingCols.Add("Phí giao hàng");
             if (iRevenue < 0)
                 missingCols.Add("Doanh thu");
-            if (iQty < 0)
-                missingCols.Add("Số lượng");
+            if (iGrossProfit < 0)
+                missingCols.Add("Lợi nhuận gộp");
             if (missingCols.Any())
                 throw new BadRequestException(
-                    $"File Excel không đúng định dạng — thiếu cột: {string.Join(", ", missingCols)}. "
+                    $"File Excel không đúng định dạng — không tìm thấy {missingCols.Count} cột: {string.Join(", ", missingCols)}. "
                         + "Vui lòng xuất lại file từ Sapo đúng mẫu."
                 );
 
