@@ -2,11 +2,14 @@
 using System.Transactions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using WebAppInfractor.Models;
 
 public interface IAuthService
 {
     Task<string> Login(AuthLoginDTO loginDTO);
+    Task SendForgotPasswordOtpAsync(string email);
+    Task<string> ResetPasswordByOtpAsync(string email, string otp);
     Task<UserDTO> GetProfile(int userId);
     Task<string> CreateAccount(int authorId, AuthCreateDTO createDTO);
     Task<string> ChangePassword(
@@ -29,6 +32,8 @@ public class AuthService : IAuthService
     private readonly IBranchRepository _branchRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IActivityService _auditLogService;
+    private readonly IEmailService _emailService;
+    private readonly IMemoryCache _memoryCache;
 
     public AuthService(
         IUserRepository userRepository,
@@ -37,7 +42,9 @@ public class AuthService : IAuthService
         IUserRoleRepository userRoleRepository,
         IRoleRepository roleRepository,
         IBranchRepository branchRepository,
-        IActivityService auditLogService
+        IActivityService auditLogService,
+        IEmailService emailService,
+        IMemoryCache memoryCache
     )
     {
         _userRepository = userRepository;
@@ -47,6 +54,58 @@ public class AuthService : IAuthService
         _branchRepository = branchRepository;
         _roleRepository = roleRepository;
         _auditLogService = auditLogService;
+        _emailService = emailService;
+        _memoryCache = memoryCache;
+    }
+
+    public async Task SendForgotPasswordOtpAsync(string email)
+    {
+        var checkEmail = await _userRepository
+            .GetAll()
+            .SingleOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
+
+        if (checkEmail == null)
+            throw new NotFoundException("Email không tồn tại trong hệ thống!");
+
+        var otp = Random.Shared.Next(100000, 999999).ToString();
+        _memoryCache.Set($"forgot_otp_{email}", otp, TimeSpan.FromMinutes(10));
+        var content = BuildOtpEmail(checkEmail.Name, otp);
+        await _emailService.SendEmaiLAsync(
+            email,
+            "[PHF] Mã OTP xác thực đặt lại mật khẩu",
+            content
+        );
+    }
+
+    public async Task<string> ResetPasswordByOtpAsync(string email, string otp)
+    {
+        var cacheKey = $"forgot_otp_{email}";
+
+        if (!_memoryCache.TryGetValue(cacheKey, out string? cachedOtp) || cachedOtp != otp)
+        {
+            throw new BadRequestException("Mã OTP không hợp lệ hoặc đã hết hạn");
+        }
+        var user =
+            await _userRepository
+                .GetAll()
+                .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null)
+            ?? throw new NotFoundException("Không tìm thấy người dùng");
+
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        var newPassword = new string(
+            Enumerable.Range(0, 8).Select(_ => chars[Random.Shared.Next(chars.Length)]).ToArray()
+        );
+
+        user.Password = PasswordHelper.HashPassword(newPassword);
+        await _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        _memoryCache.Remove(cacheKey);
+
+        var content = BuildNewPasswordEmail(user.Name, newPassword);
+        await _emailService.SendEmaiLAsync(email, "[PHF] Mật khẩu mới của bạn", content);
+
+        return "Mật khẩu mới đã được gửi về email của bạn";
     }
 
     public async Task<string> Login(AuthLoginDTO loginDTO)
@@ -430,4 +489,96 @@ public class AuthService : IAuthService
             throw;
         }
     }
+
+    private static string BuildOtpEmail(string name, string otp) =>
+        $@"
+<!DOCTYPE html>
+<html lang='vi'>
+<head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>
+<body style='margin:0;padding:0;background:#f4f6f8;font-family:Segoe UI,Arial,sans-serif'>
+  <table width='100%' cellpadding='0' cellspacing='0' style='background:#f4f6f8;padding:32px 0'>
+    <tr><td align='center'>
+      <table width='520' cellpadding='0' cellspacing='0' style='background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)'>
+
+      
+
+        <!-- Body -->
+        <tr><td style='padding:36px 40px'>
+          <p style='margin:0 0 8px;font-size:15px;color:#1a1a1a'>Xin chào, <strong>{name}</strong></p>
+          <p style='margin:0 0 28px;font-size:14px;color:#555;line-height:1.6'>
+            Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.<br>
+            Sử dụng mã OTP dưới đây để xác thực:
+          </p>
+
+          <!-- OTP Box -->
+          <div style='background:#f0faf4;border:2px dashed #086839;border-radius:10px;padding:24px;text-align:center;margin:0 0 28px'>
+            <p style='margin:0 0 6px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1.5px'>Mã OTP của bạn</p>
+            <p style='margin:0;font-size:42px;font-weight:800;letter-spacing:16px;color:#086839;font-family:monospace'>{otp}</p>
+            <p style='margin:10px 0 0;font-size:12px;color:#e05d00'>⏱ Hiệu lực trong <strong>10 phút</strong></p>
+          </div>
+
+          <p style='margin:0;font-size:13px;color:#888;line-height:1.6'>
+            Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.<br>
+            Tuyệt đối <strong>không chia sẻ</strong> mã này với bất kỳ ai.
+          </p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style='background:#f8fafb;border-top:1px solid #eee;padding:18px 40px;text-align:center'>
+          <p style='margin:0;font-size:12px;color:#aaa'>© {DateTime.Now.Year} PhuHoa Fresh &nbsp;|&nbsp; Email tự động, vui lòng không phản hồi</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>";
+
+    private static string BuildNewPasswordEmail(string name, string password) =>
+        $@"
+<!DOCTYPE html>
+<html lang='vi'>
+<head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>
+<body style='margin:0;padding:0;background:#f4f6f8;font-family:Segoe UI,Arial,sans-serif'>
+  <table width='100%' cellpadding='0' cellspacing='0' style='background:#f4f6f8;padding:32px 0'>
+    <tr><td align='center'>
+      <table width='520' cellpadding='0' cellspacing='0' style='background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)'>
+
+      
+
+        <!-- Body -->
+        <tr><td style='padding:36px 40px'>
+          <p style='margin:0 0 8px;font-size:15px;color:#1a1a1a'>Xin chào, <strong>{name}</strong></p>
+          <p style='margin:0 0 28px;font-size:14px;color:#555;line-height:1.6'>
+            Mật khẩu của bạn đã được đặt lại thành công.<br>
+            Dưới đây là mật khẩu mới để đăng nhập:
+          </p>
+
+          <!-- Password Box -->
+          <div style='background:#f0faf4;border:2px solid #086839;border-radius:10px;padding:24px;text-align:center;margin:0 0 28px'>
+            <p style='margin:0 0 6px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1.5px'>Mật khẩu mới</p>
+            <p style='margin:0;font-size:32px;font-weight:800;letter-spacing:6px;color:#086839;font-family:monospace'>{password}</p>
+          </div>
+
+          <div style='background:#fff8e1;border-left:4px solid #f59e0b;border-radius:4px;padding:12px 16px;margin:0 0 20px'>
+            <p style='margin:0;font-size:13px;color:#92400e;line-height:1.6'>
+              ⚠ Vui lòng <strong>đổi mật khẩu ngay sau khi đăng nhập</strong> để đảm bảo bảo mật tài khoản.
+            </p>
+          </div>
+
+          <p style='margin:0;font-size:13px;color:#888;line-height:1.6'>
+            Nếu bạn không thực hiện yêu cầu này, hãy liên hệ ngay với bộ phận IT để được hỗ trợ.
+          </p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style='background:#f8fafb;border-top:1px solid #eee;padding:18px 40px;text-align:center'>
+          <p style='margin:0;font-size:12px;color:#aaa'>© {DateTime.Now.Year} PhuHoa Fresh &nbsp;|&nbsp; Email tự động, vui lòng không phản hồi</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>";
 }

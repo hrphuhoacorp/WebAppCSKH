@@ -40,7 +40,7 @@ function fmtVND(v: number) {
     return Math.round(v).toLocaleString('vi-VN') + 'đ';
 }
 
-interface DispatchLine { itemId: number; quantity: number; unitPrice: number; vatRate: number; }
+interface DispatchLine { itemId: number; unit: string; quantity: number; unitPrice: number; vatRate: number; }
 
 function lineTotal(l: DispatchLine) { return l.quantity * l.unitPrice * (1 + l.vatRate); }
 
@@ -58,7 +58,7 @@ export default function TabDispatch() {
     const [department, setDepartment] = useState('');
     const [branch, setBranch] = useState('');
     const [note, setNote] = useState('');
-    const [lines, setLines] = useState<DispatchLine[]>([{ itemId: 0, quantity: 1, unitPrice: 0, vatRate: 0 }]);
+    const [lines, setLines] = useState<DispatchLine[]>([{ itemId: 0, unit: '', quantity: 1, unitPrice: 0, vatRate: 0 }]);
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -114,6 +114,7 @@ export default function TabDispatch() {
             resetForm();
             toast.success('Đã tạo phiếu xuất kho');
         },
+        onError: (err: any) => toast.error(err?.message || 'Tạo phiếu xuất thất bại'),
     });
 
     const deleteMut = useMutation({
@@ -125,12 +126,13 @@ export default function TabDispatch() {
             setDeleteId(null);
             toast.success('Đã xóa phiếu xuất');
         },
+        onError: (err: any) => toast.error(err?.message || 'Xóa phiếu xuất thất bại'),
     });
 
     function resetForm() {
         setDepartment(''); setBranch(''); setNote('');
         setDispatchDate(now.toISOString().split('T')[0]);
-        setLines([{ itemId: 0, quantity: 1, unitPrice: 0, vatRate: 0 }]);
+        setLines([{ itemId: 0, unit: '', quantity: 1, unitPrice: 0, vatRate: 0 }]);
     }
     function updateLine(idx: number, patch: Partial<DispatchLine>) {
         setLines(prev => prev.map((l, i) => i === idx ? { ...l, ...patch } : l));
@@ -244,7 +246,7 @@ export default function TabDispatch() {
             />
 
             {/* Create Dialog */}
-            <Dialog open={createOpen} onClose={() => { setCreateOpen(false); resetForm(); }} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS, p: 1 } } }}>
+            <Dialog open={createOpen} onClose={() => { setCreateOpen(false); resetForm(); }} maxWidth="lg" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS, p: 1 } } }}>
                 <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>Tạo phiếu xuất kho mới</DialogTitle>
                 <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -276,7 +278,7 @@ export default function TabDispatch() {
                     <Divider />
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>Danh sách hàng xuất</Typography>
-                        <Button size="small" startIcon={<AddCircleOutlineRoundedIcon />} onClick={() => setLines(p => [...p, { itemId: 0, quantity: 1, unitPrice: 0, vatRate: 0 }])}
+                        <Button size="small" startIcon={<AddCircleOutlineRoundedIcon />} onClick={() => setLines(p => [...p, { itemId: 0, unit: '', quantity: 1, unitPrice: 0, vatRate: 0 }])}
                             sx={{ textTransform: 'none', color: PURPLE, fontWeight: 700 }}>
                             Thêm dòng
                         </Button>
@@ -285,7 +287,7 @@ export default function TabDispatch() {
                         <Table size="small">
                             <TableHead>
                                 <TableRow>
-                                    {['Vật tư *', 'Số lượng', 'Đơn giá (đ)', 'Thuế', 'Thành tiền', ''].map(h => (
+                                    {['Vật tư *', 'Đơn vị', 'Số lượng', 'Đơn giá (đ)', 'Thuế', 'Thành tiền', ''].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#f8fafc', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '2px solid #e2e8f0' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
@@ -299,7 +301,7 @@ export default function TabDispatch() {
                                                 options={allItems}
                                                 getOptionLabel={it => `${it.code} — ${it.name}`}
                                                 value={allItems.find(x => x.id === line.itemId) ?? null}
-                                                onChange={(_, it) => updateLine(idx, { itemId: it?.id ?? 0, unitPrice: it?.unitPrice ?? 0, vatRate: it?.vatRate ?? 0 })}
+                                                onChange={(_, it) => updateLine(idx, { itemId: it?.id ?? 0, unit: it?.unit ?? '', unitPrice: it?.unitPrice ?? 0, vatRate: it?.vatRate ?? 0 })}
                                                 isOptionEqualToValue={(o, v) => o.id === v.id}
                                                 noOptionsText="Không tìm thấy"
                                                 renderInput={params => <TextField {...params} placeholder="Tìm vật tư..." sx={fieldSx} />}
@@ -313,6 +315,9 @@ export default function TabDispatch() {
                                                     );
                                                 }}
                                             />
+                                        </TableCell>
+                                        <TableCell sx={{ width: 90, color: '#475569', fontSize: 13, fontWeight: 500 }}>
+                                            {line.unit || <Typography component="span" sx={{ color: '#cbd5e1', fontSize: 12 }}>—</Typography>}
                                         </TableCell>
                                         <TableCell sx={{ width: 110 }}>
                                             <TextField size="small" type="number"

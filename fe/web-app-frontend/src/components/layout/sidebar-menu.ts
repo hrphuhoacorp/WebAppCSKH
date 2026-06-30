@@ -14,6 +14,10 @@ import {
     Briefcase,
     Package,
     ClipboardList,
+    Headphones,
+    Settings,
+    Zap,
+    Newspaper,
 } from 'lucide-react';
 import React from 'react';
 
@@ -28,12 +32,14 @@ export interface SidebarSubItem {
 
 export interface SidebarGroup {
     title: string;
+    icon?: React.ComponentType<any>;
     children: SidebarSubItem[];
 }
 
 export const sidebarMenu: SidebarGroup[] = [
     {
         title: 'Chăm sóc khách hàng',
+        icon: Headphones,
         children: [
             {
                 title: 'Tổng Quan CSKH',
@@ -57,6 +63,7 @@ export const sidebarMenu: SidebarGroup[] = [
     },
     {
         title: 'Bán Hàng',
+        icon: ShoppingCart,
         children: [
             {
                 title: 'Tổng Quan Bán Hàng',
@@ -69,12 +76,6 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/sales/orders',
                 icon: ShoppingCart,
                 permissions: ['sales.order.view_list'],
-            },
-            {
-                title: 'Danh Sách Khách Hàng',
-                href: '/dashboard/customer_care/customers',
-                icon: Users,
-                permissions: ['cskh.customer.view_list'],
             },
             {
                 title: 'Kiểm Giỏ Quà',
@@ -92,6 +93,7 @@ export const sidebarMenu: SidebarGroup[] = [
     },
     {
         title: 'Giỏ Quà',
+        icon: GiftIcon,
         children: [
             {
                 title: 'Tổng Quan Giỏ Quà',
@@ -125,9 +127,9 @@ export const sidebarMenu: SidebarGroup[] = [
             },
         ],
     },
-  
     {
         title: 'Quản Trị Tổng Hợp',
+        icon: Settings,
         children: [
             {
                 title: 'Quản Lý VPP',
@@ -157,19 +159,13 @@ export const sidebarMenu: SidebarGroup[] = [
     },
     {
         title: 'Tiện Ích',
+        icon: Zap,
         children: [
             {
                 title: 'PHF Stask',
                 href: 'https://script.google.com/macros/s/AKfycbwRHLO6YAMGpzVdItrypOV-GiVnVz-P8vK_b8VV77JDs2bviAdzdkK2iXugVbKXGdXCAQ/exec',
                 icon: Checklist,
                 isExternal: true,
-            },
-            {
-                title: 'PHF AppMail',
-                href: 'https://script.google.com/macros/s/AKfycbyHFuZlHGDkPN1Be44vgGNxsm5cijRn8RbpQHA3hBj8a6ZmbAe_A7LXkDrStJTtSoDA/exec',
-                icon: MailCheck,
-                isExternal: true,
-                permissions: ['staff.view_list']
             },
             {
                 title: 'Đề Nghị Cấp Phát VPP',
@@ -185,6 +181,7 @@ export const sidebarMenu: SidebarGroup[] = [
     },
     {
         title: 'Nội Bộ',
+        icon: Newspaper,
         children: [
             {
                 title: 'Quản Lý Tin Nội Bộ',
@@ -196,6 +193,7 @@ export const sidebarMenu: SidebarGroup[] = [
     },
     {
         title: 'Thông Tin Cá Nhân',
+        icon: User,
         children: [
             {
                 title: 'Thông Tin Cá Nhân',

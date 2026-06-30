@@ -58,7 +58,7 @@ function UniformReturnDialog({ item, open, onClose }: {
             toast.success('Đã ghi nhận hoàn trả');
             setForm(f => ({ ...f, returnedBy: '', note: '', quantity: 1 }));
             onClose();
-        } catch { toast.error('Lỗi khi ghi nhận hoàn trả'); }
+        } catch (err: any) { toast.error(err?.message || 'Lỗi khi ghi nhận hoàn trả'); }
         finally { setSaving(false); }
     };
 
@@ -69,7 +69,7 @@ function UniformReturnDialog({ item, open, onClose }: {
             qc.invalidateQueries({ queryKey: ['vpp-items'] });
             qc.invalidateQueries({ queryKey: ['vpp-inventory'] });
             toast.success('Đã xóa bản ghi');
-        } catch { toast.error('Lỗi khi xóa'); }
+        } catch (err: any) { toast.error(err?.message || 'Lỗi khi xóa'); }
         finally { setSaving(false); }
     };
 

@@ -20,6 +20,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { authApi } from '../api/auth.api';
 import toast from 'react-hot-toast';
 import { redirect, useRouter } from 'next/navigation';
+import ForgotPasswordDialog from './ForgotPasswordDialog';
 
 export default function LoginForm() {
     const {
@@ -46,6 +47,7 @@ export default function LoginForm() {
         }
     };
     const [showPassword, setShowPassword] = useState(false);
+    const [forgotOpen, setForgotOpen] = useState(false);
     return (
         <Card
             sx={{
@@ -122,13 +124,21 @@ export default function LoginForm() {
                         }}
                     />
                 </FormControl>
+                <Box sx={{ textAlign: 'right', mt: 1 }}>
+                    <Button variant="text" size="small"
+                        onClick={() => setForgotOpen(true)}
+                        sx={{ color: '#086839', fontSize: 12, textTransform: 'none', p: 0, minWidth: 0 }}>
+                        Quên mật khẩu?
+                    </Button>
+                </Box>
+
                 <Button
                     fullWidth
                     type="submit"
                     variant="contained"
                     disabled={isSubmitting}
                     sx={{
-                        mt: 3,
+                        mt: 2,
                         bgcolor: '#086839',
                         '&:hover': {
                             bgcolor: '#0e4837',
@@ -142,6 +152,8 @@ export default function LoginForm() {
                     )}
                 </Button>
             </form>
+
+            <ForgotPasswordDialog open={forgotOpen} onClose={() => setForgotOpen(false)} />
         </Card>
     );
 }

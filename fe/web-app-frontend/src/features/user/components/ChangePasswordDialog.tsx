@@ -130,7 +130,7 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
                 <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
                     <TextField
                         label="Mật khẩu hiện tại"
-                        type="password"
+                        type="text"
                         size="small"
                         value={currentPassword}
                         onChange={(e) => {
@@ -144,7 +144,7 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
 
                     <TextField
                         label="Mật khẩu mới"
-                        type="password"
+                        type="text"
                         size="small"
                         value={newPassword}
                         onChange={(e) => {
@@ -160,7 +160,7 @@ export default function ChangePasswordDialog({ open, onClose }: Props) {
 
                     <TextField
                         label="Xác nhận mật khẩu mới"
-                        type="password"
+                        type="text"
                         size="small"
                         value={confirmPassword}
                         onChange={(e) => {

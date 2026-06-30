@@ -159,7 +159,7 @@ export default function VppRequestPage() {
             </Box>
 
             {view === 'form' ? (
-                <Box sx={{ maxWidth: 900 }}>
+                <Box sx={{ maxWidth: 1800 }}>
                     {/* Thông tin chung */}
                     <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, p: 3, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)', mb: 2.5 }}>
                         <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', mb: 2 }}>Thông tin chung</Typography>

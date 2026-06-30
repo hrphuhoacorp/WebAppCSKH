@@ -110,8 +110,8 @@ export default function TabStockCount() {
             qc.invalidateQueries({ queryKey: ['vpp-stock-count-detail', detailId] });
             setEdited({});
             toast.success('Đã lưu số lượng thực tế');
-        } catch {
-            toast.error('Có lỗi khi lưu, vui lòng thử lại');
+        } catch (err: any) {
+            toast.error(err?.message || 'Có lỗi khi lưu, vui lòng thử lại');
         }
     }
 

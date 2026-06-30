@@ -44,6 +44,22 @@ namespace WebAppAPI.Controllers
             return Ok(new { Status = "Success", Message = "Đăng nhập thành công" });
         }
 
+        [HttpPost("ForgotPassword")]
+        public async Task<IActionResult> SendForgotPasswordOtp(
+            [FromBody] ForgotPasswordRequestDTO dto
+        )
+        {
+            await _authService.SendForgotPasswordOtpAsync(dto.Email);
+            return Ok(new { Status = "Success", Message = "Mã OTP đã được gửi về email của bạn" });
+        }
+
+        [HttpPost("ResetPasswordByOtp")]
+        public async Task<IActionResult> ResetPasswordByOtp([FromBody] ResetPasswordByOtpDTO dto)
+        {
+            var result = await _authService.ResetPasswordByOtpAsync(dto.Email, dto.Otp);
+            return Ok(new { Status = "Success", Message = result });
+        }
+
         [Authorize]
         [HttpGet("Profile")]
         public async Task<ResponseValue<UserDTO>> GetProfile()
@@ -54,8 +70,8 @@ namespace WebAppAPI.Controllers
 
             int userId = int.Parse(userIdClaim!.Value);
             var profile = await _authService.GetProfile(userId);
-            profile.Permissions = httpContextAccessor.HttpContext!.User.Claims
-                .Where(c => c.Type == "perm")
+            profile.Permissions = httpContextAccessor
+                .HttpContext!.User.Claims.Where(c => c.Type == "perm")
                 .Select(c => c.Value)
                 .ToList();
 

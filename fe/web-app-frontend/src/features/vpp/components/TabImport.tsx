@@ -111,7 +111,7 @@ export default function TabImport() {
             resetForm();
             toast.success('Đã tạo phiếu nhập kho');
         },
-        onError: (err: any) => { toast.error(err?.response?.data?.message || 'Tạo phiếu nhập thất bại'); },
+        onError: (err: any) => { toast.error(err?.message || 'Tạo phiếu nhập thất bại'); },
     });
 
     const deleteMut = useMutation({
@@ -122,6 +122,7 @@ export default function TabImport() {
             setDeleteId(null);
             toast.success('Đã xóa phiếu nhập');
         },
+        onError: (err: any) => toast.error(err?.message || 'Xóa phiếu nhập thất bại'),
     });
 
     // Quick-create catalog item from within import form
@@ -140,7 +141,7 @@ export default function TabImport() {
             setQuickCreateOpen(false);
             toast.success('Đã thêm vật tư mới vào danh mục');
         },
-        onError: (err: any) => { toast.error(err?.response?.data?.message || 'Tạo vật tư thất bại'); },
+        onError: (err: any) => { toast.error(err?.message || 'Tạo vật tư thất bại'); },
     });
 
     function resetForm() {

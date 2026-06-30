@@ -32,11 +32,30 @@ export default function Sidebar() {
         });
     }, [pathname]);
 
+    const isGroupActive = (group: typeof sidebarMenu[0]) =>
+        group.children.some(item => pathname === item.href);
+
     const toggleGroup = (title: string) => {
-        setOpenGroups((prev) => ({
-            ...prev,
-            [title]: !prev[title],
-        }));
+        const wasOpen = !!openGroups[title];
+        const next: Record<string, boolean> = {};
+        sidebarMenu.forEach(g => {
+            next[g.title] = isGroupActive(g) || (g.title === title && !wasOpen);
+        });
+        setOpenGroups(next);
+    };
+
+    const hoverGroup = (title: string) => {
+        const next: Record<string, boolean> = {};
+        sidebarMenu.forEach(g => {
+            next[g.title] = g.title === title || isGroupActive(g);
+        });
+        setOpenGroups(next);
+    };
+
+    const leaveGroup = (group: typeof sidebarMenu[0]) => {
+        if (!isGroupActive(group)) {
+            setOpenGroups(prev => ({ ...prev, [group.title]: false }));
+        }
     };
 
     const handleLogout = async () => {
@@ -171,31 +190,32 @@ export default function Sidebar() {
                     }
 
                     // TRƯỜNG HỢP 2: Nhóm có TỪ 2 phần tử con trở lên -> Giữ nguyên cấu trúc Accordion xổ xuống
+                    const GroupIcon = group.icon;
                     return (
-                        <Box key={group.title} sx={{ mb: 0.5 }}>
+                        <Box key={group.title} sx={{ mb: 0.5 }} onMouseLeave={() => leaveGroup(group)}>
                             {/* Group Header Button */}
                             <ListItemButton
                                 onClick={() => toggleGroup(group.title)}
+                                onMouseEnter={() => hoverGroup(group.title)}
                                 sx={{
-                                    borderRadius: 2.5,
-                                    py: '9px',
+                                    borderRadius: 2.2,
+                                    py: '10px',
                                     px: 1.5,
-                                    color: isOpen ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)',
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    letterSpacing: '0.8px',
-                                    textTransform: 'uppercase',
-                                    transition: 'all 0.2s',
+                                    color: isOpen ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)',
+                                    fontSize: 13,
+                                    fontWeight: 500,
+                                    transition: 'all 0.18s ease',
                                     '&:hover': {
-                                        background: 'rgba(255,255,255,0.06)',
-                                        color: 'rgba(255,255,255,0.9)',
+                                        background: 'rgba(255,255,255,0.07)',
+                                        color: 'rgba(255,255,255,0.85)',
+                                        transform: 'translateX(2px)',
                                     },
                                 }}
                             >
-                                <Box sx={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(74,222,128,0.5)', mr: 1, flexShrink: 0 }} />
+                                {GroupIcon && <GroupIcon size={16} style={{ flexShrink: 0, marginRight: 10, opacity: 0.6 }} />}
                                 <ListItemText
                                     primary={group.title}
-                                    slotProps={{ primary: { style: { fontSize: 11, fontWeight: 600, letterSpacing: '0.8px' } } }}
+                                    slotProps={{ primary: { style: { fontSize: 13, fontWeight: 500 } } }}
                                 />
                                 <ChevronDown
                                     size={15}

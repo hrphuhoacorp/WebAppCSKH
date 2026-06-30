@@ -55,5 +55,13 @@ export const authApi = {
         return response.data;
     },
 
- 
+    forgotPassword: async (email: string) => {
+        const response = await api.post('/Auth/ForgotPassword', { email });
+        return response.data;
+    },
+
+    resetPasswordByOtp: async (email: string, otp: string) => {
+        const response = await api.post('/Auth/ResetPasswordByOtp', { email, otp });
+        return response.data;
+    },
 };

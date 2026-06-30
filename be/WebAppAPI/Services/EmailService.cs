@@ -4,7 +4,12 @@ using MimeKit;
 
 public interface IEmailService
 {
-    Task SendEmaiLAsync(string to, string subject, string html, IList<IFormFile>? attachments = null);
+    Task SendEmaiLAsync(
+        string to,
+        string subject,
+        string html,
+        IList<IFormFile>? attachments = null
+    );
 }
 
 public class EmailService : IEmailService
@@ -16,7 +21,12 @@ public class EmailService : IEmailService
         _config = config;
     }
 
-    public async Task SendEmaiLAsync(string to, string subject, string html, IList<IFormFile>? attachments = null)
+    public async Task SendEmaiLAsync(
+        string to,
+        string subject,
+        string html,
+        IList<IFormFile>? attachments = null
+    )
     {
         var email = new MimeMessage();
         email.From.Add(MailboxAddress.Parse(_config["EmailSettings:Email"]));
@@ -30,8 +40,11 @@ public class EmailService : IEmailService
             {
                 using var ms = new MemoryStream();
                 await file.CopyToAsync(ms);
-                builder.Attachments.Add(file.FileName, ms.ToArray(),
-                    ContentType.Parse(file.ContentType ?? "application/octet-stream"));
+                builder.Attachments.Add(
+                    file.FileName,
+                    ms.ToArray(),
+                    ContentType.Parse(file.ContentType ?? "application/octet-stream")
+                );
             }
         }
         email.Body = builder.ToMessageBody();
