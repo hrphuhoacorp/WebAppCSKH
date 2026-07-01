@@ -18,6 +18,7 @@ import {
     Settings,
     Zap,
     Newspaper,
+    ScanSearch,
 } from 'lucide-react';
 import React from 'react';
 
@@ -176,6 +177,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Tổng Hợp Link',
                 href: '/dashboard/links',
                 icon: Link2,
+            },
+            {
+                title: 'Kiểm Tra Mã Hàng Sapo',
+                href: '/dashboard/tools/sapo_checker',
+                icon: ScanSearch,
             },
         ],
     },

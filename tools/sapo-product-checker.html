@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiểm tra sản phẩm Sapo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --primary: #1565c0;
+  --primary-light: #e3f2fd;
+  --danger: #c62828;
+  --danger-light: #ffebee;
+  --warning: #e65100;
+  --warning-light: #fff3e0;
+  --success: #2e7d32;
+  --success-light: #e8f5e9;
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --border: #e0e0e0;
+  --border-dark: #bdbdbd;
+  --text: #212121;
+  --muted: #757575;
+  --hover: #fafafa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.5;
+}
+a { color: var(--primary); text-decoration: none; }
+
+/* Layout */
+.container { max-width: 1440px; margin: 0 auto; padding: 20px 24px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+.row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.col { flex: 1; min-width: 0; }
+
+/* Header */
+.page-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.page-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+.page-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.header-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* Buttons */
+button { cursor: pointer; border-radius: 5px; font-size: 12px; font-family: inherit; transition: all .15s; border: none; }
+.btn { padding: 6px 14px; font-weight: 500; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: #0d47a1; }
+.btn-ghost { background: #fff; border: 1px solid var(--border-dark); color: var(--text); }
+.btn-ghost:hover { background: var(--hover); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #b71c1c; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+.btn-xs { padding: 2px 7px; font-size: 11px; }
+
+/* Upload */
+.upload-zone {
+  border: 2px dashed var(--border-dark); border-radius: 8px; padding: 44px 20px;
+  text-align: center; cursor: pointer; transition: all .2s; background: var(--card);
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--primary); background: var(--primary-light); }
+.upload-zone input { display: none; }
+.upload-icon { font-size: 44px; line-height: 1; margin-bottom: 10px; }
+.upload-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.upload-hint { color: var(--muted); font-size: 12px; }
+
+/* Section heading */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.section-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.chevron { display: inline-block; transition: transform .2s; font-size: 11px; color: var(--muted); }
+.chevron.open { transform: rotate(180deg); }
+.section-body { display: none; padding-top: 12px; }
+.section-body.open { display: block; }
+
+/* Config tables */
+.cfg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 900px) { .cfg-grid { grid-template-columns: 1fr; } }
+.cfg-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.cfg-table { width: 100%; border-collapse: collapse; }
+.cfg-table th { background: var(--bg); padding: 5px 8px; text-align: left; font-weight: 600; font-size: 11px; border: 1px solid var(--border); }
+.cfg-table td { border: 1px solid var(--border); padding: 4px; }
+.cfg-table input { width: 100%; border: none; background: transparent; padding: 3px 5px; font-size: 12px; font-family: inherit; outline: none; }
+.cfg-table input:focus { background: var(--primary-light); }
+.cfg-actions { margin-top: 10px; display: flex; gap: 8px; }
+
+/* Summary stats */
+.stat-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 18px; min-width: 110px; }
+.stat-num { font-size: 26px; font-weight: 700; line-height: 1; }
+.stat-label { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.stat-danger .stat-num { color: var(--danger); }
+.stat-warning .stat-num { color: var(--warning); }
+.stat-muted .stat-num { color: var(--muted); }
+
+/* Rule chips */
+.rule-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip {
+  padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--text);
+  transition: all .15s;
+}
+.chip:hover { border-color: var(--primary); color: var(--primary); }
+.chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.chip-danger { border-color: var(--danger); color: var(--danger); }
+.chip-danger.active { background: var(--danger); color: #fff; }
+
+/* Tabs */
+.tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 14px; }
+.tab { padding: 8px 18px; cursor: pointer; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; font-size: 13px; }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* Table */
+.tbl-wrap { overflow-x: auto; max-height: 60vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th { background: #f5f5f5; padding: 8px 10px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+tbody td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+tbody tr:hover td { background: var(--hover); }
+tbody tr:last-child td { border-bottom: none; }
+
+/* Tags */
+.rule-tag { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; background: var(--danger-light); color: var(--danger); white-space: nowrap; }
+.tag-R2, .tag-R3, .tag-R4 { background: var(--warning-light); color: var(--warning); }
+.tag-R5, .tag-R6 { background: #fce4ec; color: #ad1457; }
+.tag-R7, .tag-R8 { background: #e8eaf6; color: #283593; }
+.tag-R9 { background: #f3e5f5; color: #6a1b9a; }
+
+/* Misc */
+.text-muted { color: var(--muted); }
+.text-danger { color: var(--danger); }
+.text-mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; }
+.no-data { text-align: center; padding: 48px 20px; color: var(--muted); }
+.no-data-icon { font-size: 36px; margin-bottom: 8px; }
+.file-info { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+
+/* Expandable row */
+.vio-row { cursor: pointer; }
+.vio-row:hover td { background: #f0f4ff; }
+.vio-detail td { background: #f0f4ff; border-bottom: 2px solid var(--primary); padding: 10px 12px; }
+.detail-box { display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px; }
+.detail-field { display: flex; flex-direction: column; gap: 2px; }
+.detail-field strong { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.detail-field span { color: var(--text); word-break: break-word; max-width: 400px; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; background: #323232; color: #fff;
+  padding: 10px 16px; border-radius: 6px; font-size: 13px; z-index: 9999;
+  opacity: 0; pointer-events: none; transition: opacity .25s; max-width: 320px;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">🔍 Kiểm tra sản phẩm Sapo</div>
+      <div class="page-sub">Upload file Excel xuất từ Sapo để phát hiện vi phạm nghiệp vụ tự động</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="exportViolationsXlsx()" id="btnExport" style="display:none">Xuất vi phạm (.xlsx)</button>
+      <button class="btn btn-ghost" onclick="exportExceptions()">Xuất ngoại lệ</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('importExInput').click()">Nhập ngoại lệ</button>
+      <input type="file" id="importExInput" accept=".json" style="display:none" onchange="handleImportExceptions(this)">
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="upload-zone" id="uploadZone"
+      onclick="document.getElementById('fileInput').click()"
+      ondragover="handleDragOver(event)"
+      ondragleave="handleDragLeave(event)"
+      ondrop="handleDrop(event)">
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileSelect(this)">
+      <div class="upload-icon">📂</div>
+      <div class="upload-title">Kéo thả hoặc click để chọn file Excel xuất từ Sapo</div>
+      <div class="upload-hint" style="margin-top:4px">Hỗ trợ .xlsx, .xls · Xử lý hoàn toàn trên trình duyệt, không gửi lên server</div>
+      <div id="uploadFileName" style="margin-top:10px; font-size:12px; color:var(--primary); font-weight:600;"></div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="card">
+    <div class="section-head" onclick="toggleSection('cfgBody','cfgChevron')">
+      <div class="section-title">⚙️ Cấu hình nghiệp vụ <span style="font-size:11px;color:var(--muted);font-weight:400;">(lưu trong trình duyệt)</span></div>
+      <span class="chevron" id="cfgChevron">▼</span>
+    </div>
+    <div class="section-body" id="cfgBody">
+      <div class="cfg-grid">
+
+        <!-- R4: SKU prefix → product type -->
+        <div>
+          <div class="cfg-label">R4 · Prefix SKU → Loại sản phẩm</div>
+          <table class="cfg-table">
+            <thead><tr><th>Prefix SKU</th><th>Loại sản phẩm</th><th style="width:32px"></th></tr></thead>
+            <tbody id="skuPrefixBody"></tbody>
+          </table>
+          <div style="margin-top:6px">
+            <button class="btn btn-ghost btn-sm" onclick="addCfgRow('skuPrefixBody',['VD: GQ-','VD: Giỏ quà'])">+ Thêm</button>
+          </div>
+        </div>
+
+        <!-- R2: product type → required unit -->
+        <div>
+          <div class="cfg-label">R2 · Loại sản phẩm → Đơn vị bắt buộc</div>
+          <table class="cfg-table">
+            <thead><tr><th>Loại sản phẩm</th><th>Đơn vị đúng</th><th style="width:32px"></th></tr></thead>
+            <tbody id="unitRuleBody"></tbody>
+          </table>
+          <div style="margin-top:6px">
+            <button class="btn btn-ghost btn-sm" onclick="addCfgRow('unitRuleBody',['VD: Giỏ quà','VD: Cái'])">+ Thêm</button>
+          </div>
+        </div>
+
+        <!-- R8: product type → default tax -->
+        <div>
+          <div class="cfg-label">R8 · Loại sản phẩm → Thuế đầu ra mặc định (%)</div>
+          <table class="cfg-table">
+            <thead><tr><th>Loại sản phẩm</th><th>Thuế %</th><th style="width:32px"></th></tr></thead>
+            <tbody id="taxRuleBody"></tbody>
+          </table>
+          <div style="margin-top:6px">
+            <button class="btn btn-ghost btn-sm" onclick="addCfgRow('taxRuleBody',['VD: Giỏ quà','10'])">+ Thêm</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cfg-actions">
+        <button class="btn btn-primary btn-sm" onclick="saveConfig()">💾 Lưu cấu hình</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetConfig()">Xoá cấu hình</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsSection" style="display:none">
+
+    <!-- Stats row -->
+    <div class="stat-row" id="statRow"></div>
+
+    <div class="card">
+      <div class="file-info" id="fileInfo"></div>
+
+      <div class="tabs">
+        <div class="tab active" id="tabVio" onclick="switchTab('violations')">Vi phạm</div>
+        <div class="tab" id="tabEx" onclick="switchTab('exceptions')">Ngoại lệ <span id="exCountBadge" style="background:#e0e0e0;color:#757575;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:4px">0</span></div>
+      </div>
+
+      <!-- Violations panel -->
+      <div id="panelVio">
+        <div class="rule-chips" id="ruleChips"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:52px">Dòng</th>
+                <th style="width:130px">Mã SKU</th>
+                <th style="min-width:200px">Tên sản phẩm</th>
+                <th style="width:150px">Loại sản phẩm</th>
+                <th style="width:70px">Đơn vị</th>
+                <th style="width:56px">Lỗi</th>
+                <th>Mô tả vi phạm</th>
+                <th style="width:72px"></th>
+              </tr>
+            </thead>
+            <tbody id="vioBody"></tbody>
+          </table>
+          <div id="noVio" class="no-data" style="display:none">
+            <div class="no-data-icon">✅</div>
+            <div style="font-weight:600">Không có vi phạm</div>
+            <div style="font-size:12px;margin-top:4px">Toàn bộ sản phẩm đạt yêu cầu nghiệp vụ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exceptions panel -->
+      <div id="panelEx" style="display:none">
+        <!-- Manual add form -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;padding:10px 12px;background:#f8f9fa;border-radius:6px;border:1px solid var(--border)">
+          <span style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">Thêm ngoại lệ:</span>
+          <input id="exSkuInput" type="text" placeholder="Mã SKU (có thể nhập nhiều, cách nhau bởi dấu phẩy)"
+            style="flex:1;border:1px solid var(--border-dark);border-radius:4px;padding:5px 9px;font-size:12px;font-family:inherit;outline:none;min-width:0"
+            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border-dark)'"
+            onkeydown="if(event.key==='Enter')addManualException()">
+          <select id="exRuleSelect"
+            style="border:1px solid var(--border-dark);border-radius:4px;padding:5px 8px;font-size:12px;font-family:inherit;outline:none;background:#fff;cursor:pointer">
+            <option value="">-- Chọn rule --</option>
+            <option value="ALL">Tất cả rules (R1–R9)</option>
+            <option value="R1">R1 · Thiếu đơn vị</option>
+            <option value="R2">R2 · Đơn vị sai</option>
+            <option value="R3">R3 · Thiếu loại SP</option>
+            <option value="R4">R4 · Loại SP ≠ SKU</option>
+            <option value="R5">R5 · Chưa áp dụng thuế</option>
+            <option value="R6">R6 · Giá thuế sai</option>
+            <option value="R7">R7 · Thuế đầu ra = 0</option>
+            <option value="R8">R8 · Thuế đầu ra sai</option>
+            <option value="R9">R9 · SKU khuyến mãi sai</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="addManualException()">Thêm</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadExTemplate()" title="Tải file JSON mẫu để nhập hàng loạt">⬇ Template</button>
+        </div>
+
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Mã SKU</th>
+                <th style="width:200px">Rule bỏ qua</th>
+                <th>Thêm lúc</th>
+                <th style="width:70px"></th>
+              </tr>
+            </thead>
+            <tbody id="exBody"></tbody>
+          </table>
+          <div id="noEx" class="no-data" style="display:none">
+            <div class="no-data-icon">📋</div>
+            <div>Chưa có ngoại lệ nào</div>
+            <div style="font-size:12px;margin-top:4px">Điền form trên để thêm tay, hoặc nhập file JSON</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Constants ────────────────────────────────────────────────────────────────
+const CFG_KEY = 'sapo_checker_v1_config';
+const EX_KEY  = 'sapo_checker_v1_exceptions';
+
+const RULES = {
+  R1: 'Thiếu đơn vị',
+  R2: 'Đơn vị sai',
+  R3: 'Thiếu loại SP',
+  R4: 'Loại SP ≠ SKU',
+  R5: 'Chưa áp dụng thuế',
+  R6: 'Giá thuế sai',
+  R7: 'Thuế đầu ra = 0',
+  R8: 'Thuế đầu ra sai',
+  R9: 'SKU khuyến mãi sai',
+};
+
+// Columns to detect (by header name)
+const COL_MAP = {
+  name:     ['Tên sản phẩm*', 'Tên sản phẩm'],
+  type:     ['Loại sản phẩm'],
+  sku:      ['Mã SKU*', 'Mã SKU', 'SKU'],
+  unit:     ['Đơn vị'],
+  applyTax: ['Áp dụng thuế'],
+  taxPrice: ['Giá áp dụng thuế'],
+  taxOut:   ['Thuế đầu ra (%)'],
+};
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let allViolations  = [];
+let activeFilter   = 'ALL';
+let lastFileData   = null;
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveConfig() {
+  const cfg = {
+    skuPrefixes: readCfgTable('skuPrefixBody', ['prefix', 'type']),
+    unitRules:   readCfgTable('unitRuleBody',  ['type', 'unit']),
+    taxRules:    readCfgTable('taxRuleBody',   ['type', 'tax']),
+  };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  showToast('Đã lưu cấu hình');
+  if (lastFileData) runCheck(lastFileData);
+}
+
+function resetConfig() {
+  if (!confirm('Xoá toàn bộ cấu hình đã lưu?')) return;
+  localStorage.removeItem(CFG_KEY);
+  renderCfgTables({});
+  showToast('Đã xoá cấu hình');
+}
+
+function readCfgTable(tbodyId, fields) {
+  return [...document.getElementById(tbodyId).querySelectorAll('tr')]
+    .map(tr => {
+      const inputs = [...tr.querySelectorAll('input')];
+      const obj = {};
+      fields.forEach((f, i) => { obj[f] = (inputs[i]?.value || '').trim(); });
+      return obj;
+    })
+    .filter(obj => Object.values(obj).some(v => v));
+}
+
+function renderCfgTables(cfg) {
+  fillCfgTable('skuPrefixBody', cfg.skuPrefixes || [], ['prefix', 'type'], ['VD: GQ-', 'VD: Giỏ quà']);
+  fillCfgTable('unitRuleBody',  cfg.unitRules   || [], ['type', 'unit'],   ['VD: Giỏ quà', 'VD: Cái']);
+  fillCfgTable('taxRuleBody',   cfg.taxRules    || [], ['type', 'tax'],    ['VD: Giỏ quà', '10']);
+}
+
+function fillCfgTable(tbodyId, data, fields, placeholders) {
+  const tbody = document.getElementById(tbodyId);
+  tbody.innerHTML = '';
+  data.forEach(row => {
+    tbody.appendChild(makeCfgRow(fields.map(f => row[f] || ''), placeholders));
+  });
+}
+
+function addCfgRow(tbodyId, placeholders) {
+  const tbody = document.getElementById(tbodyId);
+  const fields = tbodyId === 'taxRuleBody' ? ['type', 'tax']
+               : tbodyId === 'unitRuleBody' ? ['type', 'unit']
+               : ['prefix', 'type'];
+  tbody.appendChild(makeCfgRow(['', ''], placeholders));
+  tbody.lastElementChild.querySelector('input').focus();
+}
+
+function makeCfgRow(values, placeholders) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = values.map((v, i) =>
+    `<td><input value="${escH(v)}" placeholder="${escH(placeholders[i] || '')}"></td>`
+  ).join('') +
+  `<td><button class="btn-ghost btn-xs" onclick="this.closest('tr').remove()" style="padding:2px 6px">✕</button></td>`;
+  return tr;
+}
+
+// ─── Exceptions ───────────────────────────────────────────────────────────────
+function loadExceptions() {
+  try { return JSON.parse(localStorage.getItem(EX_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveExceptions(exs) {
+  localStorage.setItem(EX_KEY, JSON.stringify(exs));
+  document.getElementById('exCountBadge').textContent = exs.length;
+}
+
+function isException(sku, ruleId) {
+  return loadExceptions().some(e => e.sku === sku && e.ruleId === ruleId);
+}
+
+function addException(sku, ruleId) {
+  const exs = loadExceptions();
+  if (!exs.some(e => e.sku === sku && e.ruleId === ruleId)) {
+    exs.push({ sku, ruleId, addedAt: new Date().toISOString() });
+    saveExceptions(exs);
+  }
+  renderResults();
+  showToast(`Bỏ qua: ${sku} / ${ruleId}`);
+}
+
+function removeException(sku, ruleId) {
+  saveExceptions(loadExceptions().filter(e => !(e.sku === sku && e.ruleId === ruleId)));
+  renderResults();
+  showToast(`Đã xoá ngoại lệ: ${sku} / ${ruleId}`);
+}
+
+function addManualException() {
+  const skuRaw  = document.getElementById('exSkuInput').value.trim();
+  const ruleVal = document.getElementById('exRuleSelect').value;
+  if (!skuRaw)  { showToast('Vui lòng nhập mã SKU'); return; }
+  if (!ruleVal) { showToast('Vui lòng chọn rule'); return; }
+
+  const skus  = skuRaw.split(',').map(s => s.trim()).filter(Boolean);
+  const rules = ruleVal === 'ALL' ? Object.keys(RULES) : [ruleVal];
+  const exs   = loadExceptions();
+  let added = 0;
+
+  skus.forEach(sku => {
+    rules.forEach(r => {
+      if (!exs.some(e => e.sku === sku && e.ruleId === r)) {
+        exs.push({ sku, ruleId: r, addedAt: new Date().toISOString() });
+        added++;
+      }
+    });
+  });
+
+  saveExceptions(exs);
+  document.getElementById('exSkuInput').value = '';
+  document.getElementById('exRuleSelect').value = '';
+  renderResults();
+  showToast(`Đã thêm ${added} ngoại lệ`);
+}
+
+function downloadExTemplate() {
+  const sample = [
+    { sku: 'GQ-001', ruleId: 'R8', addedAt: new Date().toISOString() },
+    { sku: 'GQ-002', ruleId: 'R7', addedAt: new Date().toISOString() },
+  ];
+  download('sapo-exceptions-template.json', JSON.stringify(sample, null, 2), 'application/json');
+}
+
+function exportExceptions() {
+  const exs = loadExceptions();
+  if (!exs.length) { showToast('Chưa có ngoại lệ nào'); return; }
+  download(`sapo-exceptions-${today()}.json`, JSON.stringify(exs, null, 2), 'application/json');
+}
+
+function handleImportExceptions(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error();
+      const exs = loadExceptions();
+      let added = 0;
+      data.forEach(item => {
+        if (item.sku && item.ruleId && !exs.some(x => x.sku === item.sku && x.ruleId === item.ruleId)) {
+          exs.push(item); added++;
+        }
+      });
+      saveExceptions(exs);
+      renderResults();
+      showToast(`Đã nhập ${added} ngoại lệ`);
+    } catch { showToast('File không hợp lệ'); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ─── File handling ────────────────────────────────────────────────────────────
+function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
+function handleDragLeave()  { document.getElementById('uploadZone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+}
+function handleFileSelect(input) { if (input.files[0]) loadFile(input.files[0]); }
+
+function loadFile(file) {
+  const label = document.getElementById('uploadFileName');
+  label.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+  const reader = new FileReader();
+  reader.onload = e => {
+    lastFileData = { name: file.name, size: file.size, buffer: e.target.result };
+    runCheck(lastFileData);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── Rules engine ─────────────────────────────────────────────────────────────
+function detectCols(headerRow) {
+  const norm = headerRow.map(c => str(c));
+  const cols = {};
+  Object.entries(COL_MAP).forEach(([key, candidates]) => {
+    for (const c of candidates) {
+      const idx = norm.findIndex(h => h === c);
+      if (idx >= 0) { cols[key] = idx; break; }
+    }
+  });
+  return cols;
+}
+
+function runCheck({ name, size, buffer }) {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  // Find header row
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    if (rows[i].some(c => str(c).startsWith('Tên sản phẩm'))) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) {
+    showToast('Không tìm thấy header "Tên sản phẩm". Hãy kiểm tra lại file.'); return;
+  }
+
+  const cols = detectCols(rows[headerIdx]);
+  const missingCritical = ['sku'].filter(k => cols[k] === undefined);
+  if (missingCritical.length) {
+    showToast(`Thiếu cột bắt buộc: ${missingCritical.join(', ')}`); return;
+  }
+
+  const cfg = loadConfig();
+  const skuPrefixes = (cfg.skuPrefixes || []).filter(r => r.prefix && r.type);
+  const unitRules   = (cfg.unitRules   || []).filter(r => r.type && r.unit);
+  const taxRules    = (cfg.taxRules    || []).filter(r => r.type && r.tax);
+
+  const violations = [];
+  let lastType = '';
+  let lastName = '';
+  const dataRows = rows.slice(headerIdx + 1);
+
+  dataRows.forEach((row, i) => {
+    const rowNum  = headerIdx + 2 + i;
+    const rawName = str(row[cols.name]);
+    const rawType = str(row[cols.type]);
+    const sku     = str(row[cols.sku]);
+
+    // Skip empty rows
+    if (!sku && !rawName) return;
+
+    // Fill-forward product type
+    const effectiveType = rawType !== '' ? rawType : lastType;
+    if (rawType !== '') lastType = rawType;
+
+    // Track parent product name for variant rows
+    const isVariant = rawName === '';
+    if (!isVariant) lastName = rawName;
+    const productName = isVariant ? lastName : rawName;
+
+    // Skip rows with no SKU
+    if (!sku) return;
+
+    const unit     = cols.unit     !== undefined ? str(row[cols.unit])     : '';
+    const applyTax = cols.applyTax !== undefined ? str(row[cols.applyTax]) : '';
+    const taxPrice = cols.taxPrice !== undefined ? str(row[cols.taxPrice]) : '';
+    const taxRaw   = cols.taxOut   !== undefined ? row[cols.taxOut]        : '';
+    const taxOutNum = parseTax(taxRaw);
+
+    function flag(ruleId, desc) {
+      violations.push({ rowNum, sku, productName, effectiveType, unit, ruleId, desc });
+    }
+
+    // R1: Missing unit
+    if (cols.unit !== undefined && unit === '') {
+      flag('R1', 'Đơn vị tính đang trống');
+    }
+
+    // R2: Wrong unit for product type
+    if (cols.unit !== undefined && effectiveType) {
+      const rule = unitRules.find(r => effectiveType.toLowerCase().includes(r.type.toLowerCase()));
+      if (rule && unit.toLowerCase() !== rule.unit.toLowerCase()) {
+        flag('R2', `Loại "${effectiveType}" phải có đơn vị "${rule.unit}", hiện là "${unit}"`);
+      }
+    }
+
+    // R3: Missing product type (after fill-forward)
+    if (cols.type !== undefined && !effectiveType) {
+      flag('R3', 'Thiếu loại sản phẩm (kể cả sau fill-forward từ dòng cha)');
+    }
+
+    // R4: Product type doesn't match SKU prefix (longest prefix wins)
+    if (skuPrefixes.length > 0) {
+      const matched = skuPrefixes
+        .filter(p => sku.toLowerCase().startsWith(p.prefix.toLowerCase()))
+        .sort((a, b) => b.prefix.length - a.prefix.length)[0];
+      if (matched && effectiveType.toLowerCase() !== matched.type.toLowerCase()) {
+        flag('R4', `SKU prefix "${matched.prefix}" → loại phải là "${matched.type}", hiện là "${effectiveType || '(trống)'}"`);
+      }
+    }
+
+    // R5: Áp dụng thuế ≠ "Có"
+    if (cols.applyTax !== undefined && applyTax !== 'Có') {
+      flag('R5', `"Áp dụng thuế" = "${applyTax || '(trống)'}", phải là "Có"`);
+    }
+
+    // R6: Giá áp dụng thuế ≠ "Giá đã bao gồm thuế"
+    if (cols.taxPrice !== undefined && taxPrice !== 'Giá đã bao gồm thuế') {
+      flag('R6', `"Giá áp dụng thuế" = "${taxPrice || '(trống)'}", phải là "Giá đã bao gồm thuế"`);
+    }
+
+    // R7: Thuế đầu ra = 0 or blank
+    if (cols.taxOut !== undefined && (taxRaw === '' || taxRaw === null || taxOutNum === 0)) {
+      flag('R7', `Thuế đầu ra = ${taxRaw === '' || taxRaw === null ? '(trống)' : taxOutNum + '%'} — không được bằng 0`);
+    }
+
+    // R8: Thuế đầu ra ≠ default for product type (only if R7 didn't fire)
+    const r7Fired = violations.length > 0 && violations[violations.length - 1].sku === sku && violations[violations.length - 1].ruleId === 'R7';
+    if (!r7Fired && cols.taxOut !== undefined && taxRules.length > 0 && effectiveType) {
+      const rule = taxRules.find(r => effectiveType.toLowerCase().includes(r.type.toLowerCase()));
+      if (rule) {
+        const expected = parseFloat(rule.tax);
+        if (!isNaN(expected) && taxOutNum !== expected) {
+          flag('R8', `Loại "${effectiveType}" → thuế đầu ra phải là ${expected}%, hiện là ${taxOutNum}%`);
+        }
+      }
+    }
+
+    // R9: Promotional product with wrong SKU prefix
+    const isPromo = productName.includes('(hàng khuyến mãi không thu tiền)') ||
+                    productName.includes('(hàng tặng không thu tiền)');
+    if (isPromo && !sku.startsWith('700')) {
+      flag('R9', `Sản phẩm khuyến mãi/tặng nhưng SKU không bắt đầu "700": ${sku}`);
+    }
+  });
+
+  allViolations = violations;
+  activeFilter  = 'ALL';
+
+  document.getElementById('fileInfo').textContent =
+    `File: ${name} · ${(size / 1024).toFixed(0)} KB · ${dataRows.length} dòng dữ liệu · Kiểm tra lúc ${new Date().toLocaleTimeString('vi-VN')}`;
+  document.getElementById('resultsSection').style.display = '';
+  document.getElementById('btnExport').style.display = violations.length > 0 ? '' : 'none';
+  renderResults();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderResults() {
+  const exs    = loadExceptions();
+  const active = allViolations.filter(v => !isException(v.sku, v.ruleId));
+  const ignored = allViolations.filter(v => isException(v.sku, v.ruleId));
+
+  // Stats
+  const byRule = {};
+  active.forEach(v => { byRule[v.ruleId] = (byRule[v.ruleId] || 0) + 1; });
+  const uniqueSkus = new Set(active.map(v => v.sku)).size;
+
+  document.getElementById('statRow').innerHTML = `
+    <div class="stat-card stat-danger">
+      <div class="stat-num">${active.length}</div>
+      <div class="stat-label">Vi phạm cần xử lý</div>
+    </div>
+    <div class="stat-card" style="border-color:#bdbdbd">
+      <div class="stat-num" style="color:#757575">${uniqueSkus}</div>
+      <div class="stat-label">SKU bị ảnh hưởng</div>
+    </div>
+    <div class="stat-card" style="border-color:#bdbdbd">
+      <div class="stat-num" style="color:#757575">${ignored.length}</div>
+      <div class="stat-label">Ngoại lệ bỏ qua</div>
+    </div>
+    ${Object.entries(byRule).sort((a,b) => a[0].localeCompare(b[0])).map(([r, c]) => `
+      <div class="stat-card">
+        <div class="stat-num" style="font-size:20px;color:var(--danger)">${c}</div>
+        <div class="stat-label">${r}<br><span style="color:var(--muted)">${RULES[r] || ''}</span></div>
+      </div>
+    `).join('')}
+  `;
+
+  // Rule chips
+  const allRules = [...new Set(active.map(v => v.ruleId))].sort();
+  document.getElementById('ruleChips').innerHTML =
+    `<div class="chip ${activeFilter === 'ALL' ? 'active' : ''}" onclick="setFilter('ALL')">Tất cả (${active.length})</div>` +
+    allRules.map(r =>
+      `<div class="chip ${activeFilter === r ? 'active' : ''}" onclick="setFilter('${r}')">${r} · ${RULES[r] || ''} (${byRule[r]})</div>`
+    ).join('');
+
+  // Violations table
+  const filtered = activeFilter === 'ALL' ? active : active.filter(v => v.ruleId === activeFilter);
+
+  if (filtered.length === 0) {
+    document.getElementById('vioBody').innerHTML = '';
+    document.getElementById('noVio').style.display = '';
+  } else {
+    document.getElementById('noVio').style.display = 'none';
+    document.getElementById('vioBody').innerHTML = filtered.map((v, idx) => `
+      <tr class="vio-row" onclick="toggleDetail(${idx})">
+        <td class="text-muted">${v.rowNum}</td>
+        <td><span class="text-mono">${escH(v.sku)}</span></td>
+        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(v.productName)}</td>
+        <td class="text-muted" style="font-size:11px">${escH(v.effectiveType)}</td>
+        <td class="text-muted">${escH(v.unit)}</td>
+        <td><span class="rule-tag tag-${v.ruleId}">${v.ruleId}</span></td>
+        <td style="color:#444;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(v.desc)}</td>
+        <td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();addException('${escJ(v.sku)}','${v.ruleId}')">Bỏ qua</button></td>
+      </tr>
+      <tr class="vio-detail" id="vrd_${idx}" style="display:none">
+        <td colspan="8">
+          <div class="detail-box">
+            <div class="detail-field"><strong>Tên sản phẩm đầy đủ</strong><span>${escH(v.productName)}</span></div>
+            <div class="detail-field"><strong>Mã SKU</strong><span>${escH(v.sku)}</span></div>
+            <div class="detail-field"><strong>Loại sản phẩm</strong><span>${escH(v.effectiveType) || '(trống)'}</span></div>
+            <div class="detail-field"><strong>Đơn vị</strong><span>${escH(v.unit) || '(trống)'}</span></div>
+            <div class="detail-field" style="flex:1;min-width:300px"><strong>Mô tả vi phạm đầy đủ</strong><span>${escH(v.desc)}</span></div>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Exceptions table
+  document.getElementById('exCountBadge').textContent = exs.length;
+  if (exs.length === 0) {
+    document.getElementById('exBody').innerHTML = '';
+    document.getElementById('noEx').style.display = '';
+  } else {
+    document.getElementById('noEx').style.display = 'none';
+    document.getElementById('exBody').innerHTML = exs.map(e => `
+      <tr>
+        <td><span class="text-mono">${escH(e.sku)}</span></td>
+        <td><span class="rule-tag tag-${e.ruleId}">${e.ruleId}</span> <span style="font-size:11px;color:var(--muted)">${RULES[e.ruleId] || ''}</span></td>
+        <td class="text-muted" style="font-size:11px">${e.addedAt ? new Date(e.addedAt).toLocaleString('vi-VN') : ''}</td>
+        <td><button class="btn btn-danger btn-xs" onclick="removeException('${escJ(e.sku)}','${e.ruleId}')">Xoá</button></td>
+      </tr>
+    `).join('');
+  }
+}
+
+function setFilter(rule) { activeFilter = rule; renderResults(); }
+
+function toggleDetail(idx) {
+  const row = document.getElementById('vrd_' + idx);
+  if (!row) return;
+  const isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : '';
+}
+
+function switchTab(tab) {
+  document.getElementById('tabVio').className = 'tab' + (tab === 'violations' ? ' active' : '');
+  document.getElementById('tabEx').className  = 'tab' + (tab === 'exceptions' ? ' active' : '');
+  document.getElementById('panelVio').style.display = tab === 'violations' ? '' : 'none';
+  document.getElementById('panelEx').style.display  = tab === 'exceptions'  ? '' : 'none';
+}
+
+// ─── Export violations ────────────────────────────────────────────────────────
+function exportViolationsXlsx() {
+  const active = allViolations.filter(v => !isException(v.sku, v.ruleId));
+  if (!active.length) { showToast('Không có vi phạm để xuất'); return; }
+
+  const data = active.map(v => ({
+    'Dòng Excel': v.rowNum,
+    'Mã SKU': v.sku,
+    'Tên sản phẩm': v.productName,
+    'Loại sản phẩm': v.effectiveType,
+    'Đơn vị': v.unit,
+    'Mã lỗi': v.ruleId,
+    'Tên lỗi': RULES[v.ruleId] || '',
+    'Mô tả vi phạm': v.desc,
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Vi phạm');
+  XLSX.writeFile(wb, `sapo-violations-${today()}.xlsx`);
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function str(v)      { return (v == null ? '' : v.toString().trim()); }
+function escH(s)     { return str(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJ(s)     { return str(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function today()     { return new Date().toISOString().slice(0,10); }
+function parseTax(v) {
+  if (v === '' || v === null || v === undefined) return 0;
+  const n = parseFloat(str(v).replace('%',''));
+  return isNaN(n) ? 0 : n;
+}
+function download(filename, text, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = filename;
+  a.click();
+}
+function toggleSection(bodyId, chevronId) {
+  document.getElementById(bodyId).classList.toggle('open');
+  document.getElementById(chevronId).classList.toggle('open');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(function init() {
+  const cfg = loadConfig();
+  renderCfgTables(cfg);
+  document.getElementById('exCountBadge').textContent = loadExceptions().length;
+
+  // Auto-open config if empty
+  const hasConfig = (cfg.skuPrefixes || []).length || (cfg.unitRules || []).length || (cfg.taxRules || []).length;
+  if (!hasConfig) {
+    document.getElementById('cfgBody').classList.add('open');
+    document.getElementById('cfgChevron').classList.add('open');
+  }
+})();
+</script>
+</body>
+</html>
