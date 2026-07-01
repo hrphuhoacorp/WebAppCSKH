@@ -217,76 +217,40 @@ export default function UsersPage() {
                 icon={<BadgeRounded />}
                 gradient="linear-gradient(135deg, #086839 0%, #059669 100%)"
                 shadowColor="rgba(8,104,57,0.28)"
-                actions={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {birthdayUsers.length > 0 && (
-                        <Box
-                            onClick={e => setBirthdayAnchor(e.currentTarget)}
-                            sx={{
-                                display: 'flex', alignItems: 'center', gap: 0.75,
-                                bgcolor: '#fce7f3', border: '1px solid #fbcfe8',
-                                borderRadius: '12px', px: 1.5, py: 0.75,
-                                cursor: 'pointer', userSelect: 'none',
-                                '&:hover': { bgcolor: '#fce7f3', opacity: 0.85 },
-                            }}
-                        >
-                            <CakeRounded sx={{ color: '#db2777', fontSize: 16 }} />
-                            <Typography sx={{ fontWeight: 700, color: '#db2777', fontSize: 13 }}>
-                                {birthdayUsers.length} sinh nhật tháng {currentMonth}
+                actions={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                    {/* Trái: thống kê */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {canImport && (
+                            <Button variant="outlined" startIcon={<FileUploadRounded />} onClick={() => setImportOpen(true)}
+                                sx={{ borderColor: '#086839', color: '#086839', borderRadius: '12px', fontWeight: 700, textTransform: 'none', px: 2, '&:hover': { bgcolor: alpha('#086839', 0.06), borderColor: '#086839' } }}>
+                                Import nhân sự
+                            </Button>
+                        )}
+                        {canCreate && (
+                            <Button variant="contained" startIcon={<AddCircleRounded />} onClick={() => setCreateOpen(true)}
+                                sx={{ bgcolor: '#086839', borderRadius: '12px', fontWeight: 700, textTransform: 'none', px: 2, boxShadow: '0 1px 6px rgba(8,104,57,0.18)', '&:hover': { bgcolor: '#0e4837' } }}>
+                                Thêm nhân sự
+                            </Button>
+                        )}
+                    </Box>
+                    <Box sx={{ flex: 1 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {birthdayUsers.length > 0 && (
+                            <Box onClick={e => setBirthdayAnchor(e.currentTarget)} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, bgcolor: '#fce7f3', border: '1px solid #fbcfe8', borderRadius: '12px', px: 1.5, py: 0.9, cursor: 'pointer', userSelect: 'none', '&:hover': { opacity: 0.85 } }}>
+                                <CakeRounded sx={{ color: '#db2777', fontSize: 16 }} />
+                                <Typography sx={{ fontWeight: 700, color: '#db2777', fontSize: 13 }}>
+                                    {birthdayUsers.length} sinh nhật tháng {currentMonth}
+                                </Typography>
+                            </Box>
+                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', px: 2, py: 1, boxShadow: '0 1px 6px rgba(8,104,57,0.06)' }}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)' }} />
+                            <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
+                                {total.toLocaleString('vi-VN')} nhân sự
                             </Typography>
                         </Box>
-                    )}
-                    {canImport && (
-                        <Button
-                            variant="outlined"
-                            startIcon={<FileUploadRounded />}
-                            onClick={() => setImportOpen(true)}
-                            sx={{
-                                borderColor: '#086839',
-                                color: '#086839',
-                                borderRadius: '12px',
-                                fontWeight: 700,
-                                textTransform: 'none',
-                                px: 2,
-                                '&:hover': {
-                                    bgcolor: alpha('#086839', 0.06),
-                                    borderColor: '#086839',
-                                },
-                            }}
-                        >
-                            Import nhân sự
-                        </Button>
-                    )}
-                    {canCreate && (
-                        <Button
-                            variant="contained"
-                            startIcon={<AddCircleRounded />}
-                            onClick={() => setCreateOpen(true)}
-                            sx={{
-                                bgcolor: '#086839',
-                                borderRadius: '12px',
-                                fontWeight: 700,
-                                textTransform: 'none',
-                                px: 2,
-                                boxShadow: '0 1px 6px rgba(8,104,57,0.18)',
-                                '&:hover': { bgcolor: '#0e4837' },
-                            }}
-                        >
-                            Thêm nhân sự
-                        </Button>
-                    )}
-                    <Box
-                        sx={{
-                            display: 'flex', alignItems: 'center', gap: 1,
-                            bgcolor: '#fff', border: '1px solid #e2e8f0',
-                            borderRadius: '12px', px: 2, py: 1,
-                            boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
-                        }}
-                    >
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)' }} />
-                        <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
-                            {total.toLocaleString('vi-VN')} nhân sự
-                        </Typography>
                     </Box>
+                    {/* Phải: hành động */}
                 </Box>}
             />
 

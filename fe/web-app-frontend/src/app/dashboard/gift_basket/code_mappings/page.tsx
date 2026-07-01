@@ -214,7 +214,7 @@ const QuickApproveRow = memo(function QuickApproveRow({
 export default function ApprovePage() {
     const [page] = useState(0);
     const [pageSize] = useState(50);
-    const [statusFilter, setStatusFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('pending');
     const [branchId, setBranchId] = useState('');
     const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
 
@@ -546,7 +546,7 @@ export default function ApprovePage() {
     const canHandle = usePermission('gift.change_request.handle');
     const canExport = usePermission('gift.change_request.export');
 
-    const pendingCount = rows.length;
+    const pendingCount = rows.filter(r => r.status === 'pending').length;
 
     return (
         <Box sx={{
