@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { ApexOptions } from 'apexcharts';
 import {
-    Box, Chip, Paper, Skeleton, Table, TableBody, TableCell,
+    Box, Chip, MenuItem, Paper, Select, Skeleton, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Typography, alpha,
 } from '@mui/material';
 import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
@@ -95,8 +95,8 @@ function ChartCard({ title, subtitle, children, loading, height = 260 }: {
 
 export default function TabOverview() {
     const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
+    const [month, setMonth] = useState<number | null>(now.getMonth() + 1);
+    const [year, setYear] = useState(now.getFullYear());
 
     const { data: inv, isLoading } = useQuery({
         queryKey: ['vpp-inventory', month, year],
@@ -205,6 +205,7 @@ export default function TabOverview() {
         },
         yaxis: { labels: { style: { fontSize: '11px', colors: '#64748b', fontFamily: 'inherit' } } },
         tooltip: {
+            x: { formatter: (_: string, opts: any) => topItems[opts?.dataPointIndex]?.fullName ?? '' },
             y: { formatter: (v: number) => v.toLocaleString('vi-VN') + ' cái', title: { formatter: () => 'Tồn kho' } },
             style: { fontFamily: 'inherit', fontSize: '12px' },
         },
@@ -228,26 +229,50 @@ export default function TabOverview() {
         tooltip: { y: { formatter: (v: number) => v.toLocaleString('vi-VN') + 'đ', title: { formatter: () => 'Tổng tiền' } }, style: { fontFamily: 'inherit', fontSize: '12px' } },
     };
 
+    const periodLabel = month == null ? `Năm ${year}` : `Tháng ${month}/${year}`;
+    const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
+
     return (
         <Box sx={{ height: '100%', overflow: 'auto', pb: 2 }}>
+            {/* Filter row */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+                <Select size="small" value={month ?? 0}
+                    onChange={e => setMonth(e.target.value === 0 ? null : Number(e.target.value))}
+                    sx={{ minWidth: 150, borderRadius: '12px', bgcolor: '#fff', fontWeight: 600, fontSize: 13,
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e2e8f0' } }}>
+                    <MenuItem value={0}>Tất cả tháng</MenuItem>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                        <MenuItem key={m} value={m}>Tháng {m}</MenuItem>
+                    ))}
+                </Select>
+                <Select size="small" value={year}
+                    onChange={e => setYear(Number(e.target.value))}
+                    sx={{ minWidth: 100, borderRadius: '12px', bgcolor: '#fff', fontWeight: 600, fontSize: 13,
+                        '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e2e8f0' } }}>
+                    {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+                </Select>
+                <Chip label={periodLabel} size="small"
+                    sx={{ bgcolor: alpha(GREEN, 0.1), color: GREEN, fontWeight: 700, fontSize: 12 }} />
+            </Box>
+
             {/* Stat cards */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
                 <StatCard label="Tổng vật tư" value={inv?.rows.length ?? 0} sub="Đang theo dõi" color={GREEN} icon={<InventoryRoundedIcon />} loading={isLoading} />
                 <StatCard label="Sắp hết hàng" value={inv?.lowStockCount ?? 0} sub="Dưới mức tối thiểu" color="#f59e0b" icon={<WarningAmberRoundedIcon />} loading={isLoading} />
                 <StatCard label="Hết hàng" value={inv?.outOfStockCount ?? 0} sub="Tồn kho = 0" color="#dc2626" icon={<ErrorOutlineRoundedIcon />} loading={isLoading} />
-                <StatCard label="Tổng giá trị kho" value={inv ? Math.round(inv.totalValue).toLocaleString('vi-VN') + 'đ' : '—'} sub={`Tháng ${month}/${year}`} color="#0284c7" icon={<MonetizationOnRoundedIcon />} loading={isLoading} />
+                <StatCard label="Tổng giá trị kho" value={inv ? Math.round(inv.totalValue).toLocaleString('vi-VN') + 'đ' : '—'} sub={periodLabel} color="#0284c7" icon={<MonetizationOnRoundedIcon />} loading={isLoading} />
             </Box>
 
             {/* Row 2: Donut + Nhập/Xuất */}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.7fr' }, gap: 2, mb: 2 }}>
-                <ChartCard title="Cơ cấu giá trị tồn kho" subtitle={`Tháng ${month}/${year}`} loading={isLoading} height={280}>
+                <ChartCard title="Cơ cấu giá trị tồn kho" subtitle={periodLabel} loading={isLoading} height={280}>
                     {donutData.length > 0
                         ? <ReactApexChart type="donut" series={donutData.map(d => d.value)} options={donutOpts} height={280} />
                         : <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Typography sx={{ color: '#94a3b8', fontSize: 13 }}>Chưa có dữ liệu</Typography></Box>
                     }
                 </ChartCard>
 
-                <ChartCard title="Nhập / Xuất kho theo nhóm" subtitle={`Tháng ${month}/${year}`} loading={isLoading} height={280}>
+                <ChartCard title="Nhập / Xuất kho theo nhóm" subtitle={periodLabel} loading={isLoading} height={280}>
                     {importExportGroups.length > 0
                         ? <ReactApexChart type="bar" height={280}
                             series={[
@@ -327,7 +352,7 @@ export default function TabOverview() {
                 <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, p: 5, textAlign: 'center', bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
                     <CheckCircleRoundedIcon sx={{ fontSize: 48, color: '#22c55e', mb: 1 }} />
                     <Typography sx={{ fontWeight: 700, color: '#15803d', fontSize: 16 }}>Tồn kho ổn định</Typography>
-                    <Typography sx={{ color: '#94a3b8', fontSize: 13, mt: 0.5 }}>Tất cả vật tư đều ở mức an toàn trong tháng {month}/{year}</Typography>
+                    <Typography sx={{ color: '#94a3b8', fontSize: 13, mt: 0.5 }}>Tất cả vật tư đều ở mức an toàn — {periodLabel}</Typography>
                 </Paper>
             )}
         </Box>

@@ -249,8 +249,8 @@ export const vppApi = {
     },
 
     // Inventory
-    getInventory: async (month: number, year: number) => {
-        const res = await api.get('/vpp/inventory', { params: { month, year } });
+    getInventory: async (month: number | null, year: number) => {
+        const res = await api.get('/vpp/inventory', { params: { month: month ?? undefined, year } });
         return (res.data.content ?? null) as VppInventorySummaryDto | null;
     },
 
@@ -318,8 +318,8 @@ export const vppApi = {
     deleteDispatch: async (id: number) => {
         await api.delete(`/vpp/dispatches/${id}`);
     },
-    getDispatchStats: async (month: number, year: number) => {
-        const res = await api.get('/vpp/dispatches/stats', { params: { month, year } });
+    getDispatchStats: async (month: number | null, year: number) => {
+        const res = await api.get('/vpp/dispatches/stats', { params: { month: month ?? undefined, year } });
         return res.data.content as VppDispatchDeptStatsDto[];
     },
 

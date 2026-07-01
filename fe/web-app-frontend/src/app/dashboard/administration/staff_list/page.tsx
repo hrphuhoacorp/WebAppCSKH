@@ -1,12 +1,13 @@
 ﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
     Box,
     Button,
     Chip,
+    Collapse,
     IconButton,
     InputAdornment,
     MenuItem,
@@ -36,6 +37,8 @@ import {
     AddCircleRounded,
     RestorePageRounded,
     FileUploadRounded,
+    CakeRounded,
+    ExpandMoreRounded,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -166,6 +169,23 @@ export default function UsersPage() {
         staleTime: 5 * 60 * 1000,
     });
 
+    const currentMonth = new Date().getMonth() + 1;
+    const { data: allUsersForBirthday = [] } = useQuery({
+        queryKey: ['users-birthday', currentMonth],
+        queryFn: async () => {
+            const res = await userApi.getUsers({ page: 1, pageSize: 9999 });
+            return (res.content?.items ?? []) as UserRow[];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+    const birthdayUsers = useMemo(() =>
+        allUsersForBirthday.filter(u => {
+            if (!u.dayOfBirth || u.deletedAt) return false;
+            return new Date(u.dayOfBirth).getMonth() + 1 === currentMonth;
+        }),
+    [allUsersForBirthday, currentMonth]);
+    const [birthdayOpen, setBirthdayOpen] = useState(true);
+
     const refreshUsers = () => queryClient.invalidateQueries({ queryKey: ['users'] });
 
     const getRoleColor = (role: string) => {
@@ -271,6 +291,57 @@ export default function UsersPage() {
                     </Box>
                 </Box>}
             />
+
+            {/* ── Birthday Panel ── */}
+            {birthdayUsers.length > 0 && (
+                <Paper elevation={0} sx={{
+                    mb: 2, borderRadius: '16px',
+                    border: '1px solid #fce7f3', bgcolor: '#fff',
+                    overflow: 'hidden',
+                }}>
+                    <Box
+                        onClick={() => setBirthdayOpen(o => !o)}
+                        sx={{
+                            px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5,
+                            cursor: 'pointer', userSelect: 'none',
+                            '&:hover': { bgcolor: '#fdf4ff' },
+                        }}
+                    >
+                        <CakeRounded sx={{ color: '#db2777', fontSize: 20 }} />
+                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#db2777', flex: 1 }}>
+                            Sinh nhật tháng {currentMonth} — {birthdayUsers.length} nhân viên
+                        </Typography>
+                        <ExpandMoreRounded sx={{
+                            color: '#db2777', fontSize: 20,
+                            transform: birthdayOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s',
+                        }} />
+                    </Box>
+                    <Collapse in={birthdayOpen}>
+                        <Box sx={{ px: 2.5, pb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            {birthdayUsers.map(u => {
+                                const d = new Date(u.dayOfBirth);
+                                const day = d.getDate();
+                                const isToday = day === new Date().getDate();
+                                return (
+                                    <Chip
+                                        key={u.id}
+                                        icon={<CakeRounded sx={{ fontSize: '14px !important', color: isToday ? '#fff !important' : '#db2777 !important' }} />}
+                                        label={`${u.name} (${day}/${currentMonth})`}
+                                        size="small"
+                                        sx={{
+                                            fontWeight: 600, fontSize: 12,
+                                            bgcolor: isToday ? '#db2777' : '#fce7f3',
+                                            color: isToday ? '#fff' : '#be185d',
+                                            border: `1px solid ${isToday ? '#be185d' : '#fbcfe8'}`,
+                                        }}
+                                    />
+                                );
+                            })}
+                        </Box>
+                    </Collapse>
+                </Paper>
+            )}
 
             {/* ── Filter Bar ── */}
             <Paper

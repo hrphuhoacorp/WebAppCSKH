@@ -204,7 +204,10 @@ export default function ChangeRequestsPage() {
         staleTime: 60 * 1000,
     });
 
-    const refreshRequests = () => queryClient.invalidateQueries({ queryKey: ['change-requests'] });
+    const refreshRequests = () => {
+        queryClient.invalidateQueries({ queryKey: ['change-requests'] });
+        queryClient.invalidateQueries({ queryKey: ['change-requests-recent'] });
+    };
 
     // Client-side search filter
     const filtered = useMemo(() => {

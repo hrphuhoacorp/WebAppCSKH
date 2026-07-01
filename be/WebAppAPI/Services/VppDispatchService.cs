@@ -7,7 +7,7 @@ public interface IVppDispatchService
     Task<VppDispatchDetailDto?> GetByIdAsync(int id);
     Task<VppDispatchDetailDto> CreateAsync(VppDispatchCreateDto dto, string createdBy);
     Task DeleteAsync(int id);
-    Task<List<VppDispatchDeptStatsDto>> GetStatsAsync(int month, int year);
+    Task<List<VppDispatchDeptStatsDto>> GetStatsAsync(int? month, int year);
 }
 
 public class VppDispatchService : IVppDispatchService
@@ -179,10 +179,11 @@ public class VppDispatchService : IVppDispatchService
         await _uow.SaveChangesAsync();
     }
 
-    public async Task<List<VppDispatchDeptStatsDto>> GetStatsAsync(int month, int year)
+    public async Task<List<VppDispatchDeptStatsDto>> GetStatsAsync(int? month, int year)
     {
         var dispatches = await _repo.GetAll().AsNoTracking()
-            .Where(x => x.DeletedAt == null && x.DispatchDate.Month == month && x.DispatchDate.Year == year)
+            .Where(x => x.DeletedAt == null && x.DispatchDate.Year == year
+                && (month == null || x.DispatchDate.Month == month))
             .ToListAsync();
 
         var dispatchIds = dispatches.Select(x => x.Id).ToList();

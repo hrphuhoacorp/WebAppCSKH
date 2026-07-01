@@ -18,9 +18,8 @@ public class VppInventoryController : ControllerBase
         [FromQuery] int? month, [FromQuery] int? year)
     {
         var now = DateTime.UtcNow.AddHours(7);
-        var m = month ?? now.Month;
         var y = year ?? now.Year;
-        var result = await _service.GetByPeriodAsync(m, y);
+        var result = await _service.GetByPeriodAsync(month, y);
         return new ResponseValue<VppInventorySummaryDto>(result, "OK", StatusReponse.Success);
     }
 }

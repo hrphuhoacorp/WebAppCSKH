@@ -46,9 +46,8 @@ public class VppDispatchController : ControllerBase
     public async Task<ResponseValue<List<VppDispatchDeptStatsDto>>> GetStats(
         [FromQuery] int? month, [FromQuery] int? year)
     {
-        var m = month ?? DateTime.Now.Month;
         var y = year ?? DateTime.Now.Year;
-        var result = await _service.GetStatsAsync(m, y);
+        var result = await _service.GetStatsAsync(month, y);
         return new ResponseValue<List<VppDispatchDeptStatsDto>>(result, "OK", StatusReponse.Success);
     }
 

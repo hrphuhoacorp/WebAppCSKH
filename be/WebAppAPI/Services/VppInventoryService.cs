@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 public interface IVppInventoryService
 {
-    Task<VppInventorySummaryDto> GetByPeriodAsync(int month, int year);
+    Task<VppInventorySummaryDto> GetByPeriodAsync(int? month, int year);
     Task<Dictionary<int, decimal>> GetAvgPricesAsync(int month, int year, List<int> itemIds);
 }
 
@@ -34,23 +34,31 @@ public class VppInventoryService : IVppInventoryService
         _countRepo = countRepo;
     }
 
-    public async Task<VppInventorySummaryDto> GetByPeriodAsync(int month, int year)
+    public async Task<VppInventorySummaryDto> GetByPeriodAsync(int? month, int year)
     {
         var items = await _itemRepo.GetAll().AsNoTracking()
             .Where(x => x.DeletedAt == null)
             .OrderBy(x => x.Code)
             .ToListAsync();
 
-        var periodKey = year * 100 + month;
-
-        // Tồn đầu kỳ = cuối kỳ tháng trước (dùng giá bình quân gia quyền di động)
-        var prevMonth = month == 1 ? 12 : month - 1;
-        var prevYear = month == 1 ? year - 1 : year;
-        var openingState = await ComputeClosingValueAsync(prevMonth, prevYear);
+        // Tồn đầu kỳ
+        Dictionary<int, (decimal qty, decimal val)> openingState;
+        if (month == null)
+        {
+            // Toàn năm: tồn đầu = cuối tháng 12 năm trước
+            openingState = await ComputeClosingValueAsync(12, year - 1);
+        }
+        else
+        {
+            var prevMonth = month == 1 ? 12 : month.Value - 1;
+            var prevYear = month == 1 ? year - 1 : year;
+            openingState = await ComputeClosingValueAsync(prevMonth, prevYear);
+        }
 
         // Nhập trong kỳ
         var importIds = await _importRepo.GetAll().AsNoTracking()
-            .Where(x => x.DeletedAt == null && x.PeriodMonth == month && x.PeriodYear == year)
+            .Where(x => x.DeletedAt == null && x.PeriodYear == year
+                && (month == null || x.PeriodMonth == month))
             .Select(x => x.Id).ToListAsync();
         var importLines = await _importLineRepo.GetAll().AsNoTracking()
             .Where(x => importIds.Contains(x.ImportId))
@@ -58,8 +66,8 @@ public class VppInventoryService : IVppInventoryService
 
         // Xuất trong kỳ
         var dispatchIds = await _dispatchRepo.GetAll().AsNoTracking()
-            .Where(x => x.DeletedAt == null
-                && x.DispatchDate.Month == month && x.DispatchDate.Year == year)
+            .Where(x => x.DeletedAt == null && x.DispatchDate.Year == year
+                && (month == null || x.DispatchDate.Month == month))
             .Select(x => x.Id).ToListAsync();
         var dispatchLines = await _dispatchLineRepo.GetAll().AsNoTracking()
             .Where(x => dispatchIds.Contains(x.DispatchId))
@@ -67,8 +75,8 @@ public class VppInventoryService : IVppInventoryService
 
         // Điều chỉnh kiểm kho confirm trong kỳ
         var countIds = await _countRepo.GetAll().AsNoTracking()
-            .Where(x => x.Status == "confirmed"
-                && x.PeriodMonth == month && x.PeriodYear == year)
+            .Where(x => x.Status == "confirmed" && x.PeriodYear == year
+                && (month == null || x.PeriodMonth == month))
             .Select(x => x.Id).ToListAsync();
         var countLines = await _countLineRepo.GetAll().AsNoTracking()
             .Where(x => countIds.Contains(x.StockCountId))
@@ -120,7 +128,7 @@ public class VppInventoryService : IVppInventoryService
 
         return new VppInventorySummaryDto
         {
-            Month = month,
+            Month = month ?? 0,
             Year = year,
             Rows = rows,
             TotalValue = rows.Sum(r => r.TotalValue),
