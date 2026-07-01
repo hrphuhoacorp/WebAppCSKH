@@ -7,11 +7,11 @@ import {
     Box,
     Button,
     Chip,
-    Collapse,
     IconButton,
     InputAdornment,
     MenuItem,
     Paper,
+    Popover,
     Stack,
     Table,
     TableBody,
@@ -38,7 +38,6 @@ import {
     RestorePageRounded,
     FileUploadRounded,
     CakeRounded,
-    ExpandMoreRounded,
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -184,7 +183,7 @@ export default function UsersPage() {
             return new Date(u.dayOfBirth).getMonth() + 1 === currentMonth;
         }),
     [allUsersForBirthday, currentMonth]);
-    const [birthdayOpen, setBirthdayOpen] = useState(true);
+    const [birthdayAnchor, setBirthdayAnchor] = useState<HTMLElement | null>(null);
 
     const refreshUsers = () => queryClient.invalidateQueries({ queryKey: ['users'] });
 
@@ -219,6 +218,23 @@ export default function UsersPage() {
                 gradient="linear-gradient(135deg, #086839 0%, #059669 100%)"
                 shadowColor="rgba(8,104,57,0.28)"
                 actions={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {birthdayUsers.length > 0 && (
+                        <Box
+                            onClick={e => setBirthdayAnchor(e.currentTarget)}
+                            sx={{
+                                display: 'flex', alignItems: 'center', gap: 0.75,
+                                bgcolor: '#fce7f3', border: '1px solid #fbcfe8',
+                                borderRadius: '12px', px: 1.5, py: 0.75,
+                                cursor: 'pointer', userSelect: 'none',
+                                '&:hover': { bgcolor: '#fce7f3', opacity: 0.85 },
+                            }}
+                        >
+                            <CakeRounded sx={{ color: '#db2777', fontSize: 16 }} />
+                            <Typography sx={{ fontWeight: 700, color: '#db2777', fontSize: 13 }}>
+                                {birthdayUsers.length} sinh nhật tháng {currentMonth}
+                            </Typography>
+                        </Box>
+                    )}
                     {canImport && (
                         <Button
                             variant="outlined"
@@ -252,39 +268,21 @@ export default function UsersPage() {
                                 textTransform: 'none',
                                 px: 2,
                                 boxShadow: '0 1px 6px rgba(8,104,57,0.18)',
-                                '&:hover': {
-                                    bgcolor: '#0e4837',
-                                },
+                                '&:hover': { bgcolor: '#0e4837' },
                             }}
                         >
                             Thêm nhân sự
                         </Button>
                     )}
-
-
                     <Box
                         sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            bgcolor: '#fff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '12px',
-                            px: 2,
-                            py: 1,
+                            display: 'flex', alignItems: 'center', gap: 1,
+                            bgcolor: '#fff', border: '1px solid #e2e8f0',
+                            borderRadius: '12px', px: 2, py: 1,
                             boxShadow: '0 1px 6px rgba(8,104,57,0.06)',
                         }}
                     >
-                        <Box
-                            sx={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: '50%',
-                                bgcolor: '#22c55e',
-                                boxShadow: '0 0 0 3px rgba(34,197,94,0.2)',
-                            }}
-                        />
-
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)' }} />
                         <Typography sx={{ fontWeight: 700, color: '#086839', fontSize: 14 }}>
                             {total.toLocaleString('vi-VN')} nhân sự
                         </Typography>
@@ -292,56 +290,42 @@ export default function UsersPage() {
                 </Box>}
             />
 
-            {/* ── Birthday Panel ── */}
-            {birthdayUsers.length > 0 && (
-                <Paper elevation={0} sx={{
-                    mb: 2, borderRadius: '16px',
-                    border: '1px solid #fce7f3', bgcolor: '#fff',
-                    overflow: 'hidden',
-                }}>
-                    <Box
-                        onClick={() => setBirthdayOpen(o => !o)}
-                        sx={{
-                            px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5,
-                            cursor: 'pointer', userSelect: 'none',
-                            '&:hover': { bgcolor: '#fdf4ff' },
-                        }}
-                    >
-                        <CakeRounded sx={{ color: '#db2777', fontSize: 20 }} />
-                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#db2777', flex: 1 }}>
-                            Sinh nhật tháng {currentMonth} — {birthdayUsers.length} nhân viên
-                        </Typography>
-                        <ExpandMoreRounded sx={{
-                            color: '#db2777', fontSize: 20,
-                            transform: birthdayOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s',
-                        }} />
-                    </Box>
-                    <Collapse in={birthdayOpen}>
-                        <Box sx={{ px: 2.5, pb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {birthdayUsers.map(u => {
-                                const d = new Date(u.dayOfBirth);
-                                const day = d.getDate();
-                                const isToday = day === new Date().getDate();
-                                return (
-                                    <Chip
-                                        key={u.id}
-                                        icon={<CakeRounded sx={{ fontSize: '14px !important', color: isToday ? '#fff !important' : '#db2777 !important' }} />}
-                                        label={`${u.name} (${day}/${currentMonth})`}
-                                        size="small"
-                                        sx={{
-                                            fontWeight: 600, fontSize: 12,
-                                            bgcolor: isToday ? '#db2777' : '#fce7f3',
-                                            color: isToday ? '#fff' : '#be185d',
-                                            border: `1px solid ${isToday ? '#be185d' : '#fbcfe8'}`,
-                                        }}
-                                    />
-                                );
-                            })}
-                        </Box>
-                    </Collapse>
-                </Paper>
-            )}
+            {/* ── Birthday Popover ── */}
+            <Popover
+                open={Boolean(birthdayAnchor)}
+                anchorEl={birthdayAnchor}
+                onClose={() => setBirthdayAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                slotProps={{ paper: { sx: { borderRadius: '16px', border: '1px solid #fbcfe8', boxShadow: '0 8px 32px rgba(219,39,119,0.12)', mt: 0.5, minWidth: 260, maxWidth: 400 } } }}
+            >
+                <Box sx={{ px: 2, pt: 1.5, pb: 0.5, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #fce7f3' }}>
+                    <CakeRounded sx={{ color: '#db2777', fontSize: 16 }} />
+                    <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#db2777' }}>
+                        Sinh nhật tháng {currentMonth}
+                    </Typography>
+                </Box>
+                <Box sx={{ px: 2, py: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                    {birthdayUsers.map(u => {
+                        const day = new Date(u.dayOfBirth).getDate();
+                        const isToday = day === new Date().getDate();
+                        return (
+                            <Chip
+                                key={u.id}
+                                icon={<CakeRounded sx={{ fontSize: '14px !important', color: isToday ? '#fff !important' : '#db2777 !important' }} />}
+                                label={`${u.name} (${day}/${currentMonth})`}
+                                size="small"
+                                sx={{
+                                    fontWeight: 600, fontSize: 12,
+                                    bgcolor: isToday ? '#db2777' : '#fce7f3',
+                                    color: isToday ? '#fff' : '#be185d',
+                                    border: `1px solid ${isToday ? '#be185d' : '#fbcfe8'}`,
+                                }}
+                            />
+                        );
+                    })}
+                </Box>
+            </Popover>
 
             {/* ── Filter Bar ── */}
             <Paper
