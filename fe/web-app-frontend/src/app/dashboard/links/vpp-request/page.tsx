@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, IconButton, Paper,
@@ -68,6 +68,19 @@ export default function VppRequestPage() {
         staleTime: 5 * 60 * 1000,
     });
 
+    const now = new Date();
+    const { data: inventoryData } = useQuery({
+        queryKey: ['vpp-inventory-request', now.getMonth() + 1, now.getFullYear()],
+        queryFn: () => vppApi.getInventory(now.getMonth() + 1, now.getFullYear()),
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const stockMap = useMemo(() => {
+        const map = new Map<number, number>();
+        inventoryData?.rows.forEach(r => map.set(r.itemId, r.closingQty));
+        return map;
+    }, [inventoryData]);
+
     const { data: historyData, isLoading: historyLoading } = useQuery({
         queryKey: ['vpp-requests-history', profile?.id, historyPage],
         queryFn: () => vppApi.getRequests({ requesterId: profile!.id, page: historyPage + 1, pageSize: 10 }),
@@ -98,7 +111,12 @@ export default function VppRequestPage() {
     function getItem(id: number) { return items.find(it => it.id === id); }
 
     const validLines = lines.filter(l => l.itemId > 0 && l.quantity > 0);
-    const canSubmit = department.trim() && validLines.length > 0 && !submitMut.isPending;
+    const hasOverStock = lines.some(l => {
+        if (l.itemId <= 0) return false;
+        const stock = stockMap.get(l.itemId);
+        return stock !== undefined && l.quantity > stock;
+    });
+    const canSubmit = department.trim() && validLines.length > 0 && !submitMut.isPending && !hasOverStock;
 
     if (submitted) {
         return (
@@ -195,7 +213,7 @@ export default function VppRequestPage() {
                             <Table size="small">
                                 <TableHead>
                                     <TableRow>
-                                        {['Vật tư *', 'ĐVT', 'Số lượng *', 'Ghi chú', ''].map(h => (
+                                        {['Vật tư *', 'ĐVT', 'Tồn kho', 'Số lượng *', 'Ghi chú', ''].map(h => (
                                             <TableCell key={h} sx={{ fontWeight: 800, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', py: 1.8, bgcolor: GREEN }}>{h}</TableCell>
                                         ))}
                                     </TableRow>
@@ -203,6 +221,8 @@ export default function VppRequestPage() {
                                 <TableBody>
                                     {lines.map((line, idx) => {
                                         const item = getItem(line.itemId);
+                                        const stock = item ? (stockMap.get(line.itemId) ?? null) : null;
+                                        const overStock = stock !== null && line.quantity > stock;
                                         return (
                                             <TableRow key={idx} sx={{ bgcolor: idx % 2 === 0 ? '#fff' : '#fbfefc', '&:hover': { bgcolor: '#f0fdf4 !important' }, '& > *': { borderBottom: '1px solid #f1f5f9 !important' } }}>
                                                 <TableCell sx={{ minWidth: 260 }}>
@@ -229,12 +249,28 @@ export default function VppRequestPage() {
                                                         : <Typography sx={{ color: '#cbd5e1', fontSize: 13 }}>—</Typography>
                                                     }
                                                 </TableCell>
-                                                <TableCell sx={{ width: 120 }}>
+                                                <TableCell sx={{ width: 90 }}>
+                                                    {item && stock !== null ? (
+                                                        <Tooltip title={stock <= 0 ? 'Hết hàng' : stock < 5 ? 'Sắp hết' : 'Còn hàng'} arrow>
+                                                            <Typography sx={{
+                                                                fontSize: 13, fontWeight: 800, textAlign: 'center',
+                                                                color: stock <= 0 ? '#dc2626' : stock < 5 ? '#d97706' : '#15803d',
+                                                            }}>
+                                                                {stock.toLocaleString('vi-VN')}
+                                                            </Typography>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Typography sx={{ color: '#cbd5e1', fontSize: 13, textAlign: 'center' }}>—</Typography>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell sx={{ width: 140 }}>
                                                     <TextField
                                                         size="small" type="number" value={line.quantity}
+                                                        error={overStock}
+                                                        helperText={overStock ? `Vượt tồn kho (${stock})` : undefined}
                                                         onChange={e => updateLine(idx, { quantity: Math.max(1, Number(e.target.value)) })}
                                                         slotProps={{ htmlInput: { min: 1 } }}
-                                                        sx={{ ...fieldSx, '& input': { textAlign: 'center', fontWeight: 700 } }}
+                                                        sx={{ ...fieldSx, '& input': { textAlign: 'center', fontWeight: 700 }, '& .MuiFormHelperText-root': { fontSize: 10, mt: 0.3, mx: 0 } }}
                                                     />
                                                 </TableCell>
                                                 <TableCell>
@@ -272,6 +308,9 @@ export default function VppRequestPage() {
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                                 {submitMut.isError && (
                                     <Typography sx={{ color: '#dc2626', fontSize: 13 }}>Gửi thất bại, vui lòng thử lại.</Typography>
+                                )}
+                                {hasOverStock && (
+                                    <Typography sx={{ color: '#dc2626', fontSize: 13 }}>Có mặt hàng vượt quá số lượng tồn kho.</Typography>
                                 )}
                                 <Button variant="contained" startIcon={<SendRoundedIcon />} disabled={!canSubmit} onClick={() => submitMut.mutate()}
                                     sx={{ bgcolor: GREEN, '&:hover': { bgcolor: '#065f35' }, '&:disabled': { bgcolor: '#94a3b8' }, textTransform: 'none', fontWeight: 700, borderRadius: '12px', height: 42, px: 3 }}>
