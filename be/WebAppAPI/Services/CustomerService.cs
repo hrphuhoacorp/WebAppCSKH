@@ -91,10 +91,10 @@ public class CustomerService : ICustomerService
                         ShippingFee = o.ShippingFee,
                         TaxAmount = o.TaxAmount,
                         CreatedAt = o.CreatedAt,
-                        CustomerName = o.Customer.Name,
-                        CustomerPhone = o.Customer.Phone,
-                        StatusName = o.Status.Status,
-                        BranchName = o.Branches.Name,
+                        CustomerName = c.Name,
+                        CustomerPhone = c.Phone,
+                        StatusName = o.Status != null ? o.Status.Status : null,
+                        BranchName = o.Branches != null ? o.Branches.Name : null,
                     })
                     .ToList(),
             })
