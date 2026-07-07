@@ -336,12 +336,12 @@ export default function NxtPage() {
                 <FG cols={4}>
                     <Box>
                         <FL htmlFor="dateFrom">Từ ngày</FL>
-                        <Box component="input" id="dateFrom" type="date" defaultValue="2026-06-15" sx={inputSx}
+                        <Box component="input" id="dateFrom" type="date" sx={inputSx}
                             onChange={triggerRefresh} />
                     </Box>
                     <Box>
                         <FL htmlFor="dateTo">Đến ngày</FL>
-                        <Box component="input" id="dateTo" type="date" defaultValue="2026-06-15" sx={inputSx}
+                        <Box component="input" id="dateTo" type="date" sx={inputSx}
                             onChange={triggerRefresh} />
                     </Box>
                     <Box>
@@ -787,6 +787,34 @@ export default function NxtPage() {
                     <b>Sai mã Sapo / check đơn:</b> dùng khi file Sapo bán sai mã. App chuyển Sapo bán/doanh thu/số đơn từ mã sai sang mã đúng để Tổng quan không còn giữ mã sai như dòng chính.
                 </Box>
                 <PT>Lịch sử điều chỉnh</PT>
+                {/* Bộ lọc lịch sử */}
+                <FG cols={5}>
+                    <Box>
+                        <FL htmlFor="adjFilterDateFrom">Từ ngày (KD)</FL>
+                        <Box component="input" id="adjFilterDateFrom" type="date" sx={inputSx} />
+                    </Box>
+                    <Box>
+                        <FL htmlFor="adjFilterDateTo">Đến ngày (KD)</FL>
+                        <Box component="input" id="adjFilterDateTo" type="date" sx={inputSx} />
+                    </Box>
+                    <Box>
+                        <FL htmlFor="adjFilterBranch">Chi nhánh</FL>
+                        <Box component="select" id="adjFilterBranch" sx={selectSx}>
+                            <option>Tất cả</option>
+                            {BRANCHES.map(b => <option key={b}>{b}</option>)}
+                        </Box>
+                    </Box>
+                    <Box>
+                        <FL htmlFor="adjFilterType">Loại thao tác</FL>
+                        <Box component="select" id="adjFilterType" sx={selectSx}>
+                            <option value="all">Tất cả loại</option>
+                        </Box>
+                    </Box>
+                    <Box>
+                        <FL htmlFor="adjFilterUser">User</FL>
+                        <Box component="input" id="adjFilterUser" type="text" placeholder="Tìm theo tên người thực hiện..." sx={inputSx} />
+                    </Box>
+                </FG>
                 <TableContainer sx={{ borderRadius: '14px', border: '1px solid #e5e7eb', maxHeight: 360 }}>
                     <Table stickyHeader size="small">
                         <TableHead><TableRow>

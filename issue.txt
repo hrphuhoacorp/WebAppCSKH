@@ -8,16 +8,14 @@
 
 
 
+1. Top vật tư tồn kho cao nhất -> khi hover vào nó vẫn hiện tên rút gọn
+2. giỏ quả -> duyệt yêu cầu đổi mã -> đang lỗi là yêu cầu đó đã duyệt r những vẫn hiện 
+3. ở trang danh sách nhân viên thêm 1 cái thống kê sinh nhật nhân viên trong tháng hiện tại
+4. tổng quan vpp thêm bộ lọc tháng, năm ( bao gồm chọn tất cả tháng)
 
 
 
-
-
-
-
-
-
-
+Tên sản phẩm*	Hình thức quản lý sản phẩm	Loại sản phẩm	Mô tả sản phẩm	Nhãn hiệu	Tags	Thuộc tính 1	Giá trị thuộc tính 1	Thuộc tính 2	Giá trị thuộc tính 2	Thuộc tính 3	Giá trị thuộc tính 3	Tên phiên bản sản phẩm	Mã SKU*	Barcode	Khối lượng	Đơn vị khối lượng	Ảnh đại diện	Đơn vị	Số ngày cảnh báo hết hạn	Áp dụng bảo hành	Chính sách bảo hành	Áp dụng thuế	Giá áp dụng thuế	Thuế đầu vào (%)	Thuế đầu ra (%)	Nhóm ngành nghề tính thuế GTGT, TNCN	LC_CN5_Tồn kho ban đầu*	LC_CN5_Giá vốn khởi tạo*	LC_CN5_Tồn tối thiểu	LC_CN5_Tồn tối đa	LC_CN5_Điểm lưu kho	LC_CN1_Tồn kho ban đầu*	LC_CN1_Giá vốn khởi tạo*	LC_CN1_Tồn tối thiểu	LC_CN1_Tồn tối đa	LC_CN1_Điểm lưu kho	LC_CN3_Tồn kho ban đầu*	LC_CN3_Giá vốn khởi tạo*	LC_CN3_Tồn tối thiểu	LC_CN3_Tồn tối đa	LC_CN3_Điểm lưu kho	LC_CN2_Tồn kho ban đầu*	LC_CN2_Giá vốn khởi tạo*	LC_CN2_Tồn tối thiểu	LC_CN2_Tồn tối đa	LC_CN2_Điểm lưu kho	LC_CN4_Tồn kho ban đầu*	LC_CN4_Giá vốn khởi tạo*	LC_CN4_Tồn tối thiểu	LC_CN4_Tồn tối đa	LC_CN4_Điểm lưu kho	PL_Giá bán lẻ	PL_Giá nhập	PL_Giá bán buôn	PL_Giá bán nhân viên	PL_Giá GrabMart/ShopeeMart
 
 
 

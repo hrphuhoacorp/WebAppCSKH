@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Tài liệu Thiết kế Hệ thống — WebAppCSKH</title>
+<style>
+  @page { margin: 2.5cm 2cm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.6; }
+
+  /* Cover */
+  .cover { page-break-after: always; text-align: center; padding: 80px 40px; background: linear-gradient(135deg, #0d3b26 0%, #1a6b47 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+  .cover-logo { font-size: 64px; margin-bottom: 20px; }
+  .cover-title { font-size: 28pt; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .cover-sub { font-size: 14pt; opacity: 0.85; margin-bottom: 40px; }
+  .cover-meta { font-size: 10pt; opacity: 0.7; line-height: 2; }
+  .cover-badge { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 6px 16px; font-size: 10pt; margin: 4px; }
+
+  /* TOC */
+  .toc { page-break-after: always; padding: 40px; }
+  .toc h1 { font-size: 20pt; color: #0d3b26; border-bottom: 3px solid #0d3b26; padding-bottom: 10px; margin-bottom: 24px; }
+  .toc-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dotted #ccc; font-size: 10.5pt; }
+  .toc-item.l1 { font-weight: 700; margin-top: 8px; color: #0d3b26; }
+  .toc-item.l2 { padding-left: 20px; color: #333; }
+  .toc-item.l3 { padding-left: 40px; color: #666; font-size: 10pt; }
+
+  /* Sections */
+  .section { padding: 20px 40px; page-break-inside: avoid; }
+  .section.break-before { page-break-before: always; }
+  h1.sec { font-size: 18pt; color: #0d3b26; border-left: 5px solid #0d3b26; padding-left: 12px; margin: 32px 0 16px; }
+  h2.sec { font-size: 13pt; color: #1a6b47; border-bottom: 1.5px solid #1a6b47; padding-bottom: 4px; margin: 24px 0 12px; }
+  h3.sec { font-size: 11pt; color: #0d3b26; margin: 16px 0 8px; font-weight: 700; }
+
+  p { margin-bottom: 8px; }
+
+  /* Callout boxes */
+  .box { border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+  .box-green { background: #f0fdf4; border-left: 4px solid #16a34a; }
+  .box-blue  { background: #eff6ff; border-left: 4px solid #2563eb; }
+  .box-yellow { background: #fefce8; border-left: 4px solid #ca8a04; }
+  .box-gray  { background: #f8fafc; border-left: 4px solid #94a3b8; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 9.5pt; }
+  th { background: #0d3b26; color: #fff; padding: 7px 10px; text-align: left; font-weight: 700; }
+  td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: #f0fdf4; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 8.5pt; font-weight: 700; }
+  .tag-green  { background: #dcfce7; color: #15803d; }
+  .tag-blue   { background: #dbeafe; color: #1d4ed8; }
+  .tag-red    { background: #fee2e2; color: #dc2626; }
+  .tag-purple { background: #f3e8ff; color: #7c3aed; }
+  .tag-gray   { background: #f1f5f9; color: #475569; }
+  .tag-orange { background: #ffedd5; color: #c2410c; }
+
+  code { font-family: 'Consolas', 'Courier New', monospace; font-size: 9pt; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #0f172a; }
+
+  /* Flow diagram */
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin: 12px 0; }
+  .flow-box { background: #0d3b26; color: white; padding: 8px 16px; border-radius: 8px; font-size: 9.5pt; font-weight: 700; }
+  .flow-box.alt { background: #1d4ed8; }
+  .flow-box.db  { background: #7c3aed; }
+  .flow-box.fe  { background: #0369a1; }
+  .flow-box.mid { background: #374151; }
+  .flow-arr { padding: 0 8px; color: #94a3b8; font-size: 14pt; font-weight: 300; }
+
+  /* Module diagram */
+  .module-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .module-card { border: 2px solid #e5e7eb; border-radius: 10px; padding: 14px; }
+  .module-card h4 { font-size: 10.5pt; font-weight: 800; color: #0d3b26; margin-bottom: 6px; }
+  .module-card p  { font-size: 9pt; color: #475569; margin: 0; }
+  .module-card.primary { border-color: #0d3b26; background: #f0fdf4; }
+  .module-card.secondary { border-color: #1d4ed8; background: #eff6ff; }
+  .module-card.accent  { border-color: #7c3aed; background: #faf5ff; }
+
+  /* Endpoint list */
+  .ep { margin: 4px 0; }
+  .method { display: inline-block; width: 48px; text-align: center; padding: 1px 0; border-radius: 3px; font-size: 8pt; font-weight: 800; margin-right: 6px; }
+  .GET    { background: #dcfce7; color: #15803d; }
+  .POST   { background: #dbeafe; color: #1d4ed8; }
+  .PUT    { background: #ffedd5; color: #c2410c; }
+  .DELETE { background: #fee2e2; color: #dc2626; }
+  .PATCH  { background: #f3e8ff; color: #7c3aed; }
+
+  /* Footer */
+  .footer { border-top: 1px solid #e5e7eb; margin-top: 40px; padding: 16px 40px; font-size: 9pt; color: #94a3b8; text-align: center; }
+
+  @media print {
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .module-card.primary, .module-card.secondary, .module-card.accent { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ COVER ═══════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">🏢</div>
+  <div class="cover-title">WebAppCSKH</div>
+  <div class="cover-sub">Tài liệu Thiết kế Hệ thống</div>
+  <div style="margin-bottom:32px">
+    <span class="cover-badge">v1.0</span>
+    <span class="cover-badge">Nội bộ</span>
+    <span class="cover-badge">PhuHoa Fresh</span>
+  </div>
+  <div class="cover-meta">
+    Backend: .NET 9 · ASP.NET Core · EF Core · PostgreSQL<br>
+    Frontend: Next.js 16 · TypeScript · MUI v6 · TanStack Query<br>
+    Cập nhật: Tháng 7 / 2026
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ TOC ═══════════════════════════════════ -->
+<div class="toc">
+  <h1>Mục lục</h1>
+  <div class="toc-item l1"><span>1. Tổng quan hệ thống</span><span>3</span></div>
+  <div class="toc-item l1"><span>2. Kiến trúc kỹ thuật</span><span>4</span></div>
+  <div class="toc-item l2"><span>2.1 Stack công nghệ</span><span>4</span></div>
+  <div class="toc-item l2"><span>2.2 Luồng dữ liệu tổng quát</span><span>4</span></div>
+  <div class="toc-item l2"><span>2.3 Xác thực & phân quyền</span><span>5</span></div>
+  <div class="toc-item l1"><span>3. Sơ đồ module</span><span>6</span></div>
+  <div class="toc-item l1"><span>4. Cơ sở dữ liệu</span><span>7</span></div>
+  <div class="toc-item l2"><span>4.1 Nhóm User & Phân quyền</span><span>7</span></div>
+  <div class="toc-item l2"><span>4.2 Nhóm CSKH & Đơn hàng</span><span>8</span></div>
+  <div class="toc-item l2"><span>4.3 Nhóm Giỏ quà</span><span>9</span></div>
+  <div class="toc-item l2"><span>4.4 Nhóm VPP</span><span>9</span></div>
+  <div class="toc-item l2"><span>4.5 Nhóm Tuyển dụng</span><span>10</span></div>
+  <div class="toc-item l2"><span>4.6 Nhóm khác</span><span>11</span></div>
+  <div class="toc-item l1"><span>5. Backend API</span><span>12</span></div>
+  <div class="toc-item l2"><span>5.1 Auth</span><span>12</span></div>
+  <div class="toc-item l2"><span>5.2 CSKH (Customer & Order)</span><span>12</span></div>
+  <div class="toc-item l2"><span>5.3 Giỏ quà</span><span>13</span></div>
+  <div class="toc-item l2"><span>5.4 VPP</span><span>14</span></div>
+  <div class="toc-item l2"><span>5.5 Nhân sự & Tuyển dụng</span><span>15</span></div>
+  <div class="toc-item l2"><span>5.6 Media & Nội bộ</span><span>15</span></div>
+  <div class="toc-item l2"><span>5.7 Sapo & Phân tích bán hàng</span><span>16</span></div>
+  <div class="toc-item l1"><span>6. Frontend</span><span>17</span></div>
+  <div class="toc-item l2"><span>6.1 Cấu trúc trang</span><span>17</span></div>
+  <div class="toc-item l2"><span>6.2 Menu điều hướng</span><span>17</span></div>
+  <div class="toc-item l1"><span>7. Hệ thống phân quyền</span><span>18</span></div>
+  <div class="toc-item l1"><span>8. Real-time (SignalR)</span><span>19</span></div>
+  <div class="toc-item l1"><span>9. Lưu trữ file</span><span>19</span></div>
+  <div class="toc-item l1"><span>10. Quy ước & Conventions</span><span>20</span></div>
+</div>
+
+<!-- ═══════════════════════════════ 1. TỔNG QUAN ═══════════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">1. Tổng quan hệ thống</h1>
+
+<p><strong>WebAppCSKH</strong> là hệ thống quản trị nội bộ đa module dành cho doanh nghiệp bán lẻ giỏ quà PhuHoa Fresh, được xây dựng theo mô hình SPA (Single Page Application) với backend RESTful API.</p>
+
+<div class="module-grid">
+  <div class="module-card primary">
+    <h4>🛎️ Chăm sóc khách hàng (CSKH)</h4>
+    <p>Quản lý đơn hàng, khách hàng, import Excel từ Sapo, dashboard doanh thu, phân tích tỉ lệ quay lại.</p>
+  </div>
+  <div class="module-card primary">
+    <h4>🎁 Giỏ quà</h4>
+    <p>Quản lý kho ảnh, mã đổi giỏ quà, yêu cầu đổi mã, duyệt mã, tích hợp Sapo Sales.</p>
+  </div>
+  <div class="module-card primary">
+    <h4>📦 VPP (Văn phòng phẩm)</h4>
+    <p>Quản lý danh mục, nhập kho, xuất kho, kiểm kho, tồn kho, phiếu đề nghị cấp phát.</p>
+  </div>
+  <div class="module-card secondary">
+    <h4>👥 Nhân sự</h4>
+    <p>Danh sách nhân viên, import, sinh nhật, lịch sử thao tác, phân quyền theo role.</p>
+  </div>
+  <div class="module-card secondary">
+    <h4>🧑‍💼 Tuyển dụng</h4>
+    <p>Campaign tuyển dụng, quản lý ứng viên, gửi email tự động, cấu hình template mail.</p>
+  </div>
+  <div class="module-card secondary">
+    <h4>📰 Nội bộ</h4>
+    <p>Tin tức nội bộ, thông báo, ghim bài, quản lý media (upload ảnh/video).</p>
+  </div>
+  <div class="module-card accent">
+    <h4>📊 Bán hàng & Sapo</h4>
+    <p>Import dữ liệu Sapo, kiểm NXT giỏ quà, phân tích doanh thu, tỉ lệ quay lại.</p>
+  </div>
+  <div class="module-card accent">
+    <h4>🔐 Phân quyền</h4>
+    <p>RBAC + user-level permissions, 53 permission codes, JWT cookie-based auth.</p>
+  </div>
+  <div class="module-card accent">
+    <h4>🔧 Tiện ích</h4>
+    <p>Kiểm tra mã hàng Sapo (standalone HTML), đề nghị cấp phát VPP, tổng hợp link.</p>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════ 2. KIẾN TRÚC ═══════════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">2. Kiến trúc kỹ thuật</h1>
+
+<h2 class="sec">2.1 Stack công nghệ</h2>
+<table>
+  <tr><th>Tầng</th><th>Công nghệ</th><th>Phiên bản</th><th>Ghi chú</th></tr>
+  <tr><td><strong>Frontend</strong></td><td>Next.js (App Router)</td><td>16.x</td><td>TypeScript, SSR + CSR hybrid</td></tr>
+  <tr><td></td><td>Material UI (MUI)</td><td>v6</td><td>Component library, theming</td></tr>
+  <tr><td></td><td>TanStack Query</td><td>v5</td><td>Server state, caching, invalidation</td></tr>
+  <tr><td></td><td>ApexCharts / Recharts</td><td>3.9.x</td><td>Charts & dashboard visualization</td></tr>
+  <tr><td></td><td>SignalR JS Client</td><td>@microsoft/signalr</td><td>Real-time progress streaming</td></tr>
+  <tr><td><strong>Backend</strong></td><td>ASP.NET Core Web API</td><td>.NET 9</td><td>REST API, Swagger, JWT Auth</td></tr>
+  <tr><td></td><td>Entity Framework Core</td><td>9.x</td><td>Code First, Repository pattern</td></tr>
+  <tr><td></td><td>SignalR</td><td>Built-in</td><td>ImportHub, GiftBasketHub</td></tr>
+  <tr><td></td><td>MailKit / SmtpClient</td><td>—</td><td>Gmail SMTP cho email recruitment</td></tr>
+  <tr><td><strong>Database</strong></td><td>PostgreSQL</td><td>15+</td><td>Hosted (Npgsql driver)</td></tr>
+  <tr><td><strong>Auth</strong></td><td>JWT Bearer</td><td>—</td><td>HttpOnly cookie, 1 ngày, SameSite=None</td></tr>
+</table>
+
+<h2 class="sec">2.2 Luồng dữ liệu tổng quát</h2>
+<div class="flow">
+  <div class="flow-box fe">Browser (Next.js)</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">HTTPS + Cookie JWT</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">ASP.NET Core API</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Service Layer</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Repository</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box db">PostgreSQL</div>
+</div>
+
+<div class="box box-green" style="margin-top:14px">
+  <strong>Response format chuẩn:</strong> Tất cả API trả về <code>ResponseValue&lt;T&gt;</code><br>
+  <code>{ statusCode: 200, message: "...", content: T }</code><br>
+  Frontend đọc: <code>res.data.content</code>
+</div>
+
+<div class="flow" style="margin-top:14px">
+  <div class="flow-box fe">Browser (SignalR JS)</div>
+  <div class="flow-arr">⟷ WebSocket</div>
+  <div class="flow-box">/hubs/import</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">ImportHub.SendProgress()</div>
+</div>
+
+<h2 class="sec">2.3 Xác thực & phân quyền</h2>
+<div class="flow">
+  <div class="flow-box fe">POST /api/Auth/Login</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Validate email+password</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box alt">Tạo JWT (1 ngày)</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Set HttpOnly Cookie "token"</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box fe">Client dùng cookie tự động</div>
+</div>
+
+<div class="flow" style="margin-top:10px">
+  <div class="flow-box fe">Request có Cookie JWT</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">JwtBearerMiddleware</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box alt">[RequirePermission("code")]</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">PermissionAuthorizationHandler</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box db">Check DB: Role + UserPermission</div>
+</div>
+
+<div class="box box-blue" style="margin-top:14px">
+  <strong>Cơ chế phân quyền hai lớp:</strong><br>
+  1. <strong>Role-based:</strong> User → UserRole → Role → RolePermission → Permission<br>
+  2. <strong>User-level override:</strong> User → UserPermission → Permission (gắn thẳng cho user)<br>
+  → User có permission nếu qua bất kỳ con đường nào trong hai lớp trên
+</div>
+</div>
+
+<!-- ═══════════════════════════════ 3. SƠ ĐỒ MODULE ═══════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">3. Sơ đồ module</h1>
+
+<table>
+  <tr><th>Module</th><th>Controller</th><th>Service</th><th>Bảng DB chính</th><th>FE Route</th></tr>
+  <tr>
+    <td><strong>Auth</strong></td>
+    <td><code>AuthController</code></td>
+    <td><code>AuthService</code>, <code>JwtAuthService</code></td>
+    <td>users, roles, user_roles, user_permissions, permissions</td>
+    <td>/login</td>
+  </tr>
+  <tr>
+    <td><strong>CSKH</strong></td>
+    <td><code>CustomerController</code><br><code>OrderController</code><br><code>DashboardController</code></td>
+    <td><code>CustomerService</code><br><code>OrderService</code><br><code>DashboardService</code></td>
+    <td>customers, orders, order_items, order_statuses, imports_histories</td>
+    <td>/dashboard/customer_care/*</td>
+  </tr>
+  <tr>
+    <td><strong>Bán hàng</strong></td>
+    <td><code>OrderController</code><br><code>SapoController</code><br><code>NxtController</code></td>
+    <td><code>OrderService</code><br><code>SapoService</code></td>
+    <td>orders, sapo_import_batches, sapo_sales_rows, sapo_code_mappings, nxt_rows, nxt_sapo_pendings</td>
+    <td>/dashboard/sales/*</td>
+  </tr>
+  <tr>
+    <td><strong>Giỏ quà</strong></td>
+    <td><code>GiftBasketController</code></td>
+    <td><code>GiftBasketService</code></td>
+    <td>gift_baskets, gift_code_mappings, gift_code_change_requests</td>
+    <td>/dashboard/gift_basket/*</td>
+  </tr>
+  <tr>
+    <td><strong>VPP</strong></td>
+    <td><code>VppItemController</code><br><code>VppImportController</code><br><code>VppDispatchController</code><br><code>VppRequestController</code><br><code>VppStockCountController</code><br><code>VppInventoryController</code></td>
+    <td><code>VppItemService</code><br><code>VppImportService</code><br><code>VppDispatchService</code><br><code>VppRequestService</code><br><code>VppStockCountService</code><br><code>VppInventoryService</code></td>
+    <td>vpp_items, vpp_requests, vpp_request_lines, vpp_imports, vpp_import_lines, vpp_dispatches, vpp_dispatch_lines, vpp_stock_counts, vpp_stock_count_lines</td>
+    <td>/dashboard/administration/vpp<br>/dashboard/links/vpp-request</td>
+  </tr>
+  <tr>
+    <td><strong>Nhân sự</strong></td>
+    <td><code>UserController</code><br><code>AuthController</code><br><code>PermissionController</code></td>
+    <td><code>UserService</code><br><code>PermissionService</code></td>
+    <td>users, roles, user_roles, permissions, user_permissions, activity_logs</td>
+    <td>/dashboard/administration/staff_list<br>/dashboard/administration/history</td>
+  </tr>
+  <tr>
+    <td><strong>Tuyển dụng</strong></td>
+    <td><code>RecruitmentCampaignController</code><br><code>RecruitmentCandidateController</code><br><code>RecruitmentSettingsController</code></td>
+    <td><code>RecruitmentCampaignService</code><br><code>RecruitmentCandidateService</code><br><code>RecruitmentSettingsService</code></td>
+    <td>recruitment_campaigns, recruitment_candidates, recruitment_candidate_histories, recruitment_settings, recruitment_categories, recruitment_mail_templates</td>
+    <td>/dashboard/administration/recruitment</td>
+  </tr>
+  <tr>
+    <td><strong>Media</strong></td>
+    <td><code>MediaController</code></td>
+    <td><code>MediaService</code></td>
+    <td>media_folders, media_files</td>
+    <td>(embedded trong gift basket)</td>
+  </tr>
+  <tr>
+    <td><strong>Nội bộ</strong></td>
+    <td><code>InternalNewsController</code></td>
+    <td><code>InternalNewsService</code></td>
+    <td>internal_news</td>
+    <td>/dashboard/news</td>
+  </tr>
+  <tr>
+    <td><strong>Tiện ích</strong></td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+    <td>/dashboard/tools/sapo_checker<br>/dashboard/links</td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════ 4. DATABASE ═══════════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">4. Cơ sở dữ liệu</h1>
+
+<div class="box box-gray">
+  <strong>Quy ước chung:</strong> Tất cả bảng dùng soft delete qua cột <code>deleted_at</code> (nullable).
+  <code>created_at</code> và <code>updated_at</code> do DB tự set (DEFAULT).
+  Ngoại lệ: module VPP gán <code>created_at = DateTime.UtcNow</code> trong code.
+</div>
+
+<h2 class="sec">4.1 Nhóm User & Phân quyền</h2>
+<table>
+  <tr><th>Bảng</th><th>Mô tả</th><th>Cột quan trọng</th></tr>
+  <tr><td><code>users</code></td><td>Nhân viên / tài khoản hệ thống</td><td>staff_code (unique), email (unique), password (hash), branches_id FK, day_of_birth</td></tr>
+  <tr><td><code>roles</code></td><td>Vai trò người dùng</td><td>name (unique), description</td></tr>
+  <tr><td><code>user_roles</code></td><td>Gắn role cho user (n-n)</td><td>user_id FK, role_id FK</td></tr>
+  <tr><td><code>permissions</code></td><td>Danh sách permission codes</td><td>code (unique), name, module</td></tr>
+  <tr><td><code>role_permissions</code></td><td>Gắn permission cho role (n-n)</td><td>role_id FK, permission_id FK</td></tr>
+  <tr><td><code>user_permissions</code></td><td>Gắn permission thẳng cho user (n-n)</td><td>user_id FK, permission_id FK</td></tr>
+  <tr><td><code>branches</code></td><td>Chi nhánh</td><td>name, address, phone</td></tr>
+  <tr><td><code>activity_logs</code></td><td>Lịch sử thao tác</td><td>user_id, action, table_name, record_id, old_data (JSON), new_data (JSON), ip_address</td></tr>
+</table>
+
+<h2 class="sec">4.2 Nhóm CSKH & Đơn hàng</h2>
+<table>
+  <tr><th>Bảng</th><th>Mô tả</th><th>Cột quan trọng</th></tr>
+  <tr><td><code>customers</code></td><td>Khách hàng</td><td>customer_code (unique), phone, total_orders, total_revenue, day_of_birth, import_history_id FK</td></tr>
+  <tr><td><code>orders</code></td><td>Đơn hàng</td><td>order_code (unique), customer_id FK, branches_id FK, status_id FK, purchase_date, revenue, gross_profit, shipping_fee, tax_amount, source, channel</td></tr>
+  <tr><td><code>order_items</code></td><td>Dòng sản phẩm trong đơn</td><td>order_id FK, category, product_name, sku, quantity, unit_price, revenue, service_name, unit</td></tr>
+  <tr><td><code>order_statuses</code></td><td>Trạng thái đơn hàng</td><td>status (string)</td></tr>
+  <tr><td><code>imports_histories</code></td><td>Lịch sử import Excel</td><td>file_name, file_hash (SHA256), status (Imported/Rolled Back), success_count, error_count, error_details (JSON), rollback_by, rollback_at</td></tr>
+</table>
+
+<h3 class="sec">Luồng Import Excel đơn hàng</h3>
+<div class="flow">
+  <div class="flow-box fe">Upload file .xlsx</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Hash SHA256 file</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Parse 20 cột chuẩn</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Upsert Customer</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box mid">Upsert Order + Items</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box db">Lưu ImportsHistory</div>
+</div>
+<div class="flow" style="margin-top:8px">
+  <div class="flow-box mid">SignalR: ImportProgress</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box fe">{ current, total } → progress bar</div>
+</div>
+
+<h2 class="sec">4.3 Nhóm Giỏ quà</h2>
+<table>
+  <tr><th>Bảng</th><th>Mô tả</th><th>Cột quan trọng</th></tr>
+  <tr><td><code>gift_baskets</code></td><td>Thư viện giỏ quà</td><td>basket_uid (unique), base_code, basket_name, current_code, price, front_image_url, back_image_url, status (active/inactive)</td></tr>
+  <tr><td><code>gift_code_mappings</code></td><td>Bảng quy đổi mã</td><td>code, base_code, basket_name, branch_id FK, basket_id FK, active, source</td></tr>
+  <tr><td><code>gift_code_change_requests</code></td><td>Yêu cầu đổi mã</td><td>batch_id, request_uid, branch_id FK, old_code, new_code, price, status (pending/done/rejected), handled_by, handled_at, is_active, approved_date, sent_zalo_photo, front_image_url, back_image_url</td></tr>
+</table>
+
+<h2 class="sec">4.4 Nhóm VPP (Văn phòng phẩm)</h2>
+<table>
+  <tr><th>Bảng</th><th>Mô tả</th><th>Cột quan trọng</th></tr>
+  <tr><td><code>vpp_items</code></td><td>Danh mục VPP</td><td>code (unique), group (VPP/VT/VS/CCDC/TB/DP), name, unit, unit_price, vat_rate, min_stock, max_stock, is_active, uniform_return_history (JSON text)</td></tr>
+  <tr><td><code>vpp_imports</code></td><td>Phiếu nhập kho</td><td>import_date, period_month, period_year, note, created_by</td></tr>
+  <tr><td><code>vpp_import_lines</code></td><td>Chi tiết phiếu nhập</td><td>import_id FK, item_id FK, quantity, unit_price, vat_amount, total_amount, attachments (JSON [{url,name}])</td></tr>
+  <tr><td><code>vpp_dispatches</code></td><td>Phiếu xuất kho</td><td>code (unique), dispatch_date, department, branch, request_id FK?, note, created_by</td></tr>
+  <tr><td><code>vpp_dispatch_lines</code></td><td>Chi tiết phiếu xuất</td><td>dispatch_id FK, item_id FK, quantity, unit_price, total_amount</td></tr>
+  <tr><td><code>vpp_requests</code></td><td>Đề nghị cấp phát</td><td>requester_id FK, department, reason, reference_price, status (pending/approved/rejected), admin_note, dispatch_id FK?</td></tr>
+  <tr><td><code>vpp_request_lines</code></td><td>Chi tiết đề nghị</td><td>request_id FK, item_id FK, quantity, note</td></tr>
+  <tr><td><code>vpp_stock_counts</code></td><td>Phiếu kiểm kho</td><td>count_date, period_month, period_year, status (draft/confirmed), confirmed_at, note</td></tr>
+  <tr><td><code>vpp_stock_count_lines</code></td><td>Chi tiết kiểm kho</td><td>stock_count_id FK, item_id FK, system_qty, actual_qty, difference</td></tr>
+</table>
+
+<div class="box box-green">
+  <strong>Thuật toán tồn kho VPP:</strong> Giá bình quân gia quyền di động — tính từng kỳ từ đầu hệ thống đến kỳ cần xem.<br>
+  <em>Tồn cuối = Tồn đầu + Nhập − Xuất + Điều chỉnh kiểm kho</em><br>
+  Hỗ trợ filter theo tháng (tồn đầu = cuối tháng trước) hoặc toàn năm (tồn đầu = cuối tháng 12 năm trước).
+</div>
+
+<h2 class="sec">4.5 Nhóm Tuyển dụng</h2>
+<table>
+  <tr><th>Bảng</th><th>Mô tả</th><th>Cột quan trọng</th></tr>
+  <tr><td><code>recruitment_campaigns</code></td><td>Đợt tuyển dụng</td><td>name, position, quantity_needed, start_date, end_date, status (open/closed), post_content, requirements</td></tr>
+  <tr><td><code>recruitment_candidates</code></td><td>Ứng viên</td><td>campaign_id FK, candidate_name, phone, email, source, cv_link, cv_file_path, status (new/interviewed/offered/onboarded), waiting_for, interview_time, mail_invite_sent, mail_result_sent</td></tr>
+  <tr><td><code>recruitment_candidate_histories</code></td><td>Lịch sử ứng viên</td><td>candidate_id FK, acted_at, acted_by, action, note</td></tr>
+  <tr><td><code>recruitment_settings</code></td><td>Cài đặt chung</td><td>default_contact, default_phone, default_location, signature</td></tr>
+  <tr><td><code>recruitment_categories</code></td><td>Danh mục dropdown</td><td>type (source/position/…), value, sort_order</td></tr>
+  <tr><td><code>recruitment_mail_templates</code></td><td>Template email</td><td>template_type (invite/result), subject, content</td></tr>
+</table>
+
+<h2 class="sec">4.6 Nhóm khác</h2>
+<table>
+  <tr><th>Bảng</th><th>Mô tả</th><th>Cột quan trọng</th></tr>
+  <tr><td><code>media_folders</code></td><td>Thư mục media</td><td>name, parent_id FK (self-ref), is_public, created_by FK</td></tr>
+  <tr><td><code>media_files</code></td><td>File media</td><td>folder_id FK, file_name, original_name, file_url, file_size, mime_type</td></tr>
+  <tr><td><code>internal_news</code></td><td>Tin nội bộ</td><td>title, content, thumbnail_url, type (announcement/update), status (draft/published), is_pinned, view_count</td></tr>
+  <tr><td><code>message_reports</code></td><td>Báo cáo tin nhắn</td><td>report_date, type, count, note</td></tr>
+  <tr><td><code>nxt_rows</code></td><td>Kiểm NXT giỏ quà</td><td>close_date, branch, item_code, opening_stock, gift_in, receive_branch, transfer_branch, cancel_basket, sapo_sold, adjustment, actual_stock, revenue, order_count</td></tr>
+  <tr><td><code>nxt_sapo_pendings</code></td><td>Hàng chờ xử lý Sapo</td><td>close_date, branch, item_code, qty, reason, status (pending/completed), completed_by, completed_at</td></tr>
+  <tr><td><code>sapo_import_batches</code></td><td>Batch import Sapo</td><td>batch_id (unique), row_count, date_range, net_revenue, revenue, qty, orders, warning_count</td></tr>
+  <tr><td><code>sapo_sales_rows</code></td><td>Dữ liệu Sapo chi tiết</td><td>batch_id, date, branch, sku, product_name, basket_group, qty, orders, revenue, net_revenue, matched_code, warning</td></tr>
+  <tr><td><code>sapo_code_mappings</code></td><td>Mapping mã Sapo</td><td>old_code, new_code, price, effective_date, active, source</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════ 5. BACKEND API ═══════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">5. Backend API</h1>
+<div class="box box-gray">Base URL: <code>https://&lt;host&gt;/api/</code> — Tất cả endpoint yêu cầu JWT cookie (trừ Login, ForgotPassword).</div>
+
+<h2 class="sec">5.1 Auth — <code>api/Auth</code></h2>
+<div class="ep"><span class="method POST">POST</span> <code>/Login</code> — Đăng nhập, set cookie JWT</div>
+<div class="ep"><span class="method POST">POST</span> <code>/ForgotPassword</code> — Gửi OTP qua email</div>
+<div class="ep"><span class="method POST">POST</span> <code>/ResetPasswordByOtp</code> — Reset mật khẩu bằng OTP</div>
+<div class="ep"><span class="method GET">GET</span> <code>/Profile</code> — Lấy thông tin user đang đăng nhập</div>
+<div class="ep"><span class="method POST">POST</span> <code>/Logout</code> — Xóa cookie, đăng xuất</div>
+<div class="ep"><span class="method POST">POST</span> <code>/CreateAccount</code> <span class="tag tag-purple">staff.create_account</span> — Tạo tài khoản nhân viên</div>
+<div class="ep"><span class="method POST">POST</span> <code>/ChangePassword</code> — Đổi mật khẩu bản thân</div>
+<div class="ep"><span class="method POST">POST</span> <code>/ResetPassword</code> <span class="tag tag-purple">staff.reset_password</span> — Admin reset mật khẩu</div>
+<div class="ep"><span class="method DELETE">DEL</span> <code>/DeleteAccount</code> <span class="tag tag-purple">staff.delete_account</span> — Xóa mềm tài khoản</div>
+<div class="ep"><span class="method POST">POST</span> <code>/RestoreAccount/{userId}</code> <span class="tag tag-purple">staff.restore_account</span> — Khôi phục tài khoản</div>
+
+<h2 class="sec">5.2 CSKH — Customer, Order, Dashboard</h2>
+<h3 class="sec">api/Customer</h3>
+<div class="ep"><span class="method GET">GET</span> <code>/GetAllCustomersAsync</code> <span class="tag tag-purple">cskh.customer.view_list</span> — Danh sách KH, filter + phân trang</div>
+<div class="ep"><span class="method GET">GET</span> <code>/GetCustomerByIdAsync/{id}</code> <span class="tag tag-purple">cskh.customer.view_detail</span> — Chi tiết KH kèm lịch sử đơn</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>/UpdateCustomerAsync/{id}</code> <span class="tag tag-purple">cskh.customer.edit</span> — Cập nhật thông tin KH</div>
+<div class="ep"><span class="method DELETE">DEL</span> <code>/DeleteCustomerAsync/{id}</code> <span class="tag tag-purple">cskh.customer.delete</span> — Xóa mềm KH</div>
+<div class="ep"><span class="method GET">GET</span> <code>/GetReturnRateStats</code> <span class="tag tag-purple">cskh.customer.return_rate</span> — Thống kê tỉ lệ quay lại</div>
+<div class="ep"><span class="method GET">GET</span> <code>/GetCustomersBySegment</code> <span class="tag tag-purple">cskh.customer.segment</span> — Phân khúc KH (loyal/atRisk/repeat)</div>
+
+<h3 class="sec">api/Order</h3>
+<div class="ep"><span class="method POST">POST</span> <code>/ImportExcel</code> <span class="tag tag-purple">cskh.order.import</span> — Import file Excel đơn hàng Sapo</div>
+<div class="ep"><span class="method GET">GET</span> <code>/GetAllOrdersForOnlineAsync</code> <span class="tag tag-purple">cskh.order.view_list</span> — Đơn hàng online (CSKH)</div>
+<div class="ep"><span class="method GET">GET</span> <code>/GetAllOrdersForSalesAsync</code> <span class="tag tag-purple">sales.order.view_list</span> — Đơn hàng bán hàng</div>
+<div class="ep"><span class="method GET">GET</span> <code>/GetOrderByIdAsync/{id}</code> — Chi tiết đơn hàng</div>
+<div class="ep"><span class="method POST">POST</span> <code>/RollbackImportAsync/{id}</code> <span class="tag tag-purple">cskh.order.rollback</span> — Hoàn tác import</div>
+<div class="ep"><span class="method POST">POST</span> <code>/RestoreImportAsync/{id}</code> <span class="tag tag-purple">cskh.order.restore</span> — Khôi phục import đã rollback</div>
+
+<h3 class="sec">api/Dashboard</h3>
+<div class="ep"><span class="method GET">GET</span> <code>/GetDashboardForOnlineAsync</code> <span class="tag tag-purple">cskh.dashboard.view</span> — Dashboard CSKH</div>
+<div class="ep"><span class="method GET">GET</span> <code>/GetDashboardForSalesAsync</code> <span class="tag tag-purple">sales.dashboard.view</span> — Dashboard Bán hàng</div>
+
+<h2 class="sec">5.3 Giỏ quà — <code>api/GiftBasket</code></h2>
+<div class="ep"><span class="method GET">GET</span> <code>/List</code> <span class="tag tag-purple">gift.basket.view</span> — Danh sách giỏ quà</div>
+<div class="ep"><span class="method POST">POST</span> <code>/Create</code> <span class="tag tag-purple">gift.basket.create</span> — Tạo giỏ quà</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>/Update</code> <span class="tag tag-purple">gift.basket.edit</span> — Cập nhật giỏ quà</div>
+<div class="ep"><span class="method POST">POST</span> <code>/UploadImage</code> <span class="tag tag-purple">gift.basket.upload_image</span> — Upload ảnh giỏ quà</div>
+<div class="ep"><span class="method GET">GET</span> <code>/ChangeRequests</code> <span class="tag tag-purple">gift.change_request.view</span> — Danh sách yêu cầu đổi mã</div>
+<div class="ep"><span class="method POST">POST</span> <code>/ChangeRequest/Create</code> <span class="tag tag-purple">gift.change_request.create</span> — Tạo yêu cầu</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>/ChangeRequest/Handle</code> <span class="tag tag-purple">gift.change_request.handle</span> — Duyệt / từ chối yêu cầu</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>/ChangeRequest/{id}/Active</code> <span class="tag tag-purple">gift.change_request.toggle_active</span> — Toggle active</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>/ChangeRequest/{id}/Activate</code> — Cập nhật và kích hoạt</div>
+<div class="ep"><span class="method DELETE">DEL</span> <code>/ChangeRequest/{id}</code> <span class="tag tag-purple">gift.change_request.delete</span> — Xóa yêu cầu</div>
+<div class="ep"><span class="method GET">GET</span> <code>/ChangeRequests/Export</code> <span class="tag tag-purple">gift.change_request.export</span> — Xuất CSV</div>
+
+<h2 class="sec">5.4 VPP — <code>api/vpp/</code></h2>
+<h3 class="sec">Items</h3>
+<div class="ep"><span class="method GET">GET</span> <code>/vpp/items</code> — Danh sách vật tư (filter: group, search, page)</div>
+<div class="ep"><span class="method POST">POST</span> <code>/vpp/items</code> — Tạo vật tư</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>/vpp/items/{id}</code> — Cập nhật</div>
+<div class="ep"><span class="method DELETE">DEL</span> <code>/vpp/items/{id}</code> — Xóa mềm</div>
+<div class="ep"><span class="method PATCH">PATCH</span> <code>/vpp/items/{id}/toggle-active</code> — Toggle active</div>
+<div class="ep"><span class="method POST">POST</span> <code>/vpp/items/{id}/uniform-returns</code> — Thêm lịch sử thu hồi đồng phục</div>
+<h3 class="sec">Inventory, Import, Dispatch, Requests, Stock Count</h3>
+<div class="ep"><span class="method GET">GET</span> <code>/vpp/inventory?month=&amp;year=</code> — Tổng hợp tồn kho theo kỳ</div>
+<div class="ep"><span class="method GET">GET</span> <code>/vpp/imports</code> / <span class="method POST">POST</span> / <span class="method DELETE">DEL</span> <code>/vpp/imports/{id}</code> — Phiếu nhập kho</div>
+<div class="ep"><span class="method GET">GET</span> <code>/vpp/dispatches</code> / <span class="method POST">POST</span> / <span class="method DELETE">DEL</span> <code>/vpp/dispatches/{id}</code> — Phiếu xuất kho</div>
+<div class="ep"><span class="method GET">GET</span> <code>/vpp/dispatches/stats?month=&amp;year=</code> — Thống kê xuất theo bộ phận</div>
+<div class="ep"><span class="method GET">GET</span> <code>/vpp/requests</code> / <span class="method POST">POST</span> — Đề nghị cấp phát</div>
+<div class="ep"><span class="method POST">POST</span> <code>/vpp/requests/{id}/approve</code> — Duyệt đề nghị</div>
+<div class="ep"><span class="method POST">POST</span> <code>/vpp/requests/{id}/reject</code> — Từ chối</div>
+<div class="ep"><span class="method GET">GET</span> <code>/vpp/stock-counts</code> / <span class="method POST">POST</span> — Phiếu kiểm kho</div>
+<div class="ep"><span class="method POST">POST</span> <code>/vpp/stock-counts/{id}/confirm</code> — Xác nhận kiểm kho</div>
+<div class="ep"><span class="method POST">POST</span> <code>/vpp/upload</code> — Upload tài liệu đính kèm phiếu nhập</div>
+
+<h2 class="sec">5.5 Nhân sự & Tuyển dụng</h2>
+<div class="ep"><span class="method GET">GET</span> <code>api/User/GetAllUsersAsync</code> <span class="tag tag-purple">staff.view_list</span> — Danh sách nhân viên</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>api/User/UpdateUserAsync/{id}</code> <span class="tag tag-purple">staff.update</span> — Cập nhật nhân viên</div>
+<div class="ep"><span class="method POST">POST</span> <code>api/User/ImportStaff</code> <span class="tag tag-purple">staff.import</span> — Import nhân sự từ Excel</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/User/GetAllActivityLogAsync</code> <span class="tag tag-purple">staff.view_activity_log</span> — Lịch sử thao tác</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/Permission/All</code> — Tất cả permissions</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/Permission/User/{userId}</code> — Permissions của user</div>
+<div class="ep"><span class="method PUT">PUT</span> <code>api/Permission/User/{userId}</code> — Cập nhật permissions user</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/recruitment/campaigns</code> / <span class="method POST">POST</span> / <span class="method PUT">PUT</span> / <span class="method DELETE">DEL</span> — Đợt tuyển dụng</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/recruitment/candidates</code> / <span class="method POST">POST</span> / <span class="method PUT">PUT</span> — Ứng viên</div>
+<div class="ep"><span class="method POST">POST</span> <code>api/recruitment/candidates/{id}/send-mail</code> — Gửi email ứng viên</div>
+
+<h2 class="sec">5.6 Media & Nội bộ</h2>
+<div class="ep"><span class="method GET">GET</span> <code>api/Media/GetFolder</code> / <span class="method POST">POST</span> <code>/CreateFolder</code> — Quản lý thư mục</div>
+<div class="ep"><span class="method POST">POST</span> <code>api/Media/Upload</code> — Upload files</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/Media/RecycleBin</code> — Thùng rác</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/InternalNews/GetPaged</code> / <span class="method POST">POST</span> <code>/Create</code> — Tin nội bộ</div>
+<div class="ep"><span class="method PATCH">PATCH</span> <code>api/InternalNews/TogglePin/{id}</code> — Ghim bài</div>
+<div class="ep"><span class="method PATCH">PATCH</span> <code>api/InternalNews/Publish/{id}</code> — Xuất bản</div>
+
+<h2 class="sec">5.7 Sapo & Phân tích bán hàng</h2>
+<div class="ep"><span class="method GET">GET</span> <code>api/sapo/dashboard</code> — Dashboard tổng hợp Sapo</div>
+<div class="ep"><span class="method POST">POST</span> <code>api/sapo/import</code> — Import file Excel Sapo</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/Nxt/rows</code> / <span class="method POST">POST</span> <code>/rows/upsert</code> — Kiểm NXT giỏ quà</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/Nxt/logs</code> / <span class="method POST">POST</span> — Ghi chú NXT</div>
+<div class="ep"><span class="method GET">GET</span> <code>api/NxtSapoPending</code> / <span class="method POST">POST</span> <code>/{id}/complete</code> — Hàng chờ Sapo</div>
+</div>
+
+<!-- ═══════════════════════════════ 6. FRONTEND ═══════════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">6. Frontend</h1>
+
+<h2 class="sec">6.1 Cấu trúc trang (App Router)</h2>
+<table>
+  <tr><th>Route</th><th>Trang</th><th>Permission yêu cầu</th></tr>
+  <tr><td><code>/login</code></td><td>Đăng nhập</td><td>Public</td></tr>
+  <tr><td><code>/dashboard/customer_care/revenue_report</code></td><td>Dashboard CSKH</td><td>cskh.dashboard.view</td></tr>
+  <tr><td><code>/dashboard/customer_care/orders</code></td><td>Đơn hàng CSKH</td><td>cskh.order.view_list</td></tr>
+  <tr><td><code>/dashboard/customer_care/customers</code></td><td>Danh sách khách hàng</td><td>cskh.customer.view_list</td></tr>
+  <tr><td><code>/dashboard/sales/revenue_report</code></td><td>Dashboard Bán hàng</td><td>sales.dashboard.view</td></tr>
+  <tr><td><code>/dashboard/sales/orders</code></td><td>Đơn hàng Bán hàng</td><td>sales.order.view_list</td></tr>
+  <tr><td><code>/dashboard/sales/xnt</code></td><td>Kiểm NXT giỏ quà</td><td>sales.nxt.view</td></tr>
+  <tr><td><code>/dashboard/sales/return_rate</code></td><td>Tỉ lệ quay lại</td><td>cskh.customer.return_rate</td></tr>
+  <tr><td><code>/dashboard/gift_basket/dashboard</code></td><td>Tổng quan Giỏ quà</td><td>gift.basket.view</td></tr>
+  <tr><td><code>/dashboard/gift_basket/gifts</code></td><td>Kho ảnh Giỏ quà</td><td>gift.basket.view</td></tr>
+  <tr><td><code>/dashboard/gift_basket/baskets</code></td><td>Danh sách Quy đổi mã</td><td>gift.basket.view</td></tr>
+  <tr><td><code>/dashboard/gift_basket/change_requests</code></td><td>Yêu cầu đổi mã</td><td>gift.change_request.view</td></tr>
+  <tr><td><code>/dashboard/gift_basket/code_mappings</code></td><td>Duyệt mã cần đổi</td><td>gift.change_request.handle</td></tr>
+  <tr><td><code>/dashboard/administration/vpp</code></td><td>Quản lý VPP (multi-tab)</td><td>vpp.manage</td></tr>
+  <tr><td><code>/dashboard/administration/staff_list</code></td><td>Danh sách nhân viên</td><td>staff.view_list</td></tr>
+  <tr><td><code>/dashboard/administration/history</code></td><td>Lịch sử thao tác</td><td>staff.view_activity_log</td></tr>
+  <tr><td><code>/dashboard/administration/recruitment</code></td><td>Tuyển dụng</td><td>recruitment.view</td></tr>
+  <tr><td><code>/dashboard/news</code></td><td>Tin nội bộ</td><td>news.create</td></tr>
+  <tr><td><code>/dashboard/links</code></td><td>Tổng hợp link</td><td>—</td></tr>
+  <tr><td><code>/dashboard/links/vpp-request</code></td><td>Đề nghị cấp phát VPP</td><td>—</td></tr>
+  <tr><td><code>/dashboard/tools/sapo_checker</code></td><td>Kiểm tra mã hàng Sapo</td><td>—</td></tr>
+  <tr><td><code>/dashboard/profile</code></td><td>Thông tin cá nhân</td><td>—</td></tr>
+</table>
+
+<h2 class="sec">6.2 Menu điều hướng (Sidebar)</h2>
+<table>
+  <tr><th>Nhóm</th><th>Mục</th><th>Route</th></tr>
+  <tr><td rowspan="3"><strong>Chăm sóc KH</strong></td><td>Tổng Quan CSKH</td><td>/dashboard/customer_care/revenue_report</td></tr>
+  <tr><td>Danh Sách Đơn Hàng</td><td>/dashboard/customer_care/orders</td></tr>
+  <tr><td>Danh Sách Khách Hàng</td><td>/dashboard/customer_care/customers</td></tr>
+  <tr><td rowspan="4"><strong>Bán Hàng</strong></td><td>Tổng Quan Bán Hàng</td><td>/dashboard/sales/revenue_report</td></tr>
+  <tr><td>Danh Sách Đơn Hàng</td><td>/dashboard/sales/orders</td></tr>
+  <tr><td>Kiểm Giỏ Quà</td><td>/dashboard/sales/xnt</td></tr>
+  <tr><td>Tỉ Lệ Quay Lại</td><td>/dashboard/sales/return_rate</td></tr>
+  <tr><td rowspan="5"><strong>Giỏ Quà</strong></td><td>Tổng Quan Giỏ Quà</td><td>/dashboard/gift_basket/dashboard</td></tr>
+  <tr><td>Kho Ảnh Giỏ Quà</td><td>/dashboard/gift_basket/gifts</td></tr>
+  <tr><td>Danh Sách Quy Đổi Mã</td><td>/dashboard/gift_basket/baskets</td></tr>
+  <tr><td>Yêu Cầu Đổi Mã</td><td>/dashboard/gift_basket/change_requests</td></tr>
+  <tr><td>Duyệt Mã Cần Đổi</td><td>/dashboard/gift_basket/code_mappings</td></tr>
+  <tr><td rowspan="4"><strong>Quản Trị Tổng Hợp</strong></td><td>Quản Lý VPP</td><td>/dashboard/administration/vpp</td></tr>
+  <tr><td>Tuyển Dụng</td><td>/dashboard/administration/recruitment</td></tr>
+  <tr><td>Danh Sách Nhân Viên</td><td>/dashboard/administration/staff_list</td></tr>
+  <tr><td>Lịch Sử Thao Tác</td><td>/dashboard/administration/history</td></tr>
+  <tr><td rowspan="4"><strong>Tiện Ích</strong></td><td>PHF Stack (external)</td><td>Google Apps Script</td></tr>
+  <tr><td>Đề Nghị Cấp Phát VPP</td><td>/dashboard/links/vpp-request</td></tr>
+  <tr><td>Tổng Hợp Link</td><td>/dashboard/links</td></tr>
+  <tr><td>Kiểm Tra Mã Hàng Sapo</td><td>/dashboard/tools/sapo_checker</td></tr>
+  <tr><td><strong>Nội Bộ</strong></td><td>Quản Lý Tin Nội Bộ</td><td>/dashboard/news</td></tr>
+  <tr><td><strong>Thông Tin Cá Nhân</strong></td><td>Thông Tin Cá Nhân</td><td>/dashboard/profile</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════ 7. PHÂN QUYỀN ═══════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">7. Hệ thống phân quyền</h1>
+
+<div class="box box-blue">
+  Sử dụng RBAC (Role-Based Access Control) kết hợp với user-level permissions. Attribute <code>[RequirePermission("code")]</code> được đặt trên mỗi action của controller.
+</div>
+
+<h2 class="sec">Danh sách Permission codes theo module</h2>
+<table>
+  <tr><th>Module</th><th>Permission Code</th><th>Mô tả</th></tr>
+  <tr><td rowspan="6"><strong>CSKH</strong></td><td>cskh.dashboard.view</td><td>Xem dashboard CSKH</td></tr>
+  <tr><td>cskh.order.view_list</td><td>Xem danh sách đơn hàng</td></tr>
+  <tr><td>cskh.order.view_detail</td><td>Xem chi tiết đơn hàng</td></tr>
+  <tr><td>cskh.order.import</td><td>Import Excel đơn hàng</td></tr>
+  <tr><td>cskh.order.rollback / restore</td><td>Hoàn tác / khôi phục import</td></tr>
+  <tr><td>cskh.customer.view_list / view_detail / edit / delete / return_rate / segment</td><td>Các quyền quản lý KH</td></tr>
+  <tr><td rowspan="3"><strong>Sales</strong></td><td>sales.dashboard.view</td><td>Dashboard Bán hàng</td></tr>
+  <tr><td>sales.order.view_list</td><td>Xem đơn hàng Sales</td></tr>
+  <tr><td>sales.nxt.view</td><td>Kiểm NXT giỏ quà</td></tr>
+  <tr><td rowspan="6"><strong>Gift</strong></td><td>gift.basket.view / create / edit / upload_image</td><td>Quản lý giỏ quà</td></tr>
+  <tr><td>gift.change_request.view</td><td>Xem yêu cầu đổi mã</td></tr>
+  <tr><td>gift.change_request.create</td><td>Tạo yêu cầu</td></tr>
+  <tr><td>gift.change_request.handle</td><td>Duyệt yêu cầu</td></tr>
+  <tr><td>gift.change_request.toggle_active</td><td>Toggle active</td></tr>
+  <tr><td>gift.change_request.delete / export</td><td>Xóa / xuất CSV</td></tr>
+  <tr><td rowspan="1"><strong>VPP</strong></td><td>vpp.manage</td><td>Toàn bộ module VPP</td></tr>
+  <tr><td rowspan="6"><strong>Staff</strong></td><td>staff.view_list / view_detail</td><td>Xem nhân viên</td></tr>
+  <tr><td>staff.update</td><td>Cập nhật nhân viên</td></tr>
+  <tr><td>staff.create_account / reset_password</td><td>Quản lý tài khoản</td></tr>
+  <tr><td>staff.delete_account / restore_account</td><td>Xóa / khôi phục</td></tr>
+  <tr><td>staff.import</td><td>Import nhân sự Excel</td></tr>
+  <tr><td>staff.view_activity_log / view_roles</td><td>Log & roles</td></tr>
+  <tr><td><strong>Recruitment</strong></td><td>recruitment.view</td><td>Toàn bộ module Tuyển dụng</td></tr>
+  <tr><td><strong>News</strong></td><td>news.create</td><td>Tạo và quản lý tin nội bộ</td></tr>
+  <tr><td rowspan="4"><strong>Media</strong></td><td>media.folder.view / create / rename / copy / delete / restore</td><td>Quản lý thư mục</td></tr>
+  <tr><td>media.file.view / upload / move / delete</td><td>Quản lý file</td></tr>
+  <tr><td>media.recycle_bin.view</td><td>Thùng rác</td></tr>
+  <tr><td>—</td><td></td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════ 8. REAL-TIME ═══════════════════════════════ -->
+<div class="section break-before">
+<h1 class="sec">8. Real-time (SignalR)</h1>
+
+<table>
+  <tr><th>Hub</th><th>URL</th><th>Event</th><th>Payload</th><th>Dùng cho</th></tr>
+  <tr>
+    <td><code>ImportHub</code></td>
+    <td>/hubs/import</td>
+    <td>ImportProgress</td>
+    <td><code>{ current: number, total: number }</code></td>
+    <td>Tiến độ import Excel đơn hàng — hiển thị progress bar realtime trên trang Orders</td>
+  </tr>
+  <tr>
+    <td><code>GiftBasketHub</code></td>
+    <td>/hubs/gift-basket</td>
+    <td>—</td>
+    <td>—</td>
+    <td>Thông báo realtime cho trang Giỏ quà (yêu cầu đổi mã mới)</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════ 9. FILE STORAGE ═══════════════════════════════ -->
+<h1 class="sec">9. Lưu trữ file</h1>
+
+<table>
+  <tr><th>Loại file</th><th>Đường dẫn server</th><th>URL truy cập</th><th>Module</th></tr>
+  <tr><td>Ảnh giỏ quà</td><td>/media/gift-basket/</td><td>/media/gift-basket/...</td><td>Giỏ quà</td></tr>
+  <tr><td>Tài liệu VPP (hóa đơn, biên bản)</td><td>/media/vpp-docs/</td><td>/media/vpp-docs/...</td><td>VPP</td></tr>
+  <tr><td>Media nội bộ (ảnh, video tin tức)</td><td>/media/internal-news/</td><td>/media/internal-news/...</td><td>Nội bộ</td></tr>
+  <tr><td>CV ứng viên</td><td>/uploads/cv/</td><td>Download qua API</td><td>Tuyển dụng</td></tr>
+  <tr><td>File import Excel (lưu để rollback)</td><td>/uploads/imports/</td><td>Download qua API</td><td>CSKH</td></tr>
+  <tr><td>Template import nhân sự</td><td>Embedded in code</td><td>GET /api/User/ImportStaffTemplate</td><td>Nhân sự</td></tr>
+  <tr><td>Tool kiểm mã Sapo (HTML tool)</td><td>/public/tools/</td><td>/tools/sapo-product-checker.html</td><td>Tiện ích</td></tr>
+</table>
+
+<div class="box box-gray">
+  Max file size: 1GB (cấu hình trong Program.cs). Static files phục vụ với CORS headers cho phép cross-origin.
+</div>
+
+<!-- ═══════════════════════════════ 10. CONVENTIONS ═══════════════════════════════ -->
+<h1 class="sec">10. Quy ước & Conventions</h1>
+
+<h2 class="sec">Backend</h2>
+<table>
+  <tr><th>Chủ đề</th><th>Quy ước</th></tr>
+  <tr><td>DateTime</td><td><code>created_at</code>, <code>updated_at</code>: DB tự set (không gán trong code). <code>deleted_at</code>: <code>DateTime.UtcNow.AddHours(7)</code></td></tr>
+  <tr><td>Ngoại lệ VPP</td><td>Gán <code>CreatedAt = DateTime.UtcNow</code> trực tiếp trong service</td></tr>
+  <tr><td>Soft delete</td><td>Check <code>DeletedAt == null</code> trong query, không xóa vật lý</td></tr>
+  <tr><td>Error handling</td><td>Throw <code>NotFoundException</code>, <code>ConflictException</code>, <code>BadRequestException</code> — global middleware bắt và trả status code phù hợp</td></tr>
+  <tr><td>JSON</td><td>Camelcase naming, Enum as string, DateTime UTC converter</td></tr>
+  <tr><td>Pattern</td><td>Repository + UnitOfWork, DI scoped, không có logic trong controller</td></tr>
+  <tr><td>Migration</td><td>Tạo cả .cs và .Designer.cs, cập nhật MemBerContextModelSnapshot. Tắt backend trước khi chạy migration (DLL bị lock)</td></tr>
+</table>
+
+<h2 class="sec">Frontend</h2>
+<table>
+  <tr><th>Chủ đề</th><th>Quy ước</th></tr>
+  <tr><td>Currency</td><td><code>Math.round(v).toLocaleString('vi-VN') + 'đ'</code> — không dùng toFixed, không rút gọn K/M</td></tr>
+  <tr><td>ApexCharts</td><td>Dynamic import (<code>ssr: false</code>) vì Next.js App Router. Labels donut phải set trong <code>options.labels</code></td></tr>
+  <tr><td>Recharts 3.x</td><td>Field <code>fill</code> trên data override màu Bar — tách riêng donutData và barData</td></tr>
+  <tr><td>API response</td><td>Đọc <code>res.data.content</code> — không đọc trực tiếp <code>res.data</code></td></tr>
+  <tr><td>State server</td><td>TanStack Query cho tất cả server data; cache invalidation theo query key hierarchy</td></tr>
+  <tr><td>SignalR</td><td>Dùng cờ <code>cleanedUp</code> trong useEffect, <code>data.current</code> (camelCase) không phải <code>data.Current</code></td></tr>
+</table>
+
+<h2 class="sec">Git</h2>
+<table>
+  <tr><th>Quy tắc</th><th>Chi tiết</th></tr>
+  <tr><td>Commit message</td><td>Tiếng Anh, format: <code>feat/fix/refactor(scope): description</code></td></tr>
+  <tr><td>File bị cấm commit</td><td><code>be/WebAppAPI/appsettings.Development.json</code> (chứa Gmail App Password)</td></tr>
+</table>
+
+<div class="footer">
+  WebAppCSKH — Tài liệu thiết kế hệ thống · PhuHoa Fresh· Tháng 7/2026 
+</div>
+</div>
+
+</body>
+</html>

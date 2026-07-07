@@ -679,6 +679,336 @@ function hasActiveInventory(row) {
   return getActiveInventoryFields().some(field => number(row[field]) !== 0);
 }
 
+const CELL_FIELD_META = {
+  openingStock:   { label: "Tồn đầu",            types: [],                                                            sourceLabels: [] },
+  giftIn:         { label: "Gói ra",              types: ["Nạp Gói ra"],                                                sourceLabels: ["Gói ra"] },
+  receiveBranch:  { label: "Nhận CN",            types: ["Nạp Chuyển CN"],                                              sourceLabels: ["Nhận CN"] },
+  transferBranch: { label: "Chuyển CN",          types: ["Nạp Chuyển CN"],                                              sourceLabels: ["Chuyển CN"] },
+  cancelBasket:   { label: "Hủy giỏ",            types: ["Nạp Hủy giỏ"],                                               sourceLabels: ["Hủy giỏ"] },
+  sapoSold:       { label: "Sapo bán",            types: ["Nạp Sapo", "Sai mã Sapo / check đơn"],                        sourceLabels: ["Sapo bán"] },
+  adjustment:     { label: "Điều chỉnh",         types: ["Sửa SL", "Nạp Sapo treo"],                                   sourceLabels: ["Điều chỉnh"] },
+  actualStock:    { label: "Tồn thực tế",       types: ["Nạp Tồn CN"],                                               sourceLabels: ["Tồn thực tế"] },
+  soldNotPicked:  { label: "DTT/Bán chưa lấy",   types: ["Nạp Tồn CN"],                                               sourceLabels: ["Bán chưa lấy"] },
+};
+
+function logMatchesCell(log, closeDate, branch, itemCode, fieldKey) {
+  const meta = CELL_FIELD_META[fieldKey];
+  if (!meta) return false;
+
+  const logDates = (log.closeDate || "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  const dateMatch = logDates.some(ld => ld === closeDate || displayToIso(ld) === displayToIso(closeDate));
+  if (!dateMatch) return false;
+
+  const logBranches = (log.branch || "").split(/[,;\/]/).map(s => s.trim()).filter(Boolean);
+  const branchMatch = logBranches.length === 0 || logBranches.includes(branch);
+  if (!branchMatch) return false;
+
+  if (meta.types.length && !meta.types.includes(log.type)) return false;
+
+  // Nếu có yêu cầu khớp mã hàng cụ thể trong detail (tuỳ chọn, có thể bỏ nếu không cần chặt)
+  // const items = parseLogDetail(log.detail || "");
+  // if (items.length && !items.some(i => i.code === itemCode)) return false;
+
+  return true;
+}
+
+function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLogs) {
+  const items = []; // { icon, label, value, style }
+  const v = row ? number(row[fieldKey]) : 0;
+
+  // ── OPENING STOCK: Tồn đầu ──────────────────────────────────────────────────
+  if (fieldKey === 'openingStock') {
+    if (row?.openingSource) {
+      items.push({ icon: '📋', text: `Nguồn gốc: ${row.openingSource}` });
+    }
+    // Tìm row ngày hôm trước
+    const prevDate = addDaysToDisplayDate(closeDate, -1);
+    const prevRow = prevDate ? findDashboardRow(prevDate, branch, itemCode) : null;
+    if (prevRow) {
+      const prevActual = number(prevRow.actualStock);
+      items.push({ icon: '📅', text: `Tồn thực tế ngày trước (${prevDate}): <b>${prevActual}</b>` });
+      if (prevActual === v) {
+        items.push({ icon: '✅', text: 'Khớp với tồn thực tế ngày trước — tự động đồng bộ.' });
+      } else if (prevActual !== v && v !== 0) {
+        items.push({ icon: '⚠️', text: `Không khớp với tồn thực tế ngày trước (${prevActual} ≠ ${v}). Có thể đã được sửa thủ công hoặc nhập riêng.`, warn: true });
+      }
+    } else if (!row?.openingSource) {
+      items.push({ icon: '❓', text: 'Không tìm thấy tồn thực tế ngày trước. Có thể nhập thủ công, import từ nguồn ngoài, hoặc là ngày đầu tiên của mã này.', warn: true });
+    }
+    // Kiểm tra có log đổi mã ảnh hưởng đến opening không
+    const codeChangeLogs = adjustmentsLog.filter(l =>
+      l.rightCode === itemCode && l.type === 'Đổi mã tạm / nhập nhầm' &&
+      (l.closeDate || '').includes(prevDate || '') && (l.branch || '').includes(branch) &&
+      (l.detail || '').includes('nextOpeningStock')
+    );
+    if (codeChangeLogs.length) {
+      items.push({ icon: '🔄', text: `Đã được đồng bộ tồn đầu từ đổi mã (${codeChangeLogs.length} lần).` });
+    }
+  }
+
+  // ── GIFT IN: Gói ra ─────────────────────────────────────────────────────────
+  if (fieldKey === 'giftIn') {
+    const logSum = relatedLogs.reduce((s, log) => {
+      const items2 = parseLogDetail(log.detail || '');
+      const it = items2.find(i => i.code === itemCode && (!i.closeDate || i.closeDate === closeDate));
+      return s + (it ? Math.abs(it.qty) : 0);
+    }, 0);
+    if (relatedLogs.length > 0) {
+      items.push({ icon: '📦', text: `${relatedLogs.length} lần nhập Gói ra — tổng từ log: <b>${logSum}</b>` });
+      if (logSum !== v && v !== 0) {
+        items.push({ icon: '⚠️', text: `Tổng log (${logSum}) ≠ giá trị hiện tại (${v}). Có thể đã bị sửa SL hoặc hoàn tác một phần.`, warn: true });
+      }
+    } else {
+      items.push({ icon: '❓', text: 'Không tìm thấy log Nạp Gói ra trong phiên này. Dữ liệu có thể được nạp từ phiên trước hoặc import trực tiếp.', warn: true });
+    }
+  }
+
+  // ── CANCEL BASKET: Hủy giỏ ──────────────────────────────────────────────────
+  if (fieldKey === 'cancelBasket') {
+    const logSum = relatedLogs.reduce((s, log) => {
+      const items2 = parseLogDetail(log.detail || '');
+      const it = items2.find(i => i.code === itemCode && (!i.closeDate || i.closeDate === closeDate));
+      return s + (it ? Math.abs(it.qty) : 0);
+    }, 0);
+    if (relatedLogs.length > 0) {
+      items.push({ icon: '🗑️', text: `${relatedLogs.length} lần nhập Hủy giỏ — tổng từ log: <b>${logSum}</b>` });
+      if (logSum !== v && v !== 0) {
+        items.push({ icon: '⚠️', text: `Tổng log (${logSum}) ≠ giá trị hiện tại (${v}). Có thể đã bị sửa SL.`, warn: true });
+      }
+    } else {
+      items.push({ icon: '❓', text: 'Không tìm thấy log Nạp Hủy giỏ trong phiên này.', warn: v !== 0 });
+    }
+  }
+
+  // ── SAPO SOLD ───────────────────────────────────────────────────────────────
+  if (fieldKey === 'sapoSold') {
+    const sapoLogs = relatedLogs.filter(l => l.type === 'Nạp Sapo');
+    const codeChangeLogs = relatedLogs.filter(l => l.type === 'Sai mã Sapo / check đơn');
+    if (sapoLogs.length) {
+      items.push({ icon: '🛒', text: `${sapoLogs.length} lần Nạp Sapo` });
+    }
+    if (codeChangeLogs.length) {
+      codeChangeLogs.forEach(l => {
+        items.push({ icon: '🔄', text: `Đổi mã Sapo: <b>${l.wrongCode}</b> → <b>${l.rightCode}</b> · SL ${l.qty} · ${l.user || ''} (${l.createdAt || ''})` });
+      });
+    }
+    if (!sapoLogs.length && !codeChangeLogs.length) {
+      items.push({ icon: '❓', text: 'Không tìm thấy log nạp Sapo cho mã này trong phiên hiện tại.', warn: v !== 0 });
+    }
+    if (row) {
+      items.push({ icon: '💰', text: `Doanh thu: <b>${(number(row.revenue) || 0).toLocaleString('vi-VN')}đ</b> · Số đơn: <b>${number(row.orderCount) || 0}</b>` });
+    }
+  }
+
+  // ── ACTUAL STOCK: Tồn thực tế ───────────────────────────────────────────────
+  if (fieldKey === 'actualStock') {
+    if (row?.stockStatus) {
+      const badge = row.stockStatus === 'DTT' ? '🔵 DTT (Đã thanh toán — trừ khi so lệch)' : '🟡 CTT (Chưa thanh toán — chỉ nhãn, chưa trừ)';
+      items.push({ icon: '', text: badge });
+    }
+    // Tồn đầu ngày sau
+    const nextDate = addDaysToDisplayDate(closeDate, 1);
+    const nextRow = nextDate ? findDashboardRow(nextDate, branch, itemCode) : null;
+    if (nextRow && number(nextRow.openingStock) === v) {
+      items.push({ icon: '➡️', text: `Đã làm Tồn đầu ngày ${nextDate}: <b>${v}</b>` });
+    } else if (nextRow && number(nextRow.openingStock) !== v) {
+      items.push({ icon: '⚠️', text: `Tồn đầu ngày ${nextDate} là <b>${number(nextRow.openingStock)}</b> (khác tồn thực tế ${v}). Có thể đã bị sửa.`, warn: true });
+    } else {
+      items.push({ icon: 'ℹ️', text: `Chưa thấy dòng ngày ${nextDate || '(N+1)'} — tồn đầu ngày sau chưa được tạo.` });
+    }
+    const tq_logSum = relatedLogs.reduce((s, log) => {
+      const items2 = parseLogDetail(log.detail || '');
+      const it = items2.find(i => i.code === itemCode && (!i.closeDate || i.closeDate === closeDate));
+      return s + (it ? Math.abs(it.qty) : 0);
+    }, 0);
+    if (relatedLogs.length) {
+      items.push({ icon: '📥', text: `${relatedLogs.length} lần Nạp Tồn CN — giá trị từ log: <b>${tq_logSum}</b>` });
+    } else {
+      items.push({ icon: '❓', text: 'Không thấy log Nạp Tồn CN trong phiên này.', warn: v !== 0 });
+    }
+  }
+
+  // ── SOLD NOT PICKED: DTT / Bán chưa lấy ────────────────────────────────────
+  if (fieldKey === 'soldNotPicked') {
+    if (row?.stockStatus === 'DTT') {
+      items.push({ icon: '🔵', text: 'Trạng thái: DTT — đã bán chưa lấy, được trừ khi so lệch.' });
+    }
+    if (relatedLogs.length === 0) {
+      items.push({ icon: '❓', text: 'Không thấy log Nạp Tồn CN cho DTT trong phiên này.', warn: v !== 0 });
+    } else {
+      items.push({ icon: '📥', text: `${relatedLogs.length} lần Nạp Tồn CN có ghi DTT` });
+    }
+  }
+
+  // ── RECEIVE / TRANSFER BRANCH ────────────────────────────────────────────────
+  if (fieldKey === 'receiveBranch' || fieldKey === 'transferBranch') {
+    const notes = (row?.transferNotes || []).filter(n =>
+      (fieldKey === 'receiveBranch' && n.type === 'in') ||
+      (fieldKey === 'transferBranch' && n.type === 'out')
+    );
+    if (notes.length) {
+      notes.forEach(n => {
+        items.push({ icon: fieldKey === 'receiveBranch' ? '⬅️' : '➡️', text: `${fieldKey === 'receiveBranch' ? 'Nhận từ' : 'Gửi đến'} <b>${n.otherBranch}</b>: ${n.qty} giỏ` });
+      });
+    } else {
+      items.push({ icon: '❓', text: 'Không có ghi chú luân chuyển chi tiết. Dữ liệu có thể được nhập tổng hợp.', warn: v !== 0 });
+    }
+    // Tìm bên kia
+    const counterField = fieldKey === 'receiveBranch' ? 'transferBranch' : 'receiveBranch';
+    const counterRows = dashboardRows.filter(r =>
+      !r.inactive && r.closeDate === closeDate && r.itemCode === itemCode && r.branch !== branch && number(r[counterField]) !== 0
+    );
+    if (counterRows.length) {
+      counterRows.forEach(cr => {
+        items.push({ icon: '🔗', text: `Đối ứng tại <b>${cr.branch}</b>: ${counterField === 'receiveBranch' ? 'Nhận CN' : 'Chuyển CN'} = ${number(cr[counterField])}` });
+      });
+    }
+  }
+
+  // ── ADJUSTMENT: Điều chỉnh ──────────────────────────────────────────────────
+  if (fieldKey === 'adjustment') {
+    const editLogs = relatedLogs.filter(l => l.type === 'Sửa SL' && l.source === 'Điều chỉnh');
+    const sapoTreoAdj = adjustmentsLog.filter(l =>
+      l.type === 'Sapo treo hoàn thành' &&
+      (l.closeDate || '').includes(closeDate) &&
+      (l.branch || '').includes(branch)
+    );
+    if (editLogs.length) {
+      editLogs.forEach(l => {
+        const m = (l.detail || '').match(/(-?[\d.]+)\s*→\s*(-?[\d.]+)/);
+        items.push({ icon: '✏️', text: `Sửa SL bởi <b>${l.user || '?'}</b>: ${m ? `${m[1]} → ${m[2]}` : l.detail} — ${l.note || ''}` });
+      });
+    }
+    if (sapoTreoAdj.length) {
+      items.push({ icon: '🔄', text: `${sapoTreoAdj.length} lần điều chỉnh từ Sapo treo` });
+    }
+    // Kiểm tra từ sapo pending
+    const sapoPending = sapoPendingList.filter(r =>
+      r.closeDate === closeDate && r.branch === branch && r.itemCode === itemCode
+    );
+    if (sapoPending.length) {
+      sapoPending.forEach(r => {
+        items.push({ icon: r.status === 'pending' ? '⏳' : '✅', text: `Sapo treo: <b>${r.itemCode}</b> SL ${r.qty} — ${r.status === 'pending' ? 'Đang chờ' : 'Đã hoàn thành'} ${r.completedAt || ''}` });
+      });
+    }
+    if (!editLogs.length && !sapoTreoAdj.length && !sapoPending.length) {
+      items.push({ icon: '❓', text: 'Không tìm thấy nguồn gốc điều chỉnh trong phiên này.', warn: v !== 0 });
+    }
+  }
+
+  // ── CODE CHANGE: ảnh hưởng chung ────────────────────────────────────────────
+  const codeChanges = adjustmentsLog.filter(l =>
+    ['Đổi mã tạm / nhập nhầm', 'Sai mã Sapo / check đơn'].includes(l.type) &&
+    (l.wrongCode === itemCode || l.rightCode === itemCode) &&
+    (l.closeDate || '').split(/[,;]/).some(d => d.trim() === closeDate) &&
+    (l.branch || '').split(/[,;\/]/).some(b2 => b2.trim() === branch)
+  );
+  if (codeChanges.length) {
+    items.push({ icon: '🔀', text: `--- Ảnh hưởng từ đổi mã (${codeChanges.length} lần) ---` });
+    codeChanges.forEach(l => {
+      const dir = l.wrongCode === itemCode ? `Đã chuyển đi → ${l.rightCode}` : `Đã nhận từ ← ${l.wrongCode}`;
+      items.push({ icon: l.wrongCode === itemCode ? '⬆️' : '⬇️', text: `${dir} · SL ${l.qty} · <b>${l.user || '?'}</b> (${l.createdAt || ''})` });
+    });
+  }
+
+  if (!items.length) return '';
+
+  const rowsHtml = items.map(it => `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-bottom:1px solid #f1f5f9;${it.warn ? 'background:#fffbeb;' : ''}">
+      <span style="font-size:15px;flex-shrink:0;">${it.icon}</span>
+      <span style="font-size:12.5px;color:${it.warn ? '#92400e' : '#334155'};line-height:1.5;">${it.text}</span>
+    </div>`).join('');
+
+  return `
+    <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:14px;">
+      <div style="background:#f8fafc;padding:8px 12px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0;">
+        🔍 Phân tích nguồn gốc tự động
+      </div>
+      ${rowsHtml}
+    </div>`;
+}
+
+window.showCellHistory = function(closeDate, branch, itemCode, fieldKey) {
+  const meta = CELL_FIELD_META[fieldKey] || { label: fieldKey, types: [], sourceLabels: [] };
+  const related = adjustmentsLog.filter(log => logMatchesCell(log, closeDate, branch, itemCode, fieldKey));
+  const row = findDashboardRow(closeDate, branch, itemCode);
+  const currentVal = row ? number(row[fieldKey]) : 0;
+
+  // Phân tích tự động
+  const analysisHtml = buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, related);
+
+  // Bảng log chi tiết
+  const logRowsHtml = related.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:14px 10px;font-style:italic;">Không tìm thấy bút ký thao tác nào khớp hiện tại.</td></tr>`
+    : related.map(log => {
+        const typeColor = log.status === 'Đã áp dụng' || log.status === 'Đã sửa'
+          ? 'background:#dcfce7;color:#166534;'
+          : (log.status || '').includes('Chờ')
+          ? 'background:#fef9c3;color:#854d0e;'
+          : 'background:#f1f5f9;color:#475569;';
+        // Trích qty của itemCode từ detail
+        const logItems = parseLogDetail(log.detail || '');
+        const matchItem = logItems.find(i => i.code === itemCode);
+        const detailShort = matchItem
+          ? `SL: <b>${matchItem.qty}</b>${matchItem.status ? ` [${matchItem.status}]` : ''}${log.note ? ` · ${escapeHtml(log.note)}` : ''}`
+          : `${escapeHtml((log.detail || '').slice(0, 100))}${(log.detail || '').length > 100 ? '…' : ''}`;
+        return `<tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11.5px;white-space:nowrap;color:#64748b;">${escapeHtml(log.createdAt || '—')}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:700;">${escapeHtml(log.user || '—')}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;">${escapeHtml(log.type || '')}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">
+            <span style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:700;${typeColor}">${escapeHtml(log.status || '')}</span>
+          </td>
+          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;">${detailShort}</td>
+        </tr>`;
+      }).join('');
+
+  let overlay = document.getElementById('nxtCellHistoryOverlay');
+  if (!overlay) { overlay = document.createElement('div'); overlay.id = 'nxtCellHistoryOverlay'; document.body.appendChild(overlay); }
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:26px 22px 20px;max-width:720px;width:95%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.18);font-family:inherit;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div style="font-weight:800;font-size:15px;color:#1e293b;">🔍 Truy vết: <b>${escapeHtml(meta.label)}</b></div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">${escapeHtml(closeDate)} &nbsp;&middot;&nbsp; <b>${escapeHtml(branch)}</b> &nbsp;&middot;&nbsp; Mã <b>${escapeHtml(itemCode)}</b></div>
+          <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;">
+            <span style="padding:3px 14px;border-radius:99px;font-size:13px;font-weight:700;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;">Giá trị hiện tại: ${currentVal}</span>
+            <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">${related.length} bút ký</span>
+          </div>
+        </div>
+        <button id="nxtCellHistoryClose" style="background:none;border:none;cursor:pointer;font-size:24px;color:#94a3b8;line-height:1;padding:0 2px;">&#x2715;</button>
+      </div>
+
+      ${analysisHtml}
+
+      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Bút ký thao tác chi tiết</div>
+      <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr style="background:#f8fafc;">
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap;">Thời gian</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Người thực hiện</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Thao tác</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Trạng thái</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Chi tiết mã này</th>
+          </tr></thead>
+          <tbody>${logRowsHtml}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:#94a3b8;">💡 Phân tích tự động dựa trên dữ liệu trong bộ nhớ phiên này. Bút ký lưu có thể chứa lịch sử đầy đủ hơn.</div>
+    </div>`;
+  const close = () => { overlay.style.display = 'none'; overlay.innerHTML = ''; };
+  document.getElementById('nxtCellHistoryClose').onclick = close;
+  overlay.onclick = e => { if (e.target === overlay) close(); };
+};
+
+// Ô có thể click — kể cả ô = 0 (bấm để xem phân tích)
+function makeTraceable(val, closeDate, branch, itemCode, fieldKey) {
+  return `<span onclick="window.showCellHistory('${closeDate}','${branch}','${itemCode}','${fieldKey}')" style="cursor:pointer;color:${val !== 0 ? '#1d4ed8' : '#9ca3af'};${val !== 0 ? 'text-decoration:underline dotted;text-underline-offset:2px;' : ''}" title="Bấm để xem nguồn gốc">${val}</span>`;
+}
+
+
+
 function shouldHideInactive(row) {
   if (!row) return true;
   if (row.inactive) return true;
@@ -735,7 +1065,7 @@ function renderDashboardRows(rows) {
         <td>${escapeHtml(guessDiffReason(row))}</td>
         <td style="white-space:nowrap;">
           <button onclick="confirmInlineEdit()" style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:6px;padding:2px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-right:3px;">Lưu</button>
-          <button onclick="cancelInlineEdit()" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">✕</button>
+          <button onclick="cancelInlineEdit()" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">&#x2715;</button>
         </td>
       </tr>`;
     }
@@ -749,9 +1079,15 @@ function renderDashboardRows(rows) {
     return `<tr>
       ${cbTd}
       <td>${row.closeDate}</td><td>${row.branch}</td><td><b>${row.itemCode}</b></td><td>${renderRowLabels(row)}</td>
-      <td class="right">${number(row.openingStock)}</td><td class="right">${number(row.giftIn)}</td><td class="right">${number(row.receiveBranch)}</td>
-      <td class="right">${number(row.transferBranch)}</td><td class="right">${number(row.cancelBasket)}</td><td class="right">${number(row.sapoSold)}</td>
-      <td class="right">${number(row.adjustment)}</td><td class="right">${renderActualStockCell(row)}</td><td class="right">${renderSoldNotPickedCell(row)}</td>
+      <td class="right">${makeTraceable(number(row.openingStock),  d, b, c, 'openingStock')}</td>
+      <td class="right">${makeTraceable(number(row.giftIn),        d, b, c, 'giftIn')}</td>
+      <td class="right">${makeTraceable(number(row.receiveBranch), d, b, c, 'receiveBranch')}</td>
+      <td class="right">${makeTraceable(number(row.transferBranch),d, b, c, 'transferBranch')}</td>
+      <td class="right">${makeTraceable(number(row.cancelBasket),  d, b, c, 'cancelBasket')}</td>
+      <td class="right">${makeTraceable(number(row.sapoSold),      d, b, c, 'sapoSold')}</td>
+      <td class="right">${makeTraceable(number(row.adjustment),    d, b, c, 'adjustment')}</td>
+      <td class="right">${makeTraceable(number(row.actualStock),   d, b, c, 'actualStock')}</td>
+      <td class="right">${makeTraceable(number(row.soldNotPicked), d, b, c, 'soldNotPicked')}</td>
       <td class="right">${compare}</td><td class="right">${expected}</td><td>${getDiffBadge(diff)}</td><td>${escapeHtml(guessDiffReason(row))}</td>
       <td style="white-space:nowrap;">${editBtn}</td>
     </tr>`;
@@ -1083,15 +1419,30 @@ function parseCodeQtyText(text, defaults = {}) {
   const rows = [];
   lines.forEach(line => {
     const clean = line.replace(/[，,;]/g, " ").trim();
+    // Bỏ qua dòng tiêu đề (tổng, ngày, chi nhánh,...) — không báo lỗi
     if (isHeaderLine(clean)) return;
     const codeMatch = clean.match(/\b(SON[A-Za-z0-9-]*|TEMP[A-Za-z0-9-]*|TMP[A-Za-z0-9-]*|[A-Za-z]{1,3}\d+[A-Za-z0-9-]*)\b/i);
-    if (!codeMatch) return;
+    if (!codeMatch) {
+      // Không tìm thấy mã → đánh dấu lỗi để preview hiển thị, không bỏ qua âm thầm
+      rows.push({ ...defaults, itemCode: "???", qty: 0, raw: line, _error: "Không tìm thấy mã hợp lệ trong dòng này" });
+      return;
+    }
     const itemCode = codeMatch[1].toUpperCase();
-    if (!VALID_CODE_PREFIX.test(itemCode)) return;
-    if (looksLikePriceOrDate(itemCode)) return;
+    if (!VALID_CODE_PREFIX.test(itemCode)) {
+      rows.push({ ...defaults, itemCode, qty: 0, raw: line, _error: `Mã "${itemCode}" không đúng tiền tố (H/GT/BK/SON/TEMP/TMP/AT)` });
+      return;
+    }
+    if (looksLikePriceOrDate(itemCode)) {
+      rows.push({ ...defaults, itemCode, qty: 0, raw: line, _error: `"${itemCode}" trông giống ngày/giá, bỏ qua` });
+      return;
+    }
     const rest = clean.slice(codeMatch.index + codeMatch[0].length).trim();
     const qty = parseQtyFromRest(rest);
-    if (!itemCode || !qty) return;
+    if (!qty) {
+      // Không tìm thấy số lượng — dùng 1 mặc định và báo cảnh báo
+      rows.push({ ...defaults, itemCode, qty: 1, raw: line, _warn: "Không đọc được SL, mặc định là 1" });
+      return;
+    }
     rows.push({ ...defaults, itemCode, qty, raw: line });
   });
   return rows;
@@ -1133,12 +1484,29 @@ function renderPreview(tbodyId, rows, columns, emptyText) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   if (!rows.length) { tbody.innerHTML = `<tr><td colspan="${columns.length}">${emptyText}</td></tr>`; return; }
-  tbody.innerHTML = rows.map((row, idx) => "<tr>" + columns.map(col => `<td${col.right ? ' class="right"' : ""}>${col.render ? col.render(row, idx) : (row[col.key] ?? "")}</td>`).join("") + "</tr>").join("");
+  tbody.innerHTML = rows.map((row, idx) => {
+    const hasError = !!row._error;
+    const hasWarn  = !hasError && !!row._warn;
+    const trStyle  = hasError ? 'style="background:#fee2e2;"'
+                    : hasWarn ? 'style="background:#fffbeb;"'
+                    : '';
+    return `<tr ${trStyle}>` + columns.map(col => {
+      let val = col.render ? col.render(row, idx) : (row[col.key] ?? "");
+      // Gắn thêm badge lỗi/cảnh báo vào cột cuối cùng của dòng
+      if (col === columns[columns.length - 1]) {
+        if (hasError) val += ` <span style="color:#dc2626;font-size:11px;font-weight:700;">⛔ ${escapeHtml(row._error)}</span>`;
+        if (hasWarn)  val += ` <span style="color:#b45309;font-size:11px;font-weight:700;">⚠️ ${escapeHtml(row._warn)}</span>`;
+      }
+      return `<td${col.right ? ' class="right"' : ""}>${val}</td>`;
+    }).join("") + "</tr>";
+  }).join("");
 }
 
 function checkPreviewDups(rows, applyBtnId, warningElId) {
   const counts = {};
+  const errorRows = rows.filter(r => r._error);
   rows.forEach(r => {
+    if (r._error) return; // dòng lỗi không tính trùng
     const key = `${r.date}|${r.branch || ""}|${r.itemCode}`;
     counts[key] = (counts[key] || 0) + 1;
   });
@@ -1149,20 +1517,24 @@ function checkPreviewDups(rows, applyBtnId, warningElId) {
   const btn = document.getElementById(applyBtnId);
   let warnEl = document.getElementById(warningElId);
 
-  if (dups.length > 0) {
+  const hasIssues = dups.length > 0 || errorRows.length > 0;
+  if (hasIssues) {
     if (!warnEl) {
       warnEl = document.createElement("div");
       warnEl.id = warningElId;
       btn?.parentNode?.insertBefore(warnEl, btn);
     }
-    const msgs = dups.map(d => `Mã <b>${d.code}</b> xuất hiện <b>${d.n} lần</b>`).join(", ");
-    warnEl.innerHTML = `⚠️ ${msgs} — vui lòng kiểm tra lại trước khi lưu.`;
+    let msgs = [];
+    if (errorRows.length > 0) msgs.push(`${errorRows.length} dòng <b>không đọc được</b> (xem chi tiết màu đỏ bên dưới)`);
+    msgs = msgs.concat(dups.map(d => `Mã <b>${d.code}</b> xuất hiện <b>${d.n} lần</b>`));
+    warnEl.innerHTML = `⚠️ ${msgs.join(" · ")} — vui lòng kiểm tra và sửa trước khi lưu.`;
     warnEl.style.cssText = "color:#dc2626;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin:0 0 8px;display:block;";
     if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed"; }
   } else {
     if (warnEl) { warnEl.innerHTML = ""; warnEl.style.display = "none"; }
     if (btn) {
-      const hasRows = rows.length > 0;
+      const validRows = rows.filter(r => !r._error);
+      const hasRows = validRows.length > 0;
       btn.disabled = !hasRows;
       btn.style.opacity = hasRows ? "" : "0.5";
       btn.style.cursor = hasRows ? "" : "not-allowed";
@@ -1602,8 +1974,13 @@ function parseSapoMatrix(matrix) {
     if (sapoSold === 0 && revenue === 0) return;
     const status = String(row[statusIdx] || "");
     if (/huy|cancel/i.test(removeAccent(status))) return;
+    // Ưu tiên: ngày từ Excel → ngày dateFrom → ngày hôm nay (theo giờ địa phương)
+    const _d = new Date();
+    const _todayLocal = new Date(_d.getTime() - _d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const _dateFromEl = document.getElementById("dateFrom");
+    const _fallbackDate = (_dateFromEl?.value && isoToDisplay(_dateFromEl.value)) || isoToDisplay(_todayLocal);
     out.push({
-      closeDate: parseExcelDate(row[dateIdx]) || document.getElementById("dateFrom")?.value && isoToDisplay(document.getElementById("dateFrom").value) || "15/06/2026",
+      closeDate: parseExcelDate(row[dateIdx]) || _fallbackDate,
       branch: normBranch(row[branchIdx]) || "Phú Lợi",
       itemCode,
       sapoSold,
@@ -2004,28 +2381,63 @@ function getInternalMoveFields(source) {
   ];
 }
 
+function getFilteredAdjustmentLogs() {
+  const fBranch  = document.getElementById("adjFilterBranch")?.value  || "Tất cả";
+  const fType    = document.getElementById("adjFilterType")?.value    || "all";
+  const fUser    = (document.getElementById("adjFilterUser")?.value   || "").trim().toLowerCase();
+  const fDateFrom = document.getElementById("adjFilterDateFrom")?.value || ""; // YYYY-MM-DD
+  const fDateTo   = document.getElementById("adjFilterDateTo")?.value  || ""; // YYYY-MM-DD
+  return adjustmentsLog.filter(r => {
+    if (fBranch !== "Tất cả" && r.branch !== fBranch) return false;
+    if (fType   !== "all"    && r.type   !== fType)   return false;
+    if (fUser   && !((r.user || "").toLowerCase().includes(fUser))) return false;
+    // Lọc theo ngày kinh doanh (closeDate dạng DD/MM/YYYY)
+    if (fDateFrom || fDateTo) {
+      const iso = displayToIso(r.closeDate || ""); // chuyển sang YYYY-MM-DD
+      if (fDateFrom && iso < fDateFrom) return false;
+      if (fDateTo   && iso > fDateTo)   return false;
+    }
+    return true;
+  });
+}
+
 function renderAdjustments() {
   const canDelete = userCanDeleteLogs();
   const ROLLBACK_TYPES = ["Nạp Gói ra", "Nạp Hủy giỏ", "Nạp Sapo", "Nạp Tồn CN", "Sửa SL"];
+
+  // ── Cập nhật bộ lọc loại nếu select đang trống ──────────────────────────
+  const typeEl = document.getElementById("adjFilterType");
+  if (typeEl && typeEl.options.length <= 1) {
+    const types = [...new Set(adjustmentsLog.map(r => r.type).filter(Boolean))];
+    typeEl.innerHTML = `<option value="all">Tất cả loại</option>` +
+      types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+  }
+
+  const visibleLogs = getFilteredAdjustmentLogs();
+  // rebuild index map so showLogDetail/rollbackLog still work on original array
+  const idxMap = visibleLogs.map(v => adjustmentsLog.indexOf(v));
+
   const cols = [
-    { key: "_view", render: (r, idx) => `<button onclick="showLogDetail(${idx})" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Xem chi tiết nhập liệu">Xem</button>` },
-    { key: "createdAt", render: r => r.createdAt || "" },
+    { key: "_view",      render: (r, i) => `<button onclick="showLogDetail(${idxMap[i]})" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Xem chi tiết nhập liệu">Xem</button>` },
+    { key: "createdAt",  render: r => r.createdAt || "" },
     { key: "closeDate" },
     { key: "branch" },
-    { key: "type", render: r => r.source ? `${r.type}<br><span class="muted">Nguồn: ${formatSourceName(r.source)}</span>` : r.type },
-    { key: "wrongCode", render: r => `<b>${r.wrongCode}</b>` },
-    { key: "rightCode", render: r => `<b>${r.rightCode}</b>` },
-    { key: "qty", right: true },
-    { key: "user", render: r => r.user || "" },
-    { key: "status", render: r => r.status || "" },
+    { key: "type",       render: r => r.source ? `${r.type}<br><span class="muted">Nguồn: ${formatSourceName(r.source)}</span>` : r.type },
+    { key: "wrongCode",  render: r => `<b>${r.wrongCode}</b>` },
+    { key: "rightCode",  render: r => `<b>${r.rightCode}</b>` },
+    { key: "qty",        right: true },
+    { key: "user",       render: r => r.user || "" },
+    { key: "status",     render: r => r.status || "" },
     { key: "note" }
   ];
   if (canDelete) {
-    cols.push({ key: "_action", render: (r, idx) => ROLLBACK_TYPES.includes(r.type) ? `<button onclick="rollbackLog(${idx})" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Hoàn tác và xóa thao tác này">Hoàn tác</button>` : "" });
+    cols.push({ key: "_action", render: (r, i) => ROLLBACK_TYPES.includes(r.type)
+      ? `<button onclick="rollbackLog(${idxMap[i]})" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;" title="Hoàn tác và xóa thao tác này">Hoàn tác</button>`
+      : "" });
   }
   const thEl = document.getElementById("adjustmentThaoTacTh");
   if (thEl) thEl.style.display = canDelete ? "" : "none";
-  renderPreview("adjustmentRows", adjustmentsLog, cols, "Chưa có điều chỉnh/đề xuất.");
+  renderPreview("adjustmentRows", visibleLogs, cols, "Chưa có điều chỉnh/đề xuất.");
 }
 
 function parseLogDetail(detail) {
@@ -2649,14 +3061,22 @@ window.bootNxt = async function (user) {
   } catch (e) {
     console.warn("Không kết nối được API, dùng dữ liệu rỗng.", e);
   }
-  // Thêm đoạn này vào cuối hàm window.bootNxt hoặc trước khi render dữ liệu
-  const todayIso = new Date().toISOString().split('T')[0]; // Kết quả dạng: YYYY-MM-DD
+  // Lấy ngày hôm nay theo giờ địa phương (tránh lệch UTC)
+  const _now = new Date();
+  const todayIso = new Date(_now.getTime() - _now.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
-  // Tự động điền vào các ô nhập ngày
+  // Tự động điền vào các ô nhập ngày nếu chưa có giá trị
   ["giftInDate", "stockDate", "cancelDate", "wrongCodeDate", "dateFrom", "dateTo", "sapoPendingDate"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.value = todayIso;
+    if (el && !el.value) el.value = todayIso;
   });
+
+  // Bind bộ lọc lịch sử điều chỉnh
+  ["adjFilterBranch", "adjFilterType", "adjFilterUser", "adjFilterDateFrom", "adjFilterDateTo"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", renderAdjustments);
+    document.getElementById(id)?.addEventListener("input",  renderAdjustments);
+  });
+
   renderDashboardByPermission();
   renderAdjustments();
   renderSapoPendingCards();

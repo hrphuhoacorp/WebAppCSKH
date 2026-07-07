@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>PRD — Web Nội Bộ · PhuHoa Fresh</title>
+<style>
+  @page { margin: 2.5cm 2cm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.65; background: #fff; }
+
+  /* ── Cover ── */
+  .cover {
+    page-break-after: always;
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 60px 40px;
+    background: linear-gradient(160deg, #052e16 0%, #14532d 55%, #166534 100%);
+    color: #fff;
+  }
+  .cover-logo { font-size: 72px; margin-bottom: 24px; }
+  .cover-label { font-size: 10pt; letter-spacing: 4px; text-transform: uppercase; opacity: .6; margin-bottom: 10px; }
+  .cover-title { font-size: 30pt; font-weight: 800; margin-bottom: 6px; }
+  .cover-sub   { font-size: 14pt; opacity: .8; margin-bottom: 36px; font-weight: 300; }
+  .cover-divider { width: 60px; height: 3px; background: #4ade80; border-radius: 2px; margin: 0 auto 32px; }
+  .cover-meta { font-size: 10pt; opacity: .65; line-height: 2.2; }
+  .cover-badge { display: inline-block; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: 5px 18px; font-size: 9.5pt; margin: 3px; }
+
+  /* ── TOC ── */
+  .toc { page-break-after: always; padding: 50px 50px; }
+  .toc-title { font-size: 20pt; color: #14532d; font-weight: 800; margin-bottom: 8px; }
+  .toc-subtitle { font-size: 10pt; color: #6b7280; margin-bottom: 28px; }
+  .toc-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px dotted #d1d5db; }
+  .toc-row.h1 { font-weight: 700; color: #14532d; font-size: 11pt; margin-top: 10px; }
+  .toc-row.h2 { padding-left: 22px; color: #374151; font-size: 10.5pt; }
+  .toc-num { color: #9ca3af; font-size: 9.5pt; }
+
+  /* ── Sections ── */
+  .section { padding: 24px 50px 10px; }
+  .pb { page-break-before: always; }
+
+  h1.s { font-size: 17pt; color: #14532d; border-left: 5px solid #16a34a; padding-left: 14px; margin: 36px 0 18px; }
+  h2.s { font-size: 12.5pt; color: #166534; border-bottom: 1.5px solid #bbf7d0; padding-bottom: 5px; margin: 22px 0 12px; }
+  h3.s { font-size: 11pt; color: #1f2937; font-weight: 700; margin: 16px 0 8px; }
+
+  p { margin-bottom: 9px; }
+  ul, ol { margin: 8px 0 12px 22px; }
+  li { margin-bottom: 5px; }
+
+  /* ── Callout ── */
+  .note { border-radius: 8px; padding: 14px 18px; margin: 14px 0; font-size: 10.5pt; }
+  .note-green  { background: #f0fdf4; border-left: 4px solid #16a34a; }
+  .note-blue   { background: #eff6ff; border-left: 4px solid #2563eb; }
+  .note-amber  { background: #fffbeb; border-left: 4px solid #d97706; }
+  .note-red    { background: #fff1f2; border-left: 4px solid #e11d48; }
+  .note-gray   { background: #f8fafc; border-left: 4px solid #94a3b8; }
+
+  /* ── Before / After ── */
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
+  .ba-box { border-radius: 10px; padding: 18px; }
+  .ba-before { background: #fff1f2; border: 1.5px solid #fda4af; }
+  .ba-after  { background: #f0fdf4; border: 1.5px solid #86efac; }
+  .ba-title { font-weight: 800; font-size: 10.5pt; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .ba-before .ba-title { color: #be123c; }
+  .ba-after  .ba-title { color: #15803d; }
+  .ba-item { font-size: 10pt; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,.06); display: flex; gap: 8px; align-items: flex-start; }
+  .ba-item:last-child { border: none; }
+
+  /* ── Actor cards ── */
+  .actor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 14px 0; }
+  .actor-card { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 14px 12px; text-align: center; }
+  .actor-icon { font-size: 28px; margin-bottom: 6px; }
+  .actor-name { font-weight: 700; font-size: 9.5pt; color: #14532d; margin-bottom: 4px; }
+  .actor-role { font-size: 8.5pt; color: #6b7280; line-height: 1.4; }
+
+  /* ── Feature matrix ── */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 9.5pt; }
+  th { background: #14532d; color: #fff; padding: 8px 12px; text-align: left; font-weight: 700; }
+  td { padding: 7px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .check { color: #16a34a; font-weight: 700; }
+  .dash  { color: #d1d5db; }
+
+  /* ── Workflow ── */
+  .flow-wrap { margin: 14px 0; }
+  .flow-step { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 0; }
+  .flow-step:last-child .flow-line { display: none; }
+  .flow-left { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  .flow-dot  { width: 32px; height: 32px; border-radius: 50%; background: #14532d; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10pt; flex-shrink: 0; }
+  .flow-line { width: 2px; background: #bbf7d0; flex: 1; min-height: 24px; margin: 0 auto; }
+  .flow-content { padding-top: 5px; padding-bottom: 18px; }
+  .flow-content strong { display: block; color: #14532d; margin-bottom: 2px; }
+  .flow-content span { font-size: 9.5pt; color: #4b5563; }
+
+  /* ── KPI cards ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 14px 0; }
+  .kpi-card { border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 18px 16px; text-align: center; background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+  .kpi-num  { font-size: 26pt; font-weight: 900; color: #15803d; line-height: 1; }
+  .kpi-unit { font-size: 10pt; color: #166534; font-weight: 600; margin-bottom: 6px; }
+  .kpi-desc { font-size: 9pt; color: #4b5563; line-height: 1.4; }
+
+  /* ── Tag ── */
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 8pt; font-weight: 700; }
+  .t-green  { background: #dcfce7; color: #15803d; }
+  .t-blue   { background: #dbeafe; color: #1d4ed8; }
+  .t-purple { background: #f3e8ff; color: #7c3aed; }
+  .t-amber  { background: #fef3c7; color: #b45309; }
+
+  /* ── Footer ── */
+  .footer { border-top: 1px solid #e5e7eb; margin: 40px 50px 0; padding: 16px 0; font-size: 9pt; color: #9ca3af; text-align: center; }
+
+  @media print {
+    .cover, .ba-before, .ba-after, .kpi-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ COVER ═══════════════════ -->
+<div class="cover">
+  <div class="cover-logo">🎁</div>
+  <div class="cover-label">Product Requirements Document</div>
+  <div class="cover-title">Web Nội Bộ</div>
+  <div class="cover-sub">Hệ thống quản trị vận hành nội bộ</div>
+  <div class="cover-divider"></div>
+  <div style="margin-bottom:28px">
+    <span class="cover-badge">v1.0</span>
+    <span class="cover-badge">PhuHoa Fresh</span>
+    <span class="cover-badge">Nội bộ — Không phát hành</span>
+  </div>
+  <div class="cover-meta">
+    Đơn vị: PhuHoa Fresh<br>
+    Quy mô: ~30–40 nhân viên · Kinh doanh giỏ quà & thực phẩm<br>
+    Phiên bản tài liệu: 1.0 · Tháng 7 / 2026
+  </div>
+</div>
+
+<!-- ═══════════════════ TOC ═══════════════════ -->
+<div class="toc">
+  <div class="toc-title">Mục lục</div>
+  <div class="toc-subtitle">Product Requirements Document — Web Nội Bộ</div>
+
+  <div class="toc-row h1"><span>1. Tổng quan dự án</span><span class="toc-num">3</span></div>
+  <div class="toc-row h2"><span>1.1 Mục tiêu</span><span class="toc-num">3</span></div>
+  <div class="toc-row h2"><span>1.2 Phạm vi áp dụng</span><span class="toc-num">3</span></div>
+
+  <div class="toc-row h1"><span>2. Bối cảnh & Vấn đề cần giải quyết</span><span class="toc-num">4</span></div>
+  <div class="toc-row h2"><span>2.1 Tình trạng trước khi có ứng dụng</span><span class="toc-num">4</span></div>
+  <div class="toc-row h2"><span>2.2 Kỳ vọng sau khi triển khai</span><span class="toc-num">4</span></div>
+
+  <div class="toc-row h1"><span>3. Đối tượng sử dụng (Actors)</span><span class="toc-num">5</span></div>
+
+  <div class="toc-row h1"><span>4. Sơ đồ chức năng theo vai trò</span><span class="toc-num">6</span></div>
+  <div class="toc-row h2"><span>4.1 Module 1 — Chăm sóc khách hàng (CSKH)</span><span class="toc-num">6</span></div>
+  <div class="toc-row h2"><span>4.2 Module 2 — Giỏ quà</span><span class="toc-num">6</span></div>
+  <div class="toc-row h2"><span>4.3 Module 3 — Văn phòng phẩm (VPP)</span><span class="toc-num">7</span></div>
+  <div class="toc-row h2"><span>4.4 Module 4 — Nhân sự & Tuyển dụng</span><span class="toc-num">7</span></div>
+  <div class="toc-row h2"><span>4.5 Module 5 — Bán hàng & Phân tích kinh doanh</span><span class="toc-num">8</span></div>
+  <div class="toc-row h2"><span>4.6 Module 6 — Truyền thông nội bộ</span><span class="toc-num">8</span></div>
+  <div class="toc-row h2"><span>4.7 Module 7 — Tiện ích & Công cụ hỗ trợ</span><span class="toc-num">8</span></div>
+
+  <div class="toc-row h1"><span>5. Luồng vận hành nghiệp vụ chính</span><span class="toc-num">9</span></div>
+  <div class="toc-row h2"><span>5.1 Luồng xử lý đơn hàng CSKH</span><span class="toc-num">9</span></div>
+  <div class="toc-row h2"><span>5.2 Luồng kiểm kho giỏ quà (NXT)</span><span class="toc-num">9</span></div>
+  <div class="toc-row h2"><span>5.3 Luồng đổi mã giỏ quà</span><span class="toc-num">10</span></div>
+  <div class="toc-row h2"><span>5.4 Luồng cấp phát văn phòng phẩm (VPP)</span><span class="toc-num">10</span></div>
+  <div class="toc-row h2"><span>5.5 Luồng tuyển dụng</span><span class="toc-num">11</span></div>
+  <div class="toc-row h2"><span>5.6 Luồng đăng tin nội bộ</span><span class="toc-num">11</span></div>
+
+  <div class="toc-row h1"><span>6. Kết quả & Giá trị kỳ vọng (KPI)</span><span class="toc-num">11</span></div>
+
+  <div class="toc-row h1"><span>7. Phạm vi phiên bản & Lộ trình</span><span class="toc-num">12</span></div>
+</div>
+
+<!-- ═══════════════════ 1. TỔNG QUAN ═══════════════════ -->
+<div class="section pb">
+<h1 class="s">1. Tổng quan dự án</h1>
+
+<h2 class="s">1.1 Mục tiêu</h2>
+<p>
+  <strong>Web Nội Bộ</strong> là hệ thống quản trị vận hành nội bộ được xây dựng nhằm <strong>số hoá toàn bộ quy trình làm việc thủ công</strong> của PhuHoa Fresh — từ chăm sóc khách hàng, quản lý đơn hàng, kiểm kho giỏ quà, cấp phát văn phòng phẩm, đến tuyển dụng và truyền thông nội bộ.
+</p>
+<p>
+  Thay vì vận hành phân tán qua nhiều Google Sheet, email và thao tác thủ công mỗi ngày, toàn bộ nhân viên sẽ làm việc trên <strong>một nền tảng tập trung duy nhất</strong> — có kiểm soát truy cập, lưu lịch sử và sinh báo cáo tự động.
+</p>
+
+<div class="note note-green">
+  <strong>Tầm nhìn sản phẩm:</strong> Khi Web Nội Bộ hoàn thiện, mọi quyết định quản lý — từ doanh thu, tồn kho giỏ quà đến hiệu suất nhân sự — đều có thể tra cứu trong vòng dưới 30 giây, thay vì mất hàng giờ tổng hợp Excel.
+</div>
+
+<h2 class="s">1.2 Phạm vi áp dụng</h2>
+<table>
+  <tr><th>Thông tin</th><th>Chi tiết</th></tr>
+  <tr><td><strong>Đơn vị triển khai</strong></td><td>PhuHoa Fresh — Kinh doanh giỏ quà & thực phẩm</td></tr>
+  <tr><td><strong>Quy mô nhân sự</strong></td><td>30 – 40 nhân viên, nhiều phòng ban</td></tr>
+  <tr><td><strong>Môi trường</strong></td><td>Web app (truy cập trình duyệt)</td></tr>
+  <tr><td><strong>Thiết bị hỗ trợ</strong></td><td>PC, Laptop, <i class="fa fa-mobile" aria-hidden="true"></i></td></tr>
+  <tr><td><strong>Ngôn ngữ</strong></td><td>Tiếng Việt</td></tr>
+  <tr><td><strong>Tích hợp bên ngoài</strong></td><td>Sapo POS (import Excel xuất từ Sapo), Gmail SMTP (email tuyển dụng)</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════ 2. BỐI CẢNH ═══════════════════ -->
+<div class="section pb">
+<h1 class="s">2. Bối cảnh & Vấn đề cần giải quyết</h1>
+
+<h2 class="s">2.1 Tình trạng trước khi có ứng dụng</h2>
+
+<div class="ba-grid">
+  <div class="ba-box ba-before">
+    <div class="ba-title">❌ Trước khi có WebApp</div>
+    <div class="ba-item"><span>📊</span><span>Thống kê doanh thu làm thủ công trên Google Sheet, mất 3–5 giờ mỗi tuần, dễ sai số</span></div>
+    <div class="ba-item"><span>🎁</span><span>Kiểm NXT (nhập-xuất-tồn) giỏ quà phải đối chiếu nhiều file Excel riêng biệt giữa các chi nhánh, mỗi tháng mất 2–3 ngày làm việc</span></div>
+    <div class="ba-item"><span>📋</span><span>Đề nghị cấp văn phòng phẩm qua email hoặc giấy tờ, không theo dõi được trạng thái duyệt</span></div>
+    <div class="ba-item"><span>🔄</span><span>Đổi mã giỏ quà giữa các chi nhánh thực hiện qua Zalo/chat, không có lịch sử, dễ nhầm lẫn</span></div>
+    <div class="ba-item"><span>👥</span><span>Quản lý ứng viên tuyển dụng qua Excel, gửi email thủ công từng người, dễ bỏ sót hồ sơ</span></div>
+    <div class="ba-item"><span>📁</span><span>Ảnh giỏ quà lưu rải rác nhiều nơi, khó tìm lại khi cần gửi cho khách hoặc đăng lên kênh bán hàng</span></div>
+    <div class="ba-item"><span>🔐</span><span>Không có kiểm soát quyền truy cập — ai cũng có thể xem được mọi dữ liệu trong sheet dùng chung</span></div>
+    <div class="ba-item"><span>📈</span><span>Không có báo cáo tự động, mỗi lần báo cáo cho ban giám đốc phải tổng hợp từ đầu</span></div>
+  </div>
+
+  <div class="ba-box ba-after">
+    <div class="ba-title">✅ Sau khi có WebApp</div>
+    <div class="ba-item"><span>📊</span><span>Dashboard doanh thu cập nhật tức thì sau mỗi lần import Sapo — xem số liệu mọi lúc</span></div>
+    <div class="ba-item"><span>🎁</span><span>Kiểm NXT giỏ quà trên hệ thống, đối chiếu tự động với dữ liệu Sapo, kết quả trong vòng 2 giờ</span></div>
+    <div class="ba-item"><span>📋</span><span>Đề nghị VPP online, quản lý duyệt/từ chối ngay trên web, nhân viên theo dõi được real-time</span></div>
+    <div class="ba-item"><span>🔄</span><span>Yêu cầu đổi mã có luồng duyệt rõ ràng, lưu lịch sử đầy đủ, có ảnh đính kèm</span></div>
+    <div class="ba-item"><span>👥</span><span>Quản lý ứng viên theo pipeline, gửi email tự động theo template, theo dõi lịch sử từng ứng viên</span></div>
+    <div class="ba-item"><span>📁</span><span>Kho ảnh giỏ quà tập trung, phân thư mục, tìm kiếm nhanh, chia sẻ link</span></div>
+    <div class="ba-item"><span>🔐</span><span>Phân quyền chi tiết theo vai trò — nhân viên chỉ thấy đúng phần việc của mình</span></div>
+    <div class="ba-item"><span>📈</span><span>Báo cáo sẵn sàng mọi lúc — tỉ lệ quay lại, doanh thu theo kênh, tồn kho VPP, chi phí cấp phát</span></div>
+  </div>
+</div>
+
+<h2 class="s">2.2 Kỳ vọng sau khi triển khai</h2>
+<div class="note note-blue">
+  Ứng dụng không thay thế con người — mà <strong>giải phóng thời gian</strong> nhân viên khỏi công việc nhập liệu thủ công, tổng hợp số liệu lặp đi lặp lại, để tập trung vào việc chăm sóc khách hàng và phát triển kinh doanh.
+</div>
+</div>
+
+<!-- ═══════════════════ 3. ACTORS ═══════════════════ -->
+<div class="section pb">
+<h1 class="s">3. Đối tượng sử dụng (Actors)</h1>
+
+<div class="actor-grid">
+  <div class="actor-card">
+    <div class="actor-icon">🎧</div>
+    <div class="actor-name">Nhân viên CSKH</div>
+    <div class="actor-role">Xem & tra cứu đơn hàng, thông tin khách hàng, import dữ liệu từ Sapo</div>
+  </div>
+  <div class="actor-card">
+    <div class="actor-icon">📊</div>
+    <div class="actor-name">Nhân viên Kinh doanh</div>
+    <div class="actor-role">Xem dashboard bán hàng, kiểm NXT giỏ quà, phân tích tỉ lệ quay lại</div>
+  </div>
+  <div class="actor-card">
+    <div class="actor-icon">🎁</div>
+    <div class="actor-name">Nhân viên Giỏ quà</div>
+    <div class="actor-role">Quản lý kho ảnh, tạo yêu cầu đổi mã, cập nhật bảng quy đổi</div>
+  </div>
+  <div class="actor-card">
+    <div class="actor-icon">📦</div>
+    <div class="actor-name">Quản lý VPP</div>
+    <div class="actor-role">Nhập kho, xuất kho, kiểm kho văn phòng phẩm, duyệt đề nghị cấp phát</div>
+  </div>
+  <div class="actor-card">
+    <div class="actor-icon">👤</div>
+    <div class="actor-name">Nhân viên (chung)</div>
+    <div class="actor-role">Tạo đề nghị cấp phát VPP, xem tin tức nội bộ, tra cứu thông tin cá nhân</div>
+  </div>
+  <div class="actor-card">
+    <div class="actor-icon">🧑‍💼</div>
+    <div class="actor-name">Quản lý Nhân sự</div>
+    <div class="actor-role">Quản lý danh sách nhân viên, theo dõi sinh nhật, tuyển dụng & gửi email ứng viên</div>
+  </div>
+  <div class="actor-card">
+    <div class="actor-icon">📰</div>
+    <div class="actor-name">Admin Nội bộ</div>
+    <div class="actor-role">Đăng tin nội bộ, ghim thông báo quan trọng, quản lý phương tiện truyền thông</div>
+  </div>
+  <div class="actor-card">
+    <div class="actor-icon">👑</div>
+    <div class="actor-name">Quản trị hệ thống</div>
+    <div class="actor-role">Tạo tài khoản, phân quyền, reset mật khẩu, xem lịch sử thao tác toàn hệ thống</div>
+  </div>
+</div>
+
+<div class="note note-amber">
+  <strong>Nguyên tắc phân quyền:</strong> Mỗi nhân viên chỉ thấy và thao tác được đúng phần việc của mình. Quản lý có thêm quyền duyệt/từ chối. Admin hệ thống có toàn quyền nhưng mọi thao tác đều được ghi lại nhật ký.
+</div>
+</div>
+
+<!-- ═══════════════════ 4. SƠ ĐỒ CHỨC NĂNG ═══════════════════ -->
+<div class="section pb">
+<h1 class="s">4. Sơ đồ chức năng theo vai trò</h1>
+
+<h2 class="s">Module 1 — Chăm sóc khách hàng (CSKH)</h2>
+<table>
+  <tr><th>Chức năng</th><th>CSKH</th><th>Kinh doanh</th><th>Quản trị</th></tr>
+  <tr><td>Import đơn hàng từ file Excel Sapo</td><td class="check">✔</td><td class="dash">—</td><td class="check">✔</td></tr>
+  <tr><td>Xem dashboard doanh thu CSKH (online)</td><td class="check">✔</td><td class="dash">—</td><td class="check">✔</td></tr>
+  <tr><td>Xem dashboard bán hàng (offline)</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Tra cứu đơn hàng (filter, tìm kiếm)</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xem chi tiết từng đơn hàng & sản phẩm</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Tra cứu khách hàng, lịch sử mua</td><td class="check">✔</td><td class="dash">—</td><td class="check">✔</td></tr>
+  <tr><td>Phân tích tỉ lệ quay lại, phân khúc KH</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Hoàn tác / khôi phục đợt import</td><td class="dash">—</td><td class="dash">—</td><td class="check">✔</td></tr>
+</table>
+
+<h2 class="s">Module 2 — Giỏ quà</h2>
+<table>
+  <tr><th>Chức năng</th><th>Nhân viên GQ</th><th>Kinh doanh</th><th>Quản trị</th></tr>
+  <tr><td>Kho ảnh giỏ quà (xem, upload, tổ chức thư mục)</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Bảng quy đổi mã giỏ quà</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Tạo yêu cầu đổi mã</td><td class="check">✔</td><td class="dash">—</td><td class="check">✔</td></tr>
+  <tr><td>Duyệt / từ chối yêu cầu đổi mã</td><td class="dash">—</td><td class="dash">—</td><td class="check">✔</td></tr>
+  <tr><td>Kiểm NXT giỏ quà (đối chiếu Sapo)</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xuất báo cáo đổi mã (.CSV)</td><td class="dash">—</td><td class="dash">—</td><td class="check">✔</td></tr>
+</table>
+
+<h2 class="s">Module 3 — Văn phòng phẩm (VPP)</h2>
+<table>
+  <tr><th>Chức năng</th><th>Nhân viên</th><th>QL VPP</th><th>Quản trị</th></tr>
+  <tr><td>Tạo đề nghị cấp phát VPP (online)</td><td class="check">✔</td><td class="dash">—</td><td class="check">✔</td></tr>
+  <tr><td>Duyệt / từ chối đề nghị cấp phát</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Quản lý danh mục VPP (thêm, sửa, xóa)</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Nhập kho (lập phiếu nhập, upload hóa đơn)</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xuất kho (lập phiếu xuất)</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Kiểm kho định kỳ</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xem báo cáo tồn kho theo kỳ</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+</table>
+
+<h2 class="s">Module 4 — Nhân sự & Tuyển dụng</h2>
+<table>
+  <tr><th>Chức năng</th><th>Nhân viên</th><th>QL Nhân sự</th><th>Quản trị</th></tr>
+  <tr><td>Xem thông tin cá nhân, đổi mật khẩu</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xem danh sách nhân viên</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Import nhân sự từ Excel</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xem lịch sinh nhật nhân viên</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Quản lý đợt tuyển dụng</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Quản lý ứng viên & pipeline tuyển dụng</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Gửi email mời phỏng vấn / thông báo kết quả</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Cấu hình template email & thông tin liên hệ</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Tạo tài khoản, phân quyền</td><td class="dash">—</td><td class="dash">—</td><td class="check">✔</td></tr>
+  <tr><td>Xem lịch sử thao tác hệ thống</td><td class="dash">—</td><td class="dash">—</td><td class="check">✔</td></tr>
+</table>
+
+<h2 class="s">Module 5 — Bán hàng & Phân tích kinh doanh</h2>
+<p style="font-size:9.5pt;color:#6b7280;margin-bottom:8px">Dành riêng cho đội Kinh doanh — tập trung vào phân tích doanh số và kiểm soát hàng tồn kho giỏ quà.</p>
+<table>
+  <tr><th>Chức năng</th><th>NV Kinh doanh</th><th>QL Kinh doanh</th><th>Quản trị</th></tr>
+  <tr><td>Dashboard tổng quan doanh thu bán hàng (offline)</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xem & tra cứu danh sách đơn hàng bán</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Import dữ liệu từ Sapo vào bảng phân tích</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Kiểm NXT giỏ quà — nhập số tồn từng chi nhánh</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Đối chiếu tồn kho lý thuyết vs thực tế</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Quản lý hàng chờ xử lý Sapo (pending)</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xem báo cáo tỉ lệ khách hàng quay lại</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Phân tích doanh thu theo kênh / chi nhánh / mã hàng</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+</table>
+
+<h2 class="s">Module 6 — Truyền thông nội bộ</h2>
+<p style="font-size:9.5pt;color:#6b7280;margin-bottom:8px">Kênh thông tin chính thức trong nội bộ công ty — thay thế group chat rời rạc bằng bảng tin tập trung.</p>
+<table>
+  <tr><th>Chức năng</th><th>Toàn nhân viên</th><th>Admin Nội bộ</th><th>Quản trị</th></tr>
+  <tr><td>Xem bảng tin nội bộ (thông báo, cập nhật)</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xem bài đã ghim (thông báo quan trọng)</td><td class="check">✔</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Soạn & đăng bài viết nội bộ</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Ghim / bỏ ghim bài viết</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Xuất bản / lưu nháp bài viết</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Upload ảnh/video đính kèm bài viết</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+  <tr><td>Quản lý kho media (ảnh, video) theo thư mục</td><td class="dash">—</td><td class="check">✔</td><td class="check">✔</td></tr>
+</table>
+
+<h2 class="s">Module 7 — Tiện ích & Công cụ hỗ trợ</h2>
+<p style="font-size:9.5pt;color:#6b7280;margin-bottom:8px">Nhóm công cụ hỗ trợ nghiệp vụ hàng ngày — không yêu cầu phân quyền đặc biệt, mọi nhân viên đều dùng được.</p>
+<table>
+  <tr><th>Chức năng</th><th>Toàn nhân viên</th><th>Ghi chú</th></tr>
+  <tr><td>Kiểm tra mã hàng Sapo (phát hiện lỗi SKU, đơn vị, thuế)</td><td class="check">✔</td><td>Công cụ độc lập, chạy trực tiếp trên trình duyệt, không cần đăng nhập</td></tr>
+  <tr><td>Tạo đề nghị cấp phát văn phòng phẩm VPP</td><td class="check">✔</td><td>Nhân viên gửi đề nghị, hiển thị tồn kho thực tế trước khi nhập số lượng</td></tr>
+  <tr><td>Tổng hợp link truy cập nhanh</td><td class="check">✔</td><td>Trang tập hợp các đường dẫn nội bộ hay dùng (PHF Stack, biểu mẫu...)</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════ 5. LUỒNG VẬN HÀNH ═══════════════════ -->
+<div class="section pb">
+<h1 class="s">5. Luồng vận hành nghiệp vụ chính</h1>
+
+<h2 class="s">5.1 Luồng xử lý đơn hàng CSKH</h2>
+<p><span class="tag t-blue">Vai trò</span> Nhân viên CSKH · Tần suất: Hàng ngày</p>
+<div class="flow-wrap" style="margin-top:14px">
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">1</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Xuất file Excel từ Sapo POS</strong><span>Nhân viên xuất báo cáo đơn hàng từ hệ thống Sapo về file .xlsx theo ngày/tuần.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">2</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Upload lên WebApp → Hệ thống import tự động</strong><span>Hệ thống đọc file, kiểm tra trùng lặp (hash file), xử lý từng đơn và hiển thị thanh tiến độ realtime.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">3</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Dữ liệu cập nhật vào hệ thống</strong><span>Khách hàng được tạo/cập nhật tự động. Đơn hàng và chi tiết sản phẩm lưu vào database.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">4</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Dashboard tự động cập nhật</strong><span>Doanh thu, số đơn, top sản phẩm, tỉ lệ quay lại — sẵn sàng xem ngay, không cần tổng hợp thêm.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">5</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Hoàn tác nếu nhầm file (rollback)</strong><span>Nếu import nhầm dữ liệu, Quản trị viên có thể rollback nguyên đợt mà không ảnh hưởng dữ liệu khác.</span></div>
+  </div>
+</div>
+
+<h2 class="s">5.2 Luồng kiểm kho giỏ quà (NXT)</h2>
+<p><span class="tag t-green">Vai trò</span> Nhân viên Kinh doanh · Tần suất: Cuối tháng</p>
+<div class="flow-wrap" style="margin-top:14px">
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">1</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Nhập số liệu tồn đầu kỳ từng chi nhánh</strong><span>Nhân viên nhập số tồn đầu, số nhập từ nhà kho, nhận/chuyển giữa chi nhánh lên hệ thống.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">2</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Hệ thống lấy doanh số bán từ Sapo</strong><span>Số lượng bán theo mã hàng được lấy tự động từ dữ liệu Sapo đã import — không cần nhập lại.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">3</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Đối chiếu tự động: Tồn sổ sách vs. Thực tế</strong><span>Hệ thống tính tồn lý thuyết = Tồn đầu + Nhập − Bán − Xuất. Hiển thị chênh lệch ngay trên màn hình.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">4</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Ghi chú hàng chờ xử lý (pending)</strong><span>Những mã có chênh lệch chưa rõ nguyên nhân được đánh dấu "pending" để xử lý tiếp.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">5</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Xác nhận hoàn tất kiểm kho</strong><span>Sau khi xử lý hết pending, nhân viên xác nhận — hệ thống lưu kết quả kiểm kho tháng đó.</span></div>
+  </div>
+</div>
+
+<h2 class="s">5.3 Luồng đổi mã giỏ quà</h2>
+<p><span class="tag t-purple">Vai trò</span> Nhân viên GQ tạo → Quản trị duyệt · Tần suất: Định kỳ theo mùa</p>
+<div class="flow-wrap" style="margin-top:14px">
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">1</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Nhân viên tạo yêu cầu đổi mã</strong><span>Chọn mã cũ → nhập mã mới → upload ảnh giỏ quà trước/sau → gửi yêu cầu lên hệ thống.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">2</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Quản trị nhận thông báo & duyệt</strong><span>Quản trị xem danh sách yêu cầu, kiểm tra ảnh, duyệt hoặc từ chối với lý do.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">3</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Bảng quy đổi mã cập nhật tự động</strong><span>Sau khi duyệt, mã mới được cập nhật vào bảng quy đổi — tất cả chi nhánh thấy ngay.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">4</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Lịch sử lưu vết đầy đủ</strong><span>Mọi thay đổi mã đều ghi lại: ai yêu cầu, ai duyệt, ngày giờ, ảnh đính kèm — có thể tra cứu bất kỳ lúc nào.</span></div>
+  </div>
+</div>
+
+<h2 class="s">5.4 Luồng cấp phát văn phòng phẩm (VPP)</h2>
+<p><span class="tag t-amber">Vai trò</span> Nhân viên tạo → QL VPP duyệt → Xuất kho · Tần suất: Theo nhu cầu</p>
+<div class="flow-wrap" style="margin-top:14px">
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">1</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Nhân viên tạo đề nghị cấp phát online</strong><span>Chọn vật tư cần từ danh mục, nhập số lượng (có hiển thị tồn kho hiện tại), điền lý do → gửi đề nghị.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">2</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Quản lý VPP xem xét & duyệt</strong><span>Xem danh sách đề nghị pending, kiểm tra tồn kho, duyệt hoặc từ chối kèm ghi chú.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">3</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Lập phiếu xuất kho từ đề nghị đã duyệt</strong><span>Hệ thống tự điền thông tin vào phiếu xuất — quản lý chỉ cần xác nhận, tồn kho giảm tự động.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">4</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Nhân viên theo dõi trạng thái đề nghị</strong><span>Mọi đề nghị đều hiển thị trạng thái (Chờ duyệt / Đã duyệt / Từ chối) — không cần hỏi lại qua chat.</span></div>
+  </div>
+</div>
+
+<h2 class="s">5.5 Luồng tuyển dụng</h2>
+<p><span class="tag t-blue">Vai trò</span> Quản lý Nhân sự · Tần suất: Theo đợt tuyển dụng</p>
+<div class="flow-wrap" style="margin-top:14px">
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">1</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Tạo đợt tuyển dụng</strong><span>Nhập tên vị trí, số lượng cần, ngày mở/đóng tuyển, nội dung tin đăng, yêu cầu công việc.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">2</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Thêm ứng viên vào pipeline</strong><span>Nhập thông tin ứng viên, đính kèm CV, chọn nguồn (Facebook, giới thiệu, walk-in…).</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">3</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Gửi email mời phỏng vấn tự động</strong><span>Chọn ứng viên → chọn template → hệ thống gửi email cá nhân hoá với thời gian, địa điểm PV.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">4</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Cập nhật kết quả & gửi email kết quả</strong><span>Đánh dấu đậu/rớt/hold → gửi email kết quả. Mọi thay đổi trạng thái lưu vào lịch sử ứng viên.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">5</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Onboard → tạo tài khoản hệ thống</strong><span>Ứng viên được tuyển dụng chuyển thành nhân viên, Admin tạo tài khoản hệ thống và phân quyền phù hợp.</span></div>
+  </div>
+</div>
+
+<h2 class="s">5.6 Luồng đăng tin nội bộ</h2>
+<p><span class="tag t-purple">Vai trò</span> Admin Nội bộ · Tần suất: Theo sự kiện / thông báo công ty</p>
+<div class="flow-wrap" style="margin-top:14px">
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">1</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Soạn bài viết & upload hình ảnh/video</strong><span>Admin soạn nội dung, đính kèm ảnh từ kho media hoặc upload file mới, chọn loại bài (Thông báo / Cập nhật).</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">2</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Lưu nháp hoặc xuất bản ngay</strong><span>Có thể lưu nháp để chỉnh sửa sau, hoặc xuất bản ngay — bài sẽ hiện lên bảng tin toàn nhân viên.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">3</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Ghim bài quan trọng lên đầu</strong><span>Thông báo khẩn, chính sách mới có thể được ghim — luôn hiển thị đầu tiên cho tất cả nhân viên khi vào hệ thống.</span></div>
+  </div>
+  <div class="flow-step">
+    <div class="flow-left"><div class="flow-dot">4</div><div class="flow-line"></div></div>
+    <div class="flow-content"><strong>Nhân viên đọc tin & xem số lượt xem</strong><span>Toàn bộ nhân viên thấy bài trên bảng tin. Admin theo dõi được số lượt xem từng bài để đánh giá mức độ tiếp cận.</span></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════ 6. KPI ═══════════════════ -->
+<div class="section pb">
+<h1 class="s">6. Kết quả & Giá trị kỳ vọng (KPI)</h1>
+
+<h2 class="s">Tiết kiệm thời gian vận hành</h2>
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-num">80<span style="font-size:16pt">%</span></div>
+    <div class="kpi-unit">↓ Thời gian tổng hợp báo cáo</div>
+    <div class="kpi-desc">Từ 3–5 giờ/tuần tổng hợp Excel → Dashboard sẵn sàng ngay sau mỗi lần import Sapo</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">3 ngày<br><span style="font-size:16pt">→ 2 giờ</span></div>
+    <div class="kpi-unit">⚡ Kiểm NXT giỏ quà</div>
+    <div class="kpi-desc">Từ 2–3 ngày đối chiếu thủ công nhiều file → Hoàn thành trong buổi sáng, có kết quả ngay</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">100<span style="font-size:16pt">%</span></div>
+    <div class="kpi-unit">✓ Đề nghị VPP được theo dõi</div>
+    <div class="kpi-desc">Không còn email/giấy tờ thất lạc — mọi đề nghị đều có trạng thái rõ ràng, tra cứu được</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">0</div>
+    <div class="kpi-unit">Nhầm lẫn đổi mã giỏ quà</div>
+    <div class="kpi-desc">Thay thế hoàn toàn việc trao đổi qua Zalo — luồng duyệt có kiểm soát, lưu vết ảnh đính kèm</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">&lt;5s</div>
+    <div class="kpi-unit">Tìm kiếm thông tin khách hàng</div>
+    <div class="kpi-desc">Từ tra thủ công nhiều sheet → search theo tên/SĐT/mã đơn, có kết quả tức thì</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-num">1 ngày</div>
+    <div class="kpi-unit">Chu kỳ duyệt VPP</div>
+    <div class="kpi-desc">Từ không rõ thời gian duyệt → đề nghị được xem xét trong ngày làm việc, có thông báo kết quả</div>
+  </div>
+</div>
+
+<h2 class="s">Giá trị quản lý dài hạn</h2>
+<table>
+  <tr><th>Giá trị</th><th>Mô tả</th></tr>
+  <tr><td><strong>Tập trung dữ liệu</strong></td><td>Toàn bộ dữ liệu vận hành (đơn hàng, tồn kho, nhân sự, tuyển dụng) nằm trong một hệ thống — không còn dữ liệu phân tán, không lo mất file</td></tr>
+  <tr><td><strong>Kiểm soát truy cập</strong></td><td>Phân quyền chi tiết — nhân viên chỉ thấy đúng phần việc của mình, quản lý có góc nhìn toàn cảnh</td></tr>
+  <tr><td><strong>Lịch sử & kiểm toán</strong></td><td>Mọi thao tác quan trọng đều ghi nhật ký: ai làm gì, lúc nào — có thể tra cứu khi cần giải trình</td></tr>
+  <tr><td><strong>Phân tích khách hàng</strong></td><td>Hệ thống tự động phân khúc KH (loyal / at-risk / new), tính tỉ lệ quay lại — thông tin để đội CSKH hành động</td></tr>
+  <tr><td><strong>Nền tảng mở rộng</strong></td><td>Khi công ty lớn thêm (thêm chi nhánh, thêm nhân sự), hệ thống có thể mở rộng mà không cần thiết kế lại</td></tr>
+  <tr><td><strong>Giảm phụ thuộc Google Sheet</strong></td><td>Giảm rủi ro mất quyền truy cập, lỗi công thức, xung đột chỉnh sửa — vốn là điểm yếu của Google Sheet quy mô lớn</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════ 7. LỘ TRÌNH ═══════════════════ -->
+<div class="section pb">
+<h1 class="s">7. Phạm vi phiên bản & Lộ trình</h1>
+
+<h2 class="s">Phiên bản 1.0 — Hiện tại (đang triển khai)</h2>
+<div class="note note-green">
+  Toàn bộ các module dưới đây đã được phát triển và đang trong quá trình vận hành thực tế.
+</div>
+<table>
+  <tr><th>Module</th><th>Trạng thái</th><th>Ghi chú</th></tr>
+  <tr><td>Đăng nhập & phân quyền theo vai trò</td><td><span class="tag t-green">Hoàn thành</span></td><td>JWT, phân quyền 53 code, RBAC + user-level</td></tr>
+  <tr><td>Dashboard & quản lý đơn hàng CSKH</td><td><span class="tag t-green">Hoàn thành</span></td><td>Import Excel Sapo, realtime progress, rollback</td></tr>
+  <tr><td>Quản lý khách hàng & phân tích tỉ lệ quay lại</td><td><span class="tag t-green">Hoàn thành</span></td><td>Phân khúc KH, biểu đồ quay lại</td></tr>
+  <tr><td>Dashboard bán hàng (offline)</td><td><span class="tag t-green">Hoàn thành</span></td><td>Sapo import, NXT giỏ quà</td></tr>
+  <tr><td>Quản lý giỏ quà & kho ảnh</td><td><span class="tag t-green">Hoàn thành</span></td><td>Media manager, bảng quy đổi, yêu cầu đổi mã</td></tr>
+  <tr><td>Kiểm NXT giỏ quà (đối chiếu Sapo)</td><td><span class="tag t-green">Hoàn thành</span></td><td>Bảng NXT, pending, ghi chú</td></tr>
+  <tr><td>VPP — Danh mục, Nhập kho, Xuất kho</td><td><span class="tag t-green">Hoàn thành</span></td><td>9 bảng DB, 6 controller</td></tr>
+  <tr><td>VPP — Kiểm kho, Tồn kho, Báo cáo</td><td><span class="tag t-green">Hoàn thành</span></td><td>Giá bình quân gia quyền</td></tr>
+  <tr><td>Đề nghị cấp phát VPP (nhân viên tự gửi)</td><td><span class="tag t-green">Hoàn thành</span></td><td>Có kiểm tra tồn kho realtime</td></tr>
+  <tr><td>Quản lý nhân sự & phân quyền</td><td><span class="tag t-green">Hoàn thành</span></td><td>Import Excel, lịch sử thao tác</td></tr>
+  <tr><td>Tuyển dụng & gửi email tự động</td><td><span class="tag t-green">Hoàn thành</span></td><td>Pipeline ứng viên, template email</td></tr>
+  <tr><td>Tin tức & truyền thông nội bộ</td><td><span class="tag t-green">Hoàn thành</span></td><td>Đăng bài, ghim, xuất bản</td></tr>
+  <tr><td>Công cụ kiểm tra mã hàng Sapo</td><td><span class="tag t-green">Hoàn thành</span></td><td>Standalone HTML tool, 9 nghiệp vụ kiểm tra</td></tr>
+</table>
+
+<h2 class="s">Định hướng mở rộng (Phiên bản tương lai)</h2>
+<table>
+  <tr><th>Tính năng</th><th>Ưu tiên</th><th>Mô tả</th></tr>
+  <tr><td>Tích hợp PHF Task vào hệ thống</td><td><span class="tag t-blue">Cao</span></td><td>Tích hợp hệ thống quản lý công việc PHF Task trực tiếp vào Web Nội Bộ — nhân viên theo dõi task, tiến độ và phân công ngay trên cùng một nền tảng</td></tr>
+</table>
+
+<div class="note note-gray" style="margin-top:20px">
+  <strong>Nguyên tắc phát triển:</strong> Ưu tiên hoàn thiện và ổn định các module hiện có trước khi mở rộng. Mỗi tính năng mới cần có người dùng nội bộ xác nhận nhu cầu thực sự trước khi phát triển.
+</div>
+
+<div class="footer">
+  PRD — Web Nội Bộ · PhuHoa Fresh · Tháng 7/2026
+</div>
+</div>
+
+</body>
+</html>
