@@ -171,39 +171,194 @@ namespace WebAppAPI.Controllers
 
         [RequirePermission("sales.nxt.manage_logs")]
         [HttpGet("logs")]
-        public async Task<ResponseValue<IEnumerable<object>>> GetLogs()
+        public async Task<ResponseValue<IEnumerable<object>>> GetLogs(
+            [FromQuery] string? branch    = null,
+            [FromQuery] string? type      = null,
+            [FromQuery] string? user      = null,
+            [FromQuery] string? dateFrom  = null,  // DD/MM/YYYY
+            [FromQuery] string? dateTo    = null)   // DD/MM/YYYY
         {
-            var logs = await _db
-                .ActivityLogs.Where(l => l.TableName == "nxt_rows")
+            // NewData là cột jsonb — Postgres không hỗ trợ toán tử LIKE (~~) trực tiếp trên jsonb,
+            // nên KHÔNG được gọi .Contains() trên NewData trong phần query còn dịch sang SQL (sẽ
+            // lỗi "operator does not exist: jsonb ~~ jsonb"). Chỉ lọc bằng cột text thường
+            // (TableName, Action) ngay trong SQL; mọi thứ liên quan nội dung NewData (branch,
+            // user, ngày) phải xử lý sau khi đã tải về bộ nhớ.
+            var query = _db.ActivityLogs
+                .Where(l => l.TableName == "nxt_rows")
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(type) && type != "all")
+                query = query.Where(l => l.Action == type);
+
+            var logs = await query
                 .OrderByDescending(l => l.CreatedAt)
                 .ToListAsync();
 
-            var result = logs.Select(l =>
-            {
-                var d =
-                    l.NewData != null
-                        ? JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(l.NewData)
-                        : null;
-                return new
+            if (!string.IsNullOrWhiteSpace(user))
+                logs = logs.Where(l =>
+                    (l.StaffCode != null && l.StaffCode.Contains(user, StringComparison.OrdinalIgnoreCase)) ||
+                    (l.NewData != null && l.NewData.Contains(user, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
+
+            // Deserialize và lọc chặt hơn ở bộ nhớ
+            var result = logs
+                .Select(l =>
                 {
-                    id = l.Id,
-                    createdAt = l.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss"),
-                    closeDate = d?.GetValueOrDefault("closeDate").GetString() ?? "",
-                    branch = d?.GetValueOrDefault("branch").GetString() ?? "",
-                    type = l.Action,
-                    source = d?.GetValueOrDefault("source").GetString() ?? "",
-                    wrongCode = d?.GetValueOrDefault("wrongCode").GetString() ?? "",
-                    rightCode = d?.GetValueOrDefault("rightCode").GetString() ?? "",
-                    qty = d?.GetValueOrDefault("qty").GetDecimal() ?? 0,
-                    note = d?.GetValueOrDefault("note").GetString() ?? "",
-                    user = d?.GetValueOrDefault("userName").GetString() is { Length: > 0 } uname ? uname : (l.StaffCode ?? ""),
-                    status = d?.GetValueOrDefault("status").GetString() ?? "",
-                    detail = d?.GetValueOrDefault("detail").GetString() ?? "",
-                };
-            });
+                    var d = TryParseNewData(l.NewData);
+                    var userName = GetStr(d, "userName");
+                    return new
+                    {
+                        id        = l.Id,
+                        createdAt = l.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss"),
+                        closeDate = GetStr(d, "closeDate"),
+                        branch    = GetStr(d, "branch"),
+                        type      = l.Action,
+                        source    = GetStr(d, "source"),
+                        wrongCode = GetStr(d, "wrongCode"),
+                        rightCode = GetStr(d, "rightCode"),
+                        qty       = GetDecimalOrNull(d, "qty"),
+                        note      = GetStr(d, "note"),
+                        user      = userName.Length > 0 ? userName : (l.StaffCode ?? ""),
+                        status    = GetStr(d, "status"),
+                        detail    = GetStr(d, "detail"),
+                        rawBranch = GetStr(d, "branch"),
+                        rawCloseDate = GetStr(d, "closeDate"),
+                    };
+                })
+                // Lọc chặt branch — log của thao tác hàng loạt có thể ghi nhiều chi nhánh
+                // gộp chung (vd "Phú Lợi/Ngô Quyền"), nên phải tách ra rồi kiểm tra từng phần
+                // thay vì so sánh bằng tuyệt đối, nếu không sẽ bỏ sót log hợp lệ.
+                .Where(r => string.IsNullOrWhiteSpace(branch) || branch == "Tất cả"
+                    || (r.rawBranch ?? "").Split(new[] { ',', ';', '/' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim()).Contains(branch))
+                // Lọc chặt ngày đóng gói (DD/MM/YYYY so sánh dạng string YYYY-MM-DD) — cùng lý do,
+                // log hàng loạt có thể gộp nhiều ngày (vd "01/07/2026, 02/07/2026")
+                .Where(r =>
+                {
+                    if (string.IsNullOrWhiteSpace(dateFrom) && string.IsNullOrWhiteSpace(dateTo)) return true;
+                    var closeDates = (r.rawCloseDate ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+                    if (closeDates.Count == 0) return true;
+                    return closeDates.Any(cd =>
+                    {
+                        var parts = cd.Split('/');
+                        if (parts.Length != 3) return true;
+                        var iso = $"{parts[2]}-{parts[1]}-{parts[0]}";
+                        if (!string.IsNullOrWhiteSpace(dateFrom) && string.Compare(iso, dateFrom, StringComparison.Ordinal) < 0) return false;
+                        if (!string.IsNullOrWhiteSpace(dateTo)   && string.Compare(iso, dateTo,   StringComparison.Ordinal) > 0) return false;
+                        return true;
+                    });
+                })
+                .Take(500)   // giới hạn 500 bản ghi khớp gần nhất để tránh quá tải
+                .Select(r => (object)new
+                {
+                    r.id, r.createdAt, r.closeDate, r.branch,
+                    r.type, r.source, r.wrongCode, r.rightCode,
+                    r.qty, r.note, r.user, r.status, r.detail
+                })
+                .ToList();
+
             return new ResponseValue<IEnumerable<object>>(
                 result,
                 "Lấy danh sách thành công",
+                StatusReponse.Success
+            );
+        }
+
+
+        /// <summary>
+        /// Lấy toàn bộ bút ký liên quan đến 1 ô cụ thể (closeDate + branch + itemCode) từ DB.
+        /// Frontend gọi khi user click vào ô trong bảng Tổng quan để truy vết nguồn gốc.
+        /// </summary>
+        [RequirePermission("sales.nxt.view")]
+        [HttpGet("logs/cell")]
+        public async Task<ResponseValue<IEnumerable<object>>> GetCellLogs(
+            [FromQuery] string closeDate,
+            [FromQuery] string branch,
+            [FromQuery] string itemCode)
+        {
+            if (string.IsNullOrWhiteSpace(closeDate) || string.IsNullOrWhiteSpace(branch) || string.IsNullOrWhiteSpace(itemCode))
+                return new ResponseValue<IEnumerable<object>>([], "Thiếu tham số", StatusReponse.Error);
+
+            // NewData là cột jsonb — Postgres không hỗ trợ LIKE (~~) trực tiếp trên jsonb, nên
+            // KHÔNG được lọc theo nội dung NewData ngay trong query dịch sang SQL (sẽ lỗi
+            // "operator does not exist: jsonb ~~ jsonb"). Chỉ lọc theo TableName (cột text
+            // thường) trong SQL; lọc theo nội dung NewData thực hiện sau khi đã tải về bộ nhớ.
+            var candidateLogs = await _db.ActivityLogs
+                .Where(l => l.TableName == "nxt_rows")
+                .OrderByDescending(l => l.CreatedAt)
+                .ToListAsync();
+
+            var logs = candidateLogs
+                .Where(l => l.NewData != null
+                    && l.NewData.Contains(closeDate, StringComparison.Ordinal)
+                    && l.NewData.Contains(branch, StringComparison.Ordinal))
+                .ToList();
+
+            // Lọc chặt hơn: itemCode phải có trong detail hoặc là wrongCode/rightCode
+            var result = logs
+                .Select(l =>
+                {
+                    var d = TryParseNewData(l.NewData);
+                    var userName = GetStr(d, "userName");
+                    var detail = GetStr(d, "detail");
+                    var wrongCode = GetStr(d, "wrongCode");
+                    var rightCode = GetStr(d, "rightCode");
+                    return new
+                    {
+                        id          = l.Id,
+                        createdAt   = l.CreatedAt?.AddHours(7).ToString("dd/MM/yyyy HH:mm:ss"),
+                        closeDate   = GetStr(d, "closeDate"),
+                        branch      = GetStr(d, "branch"),
+                        type        = l.Action,
+                        source      = GetStr(d, "source"),
+                        wrongCode   = wrongCode,
+                        rightCode   = rightCode,
+                        qty         = GetDecimalOrNull(d, "qty"),
+                        note        = GetStr(d, "note"),
+                        user        = userName.Length > 0 ? userName : (l.StaffCode ?? ""),
+                        status      = GetStr(d, "status"),
+                        detail      = detail,
+                        staffCode   = l.StaffCode ?? "",
+                        ipAddress   = l.IpAddress ?? "",
+                        userAgent   = l.UserAgent ?? "",
+                        rawCloseDate = GetStr(d, "closeDate"),
+                        rawBranch   = GetStr(d, "branch"),
+                        rawDetail   = detail,
+                        rawWrongCode = wrongCode,
+                        rawRightCode = rightCode,
+                    };
+                })
+                // Lọc chặt closeDate + branch — KHÔNG dùng so sánh bằng tuyệt đối, vì log của
+                // thao tác nhập hàng loạt (Nạp Sapo, Nạp Gói ra...) có thể gộp nhiều ngày/chi
+                // nhánh trong 1 bản ghi (vd closeDate="01/07/2026, 02/07/2026", branch="Phú Lợi/Ngô
+                // Quyền") — so bằng tuyệt đối sẽ luôn trượt và ô sẽ hiện "0 bút ký" dù dữ liệu có
+                // trong DB. Phải tách theo dấu phân cách rồi kiểm tra có chứa giá trị cần tìm không.
+                .Where(r =>
+                    (r.rawCloseDate ?? "").Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim()).Contains(closeDate) &&
+                    (r.rawBranch ?? "").Split(new[] { ',', ';', '/' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.Trim()).Contains(branch)
+                )
+                // itemCode phải xuất hiện trong detail HOẶC là wrongCode/rightCode
+                .Where(r =>
+                    (r.rawDetail != null && r.rawDetail.Contains("|" + itemCode + ":")) ||
+                    (r.rawDetail != null && r.rawDetail.StartsWith(itemCode + ":")) ||
+                    r.rawWrongCode == itemCode ||
+                    r.rawRightCode == itemCode
+                )
+                .Select(r => (object)new
+                {
+                    r.id, r.createdAt, r.closeDate, r.branch,
+                    r.type, r.source, r.wrongCode, r.rightCode,
+                    r.qty, r.note, r.user, r.status, r.detail,
+                    r.staffCode, r.ipAddress, r.userAgent
+                })
+                .ToList();
+
+            return new ResponseValue<IEnumerable<object>>(
+                result,
+                "Lấy bút ký ô thành công",
                 StatusReponse.Success
             );
         }
@@ -279,6 +434,27 @@ namespace WebAppAPI.Controllers
         }
 
         // ─── HELPERS ──────────────────────────────────────────────────────────
+
+        // JsonElement.GetValueOrDefault trả về ValueKind.Undefined nếu thiếu key — gọi .GetString()
+        // trên đó sẽ ném InvalidOperationException. Log cũ/log thiếu field sẽ làm cả request 500.
+        // Dùng TryGetValue + kiểm ValueKind để luôn an toàn, trả "" thay vì crash.
+        private static string GetStr(Dictionary<string, JsonElement>? d, string key) =>
+            d != null && d.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.String
+                ? (v.GetString() ?? "")
+                : "";
+
+        private static decimal? GetDecimalOrNull(Dictionary<string, JsonElement>? d, string key) =>
+            d != null && d.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.Number
+                ? v.GetDecimal()
+                : (decimal?)null;
+
+        // NewData có thể null/rỗng/JSON hỏng (dữ liệu cũ) — không để 1 bản ghi lỗi làm sập cả request.
+        private static Dictionary<string, JsonElement>? TryParseNewData(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            try { return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json); }
+            catch (JsonException) { return null; }
+        }
 
         private static object ToDto(NxtRow r) =>
             new

@@ -6,7 +6,7 @@ import {
     Box, Button, GlobalStyles, Paper,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
-import { FileDownloadRounded, Inventory2Rounded } from '@mui/icons-material';
+import { FileDownloadRounded, HelpOutlineRounded, Inventory2Rounded } from '@mui/icons-material';
 import { useAuth } from '@/providers/AuthProviders';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/common/PageHeader';
@@ -24,6 +24,7 @@ declare global {
         NXT_SAPO_PENDING_API: string;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         nxtToast: any;
+        showXntGuide?: () => void;
     }
 }
 
@@ -310,6 +311,21 @@ export default function NxtPage() {
                 title="Kiểm giỏ quà Xuất - Nhâp - Tồn"
                 subtitle="Gói ra · Sapo bán · Tồn cuối ngày · Gợi ý lệch"
                 icon={<Inventory2Rounded />}
+                actions={
+                    <Button
+                        size="small"
+                        startIcon={<HelpOutlineRounded />}
+                        onClick={() => window.showXntGuide?.()}
+                        sx={{
+                            textTransform: 'none', fontWeight: 700, fontSize: 13,
+                            color: '#086839', bgcolor: '#fff', border: '1px solid #d1fae5',
+                            borderRadius: '999px', px: 1.8, py: 0.5,
+                            '&:hover': { bgcolor: '#f0fdf4' },
+                        }}
+                    >
+                        Hướng dẫn sử dụng
+                    </Button>
+                }
             />
 
             {/* ── TABS ── */}
@@ -508,7 +524,7 @@ export default function NxtPage() {
                 <FG cols={3}>
                     <Box>
                         <FL htmlFor="giftInDate">Ngày</FL>
-                        <Box component="input" id="giftInDate" type="date" defaultValue="2026-06-15" sx={inputSx} />
+                        <Box component="input" id="giftInDate" type="date" sx={inputSx} />
                     </Box>
                     <Box>
                         <FL htmlFor="giftInBranch">Chi nhánh nhận</FL>
@@ -566,7 +582,7 @@ export default function NxtPage() {
                 <FG cols={3}>
                     <Box>
                         <FL htmlFor="stockDate">Ngày kiểm</FL>
-                        <Box component="input" id="stockDate" type="date" defaultValue="2026-06-15" sx={inputSx} />
+                        <Box component="input" id="stockDate" type="date" sx={inputSx} />
                     </Box>
                     <Box>
                         <FL htmlFor="stockBranch">Chi nhánh</FL>
@@ -634,7 +650,7 @@ export default function NxtPage() {
                 <FG cols={3}>
                     <Box>
                         <FL htmlFor="cancelDate">Ngày hủy</FL>
-                        <Box component="input" id="cancelDate" type="date" defaultValue="2026-06-15" sx={inputSx} />
+                        <Box component="input" id="cancelDate" type="date" sx={inputSx} />
                     </Box>
                     <Box>
                         <FL htmlFor="cancelBranch">Chi nhánh</FL>
@@ -730,7 +746,7 @@ export default function NxtPage() {
                 <FG cols={4}>
                     <Box>
                         <FL htmlFor="wrongCodeDate">Ngày phát sinh sai</FL>
-                        <Box component="input" id="wrongCodeDate" type="date" defaultValue="2026-06-15" sx={inputSx} />
+                        <Box component="input" id="wrongCodeDate" type="date" sx={inputSx} />
                     </Box>
                     <Box>
                         <FL htmlFor="wrongCodeBranch">Chi nhánh</FL>
@@ -790,11 +806,11 @@ export default function NxtPage() {
                 {/* Bộ lọc lịch sử */}
                 <FG cols={5}>
                     <Box>
-                        <FL htmlFor="adjFilterDateFrom">Từ ngày (KD)</FL>
+                        <FL htmlFor="adjFilterDateFrom">Ngày đóng gói (từ)</FL>
                         <Box component="input" id="adjFilterDateFrom" type="date" sx={inputSx} />
                     </Box>
                     <Box>
-                        <FL htmlFor="adjFilterDateTo">Đến ngày (KD)</FL>
+                        <FL htmlFor="adjFilterDateTo">Ngày đóng gói (đến)</FL>
                         <Box component="input" id="adjFilterDateTo" type="date" sx={inputSx} />
                     </Box>
                     <Box>

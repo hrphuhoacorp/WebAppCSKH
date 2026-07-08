@@ -79,7 +79,7 @@ function dbSaveLog(entry) {
 }
 
 function dbClearLogs() {
-  fetch(`${NXT_API}/logs`, { method: "DELETE" }).catch(() => { });
+  return fetch(`${NXT_API}/logs`, { method: "DELETE" }).catch(() => { });
 }
 
 const BRANCH_ALIASES = {
@@ -108,12 +108,6 @@ let sapoPendingList = [];
 let SAPO_PENDING_API = "http://localhost:5109/api/nxtsapopending";
 let overviewEditKey = null;
 let overviewEditDraft = {};
-
-const sapoSampleRows = [
-  { closeDate: "15/06/2026", branch: "Phú Lợi", itemCode: "H1144", sapoSold: 1, orderCount: 1, revenue: 650000, note: "Bán thường" },
-  { closeDate: "15/06/2026", branch: "Ngô Quyền", itemCode: "H1129", sapoSold: 1, orderCount: 1, revenue: 780000, note: "Bán thường" },
-  { closeDate: "15/06/2026", branch: "Lái Thiêu", itemCode: "H1133", sapoSold: -1, orderCount: -1, revenue: -590000, note: "Trả hàng âm giữ để trừ" }
-];
 
 function number(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -189,16 +183,20 @@ function addDaysToDisplayDate(displayDate, days) {
   return `${d}/${m}/${y}`;
 }
 
-function setNextDayOpeningFromActual({ closeDate, branch, itemCode, actualStock }) {
+function setNextDayOpeningFromActual({ closeDate, branch, itemCode, actualStock, soldNotPicked = 0 }) {
   const nextDate = addDaysToDisplayDate(closeDate, 1);
   if (!nextDate) return;
   upsertDashboardRow({ closeDate: nextDate, branch, itemCode, patch: {} });
   const nextRow = dashboardRows.find(r => r.closeDate === nextDate && r.branch === branch && r.itemCode === itemCode);
   if (!nextRow) return;
-  // Theo nghiệp vụ vận hành: tồn đầu ngày sau lấy theo Tồn thực tế cuối ngày trước.
-  // DTT dùng để trừ khi so lệch trong ngày; CTT chỉ gắn nhãn trong tồn thực tế. Tồn đầu ngày sau lấy theo tồn thực tế.
-  nextRow.openingStock = number(actualStock);
-  nextRow.openingSource = `Tự lấy từ tồn thực tế cuối ngày ${closeDate}`;
+  // Theo nghiệp vụ vận hành: tồn đầu ngày sau lấy theo Tồn thực tế cuối ngày trước, TRỪ phần DTT
+  // (đã bán/chưa lấy) — vì DTT về bản chất kế toán coi như đã bán xong ngày hôm đó rồi, không còn
+  // là "tồn kỳ vọng" cho ngày sau nữa. Nếu khách vẫn chưa lấy ở ngày sau, nhân viên dán "dtt" lại
+  // cho ngày đó khi kiểm Tồn CN — hệ thống sẽ tiếp tục tự cân bằng, không cần biết trước bao nhiêu
+  // ngày mới lấy. Nếu không trừ, ngày khách thực sự lấy hàng sẽ tự nhiên hiện Lệch ảo (thiếu 1).
+  // CTT không bị trừ ở đây vì CTT chưa được coi là đã bán, vẫn là tồn thật.
+  nextRow.openingStock = number(actualStock) - number(soldNotPicked);
+  nextRow.openingSource = `Tự lấy từ tồn thực tế cuối ngày ${closeDate}${number(soldNotPicked) ? ` (đã trừ ${number(soldNotPicked)} DTT)` : ""}`;
   nextRow.inactive = false;
   // dbSaveRow removed — caller always follows with dbSyncBatch() which saves all rows
 }
@@ -686,7 +684,7 @@ const CELL_FIELD_META = {
   transferBranch: { label: "Chuyển CN",          types: ["Nạp Chuyển CN"],                                              sourceLabels: ["Chuyển CN"] },
   cancelBasket:   { label: "Hủy giỏ",            types: ["Nạp Hủy giỏ"],                                               sourceLabels: ["Hủy giỏ"] },
   sapoSold:       { label: "Sapo bán",            types: ["Nạp Sapo", "Sai mã Sapo / check đơn"],                        sourceLabels: ["Sapo bán"] },
-  adjustment:     { label: "Điều chỉnh",         types: ["Sửa SL", "Nạp Sapo treo"],                                   sourceLabels: ["Điều chỉnh"] },
+  adjustment:     { label: "Điều chỉnh",         types: ["Sửa SL", "Nạp Sapo treo", "Sapo treo hoàn thành"],         sourceLabels: ["Điều chỉnh"] },
   actualStock:    { label: "Tồn thực tế",       types: ["Nạp Tồn CN"],                                               sourceLabels: ["Tồn thực tế"] },
   soldNotPicked:  { label: "DTT/Bán chưa lấy",   types: ["Nạp Tồn CN"],                                               sourceLabels: ["Bán chưa lấy"] },
 };
@@ -700,20 +698,41 @@ function logMatchesCell(log, closeDate, branch, itemCode, fieldKey) {
   if (!dateMatch) return false;
 
   const logBranches = (log.branch || "").split(/[,;\/]/).map(s => s.trim()).filter(Boolean);
-  const branchMatch = logBranches.length === 0 || logBranches.includes(branch);
+  const branchMatch = logBranches.length === 0 || logBranches.some(lb => lb === branch);
   if (!branchMatch) return false;
 
+  // Kiểm tra loại thao tác
   if (meta.types.length && !meta.types.includes(log.type)) return false;
 
-  // Nếu có yêu cầu khớp mã hàng cụ thể trong detail (tuỳ chọn, có thể bỏ nếu không cần chặt)
-  // const items = parseLogDetail(log.detail || "");
-  // if (items.length && !items.some(i => i.code === itemCode)) return false;
+  // Với log nạp dữ liệu (Gói ra / Hủy giỏ / Tồn CN / Chuyển CN / Sapo),
+  // kiểm tra itemCode có xuất hiện trong detail không
+  const UPLOAD_TYPES = ["Nạp Gói ra", "Nạp Hủy giỏ", "Nạp Tồn CN", "Nạp Chuyển CN", "Nạp Sapo"];
+  if (UPLOAD_TYPES.includes(log.type)) {
+    const detailStr = log.detail || "";
+    // format: "DD/MM/YYYY|CODE:QTY[|STATUS]"
+    const codeInDetail = detailStr.split(",").some(part => {
+      const seg = part.trim();
+      return seg.includes(`|${itemCode}:`) || seg.startsWith(`${itemCode}:`);
+    });
+    if (!codeInDetail) return false;
+  }
+
+  // Với Sai mã Sapo: khớp wrongCode hoặc rightCode
+  if (log.type === "Sai mã Sapo / check đơn") {
+    return log.wrongCode === itemCode || log.rightCode === itemCode;
+  }
+
+  // Với Sửa SL / Sapo treo: khớp rightCode (mã được sửa/treo)
+  if (log.type === "Sửa SL" || log.type === "Nạp Sapo treo" || log.type === "Sapo treo hoàn thành") {
+    return (log.rightCode || "") === itemCode;
+  }
 
   return true;
 }
 
-function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLogs) {
-  const items = []; // { icon, label, value, style }
+function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLogs, allCellLogs = relatedLogs, prevDayLogs = []) {
+  const meta = CELL_FIELD_META[fieldKey] || { label: fieldKey, types: [], sourceLabels: [] };
+  const items = []; // { icon, text, warn }
   const v = row ? number(row[fieldKey]) : 0;
 
   // ── OPENING STOCK: Tồn đầu ──────────────────────────────────────────────────
@@ -735,10 +754,9 @@ function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLo
     } else if (!row?.openingSource) {
       items.push({ icon: '❓', text: 'Không tìm thấy tồn thực tế ngày trước. Có thể nhập thủ công, import từ nguồn ngoài, hoặc là ngày đầu tiên của mã này.', warn: true });
     }
-    // Kiểm tra có log đổi mã ảnh hưởng đến opening không
-    const codeChangeLogs = adjustmentsLog.filter(l =>
+    // Kiểm tra có log đổi mã ảnh hưởng đến opening không (từ DB, log ngày hôm trước)
+    const codeChangeLogs = prevDayLogs.filter(l =>
       l.rightCode === itemCode && l.type === 'Đổi mã tạm / nhập nhầm' &&
-      (l.closeDate || '').includes(prevDate || '') && (l.branch || '').includes(branch) &&
       (l.detail || '').includes('nextOpeningStock')
     );
     if (codeChangeLogs.length) {
@@ -868,7 +886,7 @@ function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLo
   // ── ADJUSTMENT: Điều chỉnh ──────────────────────────────────────────────────
   if (fieldKey === 'adjustment') {
     const editLogs = relatedLogs.filter(l => l.type === 'Sửa SL' && l.source === 'Điều chỉnh');
-    const sapoTreoAdj = adjustmentsLog.filter(l =>
+    const sapoTreoAdj = allCellLogs.filter(l =>
       l.type === 'Sapo treo hoàn thành' &&
       (l.closeDate || '').includes(closeDate) &&
       (l.branch || '').includes(branch)
@@ -897,7 +915,7 @@ function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLo
   }
 
   // ── CODE CHANGE: ảnh hưởng chung ────────────────────────────────────────────
-  const codeChanges = adjustmentsLog.filter(l =>
+  const codeChanges = allCellLogs.filter(l =>
     ['Đổi mã tạm / nhập nhầm', 'Sai mã Sapo / check đơn'].includes(l.type) &&
     (l.wrongCode === itemCode || l.rightCode === itemCode) &&
     (l.closeDate || '').split(/[,;]/).some(d => d.trim() === closeDate) &&
@@ -911,7 +929,25 @@ function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLo
     });
   }
 
-  if (!items.length) return '';
+  // ── Ý nghĩa trường + fallback nếu items trống ───────────────────────────────
+  const FIELD_FORMULA = {
+    openingStock:   '= Tồn thực tế cuối ngày trước',
+    giftIn:         '= Tổng giỏ xuất từ kho gói trong ngày',
+    receiveBranch:  '= Số giỏ nhận từ chi nhánh khác trong ngày',
+    transferBranch: '= Số giỏ chuyển đi chi nhánh khác trong ngày',
+    cancelBasket:   '= Số giỏ bị hủy trả lại kho trong ngày',
+    sapoSold:       '= Số giỏ được ghi nhận bán trên Sapo trong ngày',
+    adjustment:     '= Tổng điều chỉnh khác (sửa SL thủ công, Sapo treo,...)',
+    actualStock:    '= Tồn thực tế kiểm cuối ngày (DTT hoặc CTT)',
+    soldNotPicked:  '= Hàng đã bán nhưng khách chưa lấy (trừ khi so lệch nếu DTT)',
+  };
+  const formula = FIELD_FORMULA[fieldKey];
+  if (formula) {
+    items.unshift({ icon: 'ℹ️', text: `<span style="font-style:italic;color:#64748b">Ý nghĩa: <b>${escapeHtml(meta.label)}</b> ${formula}</span>` });
+  }
+  if (items.length === 1 && v === 0) {
+    items.push({ icon: '—', text: 'Giá trị = 0 trong ngày này. Không có phát sinh được ghi nhận.' });
+  }
 
   const rowsHtml = items.map(it => `
     <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 10px;border-bottom:1px solid #f1f5f9;${it.warn ? 'background:#fffbeb;' : ''}">
@@ -922,84 +958,225 @@ function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLo
   return `
     <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:14px;">
       <div style="background:#f8fafc;padding:8px 12px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0;">
-        🔍 Phân tích nguồn gốc tự động
+        🔍 Phân tích nguồn gốc
       </div>
       ${rowsHtml}
     </div>`;
 }
 
-window.showCellHistory = function(closeDate, branch, itemCode, fieldKey) {
+
+// Rút gọn User-Agent thành tên trình duyệt + hệ điều hành dễ đọc, giữ nguyên văn nếu không nhận diện được
+function formatUserAgent(ua) {
+  if (!ua) return '';
+  const os = /Windows/i.test(ua) ? 'Windows'
+    : /Android/i.test(ua) ? 'Android'
+    : /iPhone|iPad|iOS/i.test(ua) ? 'iOS'
+    : /Mac OS/i.test(ua) ? 'macOS'
+    : /Linux/i.test(ua) ? 'Linux' : '';
+  const browser = /Edg\//i.test(ua) ? 'Edge'
+    : /Chrome\//i.test(ua) ? 'Chrome'
+    : /Firefox\//i.test(ua) ? 'Firefox'
+    : /Safari\//i.test(ua) ? 'Safari' : '';
+  if (browser && os) return `${browser} trên ${os}`;
+  if (browser) return browser;
+  return ua;
+}
+
+// ── Helper render bảng bút ký ──────────────────────────────────────────────
+function renderLogTable(logs, itemCode) {
+  if (!logs.length) {
+    return `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:14px 10px;font-style:italic;">Không tìm thấy bút ký nào cho ô này.</td></tr>`;
+  }
+  return logs.map((log, idx) => {
+    const typeColor = log.status === 'Đã áp dụng' || log.status === 'Đã sửa'
+      ? 'background:#dcfce7;color:#166534;'
+      : (log.status || '').includes('Chờ')
+      ? 'background:#fef9c3;color:#854d0e;'
+      : 'background:#f1f5f9;color:#475569;';
+    const logItems = parseLogDetail(log.detail || '');
+    const matchItem = logItems.find(i => i.code === itemCode);
+    // Ngày chốt thực tế của mã này — ưu tiên ngày gắn liền với chính dòng chi tiết (chính xác cho
+    // batch nhiều ngày), không phải "Thời gian" (là lúc bấm lưu trên hệ thống, có thể nhập trễ
+    // hơn nhiều so với ngày chốt thực tế của nghiệp vụ).
+    const rowCloseDate = matchItem?.closeDate || log.closeDate || '—';
+    const detailShort = matchItem
+      ? `SL: <b>${matchItem.qty}</b>${matchItem.status ? ` [${matchItem.status}]` : ''}${log.note ? ` · ${escapeHtml(log.note)}` : ''}`
+      : `${escapeHtml((log.detail || '').slice(0, 120))}${(log.detail || '').length > 120 ? '…' : ''}`;
+
+    // Panel chi tiết đầy đủ: toàn bộ danh sách mã trong cùng bút ký (không chỉ riêng mã đang xem),
+    // ghi chú, nguồn, và thông tin định danh thao tác (mã NV, IP, thiết bị, ID bút ký) để truy vết
+    // trách nhiệm khi cần đối chiếu.
+    const detailId = `nxtLogDetail_${log.id || idx}`;
+    const allItemsHtml = logItems.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${logItems.map(it => `
+          <span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;background:${it.code === itemCode ? '#dbeafe' : '#f1f5f9'};color:${it.code === itemCode ? '#1e40af' : '#475569'};font-weight:${it.code === itemCode ? 700 : 500};">
+            ${escapeHtml(it.code)}: ${it.qty}${it.status ? ` [${escapeHtml(it.status)}]` : ''}${it.closeDate ? ` · ${escapeHtml(it.closeDate)}` : ''}
+          </span>`).join('')}</div>`
+      : `<div style="color:#94a3b8;font-style:italic;">${escapeHtml(log.detail || 'Không có chi tiết')}</div>`;
+    const detailRows = [
+      log.note ? ['Ghi chú', escapeHtml(log.note)] : null,
+      log.source ? ['Nguồn', escapeHtml(log.source)] : null,
+      (log.wrongCode || log.rightCode) ? ['Đổi mã', `${escapeHtml(log.wrongCode || '—')} → ${escapeHtml(log.rightCode || '—')}`] : null,
+      ['Mã nhân viên', escapeHtml(log.staffCode || '—')],
+      ['Địa chỉ IP', escapeHtml(log.ipAddress || '—')],
+      ['Thiết bị', escapeHtml(formatUserAgent(log.userAgent) || '—')],
+      ['ID bút ký', `#${log.id ?? '—'}`],
+    ].filter(Boolean);
+
+    return `<tr onclick="document.getElementById('${detailId}').style.display = document.getElementById('${detailId}').style.display === 'none' ? '' : 'none';" style="cursor:pointer;">
+      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">${escapeHtml(rowCloseDate)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11.5px;white-space:nowrap;color:#64748b;">${escapeHtml(log.createdAt || '—')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:700;">${escapeHtml(log.user || '—')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;">${escapeHtml(log.type || '')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">
+        <span style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:700;${typeColor}">${escapeHtml(log.status || '')}</span>
+      </td>
+      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;">${detailShort} <span style="color:#94a3b8;">▾</span></td>
+    </tr>
+    <tr id="${detailId}" style="display:none;">
+      <td colspan="6" style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #f1f5f9;font-size:12px;">
+        <div style="font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Toàn bộ mã trong bút ký này</div>
+        ${allItemsHtml}
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:10px;">
+          ${detailRows.map(([k, v]) => `<div style="color:#94a3b8;">${k}</div><div style="color:#334155;">${v}</div>`).join('')}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// Lấy bút ký của 1 ô cụ thể (closeDate + branch + itemCode) — luôn hỏi lại server, không dùng cache RAM.
+// Trả về { ok, status, logs } để phân biệt rõ "gọi thất bại" với "gọi thành công nhưng không có bút ký nào".
+async function fetchCellLogsFromDB(closeDate, branch, itemCode) {
+  const params = new URLSearchParams({ closeDate, branch, itemCode });
+  try {
+    const res = await fetch(`${NXT_API}/logs/cell?${params}`, { credentials: "include" });
+    if (!res.ok) {
+      console.error("[NXT] fetchCellLogsFromDB HTTP lỗi", res.status);
+      return { ok: false, status: res.status, logs: [] };
+    }
+    const json = await res.json();
+    const logs = Array.isArray(json) ? json : (json?.content ?? []);
+    return { ok: true, status: res.status, logs };
+  } catch (e) {
+    console.error("[NXT] fetchCellLogsFromDB lỗi mạng", e);
+    return { ok: false, status: 0, logs: [] };
+  }
+}
+
+window.showCellHistory = async function(closeDate, branch, itemCode, fieldKey) {
   const meta = CELL_FIELD_META[fieldKey] || { label: fieldKey, types: [], sourceLabels: [] };
-  const related = adjustmentsLog.filter(log => logMatchesCell(log, closeDate, branch, itemCode, fieldKey));
   const row = findDashboardRow(closeDate, branch, itemCode);
   const currentVal = row ? number(row[fieldKey]) : 0;
 
-  // Phân tích tự động
-  const analysisHtml = buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, related);
-
-  // Bảng log chi tiết
-  const logRowsHtml = related.length === 0
-    ? `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:14px 10px;font-style:italic;">Không tìm thấy bút ký thao tác nào khớp hiện tại.</td></tr>`
-    : related.map(log => {
-        const typeColor = log.status === 'Đã áp dụng' || log.status === 'Đã sửa'
-          ? 'background:#dcfce7;color:#166534;'
-          : (log.status || '').includes('Chờ')
-          ? 'background:#fef9c3;color:#854d0e;'
-          : 'background:#f1f5f9;color:#475569;';
-        // Trích qty của itemCode từ detail
-        const logItems = parseLogDetail(log.detail || '');
-        const matchItem = logItems.find(i => i.code === itemCode);
-        const detailShort = matchItem
-          ? `SL: <b>${matchItem.qty}</b>${matchItem.status ? ` [${matchItem.status}]` : ''}${log.note ? ` · ${escapeHtml(log.note)}` : ''}`
-          : `${escapeHtml((log.detail || '').slice(0, 100))}${(log.detail || '').length > 100 ? '…' : ''}`;
-        return `<tr>
-          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11.5px;white-space:nowrap;color:#64748b;">${escapeHtml(log.createdAt || '—')}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;font-weight:700;">${escapeHtml(log.user || '—')}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;">${escapeHtml(log.type || '')}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;">
-            <span style="display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:700;${typeColor}">${escapeHtml(log.status || '')}</span>
-          </td>
-          <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#334155;">${detailShort}</td>
-        </tr>`;
-      }).join('');
-
+  // Tạo/show overlay ngay lập tức với spinner — chưa có dữ liệu, phải chờ server trả về
   let overlay = document.getElementById('nxtCellHistoryOverlay');
   if (!overlay) { overlay = document.createElement('div'); overlay.id = 'nxtCellHistoryOverlay'; document.body.appendChild(overlay); }
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  const spinnerRow = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#64748b;">
+    <span style="display:inline-block;width:18px;height:18px;border:2px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:nxtSpin .7s linear infinite;vertical-align:middle;margin-right:8px;"></span>
+    Đang tải bút ký...
+  </td></tr>`;
+
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:20px;padding:26px 22px 20px;max-width:720px;width:95%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.18);font-family:inherit;">
+    <style>@keyframes nxtSpin{to{transform:rotate(360deg)}}</style>
+    <div id="nxtCellHistoryModal" style="background:#fff;border-radius:20px;padding:26px 22px 20px;max-width:740px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.18);font-family:inherit;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
         <div>
           <div style="font-weight:800;font-size:15px;color:#1e293b;">🔍 Truy vết: <b>${escapeHtml(meta.label)}</b></div>
           <div style="font-size:12px;color:#94a3b8;margin-top:4px;">${escapeHtml(closeDate)} &nbsp;&middot;&nbsp; <b>${escapeHtml(branch)}</b> &nbsp;&middot;&nbsp; Mã <b>${escapeHtml(itemCode)}</b></div>
           <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;">
             <span style="padding:3px 14px;border-radius:99px;font-size:13px;font-weight:700;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;">Giá trị hiện tại: ${currentVal}</span>
-            <span style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">${related.length} bút ký</span>
+            <span id="nxtCellHistoryBadgeCount" style="padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">Đang tải…</span>
           </div>
         </div>
         <button id="nxtCellHistoryClose" style="background:none;border:none;cursor:pointer;font-size:24px;color:#94a3b8;line-height:1;padding:0 2px;">&#x2715;</button>
       </div>
 
-      ${analysisHtml}
+      <div id="nxtCellHistoryAnalysis"></div>
 
       <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Bút ký thao tác chi tiết</div>
       <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead><tr style="background:#f8fafc;">
-            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap;">Thời gian</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap;">Ngày chốt</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap;">Thời gian nhập</th>
             <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Người thực hiện</th>
             <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Thao tác</th>
             <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Trạng thái</th>
             <th style="padding:8px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;">Chi tiết mã này</th>
           </tr></thead>
-          <tbody>${logRowsHtml}</tbody>
+          <tbody id="nxtCellHistoryTbody">${spinnerRow}</tbody>
         </table>
       </div>
-      <div style="margin-top:10px;font-size:11px;color:#94a3b8;">💡 Phân tích tự động dựa trên dữ liệu trong bộ nhớ phiên này. Bút ký lưu có thể chứa lịch sử đầy đủ hơn.</div>
+      <div id="nxtCellHistoryOtherLogs"></div>
     </div>`;
   const close = () => { overlay.style.display = 'none'; overlay.innerHTML = ''; };
   document.getElementById('nxtCellHistoryClose').onclick = close;
   overlay.onclick = e => { if (e.target === overlay) close(); };
+
+  // Truy vấn: toàn bộ bút ký của ô này, và (nếu là Tồn đầu) bút ký ngày trước để tra đổi mã
+  const prevDate = fieldKey === 'openingStock' ? addDaysToDisplayDate(closeDate, -1) : null;
+  const [cellResult, prevResult] = await Promise.all([
+    fetchCellLogsFromDB(closeDate, branch, itemCode),
+    prevDate ? fetchCellLogsFromDB(prevDate, branch, itemCode) : Promise.resolve({ ok: true, status: 200, logs: [] })
+  ]);
+
+  // Overlay có thể đã bị đóng trong lúc chờ fetch — không render vào DOM không còn tồn tại
+  if (overlay.style.display === 'none' || !document.getElementById('nxtCellHistoryTbody')) return;
+
+  if (!cellResult.ok) {
+    const errMsg = cellResult.status === 403
+      ? 'Bạn không có quyền xem bút ký (thiếu quyền sales.nxt.view).'
+      : cellResult.status === 401
+      ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+      : cellResult.status === 0
+      ? 'Không kết nối được máy chủ. Kiểm tra mạng và thử lại.'
+      : `Lấy bút ký thất bại (mã lỗi ${cellResult.status}). Vui lòng thử lại.`;
+    document.getElementById('nxtCellHistoryBadgeCount').textContent = 'Lỗi tải dữ liệu';
+    document.getElementById('nxtCellHistoryTbody').innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;padding:14px 10px;">${escapeHtml(errMsg)}</td></tr>`;
+    return;
+  }
+
+  // dbLogs: TOÀN BỘ bút ký tìm thấy cho mã hàng này trong đúng ngày/chi nhánh (mọi loại thao
+  // tác) — dùng để phát hiện "có log khác không liên quan trực tiếp" và cho phần phân tích.
+  // relatedLogs: tập con đã lọc đúng loại thao tác tạo ra giá trị của CỘT đang xem (vd Hủy giỏ
+  // chỉ lấy log "Nạp Hủy giỏ") — đây mới là bảng chính, tránh trộn lẫn thao tác khác gây hiểu
+  // nhầm (vd bấm ô Hủy giỏ lại thấy cả log Nạp Gói ra của cùng mã hàng đó trong ngày).
+  const dbLogs = cellResult.logs;
+  const prevDayLogs = prevResult.ok ? prevResult.logs : [];
+  const relatedLogs = dbLogs.filter(log => logMatchesCell(log, closeDate, branch, itemCode, fieldKey));
+  const otherLogs = dbLogs.filter(log => !relatedLogs.includes(log));
+  const analysisHtml = buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLogs, dbLogs, prevDayLogs);
+
+  document.getElementById('nxtCellHistoryBadgeCount').textContent = `${relatedLogs.length} bút ký`;
+  document.getElementById('nxtCellHistoryAnalysis').innerHTML = analysisHtml;
+  document.getElementById('nxtCellHistoryTbody').innerHTML = renderLogTable(relatedLogs, itemCode);
+
+  const otherLogsEl = document.getElementById('nxtCellHistoryOtherLogs');
+  if (otherLogsEl) {
+    if (!otherLogs.length) {
+      otherLogsEl.innerHTML = '';
+    } else {
+      otherLogsEl.innerHTML = `
+        <div style="margin-top:10px;">
+          <button id="nxtCellHistoryToggleOther" style="background:none;border:none;color:#2563eb;font-size:12px;font-weight:600;cursor:pointer;padding:0;font-family:inherit;">
+            ℹ️ Còn ${otherLogs.length} bút ký khác của mã <b>${escapeHtml(itemCode)}</b> trong ngày này (loại thao tác khác, không trực tiếp tạo ra giá trị cột đang xem) — bấm để xem
+          </button>
+          <div id="nxtCellHistoryOtherLogsTable" style="display:none;margin-top:8px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <tbody>${renderLogTable(otherLogs, itemCode)}</tbody>
+            </table>
+          </div>
+        </div>`;
+      const toggleBtn = document.getElementById('nxtCellHistoryToggleOther');
+      const otherTable = document.getElementById('nxtCellHistoryOtherLogsTable');
+      if (toggleBtn && otherTable) {
+        toggleBtn.onclick = () => { otherTable.style.display = otherTable.style.display === 'none' ? '' : 'none'; };
+      }
+    }
+  }
 };
 
 // Ô có thể click — kể cả ô = 0 (bấm để xem phân tích)
@@ -1186,12 +1363,10 @@ function deleteSelectedRows() {
           user: getCurrentUserName(), status: "Đã xóa",
           detail: deleted.map(d => `${d.cd}|${d.ic}:${d.prev}`).join(", ")
         };
-        adjustmentsLog.unshift(logEntry);
-        dbSaveLog(logEntry);
         selectedOverviewRows.clear();
-        const okDel = await dbSyncBatch();
+        const [okDel] = await Promise.all([dbSyncBatch(), dbSaveLog(logEntry)]);
         renderDashboardByPermission();
-        renderAdjustments();
+        await renderAdjustments();
         if (okDel) appNotify(`Đã xóa ${n} dòng.`, "success");
       } catch (e) {
         appNotify("Lỗi khi xóa: " + (e.message || e), "error");
@@ -1222,16 +1397,25 @@ function confirmInlineEdit() {
     danger: false,
     onConfirm: async () => {
       const row = findDashboardRow(dr.closeDate, dr.branch, dr.itemCode);
-      if (row) {
-        row.giftIn = number(dr.giftIn);
-        row.receiveBranch = number(dr.receiveBranch);
-        row.transferBranch = number(dr.transferBranch);
-        row.cancelBasket = number(dr.cancelBasket);
-        row.adjustment = number(dr.adjustment);
-        row.actualStock = number(dr.actualStock);
-        row.soldNotPicked = number(dr.soldNotPicked);
-        cleanupZeroFields(row);
-      }
+      if (!row) { overviewEditKey = null; overviewEditDraft = {}; return; }
+
+      // Chụp lại giá trị CŨ trước khi ghi đè, để tạo bút ký "cũ → mới" cho từng trường thực sự
+      // thay đổi. Sửa trực tiếp ở Tổng quan trước đây KHÔNG tạo bút ký nào — đây là lý do các
+      // giá trị sửa qua đường này luôn hiện "0 bút ký" khi bấm truy vết dù đã bị đổi thật.
+      const EDITABLE_FIELDS = ["giftIn", "receiveBranch", "transferBranch", "cancelBasket", "adjustment", "actualStock", "soldNotPicked"];
+      const changes = EDITABLE_FIELDS
+        .map(f => ({ field: f, oldVal: number(row[f]), newVal: number(dr[f]) }))
+        .filter(c => c.oldVal !== c.newVal);
+
+      row.giftIn = number(dr.giftIn);
+      row.receiveBranch = number(dr.receiveBranch);
+      row.transferBranch = number(dr.transferBranch);
+      row.cancelBasket = number(dr.cancelBasket);
+      row.adjustment = number(dr.adjustment);
+      row.actualStock = number(dr.actualStock);
+      row.soldNotPicked = number(dr.soldNotPicked);
+      cleanupZeroFields(row);
+
       overviewEditKey = null;
       overviewEditDraft = {};
       const saveRes = await fetch(`${NXT_API}/rows/inline`, {
@@ -1244,6 +1428,45 @@ function confirmInlineEdit() {
         appNotify("Lưu thất bại: " + (msg || saveRes.status), "error");
         return;
       }
+
+      // Nếu actualStock/soldNotPicked (DTT) đổi, đồng bộ tồn đầu ngày kế tiếp — giống hệt luồng
+      // Tồn CN và Sửa SL, tránh Lệch ảo ở ngày sau như đã sửa cho 2 luồng kia. /rows/inline chỉ
+      // UPDATE (không tạo dòng mới), nên nếu dòng ngày kế tiếp chưa từng tồn tại trong DB, việc
+      // đồng bộ này sẽ bị bỏ qua (không chặn việc lưu chính) — trường hợp đó hiếm vì Tồn CN
+      // thường đã tạo sẵn dòng ngày sau từ trước.
+      if (changes.some(c => c.field === "actualStock" || c.field === "soldNotPicked")) {
+        setNextDayOpeningFromActual({
+          closeDate: dr.closeDate, branch: dr.branch, itemCode: dr.itemCode,
+          actualStock: row.actualStock, soldNotPicked: row.soldNotPicked,
+        });
+        const nextDate = addDaysToDisplayDate(dr.closeDate, 1);
+        const nextRow = nextDate ? findDashboardRow(nextDate, dr.branch, dr.itemCode) : null;
+        if (nextRow) {
+          const nextSaveRes = await fetch(`${NXT_API}/rows/inline`, {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(nextRow),
+          }).catch(() => null);
+          if (!nextSaveRes || !nextSaveRes.ok) {
+            console.warn("[NXT] Không đồng bộ được tồn đầu ngày kế tiếp", nextDate);
+            appNotify(`Đã lưu ${dr.closeDate}, nhưng chưa đồng bộ được tồn đầu ngày ${nextDate} (có thể dòng đó chưa tồn tại) — kiểm tra lại thủ công nếu cần.`, "error", true);
+          }
+        }
+      }
+
+      if (changes.length) {
+        await Promise.all(changes.map(c => dbSaveLog({
+          createdAt: new Date().toLocaleString("vi-VN"),
+          closeDate: dr.closeDate, branch: dr.branch, type: "Sửa SL",
+          source: EDIT_FIELD_LABELS[c.field] || c.field,
+          wrongCode: "", rightCode: dr.itemCode,
+          qty: c.newVal, note: "Sửa trực tiếp từ bảng Tổng quan",
+          user: getCurrentUserName(), status: "Đã sửa",
+          detail: `${EDIT_FIELD_LABELS[c.field] || c.field}: ${c.oldVal} → ${c.newVal}`,
+        })));
+        await renderAdjustments();
+      }
+
       renderDashboardByPermission();
       appNotify("Đã lưu chỉnh sửa thành công.", "success");
     }
@@ -1368,9 +1591,12 @@ function looksLikePriceOrDate(token) {
   return false;
 }
 
+// Trả về số lượng đọc được, hoặc null nếu KHÔNG tìm thấy số lượng nào trong đoạn text
+// (khác với 0 — 0 nghĩa là tìm thấy nhưng giá trị là 0). Không còn mặc định về 1 ở đây,
+// việc quyết định fallback/blocking do parseCodeQtyText xử lý để tránh âm thầm ghi sai SL.
 function parseQtyFromRest(rest) {
   const s = String(rest || "").trim();
-  if (!s) return 1;
+  if (!s) return null;
 
   // Ưu tiên số lượng ngay sau mã: H1135 2, H1135 x2, H1135: 2, H1135 1+1
   const directPlus = s.match(/^\s*(?:[:：\-–—]|x|X|sl|SL|số lượng|so luong)?\s*(-?\d+(?:\s*\+\s*-?\d+)+)\b/i);
@@ -1386,7 +1612,7 @@ function parseQtyFromRest(rest) {
   const laterQty = s.match(/\b(?:sl|so luong|số lượng|qty)?\s*(-?\d+(?:[.,]\d+)?)\b/i);
   if (laterQty && !looksLikePriceOrDate(laterQty[1])) return number(laterQty[1].replace(",", "."));
 
-  return 1;
+  return null;
 }
 
 function isSoldNotPickedStatus(status) {
@@ -1414,37 +1640,60 @@ function inferStockStatus(raw, defaultStatus) {
   return defaultStatus || "Tồn bình thường";
 }
 
+const ITEM_CODE_REGEX = /\b(SON[A-Za-z0-9-]*|TEMP[A-Za-z0-9-]*|TMP[A-Za-z0-9-]*|[A-Za-z]{1,3}\d+[A-Za-z0-9-]*)\b/i;
+
 function parseCodeQtyText(text, defaults = {}) {
   const lines = String(text || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const rows = [];
-  lines.forEach(line => {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const clean = line.replace(/[，,;]/g, " ").trim();
     // Bỏ qua dòng tiêu đề (tổng, ngày, chi nhánh,...) — không báo lỗi
-    if (isHeaderLine(clean)) return;
-    const codeMatch = clean.match(/\b(SON[A-Za-z0-9-]*|TEMP[A-Za-z0-9-]*|TMP[A-Za-z0-9-]*|[A-Za-z]{1,3}\d+[A-Za-z0-9-]*)\b/i);
+    if (isHeaderLine(clean)) continue;
+    const codeMatch = clean.match(ITEM_CODE_REGEX);
     if (!codeMatch) {
       // Không tìm thấy mã → đánh dấu lỗi để preview hiển thị, không bỏ qua âm thầm
       rows.push({ ...defaults, itemCode: "???", qty: 0, raw: line, _error: "Không tìm thấy mã hợp lệ trong dòng này" });
-      return;
+      continue;
     }
     const itemCode = codeMatch[1].toUpperCase();
     if (!VALID_CODE_PREFIX.test(itemCode)) {
       rows.push({ ...defaults, itemCode, qty: 0, raw: line, _error: `Mã "${itemCode}" không đúng tiền tố (H/GT/BK/SON/TEMP/TMP/AT)` });
-      return;
+      continue;
     }
     if (looksLikePriceOrDate(itemCode)) {
       rows.push({ ...defaults, itemCode, qty: 0, raw: line, _error: `"${itemCode}" trông giống ngày/giá, bỏ qua` });
-      return;
+      continue;
     }
     const rest = clean.slice(codeMatch.index + codeMatch[0].length).trim();
-    const qty = parseQtyFromRest(rest);
-    if (!qty) {
-      // Không tìm thấy số lượng — dùng 1 mặc định và báo cảnh báo
-      rows.push({ ...defaults, itemCode, qty: 1, raw: line, _warn: "Không đọc được SL, mặc định là 1" });
-      return;
+    let qty = parseQtyFromRest(rest);
+    let raw = line;
+
+    if (qty === null) {
+      // Không có SL ngay trên dòng này — kiểu dán Zalo hay gặp: mã nằm riêng 1 dòng,
+      // SL/lý do nằm ở dòng kế tiếp. Thử ghép với dòng kế nếu dòng đó không phải là
+      // một mã hàng khác (tránh nuốt nhầm dòng mã tiếp theo làm số lượng).
+      const nextLine = lines[i + 1];
+      const nextClean = nextLine ? nextLine.replace(/[，,;]/g, " ").trim() : "";
+      const nextIsOwnCode = nextClean && !isHeaderLine(nextClean) && ITEM_CODE_REGEX.test(nextClean);
+      if (nextLine && !isHeaderLine(nextClean) && !nextIsOwnCode) {
+        const nextQty = parseQtyFromRest(nextClean);
+        if (nextQty !== null) {
+          qty = nextQty;
+          raw = `${line} | ${nextLine}`;
+          i++; // đã dùng dòng kế làm SL — bỏ qua, không xử lý lại như 1 dòng riêng
+        }
+      }
     }
-    rows.push({ ...defaults, itemCode, qty, raw: line });
-  });
+
+    if (qty === null) {
+      // Vẫn không xác định được SL dù đã thử dòng kế — chặn lưu thay vì âm thầm ghi SL=1
+      rows.push({ ...defaults, itemCode, qty: 0, raw, _error: "Không đọc được số lượng (cả dòng này lẫn dòng kế tiếp). Vui lòng sửa lại dòng nhập." });
+      continue;
+    }
+
+    rows.push({ ...defaults, itemCode, qty, raw });
+  }
   return rows;
 }
 
@@ -1470,13 +1719,14 @@ function setDashboardStock({ closeDate, branch, itemCode, actualStock, soldNotPi
   row.inactive = false;
   // dbSaveRow bỏ ở đây — dbSyncBatch() ở cuối operation sẽ save toàn bộ
 
-  // Nguyên tắc vận hành: tồn đầu ngày sau lấy theo Tồn thực tế cuối ngày trước.
-  // DTT dùng để trừ khi so lệch trong ngày; CTT chỉ gắn nhãn trong tồn thực tế. Tồn đầu ngày sau lấy theo tồn thực tế.
+  // Nguyên tắc vận hành: tồn đầu ngày sau lấy theo Tồn thực tế cuối ngày trước, trừ đi phần DTT
+  // (đã bán/chưa lấy) — xem giải thích chi tiết trong setNextDayOpeningFromActual.
   setNextDayOpeningFromActual({
     closeDate,
     branch,
     itemCode,
-    actualStock: row.actualStock
+    actualStock: row.actualStock,
+    soldNotPicked: row.soldNotPicked
   });
 }
 
@@ -1677,9 +1927,8 @@ function setupGiftIn() {
     lastGiftInPreview.forEach(r => upsertDashboardRow({ closeDate: isoToDisplay(r.date), branch: r.branch, itemCode: r.itemCode, patch: { giftIn: r.qty } }));
     renderDashboardByPermission();
     const log = makeOpLog("Nạp Gói ra", lastGiftInPreview);
-    adjustmentsLog.unshift(log);
     const [ok] = await Promise.all([dbSyncBatch(), dbSaveLog(log)]);
-    renderAdjustments();
+    await renderAdjustments();
     if (ok) appNotify("Đã cộng Gói ra vào Tổng quan.", "success");
   });
   document.getElementById("btnClearGiftIn")?.addEventListener("click", () => { document.getElementById("giftInText").value = ""; lastGiftInPreview = []; renderPreview("giftInPreviewRows", [], [{}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnAddGiftInToSample", "giftInDupWarning"); });
@@ -1724,9 +1973,8 @@ function setupStock() {
       return tag ? `${cd}|${r.itemCode}:${r.qty}|${tag}` : `${cd}|${r.itemCode}:${r.qty}`;
     }).join(", ");
     const logStock = makeOpLog("Nạp Tồn CN", lastStockPreview, stockDetail);
-    adjustmentsLog.unshift(logStock);
     const [okStock] = await Promise.all([dbSyncBatch(), dbSaveLog(logStock)]);
-    renderAdjustments();
+    await renderAdjustments();
     if (okStock) appNotify("Đã cập nhật Tồn CN / Chuyển CN vào Tổng quan.", "success");
   });
   document.getElementById("btnClearStock")?.addEventListener("click", () => { document.getElementById("stockText").value = ""; lastStockPreview = []; renderPreview("stockPreviewRows", [], [{}, {}, {}, {}, {}, {}, {}], "Chưa có dữ liệu."); checkPreviewDups([], "btnApplyStockToSample", "stockDupWarning"); });
@@ -1746,9 +1994,8 @@ function setupCancel() {
     lastCancelPreview.forEach(r => upsertDashboardRow({ closeDate: isoToDisplay(r.date), branch: r.branch, itemCode: r.itemCode, patch: { cancelBasket: r.qty } }));
     renderDashboardByPermission();
     const logCancel = makeOpLog("Nạp Hủy giỏ", lastCancelPreview);
-    adjustmentsLog.unshift(logCancel);
     const [okCancel] = await Promise.all([dbSyncBatch(), dbSaveLog(logCancel)]);
-    renderAdjustments();
+    await renderAdjustments();
     if (okCancel) appNotify("Đã cập nhật Hủy giỏ vào Tổng quan.", "success");
   });
   _disableSaveBtn("btnApplyCancelToSample");
@@ -1781,9 +2028,8 @@ function setupTransfer() {
     lastTransferPreview.forEach(applyTransferRow);
     renderDashboardByPermission();
     const logTrf = makeOpLog("Nạp Chuyển CN", lastTransferPreview, lastTransferPreview.map(r => `${r.itemCode}:${r.qty} ${r.fromBranch}→${r.toBranch}`).join(", "));
-    adjustmentsLog.unshift(logTrf);
     const [okTrf] = await Promise.all([dbSyncBatch(), dbSaveLog(logTrf)]);
-    renderAdjustments();
+    await renderAdjustments();
     if (okTrf) appNotify("Đã cập nhật Chuyển CN vào Tổng quan.", "success");
   });
 }
@@ -1799,9 +2045,8 @@ function setupSapo() {
       return;
     }
     const logSapo = makeOpLog("Nạp Sapo", lastSapoPreview);
-    adjustmentsLog.unshift(logSapo);
     await Promise.all([result.syncPromise, dbSaveLog(logSapo)]);
-    renderAdjustments();
+    await renderAdjustments();
     appNotify(`Đã cập nhật Sapo theo file mới nhất. ${result.changed} dòng thay đổi, ${result.same} dòng giữ nguyên. Nếu nạp nhầm, có thể bấm Xóa dữ liệu Sapo vừa nạp.`, "success", true);
   });
   document.getElementById("btnUndoLastSapoUpload")?.addEventListener("click", undoLastSapoUpload);
@@ -1903,8 +2148,30 @@ async function readSapoExcel() {
   const wb = XLSX.read(buffer, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-  lastSapoPreview = parseSapoMatrix(matrix);
+  const { rows, skipped } = parseSapoMatrix(matrix);
+  lastSapoPreview = rows;
   renderSapoRows(lastSapoPreview);
+  renderSapoSkippedWarning(skipped);
+}
+
+// Hiển thị cảnh báo minh bạch các dòng Excel bị loại (thiếu mã, đơn đã hủy...) —
+// không chặn lưu các dòng hợp lệ khác, nhưng không để mất dữ liệu âm thầm.
+function renderSapoSkippedWarning(skipped) {
+  let warnEl = document.getElementById("sapoSkippedWarning");
+  const btn = document.getElementById("btnApplySapoExcel");
+  if (!skipped || !skipped.length) {
+    if (warnEl) { warnEl.innerHTML = ""; warnEl.style.display = "none"; }
+    return;
+  }
+  if (!warnEl) {
+    warnEl = document.createElement("div");
+    warnEl.id = "sapoSkippedWarning";
+    btn?.parentNode?.insertBefore(warnEl, btn);
+  }
+  const items = skipped.slice(0, 20).map(s => `Dòng ${s.line}: ${escapeHtml(s.reason)}`).join("<br>");
+  const more = skipped.length > 20 ? `<br>… và ${skipped.length - 20} dòng khác` : "";
+  warnEl.innerHTML = `⚠️ ${skipped.length} dòng Excel bị loại khỏi lần nạp này:<br>${items}${more}`;
+  warnEl.style.cssText = "color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;margin:0 0 8px;display:block;line-height:1.6;";
 }
 
 function downloadSapoTemplate() {
@@ -1939,7 +2206,7 @@ function findHeaderRow(matrix) {
 }
 
 function parseSapoMatrix(matrix) {
-  if (!matrix || !matrix.length) return [];
+  if (!matrix || !matrix.length) return { rows: [], skipped: [] };
   const headerRow = findHeaderRow(matrix);
   const headers = matrix[headerRow].map(h => removeAccent(String(h || "").trim()).toLowerCase());
   const idx = names => {
@@ -1959,21 +2226,29 @@ function parseSapoMatrix(matrix) {
   const revenueIdx = idx(["doanh thu", "doanh thu thuan", "tien hang"]);
   const statusIdx = idx(["trang thai don", "trang thai"]);
   const out = [];
+  const skipped = []; // { line, reason } — dòng có dữ liệu nhưng bị loại, cần báo minh bạch cho user
 
   matrix.slice(headerRow + 1).forEach((row, i) => {
+    const excelLine = i + headerRow + 2;
     const rawSku = String(row[skuIdx] || "").trim();
     const rawName = String(row[nameIdx] || "").trim();
     const joined = `${rawSku} ${rawName}`;
-    if (!rawSku && !rawName) return;
-    if (/tong|total/i.test(removeAccent(joined))) return;
+    if (!rawSku && !rawName) return; // dòng trống thật sự — không phải lỗi, bỏ qua âm thầm
+    if (/tong|total/i.test(removeAccent(joined))) return; // dòng tổng — chủ ý bỏ qua
     const itemCode = extractGiftCode(joined);
-    if (!itemCode) return;
+    if (!itemCode) {
+      skipped.push({ line: excelLine, reason: `Không đọc được mã hàng từ "${joined.trim()}"` });
+      return;
+    }
     const sapoSold = number(row[qtyIdx]);
     const revenue = number(row[revenueIdx]);
     const orderCount = orderIdx >= 0 ? number(row[orderIdx]) : (sapoSold ? 1 : 0);
-    if (sapoSold === 0 && revenue === 0) return;
+    if (sapoSold === 0 && revenue === 0) return; // không có phát sinh — không phải lỗi
     const status = String(row[statusIdx] || "");
-    if (/huy|cancel/i.test(removeAccent(status))) return;
+    if (/huy|cancel/i.test(removeAccent(status))) {
+      skipped.push({ line: excelLine, reason: `Mã ${itemCode}: đơn đã hủy (trạng thái "${status}")` });
+      return;
+    }
     // Ưu tiên: ngày từ Excel → ngày dateFrom → ngày hôm nay (theo giờ địa phương)
     const _d = new Date();
     const _todayLocal = new Date(_d.getTime() - _d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
@@ -1986,10 +2261,10 @@ function parseSapoMatrix(matrix) {
       sapoSold,
       orderCount,
       revenue,
-      note: `Excel dòng ${i + headerRow + 2}`
+      note: `Excel dòng ${excelLine}`
     });
   });
-  return out;
+  return { rows: out, skipped };
 }
 
 function parseExcelDate(value) {
@@ -2136,7 +2411,7 @@ function setupWrongCode() {
 
   document.getElementById("btnCheckTempCode")?.addEventListener("click", checkTempCodeBranch);
   document.getElementById("btnApplyWrongCode")?.addEventListener("click", applyWrongCode);
-  document.getElementById("btnClearAdjustments")?.addEventListener("click", () => { if (!isAdminUser()) return; adjustmentsLog = []; dbClearLogs(); renderAdjustments(); });
+  document.getElementById("btnClearAdjustments")?.addEventListener("click", async () => { if (!isAdminUser()) return; await dbClearLogs(); await renderAdjustments(); });
 }
 
 async function applyWrongCode() {
@@ -2174,9 +2449,8 @@ async function applyWrongCode() {
       status: "Chờ Admin/Trưởng ca xử lý",
       detail: "Nhân viên gửi đề xuất, chưa áp dụng số liệu vào Dashboard."
     };
-    adjustmentsLog.push(entry1);
-    dbSaveLog(entry1);
-    renderAdjustments();
+    await dbSaveLog(entry1);
+    await renderAdjustments();
     appNotify("Đã ghi nhận đề xuất sai mã/đổi mã. Dashboard chưa thay đổi cho đến khi Admin/Trưởng ca áp dụng.", "success", true);
     return;
   }
@@ -2207,10 +2481,9 @@ async function applyWrongCode() {
     status: "Đã áp dụng",
     detail: result.detail || ""
   };
-  adjustmentsLog.push(entry2);
-  dbSaveLog(entry2);
+  await dbSaveLog(entry2);
 
-  renderAdjustments();
+  await renderAdjustments();
   renderDashboardByPermission();
 
   const msg = type === "Sai mã Sapo / check đơn"
@@ -2283,8 +2556,6 @@ function moveTempCodeOccurrences({ closeDate, branch, wrongCode, rightCode, qty,
   let movedActualStockAbs = 0;
 
   sourceFields.forEach(field => {
-    // Với đổi mã tạm, SL được hiểu là SL cần đổi cho TỪNG nguồn phát sinh.
-    // Không dùng "remain" chung, vì cùng 1 mã có thể vừa Gói ra 1 vừa Tồn thực tế 1.
     const moved = moveNumericFieldByQty(wrong, right, field, qty);
     if (moved) {
       movedFields.push(`${field}:${moved}`);
@@ -2295,7 +2566,7 @@ function moveTempCodeOccurrences({ closeDate, branch, wrongCode, rightCode, qty,
   if (!movedFields.length) {
     return {
       moved: false,
-      message: `Mã ${wrongCode} có dòng nhưng không có phát sinh thuộc nguồn “${formatSourceName(source)}” để chuyển.`
+      message: `Mã ${wrongCode} có dòng nhưng không có phát sinh thuộc nguồn "${formatSourceName(source)}" để chuyển.`
     };
   }
 
@@ -2326,7 +2597,7 @@ function moveSapoWrongCode({ closeDate, branch, wrongCode, rightCode, qty }) {
 
   const oldSold = number(wrong.sapoSold);
   if (!oldSold) {
-    return { moved: false, message: `Mã ${wrongCode} không có Sapo bán trong ngày/chi nhánh đã chọn. Nếu là mã tạm nội bộ, hãy chọn “Đổi mã tạm / nhập nhầm”.` };
+    return { moved: false, message: `Mã ${wrongCode} không có Sapo bán trong ngày/chi nhánh đã chọn. Nếu là mã tạm nội bộ, hãy chọn "Đổi mã tạm / nhập nhầm".` };
   }
 
   upsertDashboardRow({ closeDate, branch, itemCode: rightCode, patch: {} });
@@ -2381,29 +2652,33 @@ function getInternalMoveFields(source) {
   ];
 }
 
-function getFilteredAdjustmentLogs() {
-  const fBranch  = document.getElementById("adjFilterBranch")?.value  || "Tất cả";
-  const fType    = document.getElementById("adjFilterType")?.value    || "all";
-  const fUser    = (document.getElementById("adjFilterUser")?.value   || "").trim().toLowerCase();
-  const fDateFrom = document.getElementById("adjFilterDateFrom")?.value || ""; // YYYY-MM-DD
-  const fDateTo   = document.getElementById("adjFilterDateTo")?.value  || ""; // YYYY-MM-DD
-  return adjustmentsLog.filter(r => {
-    if (fBranch !== "Tất cả" && r.branch !== fBranch) return false;
-    if (fType   !== "all"    && r.type   !== fType)   return false;
-    if (fUser   && !((r.user || "").toLowerCase().includes(fUser))) return false;
-    // Lọc theo ngày kinh doanh (closeDate dạng DD/MM/YYYY)
-    if (fDateFrom || fDateTo) {
-      const iso = displayToIso(r.closeDate || ""); // chuyển sang YYYY-MM-DD
-      if (fDateFrom && iso < fDateFrom) return false;
-      if (fDateTo   && iso > fDateTo)   return false;
-    }
-    return true;
-  });
+// Fetch log từ DB với filter — trả về mảng log từ API
+async function fetchLogsFromDB() {
+  const branch   = document.getElementById("adjFilterBranch")?.value  || "";
+  const type     = document.getElementById("adjFilterType")?.value    || "";
+  const user     = (document.getElementById("adjFilterUser")?.value   || "").trim();
+  const dateFrom = document.getElementById("adjFilterDateFrom")?.value || "";
+  const dateTo   = document.getElementById("adjFilterDateTo")?.value  || "";
+
+  const params = new URLSearchParams();
+  if (branch && branch !== "Tất cả") params.set("branch",   branch);
+  if (type   && type   !== "all")    params.set("type",     type);
+  if (user)                          params.set("user",     user);
+  if (dateFrom)                      params.set("dateFrom", dateFrom);
+  if (dateTo)                        params.set("dateTo",   dateTo);
+
+  const res = await fetch(`${NXT_API}/logs?${params}`, { credentials: "include" });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return Array.isArray(json) ? json : (json?.content ?? []);
 }
 
-function renderAdjustments() {
+async function renderAdjustments() {
   const canDelete = userCanDeleteLogs();
   const ROLLBACK_TYPES = ["Nạp Gói ra", "Nạp Hủy giỏ", "Nạp Sapo", "Nạp Tồn CN", "Sửa SL"];
+
+  // Luôn truy vấn CSDL mới nhất theo bộ lọc hiện tại — không đọc từ mảng RAM cũ
+  adjustmentsLog = await fetchLogsFromDB();
 
   // ── Cập nhật bộ lọc loại nếu select đang trống ──────────────────────────
   const typeEl = document.getElementById("adjFilterType");
@@ -2413,7 +2688,8 @@ function renderAdjustments() {
       types.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
   }
 
-  const visibleLogs = getFilteredAdjustmentLogs();
+  // Backend đã lọc theo bộ lọc hiện tại — adjustmentsLog chính là danh sách hiển thị
+  const visibleLogs = adjustmentsLog;
   // rebuild index map so showLogDetail/rollbackLog still work on original array
   const idxMap = visibleLogs.map(v => adjustmentsLog.indexOf(v));
 
@@ -2642,9 +2918,8 @@ async function rollbackLog(idx) {
           }
         }
 
-        adjustmentsLog.splice(idx, 1);
         renderDashboardByPermission();
-        renderAdjustments();
+        await renderAdjustments();
 
         if (logDeleteError) {
           appNotify(`Dữ liệu đã hoàn tác, nhưng: ${logDeleteError}`, "error", true);
@@ -2746,8 +3021,8 @@ async function applyEditQty() {
   row[field] = newVal;
   cleanupZeroFields(row);
 
-  if (field === "actualStock") {
-    setNextDayOpeningFromActual({ closeDate, branch, itemCode, actualStock: newVal });
+  if (field === "actualStock" || field === "soldNotPicked") {
+    setNextDayOpeningFromActual({ closeDate, branch, itemCode, actualStock: row.actualStock, soldNotPicked: row.soldNotPicked });
     extraDetail = " (đồng bộ tồn đầu ngày kế tiếp)";
   }
 
@@ -2776,12 +3051,11 @@ async function applyEditQty() {
     detail: `${fieldLabel}: ${oldVal} → ${newVal}${extraDetail}`
   };
 
-  adjustmentsLog.unshift(logEntry);
-  renderAdjustments();
   renderDashboardByPermission();
 
   appNotify("loading");
   const [okEQ] = await Promise.all([dbSyncBatch(), dbSaveLog(logEntry)]);
+  await renderAdjustments();
   if (okEQ) appNotify(`Đã sửa ${fieldLabel} của ${itemCode} (${branch}): ${oldVal} → ${newVal}.`, "success");
 }
 
@@ -2957,16 +3231,34 @@ async function confirmSapoPending(id) {
     });
     if (!res.ok) { appNotify("Lỗi khi hoàn thành. Xem Console.", "error", true); return; }
 
+    // Sapo đã xác nhận — đổi nhãn dòng gốc (ngày tạo treo) từ CTT sang DTT để phản ánh đã có
+    // đơn Sapo, chỉ còn chờ đối chiếu, không còn "chưa xác nhận" nữa.
+    const originRow = findDashboardRow(record.closeDate, record.branch, record.itemCode);
+    if (originRow && getStockStatusType(originRow) === "CTT") {
+      originRow.stockStatus = "DTT - đã bán chưa lấy";
+    }
+
     // Điều chỉnh dương ngày Sapo để tránh trừ tồn 2 lần
+    let logEntry = null;
     if (sapoDateDisplay) {
       const existAdj = number(dashboardRows.find(r => r.closeDate === sapoDateDisplay && r.branch === record.branch && r.itemCode === record.itemCode)?.adjustment);
-      upsertDashboardRow({ closeDate: sapoDateDisplay, branch: record.branch, itemCode: record.itemCode, patch: { adjustment: existAdj + number(record.qty) } });
+      const newAdj = existAdj + number(record.qty);
+      upsertDashboardRow({ closeDate: sapoDateDisplay, branch: record.branch, itemCode: record.itemCode, patch: { adjustment: number(record.qty) } });
+      logEntry = {
+        createdAt: new Date().toLocaleString("vi-VN"),
+        closeDate: sapoDateDisplay, branch: record.branch, type: "Sapo treo hoàn thành",
+        source: "Điều chỉnh", wrongCode: "", rightCode: record.itemCode,
+        qty: number(record.qty), note: completionNote,
+        user: getCurrentUserName(), status: "Đã áp dụng",
+        detail: `Điều chỉnh: ${existAdj} → ${newAdj} (hoàn thành Sapo treo${sapoOrderCode ? `, mã đơn ${sapoOrderCode}` : ""})`,
+      };
     }
 
     await loadSapoPending();
     renderSapoPendingCards();
     renderSapoPendingBanner();
-    const ok = await dbSyncBatch();
+    const [ok] = await Promise.all([dbSyncBatch(), logEntry ? dbSaveLog(logEntry) : Promise.resolve()]);
+    if (logEntry) await renderAdjustments();
     renderDashboardByPermission();
     if (ok) appNotify(`Hoàn thành. Điều chỉnh +${record.qty} đã ghi${sapoDateDisplay ? ` vào ngày ${sapoDateDisplay}` : ""}.`, "success");
   } catch (e) {
@@ -2980,7 +3272,7 @@ async function deleteSapoPending(id) {
   if (!record) return;
   appConfirm(
     `Hủy treo "${record.itemCode}"?`,
-    `Ngày ra: ${record.closeDate}\n\nLưu ý: Điều chỉnh âm đã ghi vào tổng quan sẽ không tự hoàn tác. Bạn cần sửa thủ công nếu cần.`,
+    `Ngày ra: ${record.closeDate}\n\nLưu ý: Điều chỉnh âm và nhãn CTT đã ghi vào Tổng quan sẽ không tự hoàn tác. Bạn cần sửa thủ công nếu cần.`,
     async () => {
       try {
         const res = await fetch(`${SAPO_PENDING_API}/${id}`, { method: "DELETE", credentials: "include" });
@@ -3020,7 +3312,21 @@ function setupSapoPending() {
 
       // Điều chỉnh âm ngày hàng ra thực tế
       const existAdj = number(dashboardRows.find(r => r.closeDate === closeDateDisplay && r.branch === branch && r.itemCode === itemCode)?.adjustment);
-      upsertDashboardRow({ closeDate: closeDateDisplay, branch, itemCode, patch: { adjustment: existAdj - qty } });
+      const newAdj = existAdj - qty;
+      upsertDashboardRow({ closeDate: closeDateDisplay, branch, itemCode, patch: { adjustment: -qty } });
+      // Gắn nhãn CTT trong lúc chờ Sapo xác nhận — badge trên Tổng quan sẽ hiện CTT ngay tại
+      // dòng này để nhân viên biết đang có 1 mục Sapo treo chưa xử lý xong, đổi sang DTT khi
+      // hoàn thành (xem confirmSapoPending).
+      const pendingRow = findDashboardRow(closeDateDisplay, branch, itemCode);
+      if (pendingRow) pendingRow.stockStatus = "CTT - giữ giỏ/chưa thanh toán";
+      const logEntry = {
+        createdAt: new Date().toLocaleString("vi-VN"),
+        closeDate: closeDateDisplay, branch, type: "Nạp Sapo treo",
+        source: "Điều chỉnh", wrongCode: "", rightCode: itemCode,
+        qty: -qty, note: note || reason,
+        user: getCurrentUserName(), status: "Đã áp dụng",
+        detail: `Điều chỉnh: ${existAdj} → ${newAdj} (treo chờ Sapo, SL ${qty}, lý do: ${reason})`,
+      };
 
       // Reset form
       ["sapoPendingCode", "sapoPendingNote"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
@@ -3030,7 +3336,8 @@ function setupSapoPending() {
       await loadSapoPending();
       renderSapoPendingCards();
       renderSapoPendingBanner();
-      const ok = await dbSyncBatch();
+      const [ok] = await Promise.all([dbSyncBatch(), dbSaveLog(logEntry)]);
+      await renderAdjustments();
       renderDashboardByPermission();
       if (ok) appNotify(`Đã tạo mục treo. Điều chỉnh −${qty} ghi vào ngày ${closeDateDisplay}.`, "success");
     } catch (e) {
@@ -3039,6 +3346,138 @@ function setupSapoPending() {
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── HƯỚNG DẪN SỬ DỤNG ────────────────────────────────────────────────────────
+
+function xntGuideSection(title, open, bodyHtml) {
+  return `
+    <details ${open ? "open" : ""} style="border:1px solid #e2e8f0;border-radius:12px;margin-bottom:10px;overflow:hidden;">
+      <summary style="padding:12px 16px;font-weight:800;font-size:14px;color:#065f2d;cursor:pointer;background:#f0fdf4;list-style:none;display:flex;align-items:center;gap:8px;">
+        <span style="flex:1;">${title}</span>
+        <span style="font-size:11px;color:#6b7280;font-weight:600;">bấm để ${open ? "thu gọn" : "xem"}</span>
+      </summary>
+      <div style="padding:14px 16px;font-size:13px;line-height:1.7;color:#334155;">${bodyHtml}</div>
+    </details>`;
+}
+
+function xntGuideTable(rows) {
+  return `<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0;">
+    <tbody>${rows.map(([a, b]) => `
+      <tr>
+        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:700;white-space:nowrap;color:#1e293b;vertical-align:top;">${a}</td>
+        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;color:#475569;">${b}</td>
+      </tr>`).join("")}
+    </tbody>
+  </table>`;
+}
+
+window.showXntGuide = function () {
+  let overlay = document.getElementById('nxtGuideOverlay');
+  if (!overlay) { overlay = document.createElement('div'); overlay.id = 'nxtGuideOverlay'; document.body.appendChild(overlay); }
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  const sections = [
+    xntGuideSection("1. Bảng Tổng quan là gì — ý nghĩa từng cột", true, `
+      Mỗi dòng trong bảng Tổng quan = <b>1 mã hàng</b> + <b>1 ngày đóng gói</b> + <b>1 chi nhánh</b>.
+      ${xntGuideTable([
+        ["Tồn đầu", "Tồn thực tế cuối ngày <b>trước đó</b>, tự động lấy sang (đã trừ phần DTT — xem mục 4)."],
+        ["Gói ra", "Số giỏ xuất từ kho gói trong ngày (nhập ở tab <b>Gói ra</b>)."],
+        ["Nhận CN / Chuyển CN", "Số giỏ nhận từ / chuyển đi chi nhánh khác (nhập ở tab <b>Tồn CN</b>, dòng có chữ &quot;chuyển &lt;chi nhánh&gt;&quot;)."],
+        ["Hủy giỏ", "Số giỏ bị hủy trả lại kho (nhập ở tab <b>Hủy giỏ</b>)."],
+        ["Sapo bán", "Số giỏ được Sapo ghi nhận đã bán (nhập ở tab <b>Nạp Sapo</b>)."],
+        ["Điều chỉnh", "Điều chỉnh thủ công khác — sửa SL tay, hoặc tự động từ <b>Sapo treo</b> (xem mục 10)."],
+        ["Tồn thực tế", "Số đếm thực tế cuối ngày khi kiểm kho (nhập ở tab <b>Tồn CN</b>), gồm cả DTT lẫn CTT."],
+        ["DTT/Bán chưa lấy", "Phần trong Tồn thực tế đã <i>đã thanh toán nhưng khách chưa lấy</i> — xem mục 4."],
+        ["Tồn so sánh", "= Tồn thực tế − DTT."],
+        ["Tồn kỳ vọng", "= Tồn đầu + Gói ra + Nhận CN − Chuyển CN − Sapo bán − Hủy giỏ + Điều chỉnh."],
+        ["Lệch", "= Tồn so sánh − Tồn kỳ vọng. Badge xanh &quot;Khớp&quot; nếu = 0, số đỏ nếu lệch."],
+        ["Gợi ý kiểm tra", "Gợi ý tự động (không chắc chắn) dựa trên các trường có thể thiếu."],
+      ])}
+    `),
+
+    xntGuideSection("2. Truy vết nguồn gốc — bấm vào bất kỳ số nào", false, `
+      Mọi con số ở các cột Tồn đầu, Gói ra, Nhận CN, Chuyển CN, Hủy giỏ, Sapo bán, Điều chỉnh, Tồn thực tế, DTT
+      đều <b>bấm được</b> (có gạch chân chấm khi rê chuột) — bấm vào sẽ mở modal Truy vết gồm:
+      <ul style="margin:8px 0;padding-left:20px;">
+        <li><b>Phân tích nguồn gốc</b>: giải thích tự động dựa trên bút ký khớp loại thao tác của đúng cột đó.</li>
+        <li><b>Bảng bút ký chi tiết</b>: Ngày chốt · Thời gian nhập · Người thực hiện · Thao tác · Trạng thái · Chi tiết. Bấm vào 1 dòng để mở rộng xem toàn bộ mã trong cùng bút ký, ghi chú, mã nhân viên, địa chỉ IP, thiết bị dùng để thao tác, ID bút ký.</li>
+        <li>Nếu mã hàng còn bút ký <b>khác loại thao tác</b> trong cùng ngày (không trực tiếp tạo ra số đang xem), sẽ có dòng <i>&quot;Còn X bút ký khác...&quot;</i> — bấm để xem thêm, tránh trộn lẫn gây hiểu nhầm.</li>
+      </ul>
+      Dữ liệu luôn lấy trực tiếp từ hệ thống tại thời điểm bấm — không dùng dữ liệu cũ trong bộ nhớ trình duyệt, nên luôn phản ánh đúng thực tế kể cả khi người khác vừa thao tác.
+    `),
+
+    xntGuideSection("3. DTT và CTT — khi nào dùng, khác nhau ra sao", false, `
+      Đây là 2 nhãn trạng thái gắn cho giỏ hàng khi <b>kiểm Tồn CN</b> cuối ngày, tự nhận diện qua từ khóa trong dòng bạn dán (&quot;dtt&quot;, &quot;chưa lấy&quot;, &quot;chờ lấy&quot; → DTT; &quot;ctt&quot;, &quot;chưa thanh toán&quot; → CTT).
+      ${xntGuideTable([
+        ["DTT — Đã thanh toán, chưa lấy", "Khách đã trả tiền (Sapo đã ghi nhận bán), giỏ vẫn còn tại kho. Cộng đủ vào Tồn thực tế, nhưng bị <b>trừ ra</b> ở Tồn so sánh (vì coi như đã bán)."],
+        ["CTT — Chưa thanh toán, giữ giỏ", "Khách chưa trả tiền, giỏ đang được giữ chỗ. Cộng đủ vào Tồn thực tế, <b>không trừ</b> ở đâu cả (vẫn là tồn thật)."],
+      ])}
+      <b>Lưu ý quan trọng:</b> nếu khách <b>vẫn chưa lấy</b> giỏ DTT ở các ngày sau, phải <b>dán lại &quot;dtt&quot; mỗi ngày</b> khi kiểm Tồn CN cho tới khi khách lấy thật — hệ thống sẽ tự trừ đúng phần DTT khi tính tồn đầu ngày kế tiếp, tránh phát sinh Lệch ảo vào đúng ngày khách lấy hàng.
+    `),
+
+    xntGuideSection("4. Nhập liệu hàng loạt — Gói ra / Hủy giỏ / Tồn CN", false, `
+      Dán danh sách vào ô nhập, <b>mỗi dòng 1 mã</b>. Các định dạng được nhận diện:
+      <ul style="margin:8px 0;padding-left:20px;">
+        <li><code>H1135 2</code>, <code>H1135 x2</code>, <code>H1135: 2</code>, <code>H1135 - 2 cái</code> — mã và SL cùng dòng.</li>
+        <li><code>H1135</code> rồi xuống dòng <code>Hủy 2 cái do vỡ giỏ</code> — mã và SL/lý do <b>tách 2 dòng riêng</b> (kiểu copy tin nhắn Zalo) — hệ thống tự ghép lại đúng SL.</li>
+        <li>Với Tồn CN: thêm &quot;dtt&quot;/&quot;ctt&quot; để gắn nhãn, hoặc &quot;chuyển &lt;chi nhánh&gt;&quot; để tự nhận là chuyển chi nhánh.</li>
+      </ul>
+      Bấm <b>Xem trước</b> để kiểm tra: dòng nền đỏ = lỗi (không đọc được mã hoặc không xác định được SL dù đã thử ghép dòng kế) — <b>chặn nút Lưu</b> cho tới khi sửa xong, tránh âm thầm ghi sai số lượng. Dòng nền vàng = cảnh báo nhẹ, vẫn lưu được nhưng nên kiểm tra lại. Nếu 2 dòng trùng mã + trùng loại trạng thái, hệ thống cũng cảnh báo và chặn lưu.
+    `),
+
+    xntGuideSection("5. Nạp Sapo (Excel)", false, `
+      Tải file mẫu (nút <b>Tải file mẫu</b>), điền theo đúng cột rồi tải lên. Các dòng thiếu mã SKU hoặc đơn đã hủy sẽ <b>bị loại khỏi lần nạp</b> — hệ thống hiện rõ số dòng bị loại và lý do ngay trên preview, không còn mất tích âm thầm. Có thể xem lịch sử các lần nạp trước và <b>hoàn tác lần nạp gần nhất</b> nếu nạp nhầm file.
+    `),
+
+    xntGuideSection("6. Sai mã / Đổi mã tạm", false, `
+      Dùng khi nhập nhầm mã hoặc cần gộp phát sinh từ 1 mã sai/mã tạm sang mã đúng. Có 2 loại:
+      ${xntGuideTable([
+        ["Đổi mã tạm / nhập nhầm", "Chuyển các phát sinh nội bộ (Gói ra, Tồn thực tế, Hủy giỏ, Chuyển CN...) từ mã sai sang mã đúng. <b>Không</b> đụng tới Sapo bán/doanh thu."],
+        ["Sai mã Sapo / check đơn", "Chuyển riêng phần Sapo bán/doanh thu/số đơn từ mã sai sang mã đúng."],
+      ])}
+      Nhân viên thường chỉ tạo được <b>đề xuất</b> (chưa đổi số ngay) — cần Admin/Trưởng ca vào duyệt thì số liệu Tổng quan mới thay đổi.
+    `),
+
+    xntGuideSection("7. Sửa SL", false, `
+      Sửa nhanh <b>1 trường cụ thể</b> cho 1 mã/ngày/chi nhánh (không cần vào đúng dòng trong Tổng quan). Bắt buộc nhập lý do. Mọi lần sửa đều tự ghi bút ký &quot;Sửa SL&quot; — bấm Truy vết vào ô đó sẽ thấy ngay cũ → mới, ai sửa, lúc nào.
+    `),
+
+    xntGuideSection("8. Sửa trực tiếp ở Tổng quan (nút &quot;Sửa&quot;)", false, `
+      Bấm nút <b>Sửa</b> ngay trên 1 dòng của bảng Tổng quan để chỉnh nhanh nhiều trường cùng lúc (Gói ra, Nhận CN, Chuyển CN, Hủy giỏ, Điều chỉnh, Tồn thực tế, DTT). Mỗi trường thực sự thay đổi đều tự ghi bút ký riêng, và nếu sửa Tồn thực tế/DTT thì <b>tự đồng bộ luôn tồn đầu ngày kế tiếp</b> — giống hệt luồng Tồn CN, tránh Lệch ảo về sau.
+      <div style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12.5px;">⚠️ Nút <b>Sửa</b> chỉ hiện ra với tài khoản được cấp quyền chỉnh nhanh (<code>sales.nxt.edit_quatity_nxt</code>). Không thấy nút này nghĩa là tài khoản chưa có quyền, không phải lỗi hệ thống — liên hệ Admin để được cấp nếu cần.</div>
+    `),
+
+    xntGuideSection("9. Sapo treo — khi khách đã lấy hàng nhưng Sapo chưa ghi nhận", false, `
+      Dùng khi khách đã trả tiền/lấy hàng nhưng đơn chưa lên hệ thống Sapo (xử lý trễ, đồng bộ chậm...).
+      <ul style="margin:8px 0;padding-left:20px;">
+        <li><b>Tạo treo:</b> điền ngày/chi nhánh/mã/SL — hệ thống tự trừ Điều chỉnh (−SL) vào đúng ngày đó để không bị tính dư tồn, đồng thời gắn nhãn <b>CTT</b> lên dòng đó (báo hiệu &quot;đang chờ Sapo xác nhận&quot;).</li>
+        <li><b>Hoàn thành treo:</b> khi thấy đơn thật trên Sapo, vào mục Sapo treo nhập đúng <b>Ngày Sapo</b> (ngày đơn thực sự lên hệ thống) — hệ thống tự cộng lại Điều chỉnh (+SL) vào đúng ngày đó, và đổi nhãn dòng gốc từ CTT sang <b>DTT</b>.</li>
+      </ul>
+      <b>Lưu ý:</b> đừng tự tay vào Tổng quan chỉnh thêm Điều chỉnh song song — hệ thống đã tự làm khi tạo/hoàn thành treo, làm thêm sẽ bị trừ/cộng 2 lần. Muốn kiểm tra đã đúng chưa: xem <b>cột Lệch</b> của cả 2 ngày (ngày tạo treo và ngày hoàn thành) — phải hiện &quot;Khớp&quot; cả 2, không cần cột Điều chỉnh phải về 0 (vì 2 bút toán −SL/+SL thường nằm ở 2 ngày khác nhau).
+    `),
+
+    xntGuideSection("10. Nhật ký / Lịch sử điều chỉnh", false, `
+      Xem toàn bộ bút ký của cả trang XNT, lọc theo chi nhánh/loại thao tác/người thực hiện/khoảng ngày. Dữ liệu luôn được hỏi lại hệ thống mỗi khi đổi bộ lọc — không dùng dữ liệu cũ. Với các loại thao tác nhập hàng loạt và Sửa SL, người có quyền có thể bấm <b>Hoàn tác</b> để xóa bút ký và đảo ngược số liệu đã ghi.
+      <div style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12.5px;">⚠️ Cột/nút <b>Hoàn tác</b> chỉ hiện ra với tài khoản được cấp quyền xóa bút ký (<code>sales.nxt.delete_logs</code>). Tài khoản không có quyền vẫn xem được đầy đủ bút ký, chỉ không thấy nút hoàn tác.</div>
+    `),
+  ].join("");
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:24px 22px 20px;max-width:820px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.18);font-family:inherit;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-weight:900;font-size:17px;color:#065f2d;">📖 Hướng dẫn sử dụng — Xuất Nhập Tồn</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Bấm vào từng mục để mở rộng/thu gọn. Đọc kỹ mục 3 (DTT/CTT) và mục 9 (Sapo treo) nếu hay gặp Lệch khó hiểu.</div>
+        </div>
+        <button id="nxtGuideClose" style="background:none;border:none;cursor:pointer;font-size:24px;color:#94a3b8;line-height:1;padding:0 2px;">&#x2715;</button>
+      </div>
+      ${sections}
+    </div>`;
+  const close = () => { overlay.style.display = 'none'; overlay.innerHTML = ''; };
+  document.getElementById('nxtGuideClose').onclick = close;
+  overlay.onclick = e => { if (e.target === overlay) close(); };
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -3050,13 +3489,11 @@ window.bootNxt = async function (user) {
   setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode(); setupEditQty(); setupSapoPending();
   applyLoginState();
   try {
-    const [rowsRes, logsRes, spRes] = await Promise.all([
+    const [rowsRes, spRes] = await Promise.all([
       fetch(`${NXT_API}/rows`, { credentials: "include" }),
-      fetch(`${NXT_API}/logs`, { credentials: "include" }),
       fetch(SAPO_PENDING_API, { credentials: "include" })
     ]);
     if (rowsRes.ok) { const r = await rowsRes.json(); console.log("[NXT] rows raw:", r); dashboardRows = Array.isArray(r) ? r : (r?.content ?? []); console.log("[NXT] dashboardRows:", dashboardRows, "dòng"); }
-    if (logsRes.ok) { const l = await logsRes.json(); adjustmentsLog = Array.isArray(l) ? l : (l?.content ?? []); }
     if (spRes.ok) { const s = await spRes.json(); sapoPendingList = Array.isArray(s) ? s : (s?.content ?? []); }
   } catch (e) {
     console.warn("Không kết nối được API, dùng dữ liệu rỗng.", e);
@@ -3078,7 +3515,7 @@ window.bootNxt = async function (user) {
   });
 
   renderDashboardByPermission();
-  renderAdjustments();
+  await renderAdjustments();
   renderSapoPendingCards();
   renderSapoPendingBanner();
 };
