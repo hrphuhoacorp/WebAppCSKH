@@ -684,7 +684,7 @@ const CELL_FIELD_META = {
   transferBranch: { label: "Chuyển CN",          types: ["Nạp Chuyển CN"],                                              sourceLabels: ["Chuyển CN"] },
   cancelBasket:   { label: "Hủy giỏ",            types: ["Nạp Hủy giỏ"],                                               sourceLabels: ["Hủy giỏ"] },
   sapoSold:       { label: "Sapo bán",            types: ["Nạp Sapo", "Sai mã Sapo / check đơn"],                        sourceLabels: ["Sapo bán"] },
-  adjustment:     { label: "Điều chỉnh",         types: ["Sửa SL", "Nạp Sapo treo", "Sapo treo hoàn thành"],         sourceLabels: ["Điều chỉnh"] },
+  adjustment:     { label: "Điều chỉnh",         types: ["Sửa SL", "Nạp Sapo treo", "Sapo treo hoàn thành", "Hủy Sapo treo"], sourceLabels: ["Điều chỉnh"] },
   actualStock:    { label: "Tồn thực tế",       types: ["Nạp Tồn CN"],                                               sourceLabels: ["Tồn thực tế"] },
   soldNotPicked:  { label: "DTT/Bán chưa lấy",   types: ["Nạp Tồn CN"],                                               sourceLabels: ["Bán chưa lấy"] },
 };
@@ -723,7 +723,7 @@ function logMatchesCell(log, closeDate, branch, itemCode, fieldKey) {
   }
 
   // Với Sửa SL / Sapo treo: khớp rightCode (mã được sửa/treo)
-  if (log.type === "Sửa SL" || log.type === "Nạp Sapo treo" || log.type === "Sapo treo hoàn thành") {
+  if (["Sửa SL", "Nạp Sapo treo", "Sapo treo hoàn thành", "Hủy Sapo treo"].includes(log.type)) {
     return (log.rightCode || "") === itemCode;
   }
 
@@ -887,7 +887,7 @@ function buildCellAnalysis(row, closeDate, branch, itemCode, fieldKey, relatedLo
   if (fieldKey === 'adjustment') {
     const editLogs = relatedLogs.filter(l => l.type === 'Sửa SL' && l.source === 'Điều chỉnh');
     const sapoTreoAdj = allCellLogs.filter(l =>
-      l.type === 'Sapo treo hoàn thành' &&
+      ['Nạp Sapo treo', 'Sapo treo hoàn thành', 'Hủy Sapo treo'].includes(l.type) &&
       (l.closeDate || '').includes(closeDate) &&
       (l.branch || '').includes(branch)
     );
@@ -3272,15 +3272,38 @@ async function deleteSapoPending(id) {
   if (!record) return;
   appConfirm(
     `Hủy treo "${record.itemCode}"?`,
-    `Ngày ra: ${record.closeDate}\n\nLưu ý: Điều chỉnh âm và nhãn CTT đã ghi vào Tổng quan sẽ không tự hoàn tác. Bạn cần sửa thủ công nếu cần.`,
+    `Ngày ra: ${record.closeDate}\n\nSẽ tự động hoàn lại Điều chỉnh +${record.qty} vào ngày đó và bỏ nhãn CTT trên Tổng quan.`,
     async () => {
       try {
         const res = await fetch(`${SAPO_PENDING_API}/${id}`, { method: "DELETE", credentials: "include" });
         if (!res.ok) { appNotify("Lỗi khi hủy treo.", "error", true); return; }
+
+        // Hoàn tác đúng: cộng lại đúng phần Điều chỉnh đã trừ lúc tạo treo, và bỏ nhãn CTT nếu
+        // vẫn còn nguyên (chưa bị đổi bởi thao tác khác) — tránh phải sửa tay như trước đây.
+        let logEntry = null;
+        const row = findDashboardRow(record.closeDate, record.branch, record.itemCode);
+        if (row) {
+          const existAdj = number(row.adjustment);
+          const newAdj = existAdj + number(record.qty);
+          upsertDashboardRow({ closeDate: record.closeDate, branch: record.branch, itemCode: record.itemCode, patch: { adjustment: number(record.qty) } });
+          if (getStockStatusType(row) === "CTT") row.stockStatus = "Tồn bình thường";
+          logEntry = {
+            createdAt: new Date().toLocaleString("vi-VN"),
+            closeDate: record.closeDate, branch: record.branch, type: "Hủy Sapo treo",
+            source: "Điều chỉnh", wrongCode: "", rightCode: record.itemCode,
+            qty: number(record.qty), note: "Hủy mục Sapo treo, hoàn lại điều chỉnh và nhãn CTT",
+            user: getCurrentUserName(), status: "Đã áp dụng",
+            detail: `Điều chỉnh: ${existAdj} → ${newAdj} (hủy Sapo treo, hoàn lại SL ${record.qty})`,
+          };
+        }
+
         await loadSapoPending();
         renderSapoPendingCards();
         renderSapoPendingBanner();
-        appNotify("Đã hủy treo.", "success");
+        const [ok] = await Promise.all([dbSyncBatch(), logEntry ? dbSaveLog(logEntry) : Promise.resolve()]);
+        if (logEntry) await renderAdjustments();
+        renderDashboardByPermission();
+        if (ok) appNotify(`Đã hủy treo, hoàn lại Điều chỉnh +${record.qty}.`, "success");
       } catch (e) { appNotify("Lỗi kết nối.", "error", true); }
     },
     { confirmLabel: "Hủy treo", variant: "danger" }
@@ -3453,6 +3476,7 @@ window.showXntGuide = function () {
       <ul style="margin:8px 0;padding-left:20px;">
         <li><b>Tạo treo:</b> điền ngày/chi nhánh/mã/SL — hệ thống tự trừ Điều chỉnh (−SL) vào đúng ngày đó để không bị tính dư tồn, đồng thời gắn nhãn <b>CTT</b> lên dòng đó (báo hiệu &quot;đang chờ Sapo xác nhận&quot;).</li>
         <li><b>Hoàn thành treo:</b> khi thấy đơn thật trên Sapo, vào mục Sapo treo nhập đúng <b>Ngày Sapo</b> (ngày đơn thực sự lên hệ thống) — hệ thống tự cộng lại Điều chỉnh (+SL) vào đúng ngày đó, và đổi nhãn dòng gốc từ CTT sang <b>DTT</b>.</li>
+        <li><b>Hủy treo (tạo nhầm):</b> hệ thống tự cộng lại đúng phần Điều chỉnh đã trừ lúc tạo và bỏ nhãn CTT — không cần tự sửa tay.</li>
       </ul>
       <b>Lưu ý:</b> đừng tự tay vào Tổng quan chỉnh thêm Điều chỉnh song song — hệ thống đã tự làm khi tạo/hoàn thành treo, làm thêm sẽ bị trừ/cộng 2 lần. Muốn kiểm tra đã đúng chưa: xem <b>cột Lệch</b> của cả 2 ngày (ngày tạo treo và ngày hoàn thành) — phải hiện &quot;Khớp&quot; cả 2, không cần cột Điều chỉnh phải về 0 (vì 2 bút toán −SL/+SL thường nằm ở 2 ngày khác nhau).
     `),
@@ -3460,6 +3484,11 @@ window.showXntGuide = function () {
     xntGuideSection("10. Nhật ký / Lịch sử điều chỉnh", false, `
       Xem toàn bộ bút ký của cả trang XNT, lọc theo chi nhánh/loại thao tác/người thực hiện/khoảng ngày. Dữ liệu luôn được hỏi lại hệ thống mỗi khi đổi bộ lọc — không dùng dữ liệu cũ. Với các loại thao tác nhập hàng loạt và Sửa SL, người có quyền có thể bấm <b>Hoàn tác</b> để xóa bút ký và đảo ngược số liệu đã ghi.
       <div style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12.5px;">⚠️ Cột/nút <b>Hoàn tác</b> chỉ hiện ra với tài khoản được cấp quyền xóa bút ký (<code>sales.nxt.delete_logs</code>). Tài khoản không có quyền vẫn xem được đầy đủ bút ký, chỉ không thấy nút hoàn tác.</div>
+    `),
+
+    xntGuideSection("11. Trợ lý phân tích (khung chat nổi 🔎)", false, `
+      Nút tròn <b>🔎</b> nổi ở góc dưới bên phải màn hình (mở/thu gọn được) — gõ mô tả vấn đề như trò chuyện bình thường, có thể hỏi tiếp dựa trên ngữ cảnh trước đó (vd hỏi &quot;H1144 Phú Lợi hôm nay bị lệch&quot;, rồi hỏi tiếp &quot;còn hôm qua thì sao&quot; — trợ lý tự hiểu vẫn đang hỏi về H1144/Phú Lợi, chỉ đổi ngày). Dải nhãn xanh phía trên khung chat hiện rõ đang ghi nhớ mã/chi nhánh/ngày nào, bấm ✕ để xóa ngữ cảnh nếu muốn hỏi sang mã khác.
+      <div style="margin-top:8px;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;color:#1e40af;font-size:12.5px;">ℹ️ Trợ lý hoạt động dựa trên đối chiếu <b>dữ liệu và công thức thật</b> của hệ thống (không gọi AI ngoài) — luôn chính xác với số liệu hiện có, nhưng chỉ nhận diện được các tình huống đã biết (DTT, CTT, Sapo treo, sai mã, lỗi nhập liệu...). Nếu câu hỏi quá lạ, trợ lý sẽ báo chưa nhận diện được thay vì đoán bừa.</div>
     `),
   ].join("");
 
@@ -3480,13 +3509,430 @@ window.showXntGuide = function () {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ── TRỢ LÝ PHÂN TÍCH ──────────────────────────────────────────────────────────
+// Nhận diện tình huống theo từ khóa (không gọi AI ngoài) rồi đối chiếu với đúng
+// công thức/luồng nghiệp vụ của chính hệ thống này — đảm bảo hướng xử lý luôn
+// khớp với cách app tính toán thật, không phải suy luận chung chung.
+
+const XNT_ISSUE_PATTERNS = [
+  {
+    key: "dtt",
+    keywords: ["dtt", "da thanh toan chua lay", "chua lay hang", "cho lay", "khach chua lay", "da tra tien chua lay", "da ban chua lay"],
+    title: "DTT — Khách đã thanh toán, chưa lấy hàng",
+    advice: `<ul style="margin:6px 0;padding-left:20px;">
+        <li>Nếu khách <b>vẫn chưa lấy</b>: vào tab <b>Tồn CN</b>, dán lại mã kèm từ khóa "dtt" cho <b>đúng ngày hôm nay</b> — phải lặp lại mỗi ngày cho tới khi khách lấy thật, nếu quên sẽ hiện Lệch dư đúng ngày đó.</li>
+        <li>Nếu khách <b>đã lấy</b> và không định dán DTT nữa: không cần làm gì thêm — tồn đầu ngày kế tiếp đã tự trừ phần DTT từ lúc gắn nhãn, không phát sinh Lệch.</li>
+        <li>Nếu vẫn thấy Lệch âm đúng vào ngày khách lấy hàng dù đã làm đúng: vào tab <b>Sửa SL</b>, chỉnh Điều chỉnh cho đúng ngày đó, ghi rõ lý do.</li>
+      </ul>`,
+  },
+  {
+    key: "ctt",
+    keywords: ["ctt", "chua thanh toan", "giu gio", "giu don"],
+    title: "CTT — Khách chưa thanh toán, đang giữ giỏ",
+    advice: `<ul style="margin:6px 0;padding-left:20px;">
+        <li>Nếu khách <b>chưa lấy, chưa trả tiền</b>: cứ để nguyên, CTT không bị trừ ở đâu trong công thức, không cần thao tác gì thêm.</li>
+        <li>Nếu khách <b>đã trả tiền và lấy hàng</b> nhưng <b>Sapo chưa lên đơn</b>: dùng tab <b>Sapo treo</b> để tạo mục treo — xem thêm mục "Sapo treo" bên dưới nếu có.</li>
+      </ul>`,
+  },
+  {
+    key: "sapo_treo",
+    keywords: ["treo", "cho sapo", "chua len don", "chua co don", "chua ghi nhan sapo", "da lay hang chua sapo", "sapo chua ghi nhan"],
+    title: "Sapo treo — hàng đã ra/đã lấy nhưng Sapo chưa ghi nhận",
+    advice: `<ul style="margin:6px 0;padding-left:20px;">
+        <li>Vào tab <b>Sapo treo</b>, tạo mục treo mới với đúng ngày hàng ra thực tế, chi nhánh, mã, SL — hệ thống <b>tự động</b> trừ Điều chỉnh và gắn nhãn CTT, không cần tự chỉnh tay.</li>
+        <li>Khi thấy đơn thật lên Sapo: quay lại tab Sapo treo, bấm <b>Hoàn thành</b>, nhập đúng ngày Sapo ghi nhận — hệ thống tự cộng lại Điều chỉnh và đổi nhãn sang DTT.</li>
+        <li>Tạo nhầm mục treo? Bấm <b>Hủy treo</b> — hệ thống tự hoàn lại số liệu, không cần sửa tay.</li>
+        <li>Kiểm tra đã đúng chưa: xem cột <b>Lệch</b> của cả 2 ngày (ngày tạo treo và ngày hoàn thành), phải "Khớp" cả 2 — không cần cột Điều chỉnh về 0.</li>
+      </ul>`,
+  },
+  {
+    key: "wrong_code",
+    keywords: ["goi nham ma", "sai ma", "nham ma", "dung phai la ma", "gan nham ma", "nhap nham ma"],
+    title: "Gói/ghi nhận nhầm mã hàng",
+    advice: `<ul style="margin:6px 0;padding-left:20px;">
+        <li>Vào tab <b>Sai mã</b>, chọn <b>Đổi mã tạm / nhập nhầm</b> (nếu chỉ sai phát sinh nội bộ: Gói ra, Tồn thực tế, Hủy giỏ...) hoặc <b>Sai mã Sapo / check đơn</b> (nếu Sapo đã bán nhầm mã).</li>
+        <li>Nhập đúng <b>ngày xảy ra</b> việc gói nhầm (không phải ngày phát hiện) — hệ thống chỉ chuyển đúng ngày đó và tự đồng bộ thêm 1 ngày kế tiếp.</li>
+        <li>Nếu phát hiện trễ nhiều ngày (mã sai đã bị kiểm Tồn CN nhầm ở các ngày sau đó): hệ thống <b>không tự chuyển hàng loạt nhiều ngày</b> — phải lặp lại thao tác Đổi mã tạm cho <b>từng ngày</b> từ ngày gói nhầm tới ngày phát hiện, quan sát kỹ từng ngày vì có thể có phát sinh thật khác lẫn vào.</li>
+      </ul>`,
+  },
+  {
+    key: "input_error",
+    keywords: ["khong nhan", "bo sot dong", "loi nhap", "dan khong duoc", "khong doc duoc", "mac dinh la 1", "thieu dong"],
+    title: "Dán dữ liệu bị bỏ sót dòng / đọc sai số lượng",
+    advice: `<ul style="margin:6px 0;padding-left:20px;">
+        <li>Khi dán vào Gói ra/Hủy giỏ/Tồn CN, bấm <b>Xem trước</b> trước khi Lưu — dòng nền đỏ là lỗi (không đọc được mã hoặc SL), chặn Lưu cho tới khi sửa xong.</li>
+        <li>Nếu mã và SL nằm 2 dòng riêng (kiểu copy tin nhắn Zalo), hệ thống tự ghép lại đúng SL.</li>
+        <li>2 dòng trùng mã + trùng loại trạng thái (2 dòng DTT, 2 dòng CTT...) sẽ bị cảnh báo trùng và chặn Lưu.</li>
+      </ul>`,
+  },
+];
+
+function detectXntIssuePatterns(text) {
+  const norm = removeAccent(String(text || "")).toLowerCase();
+  return XNT_ISSUE_PATTERNS
+    .map(p => ({ ...p, score: p.keywords.filter(k => norm.includes(k)).length }))
+    .filter(p => p.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
+
+function analyzeXntRowData(closeDate, branch, itemCode) {
+  const row = findDashboardRow(closeDate, branch, itemCode);
+  if (!row) return null;
+  const prevDate = addDaysToDisplayDate(closeDate, -1);
+  const prevRow = prevDate ? findDashboardRow(prevDate, branch, itemCode) : null;
+  return {
+    row,
+    compare: calcCompareStock(row),
+    expected: calcExpectedStock(row),
+    diff: calcDiff(row),
+    stockType: getStockStatusType(row),
+    prevDate,
+    prevRow,
+    prevDTT: prevRow ? number(prevRow.soldNotPicked) : 0,
+    pending: sapoPendingList.filter(r => r.branch === branch && r.itemCode === itemCode),
+  };
+}
+
+function xntAnalysisCard(title, icon, bodyHtml, tone) {
+  const tones = {
+    info:  { bg: "#eff6ff", border: "#bfdbfe", head: "#1e40af" },
+    warn:  { bg: "#fffbeb", border: "#fde68a", head: "#92400e" },
+    ok:    { bg: "#f0fdf4", border: "#bbf7d0", head: "#166534" },
+    error: { bg: "#fef2f2", border: "#fecaca", head: "#991b1b" },
+  };
+  const t = tones[tone] || tones.info;
+  return `<div style="border:1px solid ${t.border};background:${t.bg};border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+    <div style="font-weight:800;font-size:13.5px;color:${t.head};margin-bottom:6px;">${icon} ${title}</div>
+    <div style="font-size:12.5px;line-height:1.7;color:#334155;">${bodyHtml}</div>
+  </div>`;
+}
+
+// ── Trích ngữ cảnh (ngày/chi nhánh/mã) từ câu chat tự do ─────────────────────
+
+function getTodayIso() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split("T")[0];
+}
+
+function extractBranchFromChatText(text) {
+  const norm = removeAccent(String(text || "")).toLowerCase();
+  if (/\bphu loi\b|\bpl\b/.test(norm)) return "Phú Lợi";
+  if (/\bngo quyen\b|\bnq\b/.test(norm)) return "Ngô Quyền";
+  if (/\blai thieu\b|\blt\b/.test(norm)) return "Lái Thiêu";
+  return "";
+}
+
+function extractItemCodeFromChatText(text) {
+  const m = String(text || "").match(ITEM_CODE_REGEX);
+  return m ? m[1].toUpperCase() : "";
+}
+
+// stickyDate: ngày đang nhớ từ ngữ cảnh trước đó (DD/MM/YYYY), dùng làm mốc cho từ tương đối
+function extractDateFromChatText(text, stickyDate) {
+  const raw = String(text || "");
+  const norm = removeAccent(raw).toLowerCase();
+  const m = raw.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{4}))?\b/);
+  if (m) {
+    const dd = m[1].padStart(2, "0");
+    const mm = m[2].padStart(2, "0");
+    const yyyy = m[3] || isoToDisplay(getTodayIso()).slice(-4);
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  const base = stickyDate || isoToDisplay(getTodayIso());
+  if (/\bhom qua\b/.test(norm)) return addDaysToDisplayDate(base, -1) || base;
+  if (/\bhom sau\b|\bngay mai\b|\bhom nay mai\b/.test(norm)) return addDaysToDisplayDate(base, 1) || base;
+  if (/\bhom nay\b/.test(norm)) return isoToDisplay(getTodayIso());
+  return "";
+}
+
+// ── Chat widget nổi ───────────────────────────────────────────────────────────
+
+let xntChatContext = { closeDate: "", branch: "", itemCode: "" };
+
+function xntChatContextLabel() {
+  const parts = [xntChatContext.itemCode, xntChatContext.branch, xntChatContext.closeDate].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "";
+}
+
+function renderXntChatContextPill() {
+  const el = document.getElementById("nxtChatContextPill");
+  if (!el) return;
+  const label = xntChatContextLabel();
+  el.style.display = label ? "flex" : "none";
+  el.innerHTML = label
+    ? `<span>🧭 Đang xem: <b>${escapeHtml(label)}</b></span><span id="nxtChatContextClear" style="cursor:pointer;font-weight:800;padding:0 2px;" title="Bỏ ngữ cảnh">✕</span>`
+    : "";
+  const clearBtn = document.getElementById("nxtChatContextClear");
+  if (clearBtn) clearBtn.onclick = () => { xntChatContext = { closeDate: "", branch: "", itemCode: "" }; renderXntChatContextPill(); };
+}
+
+function appendXntChatMessage(role, html) {
+  const log = document.getElementById("nxtChatLog");
+  if (!log) return;
+  const isUser = role === "user";
+  const row = document.createElement("div");
+  row.style.cssText = `display:flex;margin-bottom:10px;${isUser ? "justify-content:flex-end;" : "justify-content:flex-start;"}`;
+  row.innerHTML = `<div style="max-width:88%;border-radius:14px;padding:9px 12px;font-size:12.5px;line-height:1.6;
+      ${isUser ? "background:#086839;color:#fff;border-bottom-right-radius:4px;" : "background:#f1f5f9;color:#1e293b;border-bottom-left-radius:4px;"}">
+    ${html}
+  </div>`;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── Chẩn đoán dựa trên SỐ LIỆU THẬT (không chỉ từ khóa) ──────────────────────
+// Mỗi luật soi trực tiếp vào con số của dòng đang xét, chỉ khớp khi bằng chứng
+// đủ cụ thể (số lượng lệch trùng khớp với nguồn nghi ngờ), xếp hạng theo độ tin
+// cậy để đưa ra "khả năng cao nhất" thay vì liệt kê chung chung.
+function diagnoseXntRow(g) {
+  const { row, diff, stockType, prevDate, prevDTT, pending } = g;
+  const hyps = [];
+
+  if (diff === 0) {
+    hyps.push({
+      confidence: "high",
+      title: "Số liệu đang khớp — không phát hiện lệch",
+      explain: `Tồn so sánh = Tồn kỳ vọng tại dòng này. Nếu bạn vẫn thấy sai ở nơi khác (giao diện, báo cáo tổng hợp...), có thể vấn đề nằm ở phía đó chứ không phải dòng dữ liệu này.`,
+      fix: `Kiểm tra lại đúng ngày/chi nhánh/mã bạn đang thắc mắc — có thể là ngày khác chứ không phải ${g.row.closeDate}.`,
+    });
+    return hyps;
+  }
+
+  const absDiff = Math.abs(diff);
+
+  // Lệch âm, đúng bằng DTT còn treo từ hôm trước — dấu hiệu carry-over DTT chưa được trừ
+  if (diff < 0 && prevDTT > 0 && absDiff === prevDTT && number(row.soldNotPicked) === 0) {
+    hyps.push({
+      confidence: "high",
+      title: `Rất có thể do giỏ DTT ngày ${prevDate} (SL ${prevDTT}) vừa được lấy`,
+      explain: `Lệch đúng bằng ${prevDTT} — khớp chính xác với số DTT còn treo từ ngày ${prevDate}. Về nguyên tắc, hệ thống tự trừ phần DTT khi tính tồn đầu ngày kế tiếp — nếu dòng này vẫn lệch, khả năng cao Tồn đầu của dòng này được tạo <b>trước khi có bản vá tự trừ DTT</b>, hoặc nhân viên quên dán lại "dtt" cho ngày ${prevDate} lúc kiểm Tồn CN ngày đó.`,
+      fix: `Kiểm tra ô <b>Tồn đầu</b> của dòng này (bấm vào số để xem nguồn gốc) — nếu ghi "đã trừ ${prevDTT} DTT" thì đã đúng, lệch do nguyên nhân khác. Nếu KHÔNG thấy dòng đó, vào tab <b>Sửa SL</b> chỉnh Điều chỉnh +${prevDTT} cho dòng này (ghi rõ lý do "bù DTT carry-over cũ").`,
+    });
+  }
+
+  // Có Sapo treo còn mở — rất có thể là nguyên nhân, đặc biệt nếu SL khớp
+  if (pending.length) {
+    const matchQty = pending.find(p => Math.abs(number(p.qty)) === absDiff);
+    hyps.push({
+      confidence: matchQty ? "high" : "medium",
+      title: `Đang có ${pending.length} mục Sapo treo chưa hoàn thành cho mã này`,
+      explain: matchQty
+        ? `Trong đó có 1 mục SL ${matchQty.qty} (tạo ngày ${matchQty.closeDate}) — khớp đúng với độ lớn Lệch hiện tại (${absDiff}). Rất có thể mục treo này chính là nguyên nhân.`
+        : `Chưa có mục nào khớp đúng số lượng Lệch (${absDiff}), nhưng vẫn có thể liên quan gián tiếp.`,
+      fix: `Vào tab <b>Sapo treo</b>, kiểm tra các mục đang treo của mã ${row.itemCode} — nếu đơn Sapo đã lên thật, bấm <b>Hoàn thành</b> đúng ngày Sapo ghi nhận; nếu tạo nhầm thì bấm <b>Hủy treo</b>.`,
+    });
+  }
+
+  // Gắn CTT nhưng chưa có Sapo bán lẫn chưa có Sapo treo — thiếu bước xử lý khi khách đã lấy
+  if (stockType === "CTT" && number(row.sapoSold) === 0 && !pending.length) {
+    hyps.push({
+      confidence: "medium",
+      title: "Mã đang gắn CTT nhưng chưa có Sapo bán, cũng chưa có Sapo treo",
+      explain: `CTT nghĩa là "chưa thanh toán, giữ giỏ" — nếu khách thực ra ĐÃ lấy hàng và trả tiền rồi, bước tạo Sapo treo đang bị bỏ sót.`,
+      fix: `Nếu khách đã lấy hàng: vào tab <b>Sapo treo</b> tạo mục treo cho mã này. Nếu khách vẫn chưa lấy: không cần làm gì, đây không phải lỗi.`,
+    });
+  }
+
+  // Sapo đã bán, tồn thực tế còn tại quầy, nhưng không gắn DTT — quên gắn nhãn
+  if (number(row.sapoSold) > 0 && number(row.actualStock) > 0 && stockType !== "DTT") {
+    hyps.push({
+      confidence: "medium",
+      title: "Sapo đã bán nhưng tồn thực tế vẫn còn tại quầy, chưa gắn DTT",
+      explain: `Sapo bán = ${number(row.sapoSold)}, Tồn thực tế = ${number(row.actualStock)}, nhưng dòng này không có nhãn DTT — nếu khách đã thanh toán nhưng chưa lấy, thiếu bước gắn DTT khi kiểm Tồn CN.`,
+      fix: `Vào tab <b>Tồn CN</b>, dán lại mã này kèm từ khóa "dtt" cho đúng ngày ${row.closeDate}.`,
+    });
+  }
+
+  // Lệch âm, không có Sapo/Hủy/Chuyển giải thích — nghi ngờ gói nhầm mã hoặc thiếu nạp Sapo/Hủy giỏ
+  if (diff < 0 && number(row.sapoSold) === 0 && number(row.cancelBasket) === 0 && number(row.transferBranch) === 0 && stockType !== "DTT" && !hyps.length) {
+    hyps.push({
+      confidence: "low",
+      title: `Thiếu ${absDiff} so với kỳ vọng, không thấy nguồn giải thích`,
+      explain: `Không có Sapo bán / Hủy giỏ / Chuyển CN nào ghi nhận cho dòng này để giải thích phần thiếu — có thể đã bán nhưng <b>chưa nạp Sapo</b>, đã hủy nhưng <b>chưa nhập Hủy giỏ</b>, hoặc <b>gói nhầm mã</b> (hàng thực ra thuộc mã khác).`,
+      fix: `Kiểm tra: (1) đã nạp đủ file Sapo cho ngày ${row.closeDate} chưa, (2) có phiếu hủy giỏ nào chưa nhập không, (3) nếu nghi gói nhầm mã — vào tab <b>Sai mã</b> để đổi mã đúng ngày phát sinh.`,
+    });
+  }
+
+  // Lệch dương, không có nguồn vào — nghi thiếu nhập hoặc nhầm mã lúc kiểm kho
+  if (diff > 0 && number(row.giftIn) === 0 && number(row.receiveBranch) === 0 && number(row.openingStock) === 0 && !hyps.length) {
+    hyps.push({
+      confidence: "low",
+      title: `Dư ${absDiff} so với kỳ vọng, không thấy nguồn vào`,
+      explain: `Không có Tồn đầu / Gói ra / Nhận CN nào ghi nhận cho dòng này để giải thích phần dư — có thể bỏ sót nhập Gói ra, hoặc gõ nhầm mã khi kiểm Tồn CN (đúng ra là mã khác).`,
+      fix: `Kiểm tra lại phiếu Gói ra ngày ${row.closeDate}, và soát lại mã đã gõ khi kiểm Tồn CN có đúng không.`,
+    });
+  }
+
+  if (!hyps.length) {
+    hyps.push({
+      confidence: "low",
+      title: `Lệch ${diff > 0 ? "+" : ""}${diff} nhưng chưa khớp mẫu nào đã biết`,
+      explain: `Số liệu không khớp các mẫu lỗi phổ biến (DTT carry-over, Sapo treo, quên gắn DTT, thiếu nguồn). Có thể là trường hợp phức tạp hơn (nhiều thao tác chồng lên nhau).`,
+      fix: `Bấm vào từng con số của dòng này trên bảng Tổng quan để xem bút ký chi tiết (ai, khi nào, tại sao) — hoặc mô tả thêm cho mình: bạn đã thao tác gì trước đó, khách có lấy hàng không, có gói nhầm mã không?`,
+    });
+  }
+
+  return hyps.sort((a, b) => ({ high: 2, medium: 1, low: 0 }[b.confidence] - { high: 2, medium: 1, low: 0 }[a.confidence]));
+}
+
+function renderXntHypothesis(h, isTop) {
+  const confLabel = { high: "🎯 Khả năng cao nhất", medium: "🔸 Khả năng có thể", low: "🔹 Khả năng thấp hơn" }[h.confidence];
+  return xntAnalysisCard(`${isTop ? confLabel + " — " : ""}${h.title}`, isTop ? "🎯" : "🔸",
+    `${h.explain}<br><br><b>Hướng xử lý:</b> ${h.fix}`,
+    h.confidence === "high" ? (isTop ? "error" : "info") : "info");
+}
+
+// Trạng thái hội thoại: nhớ danh sách giả thuyết vừa đưa ra để xử lý câu trả lời đúng/sai tiếp theo
+let xntChatHypotheses = [];
+let xntChatHypIndex = 0;
+
+function isAffirmative(norm) { return /\b(dung|phai|ok|oke|chuan|chinh xac|co)\b/.test(norm) && !/\bkhong\b/.test(norm); }
+function isNegative(norm) { return /\bkhong\b|\bsai\b|\bkhong phai\b/.test(norm); }
+
+function buildXntChatReplyHtml(text) {
+  const norm = removeAccent(text).toLowerCase().trim();
+
+  // Trả lời đúng/sai cho giả thuyết vừa đưa ra — tiếp nối hội thoại thay vì phân tích lại từ đầu
+  if (xntChatHypotheses.length && (isAffirmative(norm) || isNegative(norm)) && norm.length < 20) {
+    if (isAffirmative(norm)) {
+      return xntAnalysisCard("Vậy làm theo hướng dẫn ở trên nhé", "✅",
+        `${xntChatHypotheses[xntChatHypIndex].fix}<br><br>Nếu sau khi làm vẫn còn lệch, quay lại đây báo mình biết.`, "ok");
+    }
+    xntChatHypIndex++;
+    if (xntChatHypIndex < xntChatHypotheses.length) {
+      return renderXntHypothesis(xntChatHypotheses[xntChatHypIndex], true);
+    }
+    xntChatHypotheses = []; xntChatHypIndex = 0;
+    return xntAnalysisCard("Mình hết gợi ý dựa trên số liệu hiện có", "🤔",
+      `Bạn mô tả thêm chi tiết cụ thể hơn giúp mình: đã thao tác gì trước đó, khách có lấy hàng không, có nghi gói nhầm mã không... để phân tích tiếp.`, "warn");
+  }
+
+  // Trích ngữ cảnh mới từ tin nhắn, giữ lại phần cũ nếu tin nhắn này không nhắc lại
+  const newBranch = extractBranchFromChatText(text);
+  const newCode = extractItemCodeFromChatText(text);
+  const newDate = extractDateFromChatText(text, xntChatContext.closeDate);
+  if (newBranch) xntChatContext.branch = newBranch;
+  if (newCode) xntChatContext.itemCode = newCode;
+  if (newDate) xntChatContext.closeDate = newDate;
+  renderXntChatContextPill();
+
+  const { closeDate, branch, itemCode } = xntChatContext;
+  const hasContext = !!(closeDate && branch && itemCode);
+  let html = "";
+  xntChatHypotheses = []; xntChatHypIndex = 0;
+
+  if (hasContext) {
+    const g = analyzeXntRowData(closeDate, branch, itemCode);
+    if (!g) {
+      html += xntAnalysisCard("Không tìm thấy dữ liệu", "⚠️",
+        `Không có dòng nào cho mã <b>${escapeHtml(itemCode)}</b> tại <b>${escapeHtml(branch)}</b> ngày <b>${escapeHtml(closeDate)}</b>. Kiểm tra lại đúng ngày/chi nhánh/mã, hoặc mã này chưa phát sinh gì trong ngày đó.`, "warn");
+    } else {
+      const { row, compare, expected, diff, stockType } = g;
+      const diffText = diff === 0
+        ? `<b style="color:#166534;">✓ Khớp</b>`
+        : `<b style="color:#dc2626;">${diff > 0 ? "+" : ""}${diff} (${diff > 0 ? "Dư" : "Thiếu"})</b>`;
+      const body = `
+        Tồn đầu <b>${number(row.openingStock)}</b> · Gói ra <b>${number(row.giftIn)}</b> · Nhận CN <b>${number(row.receiveBranch)}</b> · Chuyển CN <b>${number(row.transferBranch)}</b> · Hủy giỏ <b>${number(row.cancelBasket)}</b><br>
+        Sapo bán <b>${number(row.sapoSold)}</b> · Điều chỉnh <b>${number(row.adjustment)}</b> · Tồn thực tế <b>${number(row.actualStock)}</b> · DTT <b>${number(row.soldNotPicked)}</b>${stockType ? ` · Nhãn: <b>${stockType}</b>` : ""}<br>
+        Tồn so sánh <b>${compare}</b> · Tồn kỳ vọng <b>${expected}</b> · Lệch: ${diffText}`;
+      html += xntAnalysisCard(`Dữ liệu thực tế — ${itemCode} · ${branch} · ${closeDate}`, "📊", body, diff === 0 ? "ok" : "error");
+
+      xntChatHypotheses = diagnoseXntRow(g);
+      html += renderXntHypothesis(xntChatHypotheses[0], true);
+      if (xntChatHypotheses.length > 1) {
+        html += `<div style="font-size:11.5px;color:#94a3b8;margin:-4px 0 8px 4px;">Đúng không? Trả lời "đúng"/"không phải" để mình xác nhận hoặc thử khả năng khác.</div>`;
+      }
+    }
+  }
+
+  // Bổ sung hướng dẫn theo từ khóa mô tả nếu có nhắc tới tình huống ngoài phạm vi số liệu (vd "sai mã", "bỏ sót dòng")
+  const patterns = detectXntIssuePatterns(text);
+  if (patterns.length) {
+    patterns.slice(0, hasContext ? 1 : 2).forEach(p => { html += xntAnalysisCard(p.title, "🔍", p.advice, "info"); });
+  } else if (!hasContext) {
+    html += xntAnalysisCard("Chưa đủ thông tin", "🤔",
+      `Mô tả cụ thể hơn kèm mã hàng/chi nhánh/ngày (vd: "H1144 Phú Lợi hôm nay bị lệch"), hoặc dùng từ khóa như "DTT", "CTT", "sai mã", "Sapo treo", "bỏ sót dòng"... Xem thêm nút <b>Hướng dẫn sử dụng</b> ở đầu trang.`, "warn");
+  }
+
+  return html || xntAnalysisCard("Chưa có gợi ý phù hợp", "❓", "Thử mô tả rõ hơn vấn đề đang gặp.", "warn");
+}
+
+function handleXntChatSend() {
+  const input = document.getElementById("nxtChatInput");
+  if (!input) return;
+  const text = (input.value || "").trim();
+  if (!text) return;
+  appendXntChatMessage("user", escapeHtml(text));
+  input.value = "";
+  const replyHtml = buildXntChatReplyHtml(text);
+  appendXntChatMessage("assistant", replyHtml);
+}
+
+function toggleXntChatPanel(forceOpen) {
+  const panel = document.getElementById("nxtChatPanel");
+  const bubble = document.getElementById("nxtChatBubble");
+  if (!panel || !bubble) return;
+  const open = forceOpen !== undefined ? forceOpen : panel.style.display === "none";
+  panel.style.display = open ? "flex" : "none";
+  bubble.style.display = open ? "none" : "flex";
+  if (open) document.getElementById("nxtChatInput")?.focus();
+}
+
+function initXntChatWidget() {
+  if (document.getElementById("nxtChatBubble")) return; // đã khởi tạo rồi, tránh nhân đôi
+
+  const bubble = document.createElement("button");
+  bubble.id = "nxtChatBubble";
+  bubble.title = "Trợ lý phân tích XNT";
+  bubble.style.cssText = `position:fixed;right:22px;bottom:22px;width:56px;height:56px;border-radius:50%;
+    background:#086839;color:#fff;border:none;box-shadow:0 10px 28px rgba(8,104,57,.35);cursor:pointer;
+    font-size:24px;display:flex;align-items:center;justify-content:center;z-index:9500;`;
+  bubble.innerHTML = "🔎";
+  bubble.onclick = () => toggleXntChatPanel(true);
+  document.body.appendChild(bubble);
+
+  const panel = document.createElement("div");
+  panel.id = "nxtChatPanel";
+  panel.style.cssText = `position:fixed;right:22px;bottom:22px;width:380px;max-width:92vw;height:540px;max-height:80vh;
+    background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.22);z-index:9500;display:none;
+    flex-direction:column;overflow:hidden;font-family:inherit;`;
+  panel.innerHTML = `
+    <div style="background:#086839;color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <div style="font-weight:800;font-size:14px;">🔎 Trợ lý phân tích XNT</div>
+        <div style="font-size:11px;opacity:.85;margin-top:2px;">Đối chiếu đúng dữ liệu &amp; luồng hệ thống</div>
+      </div>
+      <button id="nxtChatMinimize" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:14px;">─</button>
+    </div>
+    <div id="nxtChatContextPill" style="display:none;align-items:center;justify-content:space-between;gap:8px;background:#f0fdf4;border-bottom:1px solid #d1fae5;color:#166534;font-size:11.5px;font-weight:700;padding:6px 12px;flex-shrink:0;"></div>
+    <div id="nxtChatLog" style="flex:1;overflow-y:auto;padding:12px;background:#fafafa;">
+      <div style="display:flex;justify-content:flex-start;margin-bottom:10px;">
+        <div style="max-width:88%;background:#f1f5f9;color:#1e293b;border-radius:14px;border-bottom-left-radius:4px;padding:9px 12px;font-size:12.5px;line-height:1.6;">
+          Chào bạn 👋 Mô tả vấn đề đang gặp (vd: <i>"H1144 Phú Lợi hôm nay bị lệch"</i>, <i>"khách đã lấy hàng nhưng Sapo chưa lên đơn"</i>), mình sẽ đối chiếu đúng số liệu và luồng của hệ thống để gợi ý hướng xử lý.
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid #e5e7eb;flex-shrink:0;">
+      <input id="nxtChatInput" type="text" placeholder="Nhập vấn đề..." style="flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;font-size:12.5px;font-family:inherit;outline:none;" />
+      <button id="nxtChatSend" style="background:#086839;color:#fff;border:none;border-radius:10px;padding:0 14px;font-weight:700;font-size:12.5px;cursor:pointer;">Gửi</button>
+    </div>`;
+  document.body.appendChild(panel);
+
+  document.getElementById("nxtChatMinimize").onclick = () => toggleXntChatPanel(false);
+  document.getElementById("nxtChatSend").onclick = handleXntChatSend;
+  document.getElementById("nxtChatInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); handleXntChatSend(); }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 window.bootNxt = async function (user) {
   if (window.NXT_API) NXT_API = window.NXT_API;
   if (window.NXT_SAPO_PENDING_API) SAPO_PENDING_API = window.NXT_SAPO_PENDING_API;
   currentUser = user;
   setupAppPopup();
-  setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode(); setupEditQty(); setupSapoPending();
+  setupTabs(); setupOverview(); setupGiftIn(); setupStock(); setupCancel(); setupTransfer(); setupSapo(); setupWrongCode(); setupEditQty(); setupSapoPending(); initXntChatWidget();
   applyLoginState();
   try {
     const [rowsRes, spRes] = await Promise.all([
