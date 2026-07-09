@@ -6,8 +6,14 @@ public interface IVppRequestService
     Task<PagedResult<VppRequestDto>> GetAllAsync(VppRequestFilter filter);
     Task<VppRequestDetailDto?> GetByIdAsync(int id);
     Task<VppRequestDto> CreateAsync(VppRequestCreateDto dto, int requesterId);
-    Task<VppRequestDto> ApproveAsync(int id, string createdBy, string? adminNote = null, List<VppApproveLineDto>? lineOverrides = null);
+    Task<VppRequestDto> ApproveAsync(
+        int id,
+        string createdBy,
+        string? adminNote = null,
+        List<VppApproveLineDto>? lineOverrides = null
+    );
     Task RejectAsync(int id, string adminNote);
+    Task<PagedResult<VppRequestDto>> GetMyRequestsAsync(int userId, VppRequestFilter filter);
 }
 
 public class VppRequestService : IVppRequestService
@@ -29,7 +35,8 @@ public class VppRequestService : IVppRequestService
         IVppDispatchLineRepository dispatchLineRepo,
         IUserRepository userRepo,
         IVppInventoryService inventoryService,
-        IUnitOfWork uow)
+        IUnitOfWork uow
+    )
     {
         _repo = repo;
         _lineRepo = lineRepo;
@@ -54,14 +61,22 @@ public class VppRequestService : IVppRequestService
         var size = filter.PageSize < 1 ? 20 : filter.PageSize;
 
         var requesterIds = await query.Select(x => x.RequesterId).Distinct().ToListAsync();
-        var users = await _userRepo.GetAll().AsNoTracking()
+        var users = await _userRepo
+            .GetAll()
+            .AsNoTracking()
             .Where(u => requesterIds.Contains(u.Id))
-            .Select(u => new { u.Id, u.Name, BranchName = u.Branches != null ? u.Branches.Name : "" })
+            .Select(u => new
+            {
+                u.Id,
+                u.Name,
+                BranchName = u.Branches != null ? u.Branches.Name : "",
+            })
             .ToListAsync();
 
         var items = await query
             .OrderByDescending(x => x.CreatedAt)
-            .Skip((page - 1) * size).Take(size)
+            .Skip((page - 1) * size)
+            .Take(size)
             .ToListAsync();
 
         var dtos = items.Select(r =>
@@ -79,18 +94,64 @@ public class VppRequestService : IVppRequestService
         };
     }
 
+    public async Task<PagedResult<VppRequestDto>> GetMyRequestsAsync(
+        int userId,
+        VppRequestFilter filter
+    )
+    {
+        var query = _repo.GetAll().AsNoTracking().Where(x => x.RequesterId == userId);
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+            query = query.Where(x => x.Status == filter.Status);
+
+        var total = await query.CountAsync();
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var size = filter.PageSize < 1 ? 20 : filter.PageSize;
+
+        var items = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * size)
+            .Take(size)
+            .ToListAsync();
+
+        var user = await _userRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.Name, BranchName = u.Branches != null ? u.Branches.Name : "" })
+            .FirstOrDefaultAsync();
+
+        var dtos = items.Select(r => ToDto(r, user?.Name ?? "", user?.BranchName ?? ""));
+
+        return new PagedResult<VppRequestDto>
+        {
+            Items = dtos.ToList(),
+            TotalItems = total,
+            Page = page,
+            PageSize = size,
+        };
+    }
+
     public async Task<VppRequestDetailDto?> GetByIdAsync(int id)
     {
         var r = await _repo.GetAll().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        if (r == null) return null;
+        if (r == null)
+            return null;
 
-        var lines = await _lineRepo.GetAll().AsNoTracking()
-            .Where(x => x.RequestId == id).ToListAsync();
+        var lines = await _lineRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(x => x.RequestId == id)
+            .ToListAsync();
         var itemIds = lines.Select(l => l.ItemId).ToList();
-        var items = await _itemRepo.GetAll().AsNoTracking()
-            .Where(x => itemIds.Contains(x.Id)).ToListAsync();
+        var items = await _itemRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(x => itemIds.Contains(x.Id))
+            .ToListAsync();
 
-        var user = await _userRepo.GetAll().AsNoTracking()
+        var user = await _userRepo
+            .GetAll()
+            .AsNoTracking()
             .Where(u => u.Id == r.RequesterId)
             .Select(u => new { u.Name, BranchName = u.Branches != null ? u.Branches.Name : "" })
             .FirstOrDefaultAsync();
@@ -107,21 +168,23 @@ public class VppRequestService : IVppRequestService
             AdminNote = r.AdminNote ?? "",
             DispatchId = r.DispatchId,
             CreatedAt = r.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
-            Lines = lines.Select(l =>
-            {
-                var item = items.FirstOrDefault(i => i.Id == l.ItemId);
-                return new VppRequestLineDto
+            Lines = lines
+                .Select(l =>
                 {
-                    Id = l.Id,
-                    ItemId = l.ItemId,
-                    ItemCode = item?.Code ?? "",
-                    ItemName = item?.Name ?? "",
-                    Unit = item?.Unit ?? "",
-                    UnitPrice = item?.UnitPrice ?? 0,
-                    Quantity = l.Quantity,
-                    Note = l.Note ?? "",
-                };
-            }).ToList(),
+                    var item = items.FirstOrDefault(i => i.Id == l.ItemId);
+                    return new VppRequestLineDto
+                    {
+                        Id = l.Id,
+                        ItemId = l.ItemId,
+                        ItemCode = item?.Code ?? "",
+                        ItemName = item?.Name ?? "",
+                        Unit = item?.Unit ?? "",
+                        UnitPrice = item?.UnitPrice ?? 0,
+                        Quantity = l.Quantity,
+                        Note = l.Note ?? "",
+                    };
+                })
+                .ToList(),
         };
     }
 
@@ -139,43 +202,61 @@ public class VppRequestService : IVppRequestService
         await _repo.AddAsync(entity);
         await _uow.SaveChangesAsync();
 
-        var items = await _itemRepo.GetAll().AsNoTracking()
+        var items = await _itemRepo
+            .GetAll()
+            .AsNoTracking()
             .Where(x => dto.Lines.Select(l => l.ItemId).Contains(x.Id))
             .ToListAsync();
 
         foreach (var line in dto.Lines)
         {
-            var item = items.FirstOrDefault(i => i.Id == line.ItemId)
+            var item =
+                items.FirstOrDefault(i => i.Id == line.ItemId)
                 ?? throw new BadRequestException($"Không tìm thấy vật tư ID {line.ItemId}");
-            await _lineRepo.AddAsync(new VppRequestLine
-            {
-                RequestId = entity.Id,
-                ItemId = line.ItemId,
-                Quantity = line.Quantity,
-                Note = line.Note,
-            });
+            await _lineRepo.AddAsync(
+                new VppRequestLine
+                {
+                    RequestId = entity.Id,
+                    ItemId = line.ItemId,
+                    Quantity = line.Quantity,
+                    Note = line.Note,
+                }
+            );
         }
         await _uow.SaveChangesAsync();
 
-        var user = await _userRepo.GetAll().AsNoTracking()
+        var user = await _userRepo
+            .GetAll()
+            .AsNoTracking()
             .Where(u => u.Id == requesterId)
             .Select(u => new { u.Name, BranchName = u.Branches != null ? u.Branches.Name : "" })
             .FirstOrDefaultAsync();
         return ToDto(entity, user?.Name ?? "", user?.BranchName ?? "");
     }
 
-    public async Task<VppRequestDto> ApproveAsync(int id, string createdBy, string? adminNote = null, List<VppApproveLineDto>? lineOverrides = null)
+    public async Task<VppRequestDto> ApproveAsync(
+        int id,
+        string createdBy,
+        string? adminNote = null,
+        List<VppApproveLineDto>? lineOverrides = null
+    )
     {
-        var request = await _repo.GetByIdAsync(id)
-            ?? throw new NotFoundException("Không tìm thấy đề nghị");
+        var request =
+            await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy đề nghị");
         if (request.Status != "pending")
             throw new BadRequestException("Đề nghị không ở trạng thái chờ duyệt");
 
-        var lines = await _lineRepo.GetAll().AsNoTracking()
-            .Where(x => x.RequestId == id).ToListAsync();
+        var lines = await _lineRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(x => x.RequestId == id)
+            .ToListAsync();
         var itemIds = lines.Select(l => l.ItemId).ToList();
-        var items = await _itemRepo.GetAll().AsNoTracking()
-            .Where(x => itemIds.Contains(x.Id)).ToListAsync();
+        var items = await _itemRepo
+            .GetAll()
+            .AsNoTracking()
+            .Where(x => itemIds.Contains(x.Id))
+            .ToListAsync();
 
         // Tính số lượng thực tế sẽ xuất (dùng lineOverrides nếu admin điều chỉnh)
         var linesToDispatch = new List<(VppRequestLine Line, decimal Quantity)>();
@@ -209,13 +290,17 @@ public class VppRequestService : IVppRequestService
             if (qty > available)
             {
                 var item = items.FirstOrDefault(i => i.Id == line.ItemId);
-                insufficient.Add($"{item?.Name ?? $"ID {line.ItemId}"}: xuất {qty}, tồn {available}");
+                insufficient.Add(
+                    $"{item?.Name ?? $"ID {line.ItemId}"}: xuất {qty}, tồn {available}"
+                );
             }
         }
         if (insufficient.Count > 0)
             throw new BadRequestException($"Không đủ tồn kho — {string.Join("; ", insufficient)}");
 
-        var user = await _userRepo.GetAll().AsNoTracking()
+        var user = await _userRepo
+            .GetAll()
+            .AsNoTracking()
             .Where(u => u.Id == request.RequesterId)
             .Select(u => new { u.Name, BranchName = u.Branches != null ? u.Branches.Name : "" })
             .FirstOrDefaultAsync();
@@ -238,15 +323,17 @@ public class VppRequestService : IVppRequestService
         {
             var item = items.First(i => i.Id == line.ItemId);
             var vatAmount = item.UnitPrice * item.VatRate * qty;
-            await _dispatchLineRepo.AddAsync(new VppDispatchLine
-            {
-                DispatchId = dispatch.Id,
-                ItemId = line.ItemId,
-                Quantity = qty,
-                UnitPrice = item.UnitPrice,
-                VatAmount = vatAmount,
-                TotalAmount = item.UnitPrice * qty + vatAmount,
-            });
+            await _dispatchLineRepo.AddAsync(
+                new VppDispatchLine
+                {
+                    DispatchId = dispatch.Id,
+                    ItemId = line.ItemId,
+                    Quantity = qty,
+                    UnitPrice = item.UnitPrice,
+                    VatAmount = vatAmount,
+                    TotalAmount = item.UnitPrice * qty + vatAmount,
+                }
+            );
         }
 
         request.Status = "dispatched";
@@ -260,8 +347,8 @@ public class VppRequestService : IVppRequestService
 
     public async Task RejectAsync(int id, string adminNote)
     {
-        var request = await _repo.GetByIdAsync(id)
-            ?? throw new NotFoundException("Không tìm thấy đề nghị");
+        var request =
+            await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy đề nghị");
         if (request.Status != "pending")
             throw new BadRequestException("Đề nghị không ở trạng thái chờ duyệt");
         request.Status = "rejected";
@@ -274,22 +361,25 @@ public class VppRequestService : IVppRequestService
     {
         var now = DateTime.UtcNow.AddHours(7);
         var prefix = $"BK{now.Month:D2}{now.Year}";
-        var count = await _dispatchRepo.GetAll().AsNoTracking()
+        var count = await _dispatchRepo
+            .GetAll()
+            .AsNoTracking()
             .CountAsync(x => x.Code.StartsWith(prefix));
         return $"{prefix}.{count + 1:D2}";
     }
 
-    private static VppRequestDto ToDto(VppRequest r, string requesterName, string branch) => new()
-    {
-        Id = r.Id,
-        RequesterName = requesterName,
-        Branch = branch,
-        Department = r.Department,
-        Reason = r.Reason ?? "",
-        Status = r.Status,
-        DispatchId = r.DispatchId,
-        CreatedAt = r.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
-    };
+    private static VppRequestDto ToDto(VppRequest r, string requesterName, string branch) =>
+        new()
+        {
+            Id = r.Id,
+            RequesterName = requesterName,
+            Branch = branch,
+            Department = r.Department,
+            Reason = r.Reason ?? "",
+            Status = r.Status,
+            DispatchId = r.DispatchId,
+            CreatedAt = r.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
+        };
 }
 
 public class VppRequestDto

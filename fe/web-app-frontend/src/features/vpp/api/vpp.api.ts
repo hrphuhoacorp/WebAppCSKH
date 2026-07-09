@@ -274,6 +274,10 @@ export const vppApi = {
     rejectRequest: async (id: number, adminNote: string) => {
         await api.post(`/vpp/requests/${id}/reject`, { adminNote });
     },
+    myRequests: async (params?: { status?: string; page?: number; pageSize?: number }) => {
+        const res = await api.get('/vpp/requests/my', { params });
+        return (res.data.content ?? { items: [], totalItems: 0, page: 1, pageSize: 20 }) as PagedResult<VppRequestDto>;
+    },
 
     // VPP file upload
     uploadAttachments: async (files: File[]) => {

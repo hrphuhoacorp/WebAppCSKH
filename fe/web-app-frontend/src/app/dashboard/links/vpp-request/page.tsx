@@ -82,9 +82,13 @@ export default function VppRequestPage() {
     }, [inventoryData]);
 
     const { data: historyData, isLoading: historyLoading } = useQuery({
-        queryKey: ['vpp-requests-history', profile?.id, historyPage],
-        queryFn: () => vppApi.getRequests({ requesterId: profile!.id, page: historyPage + 1, pageSize: 10 }),
-        enabled: !!profile?.id && view === 'history',
+        queryKey: ['vpp-my-requests', historyPage],
+        queryFn: () =>
+            vppApi.myRequests({
+                page: historyPage + 1,
+                pageSize: 10,
+            }),
+        enabled: view === 'history',
     });
 
     const { data: historyDetail } = useQuery({
@@ -322,7 +326,7 @@ export default function VppRequestPage() {
                 </Box>
             ) : (
                 /* Lịch sử */
-                <Box sx={{ maxWidth: 900 }}>
+                <Box sx={{ maxWidth: 1800 }}>
                     <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: `1px solid ${BORDER}`, bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)', overflow: 'hidden' }}>
                         <TableContainer>
                             <Table size="small">

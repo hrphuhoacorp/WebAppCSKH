@@ -10,16 +10,21 @@ namespace WebAppAPI.Controllers;
 public class VppInventoryController : ControllerBase
 {
     private readonly IVppInventoryService _service;
+
     public VppInventoryController(IVppInventoryService service) => _service = service;
 
-    [RequirePermission("vpp.manage")]
+    [RequirePermission("vpp.request.create")]
     [HttpGet]
     public async Task<ResponseValue<VppInventorySummaryDto>> Get(
-        [FromQuery] int? month, [FromQuery] int? year)
+        [FromQuery] int? month,
+        [FromQuery] int? year
+    )
     {
         var now = DateTime.UtcNow.AddHours(7);
         var y = year ?? now.Year;
         var result = await _service.GetByPeriodAsync(month, y);
         return new ResponseValue<VppInventorySummaryDto>(result, "OK", StatusReponse.Success);
     }
+
+  
 }
