@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
     IconButton, InputAdornment, MenuItem, Paper, Table, TableBody, TableCell,
@@ -14,8 +14,12 @@ import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VPP_GREEN } from '../api/vpp.api';
+
+import { useReactToPrint } from 'react-to-print';
 import toast from 'react-hot-toast';
 import { usePermission } from '@/hooks/usePermission';
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
+import { StockCountPrintView } from './StockCountPrintTemplate';
 
 const GREEN = VPP_GREEN;
 const TEAL = '#0f766e';
@@ -43,20 +47,21 @@ interface EditedLines { [lineId: number]: { actualQty: number; note: string } }
 
 export default function TabStockCount() {
     const qc = useQueryClient();
-    const canCreate  = usePermission('vpp.manage');
-    const canEdit    = usePermission('vpp.manage');
+    const canCreate = usePermission('vpp.manage');
+    const canEdit = usePermission('vpp.manage');
     const canConfirm = usePermission('vpp.manage');
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
     const [createOpen, setCreateOpen] = useState(false);
-    const [detailId, setDetailId] = useState<number | null>(null);
+    const [sizeId, setsizeId] = useState<number | null>(null);
     const [confirmId, setConfirmId] = useState<number | null>(null);
     const [countDate, setCountDate] = useState(now.toISOString().split('T')[0]);
     const [createNote, setCreateNote] = useState('');
     const [edited, setEdited] = useState<EditedLines>({});
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
+    const printRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const t = setTimeout(() => setSearch(searchInput), 400);
         return () => clearTimeout(t);
@@ -68,10 +73,10 @@ export default function TabStockCount() {
     });
     const counts = stockCountPage?.items ?? [];
 
-    const { data: detail, isLoading: detailLoading } = useQuery({
-        queryKey: ['vpp-stock-count-detail', detailId],
-        queryFn: () => vppApi.getStockCountById(detailId!),
-        enabled: !!detailId,
+    const { data: size, isLoading: sizeLoading } = useQuery({
+        queryKey: ['vpp-stock-count-size', sizeId],
+        queryFn: () => vppApi.getStockCountById(sizeId!),
+        enabled: !!sizeId,
     });
 
     const createMut = useMutation({
@@ -80,7 +85,7 @@ export default function TabStockCount() {
             qc.invalidateQueries({ queryKey: ['vpp-stock-counts'] });
             setCreateOpen(false);
             setCreateNote('');
-            setDetailId(data.id);
+            setsizeId(data.id);
             setEdited({});
             toast.success('Đã tạo phiếu kiểm kho — hãy nhập số lượng thực tế');
         },
@@ -88,18 +93,22 @@ export default function TabStockCount() {
 
     const saveLineMut = useMutation({
         mutationFn: ({ lineId, actualQty, note }: { lineId: number; actualQty: number; note: string }) =>
-            vppApi.updateStockCountLine(detailId!, lineId, actualQty, note || undefined),
+            vppApi.updateStockCountLine(sizeId!, lineId, actualQty, note || undefined),
     });
 
     const confirmMut = useMutation({
         mutationFn: (id: number) => vppApi.confirmStockCount(id),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['vpp-stock-counts'] });
-            qc.invalidateQueries({ queryKey: ['vpp-stock-count-detail', confirmId] });
+            qc.invalidateQueries({ queryKey: ['vpp-stock-count-size', confirmId] });
             qc.invalidateQueries({ queryKey: ['vpp-inventory'] });
             setConfirmId(null);
             toast.success('Đã xác nhận kiểm kho — tồn kho đã được điều chỉnh');
         },
+    });
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: `Bien_Ban_Kiem_Ke_${new Date().getTime()}`,
     });
 
     async function handleSaveAll() {
@@ -107,7 +116,7 @@ export default function TabStockCount() {
         if (!pending.length) { toast('Không có thay đổi nào để lưu'); return; }
         try {
             await Promise.all(pending.map(([lineId, v]) => saveLineMut.mutateAsync({ lineId: +lineId, actualQty: v.actualQty, note: v.note })));
-            qc.invalidateQueries({ queryKey: ['vpp-stock-count-detail', detailId] });
+            qc.invalidateQueries({ queryKey: ['vpp-stock-count-size', sizeId] });
             setEdited({});
             toast.success('Đã lưu số lượng thực tế');
         } catch (err: any) {
@@ -125,8 +134,8 @@ export default function TabStockCount() {
     const filtered = counts.filter(r =>
         !q || (r.note ?? '').toLowerCase().includes(q) || r.createdBy.toLowerCase().includes(q)
     );
-    const detailLines = detail?.lines ?? [];
-    const isDraft = detail?.status === 'draft';
+    const sizeLines = size?.lines ?? [];
+    const isDraft = size?.status === 'draft';
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -185,7 +194,7 @@ export default function TabStockCount() {
                                 <TableCell sx={{ color: '#94a3b8', py: 1.5, whiteSpace: 'nowrap' }}>{c.confirmedAt ? fmtDate(c.confirmedAt) : '—'}</TableCell>
                                 <TableCell sx={{ py: 1.5 }}>
                                     <Tooltip title="Mở phiếu kiểm" arrow>
-                                        <IconButton size="small" onClick={() => { setDetailId(c.id); setEdited({}); }}
+                                        <IconButton size="small" onClick={() => { setsizeId(c.id); setEdited({}); }}
                                             sx={{ color: '#94a3b8', width: 30, height: 30, borderRadius: '8px', '&:hover': { color: TEAL, bgcolor: alpha(TEAL, 0.08) } }}>
                                             <VisibilityRoundedIcon sx={{ fontSize: 16 }} />
                                         </IconButton>
@@ -226,31 +235,42 @@ export default function TabStockCount() {
                 </DialogActions>
             </Dialog>
 
-            {/* Detail Dialog */}
-            <Dialog open={!!detailId} onClose={() => { setDetailId(null); setEdited({}); }} maxWidth="lg" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS } } }}>
+            {/* size Dialog */}
+            <Dialog open={!!sizeId} onClose={() => { setsizeId(null); setEdited({}); }} maxWidth="lg" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS } } }}>
                 <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <FactCheckRoundedIcon sx={{ color: TEAL }} />
-                    Phiếu kiểm kho #{detailId}
-                    {detail && <StatusChip status={detail.status} />}
+                    Phiếu kiểm kho #{sizeId}
+                    {size && <StatusChip status={size.status} />}
                     <Box sx={{ flex: 1 }} />
+                    {size && (
+                        <Button
+                            variant="outlined"
+                            color="inherit"
+                            startIcon={<PrintRoundedIcon />}
+                            onClick={() => handlePrint()}
+                            sx={{ mr: 1, borderRadius: '10px', textTransform: 'none' }}
+                        >
+                            In phiếu
+                        </Button>
+                    )}
                     {isDraft && canConfirm && (
-                        <Button variant="outlined" size="small" startIcon={<CheckCircleRoundedIcon />} onClick={() => setConfirmId(detailId)}
+                        <Button variant="outlined" size="small" startIcon={<CheckCircleRoundedIcon />} onClick={() => setConfirmId(sizeId)}
                             sx={{ textTransform: 'none', borderRadius: '10px', borderColor: '#15803d', color: '#15803d', fontWeight: 700, '&:hover': { bgcolor: '#dcfce7', borderColor: '#15803d' } }}>
                             Xác nhận kiểm kho
                         </Button>
                     )}
                 </DialogTitle>
                 <DialogContent>
-                    {detailLoading ? (
+                    {sizeLoading ? (
                         <Typography sx={{ color: '#94a3b8', py: 2 }}>Đang tải...</Typography>
-                    ) : detail ? (
+                    ) : size ? (
                         <Box>
                             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5, mb: 2.5 }}>
                                 {[
-                                    ['Ngày kiểm', fmtDate(detail.countDate)],
-                                    ['Kỳ', `Tháng ${detail.periodMonth}/${detail.periodYear}`],
-                                    ['Người tạo', detail.createdBy],
-                                    ['Ghi chú', detail.note || '—'],
+                                    ['Ngày kiểm', fmtDate(size.countDate)],
+                                    ['Kỳ', `Tháng ${size.periodMonth}/${size.periodYear}`],
+                                    ['Người tạo', size.createdBy],
+                                    ['Ghi chú', size.note || '—'],
                                 ].map(([l, v]) => (
                                     <Box key={l}>
                                         <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.4 }}>{l}</Typography>
@@ -283,7 +303,7 @@ export default function TabStockCount() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {detailLines.map((l, i) => {
+                                        {sizeLines.map((l, i) => {
                                             const e = getLine(l.id);
                                             const actualQty = e !== undefined ? e.actualQty : l.actualQty;
                                             const noteVal = e !== undefined ? e.note : l.note;
@@ -329,9 +349,12 @@ export default function TabStockCount() {
                             </TableContainer>
                         </Box>
                     ) : null}
+                    <Box sx={{ display: 'none' }}>
+                        <StockCountPrintView ref={printRef} data={size} />
+                    </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => { setDetailId(null); setEdited({}); }} sx={{ textTransform: 'none', borderRadius: '12px', color: '#64748b' }}>Đóng</Button>
+                    <Button onClick={() => { setsizeId(null); setEdited({}); }} sx={{ textTransform: 'none', borderRadius: '12px', color: '#64748b' }}>Đóng</Button>
                 </DialogActions>
             </Dialog>
 
