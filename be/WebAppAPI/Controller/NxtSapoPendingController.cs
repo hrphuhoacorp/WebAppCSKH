@@ -34,65 +34,10 @@ namespace WebAppAPI.Controllers
             );
         }
 
-        [RequirePermission("sales.nxt.edit")]
-        [HttpPost]
-        public async Task<ResponseValue<object>> Create([FromBody] NxtSapoPendingCreateDto dto)
-        {
-            var record = new NxtSapoPending
-            {
-                CloseDate = dto.CloseDate,
-                Branch = dto.Branch,
-                ItemCode = dto.ItemCode,
-                Qty = dto.Qty,
-                Reason = string.IsNullOrWhiteSpace(dto.Reason) ? "Đã lấy - chờ Sapo" : dto.Reason,
-                Note = dto.Note,
-                Status = "pending",
-                CreatedBy = dto.LoginCode,
-                CreatedByName = dto.DisplayName,
-            };
-            _db.NxtSapoPendings.Add(record);
-            await _db.SaveChangesAsync();
-            return new ResponseValue<object>(ToDto(record), "Đã tạo mục treo Sapo", StatusReponse.Success);
-        }
-
-        [RequirePermission("sales.nxt.edit")]
-        [HttpPost("{id:int}/complete")]
-        public async Task<ResponseValue<object>> Complete(int id, [FromBody] NxtSapoPendingCompleteDto dto)
-        {
-            var record = await _db.NxtSapoPendings.FindAsync(id);
-            if (record == null)
-                return new ResponseValue<object>(null, "Không tìm thấy mục treo", StatusReponse.Error);
-            if (record.Status == "completed")
-                return new ResponseValue<object>(null, "Mục này đã hoàn thành rồi", StatusReponse.Error);
-
-            record.Status = "completed";
-            record.SapoDate = dto.SapoDate;
-            record.SapoOrderCode = dto.SapoOrderCode;
-            record.CompletedBy = dto.LoginCode;
-            record.CompletedByName = dto.DisplayName;
-            record.CompletedAt = DateTime.UtcNow;
-            record.CompletionNote = dto.CompletionNote;
-            record.PositiveAdjDate = dto.SapoDate;
-            record.UpdatedAt = DateTime.UtcNow;
-
-            await _db.SaveChangesAsync();
-            return new ResponseValue<object>(ToDto(record), "Đã hoàn thành", StatusReponse.Success);
-        }
-
-        [RequirePermission("sales.nxt.edit")]
-        [HttpDelete("{id:int}")]
-        public async Task<ResponseValue<object>> Delete(int id)
-        {
-            var record = await _db.NxtSapoPendings.FindAsync(id);
-            if (record == null)
-                return new ResponseValue<object>(null, "Không tìm thấy", StatusReponse.Error);
-            if (record.Status == "completed")
-                return new ResponseValue<object>(null, "Không thể xóa mục đã hoàn thành", StatusReponse.Error);
-
-            _db.NxtSapoPendings.Remove(record);
-            await _db.SaveChangesAsync();
-            return new ResponseValue<object>(new { success = true }, "Đã hủy treo", StatusReponse.Success);
-        }
+        // Create/Complete/Delete đã chuyển sang NxtController (GET "sapo-pending", ...) — nơi có
+        // NxtService xử lý atomically cùng patch NxtRow.Adjustment/StockStatus + ghi ActivityLog
+        // trong 1 transaction, thay vì tách rời như ở đây trước đây. Controller này chỉ còn giữ lại
+        // GET (đọc thuần) vì bootNxt (nxt-core.js, chưa xóa) vẫn gọi để hiện số đếm ở tab badge.
 
         private static object ToDto(NxtSapoPending r) => new
         {
@@ -116,26 +61,5 @@ namespace WebAppAPI.Controllers
             completionNote = r.CompletionNote ?? "",
             positiveAdjDate = r.PositiveAdjDate ?? "",
         };
-    }
-
-    public class NxtSapoPendingCreateDto
-    {
-        public string CloseDate { get; set; } = null!;
-        public string Branch { get; set; } = null!;
-        public string ItemCode { get; set; } = null!;
-        public decimal Qty { get; set; }
-        public string? Reason { get; set; }
-        public string? Note { get; set; }
-        public string LoginCode { get; set; } = null!;
-        public string? DisplayName { get; set; }
-    }
-
-    public class NxtSapoPendingCompleteDto
-    {
-        public string? SapoDate { get; set; }
-        public string? SapoOrderCode { get; set; }
-        public string? CompletionNote { get; set; }
-        public string LoginCode { get; set; } = null!;
-        public string? DisplayName { get; set; }
     }
 }

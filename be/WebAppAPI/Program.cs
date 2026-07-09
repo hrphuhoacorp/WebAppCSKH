@@ -62,6 +62,8 @@ builder.Services.AddScoped<IVppDispatchRepository, VppDispatchRepository>();
 builder.Services.AddScoped<IVppDispatchLineRepository, VppDispatchLineRepository>();
 builder.Services.AddScoped<IVppStockCountRepository, VppStockCountRepository>();
 builder.Services.AddScoped<IVppStockCountLineRepository, VppStockCountLineRepository>();
+builder.Services.AddScoped<INxtRowRepository, NxtRowRepository>();
+builder.Services.AddScoped<INxtSapoPendingRepository, NxtSapoPendingRepository>();
 
 //Cache
 builder.Services.AddMemoryCache();
@@ -270,6 +272,7 @@ builder.Services.AddScoped<IRecruitmentCampaignService, RecruitmentCampaignServi
 builder.Services.AddScoped<IRecruitmentCandidateService, RecruitmentCandidateService>();
 builder.Services.AddScoped<IRecruitmentSettingsService, RecruitmentSettingsService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<WebAppAPI.Services.INxtService, WebAppAPI.Services.NxtService>();
 builder.Services.AddScoped<IVppItemService, VppItemService>();
 builder.Services.AddScoped<IVppInventoryService, VppInventoryService>();
 builder.Services.AddScoped<IVppRequestService, VppRequestService>();
