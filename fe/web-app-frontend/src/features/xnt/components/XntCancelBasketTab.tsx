@@ -1,27 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Button, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import {
+    Box, Button, Chip, MenuItem, Paper, TextField, Typography,
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+} from '@mui/material';
+import { CameraAltRounded } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/providers/AuthProviders';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { xntApi } from '../api/xnt.api';
 import { checkPreviewDups, parseCodeQtyText, type ParsedCodeQtyRow } from '../utils/parseCodeQty';
+import { GREEN, cardSx, errBoxSx, fieldSx, primaryBtnSx, sectionTitleSx, tableContainerSx, thLSx, thSx, zebraRowSx } from '../styles';
 
 const OCR_HELPER_URL = 'https://script.google.com/macros/s/AKfycbzRaxdoT45hrrJ9V0MwdPDLr59zRIp6CAbGYjr3AHlsAz3DBbBuLsadDShtJG75nf_D/exec';
 const BRANCHES = ['Phú Lợi', 'Ngô Quyền', 'Lái Thiêu'];
 const REASONS = ['Hủy giỏ do lỗi', 'Rã giỏ bán lẻ', 'Gói sai mẫu', 'Khách đổi mẫu', 'Khác'];
-
-const inputSx = {
-    width: '100%', border: '1px solid #d1d5db', borderRadius: '10px', padding: '9px 12px',
-    fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', bgcolor: '#fff',
-} as const;
-const selectSx = { ...inputSx, cursor: 'pointer' } as const;
-const textareaSx = { ...inputSx, minHeight: 130, resize: 'vertical', display: 'block' } as const;
-const primaryBtn = { bgcolor: '#086839', borderRadius: '10px', fontWeight: 700, textTransform: 'none', fontSize: 13, boxShadow: 'none', '&:hover': { bgcolor: '#065f2d', boxShadow: 'none' } } as const;
-const thSx = { bgcolor: '#086839', color: '#fff', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', py: 1.5, textAlign: 'center', whiteSpace: 'nowrap', border: 'none' } as const;
-const thLSx = { ...thSx } as const;
 
 function isoToDisplay(isoDate: string): string {
     if (!isoDate) return '';
@@ -88,70 +83,66 @@ export default function XntCancelBasketTab() {
     };
 
     return (
-        <Box sx={{ position: 'relative' }}>
-            <LoadingOverlay open={saving} text="Đang lưu Hủy giỏ..." />
+        <Paper elevation={0} sx={{ ...cardSx, position: 'relative' }}>
+            <LoadingOverlay open={saving} text="Đang lưu Hủy giỏ..." fullScreen />
             <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1e293b', mb: 0.5 }}>Hủy giỏ</Typography>
-            <Typography sx={{ color: '#6b7280', fontSize: 13, mb: 1.5 }}>Ghi nhận giỏ bị hủy/lỗi/tháo giỏ để trừ tồn dự kiến.</Typography>
+            <Typography sx={{ color: '#6b7280', fontSize: 13, mb: 2 }}>Ghi nhận giỏ bị hủy/lỗi/tháo giỏ để trừ tồn dự kiến.</Typography>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3,1fr)' }, gap: 1.5, mb: 1.5 }}>
-                <Box>
-                    <Typography component="label" sx={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', mb: '5px' }}>Ngày hủy</Typography>
-                    <Box component="input" type="date" sx={inputSx} value={date} onChange={e => { setDate(e.target.value); setPreviewed(false); }} />
-                </Box>
-                <Box>
-                    <Typography component="label" sx={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', mb: '5px' }}>Chi nhánh</Typography>
-                    <Box component="select" sx={selectSx} value={branch} onChange={e => { setBranch(e.target.value); setPreviewed(false); }}>
-                        {BRANCHES.map(b => <option key={b}>{b}</option>)}
-                    </Box>
-                </Box>
-                <Box>
-                    <Typography component="label" sx={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', mb: '5px' }}>Lý do</Typography>
-                    <Box component="select" sx={selectSx} value={reason} onChange={e => { setReason(e.target.value); setPreviewed(false); }}>
-                        {REASONS.map(r => <option key={r}>{r}</option>)}
-                    </Box>
-                </Box>
+                <TextField label="Ngày hủy" type="date" size="small" value={date}
+                    onChange={e => { setDate(e.target.value); setPreviewed(false); }} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField select label="Chi nhánh" size="small" value={branch}
+                    onChange={e => { setBranch(e.target.value); setPreviewed(false); }} sx={fieldSx}>
+                    {BRANCHES.map(b => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                </TextField>
+                <TextField select label="Lý do" size="small" value={reason}
+                    onChange={e => { setReason(e.target.value); setPreviewed(false); }} sx={fieldSx}>
+                    {REASONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                </TextField>
+
                 <Box sx={{ gridColumn: '1/-1' }}>
-                    <Typography component="label" sx={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', mb: '5px' }}>Dán danh sách hủy</Typography>
-                    <Box component="textarea" placeholder={'H1135 2\nGT2013 1\nH1045F 1+1\nTEMP01'} sx={textareaSx}
-                        value={text} onChange={e => { setText(e.target.value); setPreviewed(false); }} />
+                    <TextField
+                        label="Dán danh sách hủy" multiline minRows={5} fullWidth
+                        placeholder={'H1135 2\nGT2013 1\nH1045F 1+1\nTEMP01'}
+                        value={text} onChange={e => { setText(e.target.value); setPreviewed(false); }}
+                        sx={fieldSx}
+                    />
                     {dupCheck.hasIssues && (
-                        <Box sx={{ color: '#dc2626', bgcolor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', px: 1.5, py: 1, fontSize: 12, fontWeight: 600, mt: 1 }}>
+                        <Box sx={{ ...errBoxSx, mt: 1, mb: 0 }}>
                             ⚠️ {dupCheck.errorCount > 0 && `${dupCheck.errorCount} dòng không đọc được (xem chi tiết màu đỏ bên dưới)`}
                             {dupCheck.errorCount > 0 && dupCheck.dups.length > 0 && ' · '}
                             {dupCheck.dups.map(d => `Mã ${d.code} xuất hiện ${d.count} lần`).join(', ')}
                             {' — vui lòng kiểm tra và sửa trước khi lưu.'}
                         </Box>
                     )}
-                    <Box sx={{ bgcolor: '#f0fdf4', border: '1px dashed #a3c98b', borderRadius: '12px', p: 1.5, mt: 1.25, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Paper elevation={0} sx={{ bgcolor: '#f0fdf4', border: '1px dashed #a3c98b', borderRadius: '14px', p: 1.5, mt: 1.25, display: 'flex', flexDirection: 'column', gap: 1 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
                             <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#065f2d' }}>Chuyển ảnh thành text</Typography>
                             <Typography sx={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>Nếu danh sách hủy nằm trong ảnh Zalo, mở OCR rồi dán kết quả vào đây.</Typography>
                         </Box>
-                        <Button fullWidth variant="contained" size="small"
+                        <Button fullWidth variant="contained" size="small" startIcon={<CameraAltRounded />}
                             onClick={() => window.open(OCR_HELPER_URL, '_blank', 'noopener,noreferrer')}
-                            sx={{ bgcolor: '#065f2d', fontWeight: 800, textTransform: 'none', borderRadius: '10px', boxShadow: 'none', '&:hover': { bgcolor: '#044a22', boxShadow: 'none' } }}>
-                            📷 Chuyển ảnh thành text
+                            sx={{ bgcolor: '#065f2d', fontWeight: 800, textTransform: 'none', borderRadius: '12px', boxShadow: 'none', '&:hover': { bgcolor: '#044a22', boxShadow: 'none' } }}>
+                            Chuyển ảnh thành text
                         </Button>
-                    </Box>
+                    </Paper>
                 </Box>
             </Box>
 
             <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <Button variant="contained" size="small" sx={primaryBtn} onClick={() => runPreview(text)}>Xem trước</Button>
+                <Button variant="contained" size="small" sx={primaryBtnSx} onClick={() => runPreview(text)}>Xem trước</Button>
                 {canEdit && (
-                    <Button variant="contained" size="small" disabled={previewed && !canSave} sx={{ ...primaryBtn, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }} onClick={handleSave}>
+                    <Button variant="contained" size="small" disabled={previewed && !canSave} sx={{ ...primaryBtnSx, bgcolor: '#065f2d', '&:hover': { bgcolor: '#044a22' } }} onClick={handleSave}>
                         Lưu hủy giỏ
                     </Button>
                 )}
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 0.5 }}>
-                <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#1e293b' }}>Kết quả phân tích</Typography>
-                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: '5px', bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', px: 1.25, py: '4px', fontSize: 12, fontWeight: 700, color: '#065f2d' }}>
-                    Tổng SL: {totalQty}
-                </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography sx={{ ...sectionTitleSx, mb: 0, mt: 0 }}>Kết quả phân tích</Typography>
+                <Chip label={`Tổng SL: ${totalQty}`} size="small" sx={{ bgcolor: '#f0fdf4', color: GREEN, border: '1px solid #bbf7d0', fontWeight: 700, fontSize: 12 }} />
             </Box>
-            <TableContainer sx={{ borderRadius: '14px', border: '1px solid #e5e7eb', maxHeight: 360 }}>
+            <TableContainer sx={{ ...tableContainerSx, maxHeight: 360 }}>
                 <Table stickyHeader size="small">
                     <TableHead>
                         <TableRow>
@@ -167,11 +158,11 @@ export default function XntCancelBasketTab() {
                         {preview.length === 0 ? (
                             <TableRow><TableCell colSpan={6} sx={{ textAlign: 'center', color: '#94a3b8', py: 3 }}>Chưa có dữ liệu.</TableCell></TableRow>
                         ) : preview.map((r, i) => (
-                            <TableRow key={i} sx={{ bgcolor: r._error ? '#fee2e2' : undefined }}>
+                            <TableRow key={i} sx={r._error ? { bgcolor: '#fee2e2' } : zebraRowSx(i)}>
                                 <TableCell>{isoToDisplay(String(r.date))}</TableCell>
                                 <TableCell>{String(r.branch)}</TableCell>
                                 <TableCell><b>{r.itemCode}</b></TableCell>
-                                <TableCell className="right">{r.qty}</TableCell>
+                                <TableCell align="right">{r.qty}</TableCell>
                                 <TableCell>{String(r.reason ?? '')}</TableCell>
                                 <TableCell>
                                     {r.raw}
@@ -182,6 +173,6 @@ export default function XntCancelBasketTab() {
                     </TableBody>
                 </Table>
             </TableContainer>
-        </Box>
+        </Paper>
     );
 }

@@ -119,8 +119,8 @@ export default function XntGuideDialog({ open, onClose }: { open: boolean; onClo
             <DialogContent sx={{ pt: 0.5 }}>
                 {SECTIONS.map((s, i) => (
                     <Accordion key={i} defaultExpanded={s.open} disableGutters sx={{ border: '1px solid #e2e8f0', borderRadius: '12px !important', mb: 1.25, overflow: 'hidden', '&:before': { display: 'none' } }}>
-                        <AccordionSummary expandIcon={<ExpandMoreRounded />} sx={{ bgcolor: '#f0fdf4', fontWeight: 800, fontSize: 14, color: '#065f2d' }}>
-                            {s.title}
+                        <AccordionSummary expandIcon={<ExpandMoreRounded />} sx={{ bgcolor: '#f0fdf4' }}>
+                            <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#065f2d' }}>{s.title}</Typography>
                         </AccordionSummary>
                         <AccordionDetails sx={{ fontSize: 13, lineHeight: 1.7, color: '#334155' }}>
                             <Box dangerouslySetInnerHTML={{ __html: s.body }} />

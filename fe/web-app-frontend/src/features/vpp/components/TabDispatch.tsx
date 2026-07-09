@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, IconButton, InputAdornment, MenuItem, Paper, Table, TableBody, TableCell,
@@ -12,14 +12,16 @@ import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutlineRounded';
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
+import { useReactToPrint } from 'react-to-print';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vppApi, VppDispatchCreateDto, VPP_GREEN } from '../api/vpp.api';
+import { vppApi, VppDispatchCreateDto } from '../api/vpp.api';
 import { usePermission } from '@/hooks/usePermission';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import { userApi } from '@/features/user/api/user.api';
 import toast from 'react-hot-toast';
+import { DispatchPrintView } from './DispatchPrintTemplate';
 
-const GREEN = VPP_GREEN;
 const PURPLE = '#7c3aed';
 const CARD_RADIUS = '20px';
 const BORDER = '#e2e8f0';
@@ -40,6 +42,10 @@ function fmtVND(v: number) {
     return Math.round(v).toLocaleString('vi-VN') + 'đ';
 }
 
+function errMessage(err: unknown, fallback: string): string {
+    return (err as { message?: string })?.message || fallback;
+}
+
 interface DispatchLine { itemId: number; unit: string; quantity: number; unitPrice: number; vatRate: number; }
 
 function lineTotal(l: DispatchLine) { return l.quantity * l.unitPrice * (1 + l.vatRate); }
@@ -54,6 +60,7 @@ export default function TabDispatch() {
     const [createOpen, setCreateOpen] = useState(false);
     const [detailId, setDetailId] = useState<number | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const printRef = useRef<HTMLDivElement>(null);
     const [dispatchDate, setDispatchDate] = useState(now.toISOString().split('T')[0]);
     const [department, setDepartment] = useState('');
     const [branch, setBranch] = useState('');
@@ -76,7 +83,11 @@ export default function TabDispatch() {
     const dispatches = pagedData?.items ?? [];
     const totalDispatches = pagedData?.totalItems ?? 0;
 
-    useEffect(() => { setPage(0); }, [month, year]);
+    function changePeriod(next: Partial<{ month: number; year: number }>) {
+        if (next.month !== undefined) setMonth(next.month);
+        if (next.year !== undefined) setYear(next.year);
+        setPage(0);
+    }
 
     const { data: detail, isLoading: detailLoading } = useQuery({
         queryKey: ['vpp-dispatch-detail', detailId],
@@ -104,6 +115,11 @@ export default function TabDispatch() {
     const roleOptions: { id: number; name: string }[] = rolesRaw?.content ?? rolesRaw?.data ?? [];
     const branchOptions: { id: number; name: string }[] = branchesRaw?.content ?? branchesRaw?.data ?? [];
 
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: `Phieu_Xuat_Kho_${new Date().getTime()}`,
+    });
+
     const createMut = useMutation({
         mutationFn: (dto: VppDispatchCreateDto) => vppApi.createDispatch(dto),
         onSuccess: () => {
@@ -114,7 +130,7 @@ export default function TabDispatch() {
             resetForm();
             toast.success('Đã tạo phiếu xuất kho');
         },
-        onError: (err: any) => toast.error(err?.message || 'Tạo phiếu xuất thất bại'),
+        onError: (err: unknown) => toast.error(errMessage(err, 'Tạo phiếu xuất thất bại')),
     });
 
     const deleteMut = useMutation({
@@ -126,7 +142,7 @@ export default function TabDispatch() {
             setDeleteId(null);
             toast.success('Đã xóa phiếu xuất');
         },
-        onError: (err: any) => toast.error(err?.message || 'Xóa phiếu xuất thất bại'),
+        onError: (err: unknown) => toast.error(errMessage(err, 'Xóa phiếu xuất thất bại')),
     });
 
     function resetForm() {
@@ -163,10 +179,10 @@ export default function TabDispatch() {
                         sx={{ ...fieldSx, width: 240 }}
                         slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> } }}
                     />
-                    <TextField select size="small" label="Tháng" value={month} onChange={e => setMonth(+e.target.value)} sx={{ ...fieldSx, minWidth: 130 }}>
+                    <TextField select size="small" label="Tháng" value={month} onChange={e => changePeriod({ month: +e.target.value })} sx={{ ...fieldSx, minWidth: 130 }}>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <MenuItem key={m} value={m}>Tháng {m}</MenuItem>)}
                     </TextField>
-                    <TextField select size="small" label="Năm" value={year} onChange={e => setYear(+e.target.value)} sx={{ ...fieldSx, minWidth: 100 }}>
+                    <TextField select size="small" label="Năm" value={year} onChange={e => changePeriod({ year: +e.target.value })} sx={{ ...fieldSx, minWidth: 100 }}>
                         {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
                     </TextField>
                     <Box sx={{ flex: 1 }} />
@@ -306,7 +322,7 @@ export default function TabDispatch() {
                                                 noOptionsText="Không tìm thấy"
                                                 renderInput={params => <TextField {...params} placeholder="Tìm vật tư..." sx={fieldSx} />}
                                                 renderOption={(props, it) => {
-                                                    const { key, ...rest } = props as any;
+                                                    const { key, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key: React.Key };
                                                     return (
                                                         <Box key={key} component="li" {...rest}>
                                                             <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8', mr: 1 }}>{it.code}</Box>
@@ -371,7 +387,21 @@ export default function TabDispatch() {
 
             {/* Detail Dialog */}
             <Dialog open={!!detailId} onClose={() => setDetailId(null)} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS } } }}>
-                <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>Chi tiết phiếu xuất — {detail?.code}</DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    Chi tiết phiếu xuất — {detail?.code}
+                    <Box sx={{ flex: 1 }} />
+                    {detail && (
+                        <Button
+                            variant="outlined"
+                            color="inherit"
+                            startIcon={<PrintRoundedIcon />}
+                            onClick={() => handlePrint()}
+                            sx={{ borderRadius: '10px', textTransform: 'none' }}
+                        >
+                            In phiếu
+                        </Button>
+                    )}
+                </DialogTitle>
                 <DialogContent>
                     {detailLoading ? (
                         <Typography sx={{ color: '#94a3b8', py: 2 }}>Đang tải...</Typography>
@@ -417,6 +447,9 @@ export default function TabDispatch() {
                             </TableContainer>
                         </Box>
                     ) : null}
+                    <Box sx={{ display: 'none' }}>
+                        <DispatchPrintView ref={printRef} data={detail} />
+                    </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => setDetailId(null)} sx={{ textTransform: 'none', borderRadius: '12px', color: '#64748b' }}>Đóng</Button>

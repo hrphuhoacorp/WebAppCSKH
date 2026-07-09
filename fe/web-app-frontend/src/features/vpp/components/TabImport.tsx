@@ -16,10 +16,13 @@ import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutl
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
+import { useReactToPrint } from 'react-to-print';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VppImportCreateDto, VppItemDto, VppItemUpsertDto, VppAttachmentItem, VPP_GREEN, VPP_GROUPS } from '../api/vpp.api';
 import toast from 'react-hot-toast';
 import { usePermission } from '@/hooks/usePermission';
+import { ImportPrintView } from './ImportPrintTemplate';
 
 const GREEN = VPP_GREEN;
 const BLUE = '#0284c7';
@@ -39,6 +42,10 @@ function fmtDate(s?: string | null) {
 }
 
 function fmtVND(v: number) { return Math.round(v).toLocaleString('vi-VN') + 'đ'; }
+
+function errMessage(err: unknown, fallback: string): string {
+    return (err as { message?: string })?.message || fallback;
+}
 
 interface AttachmentEntry extends VppAttachmentItem { size?: number; }
 interface ImportLine {
@@ -60,6 +67,7 @@ export default function TabImport() {
     const [createOpen, setCreateOpen] = useState(false);
     const [detailId, setDetailId] = useState<number | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const printRef = useRef<HTMLDivElement>(null);
 
     // Popover for per-line attachment in create form
     const [attachAnchor, setAttachAnchor] = useState<{ el: HTMLElement; lineIdx: number } | null>(null);
@@ -88,7 +96,11 @@ export default function TabImport() {
     const imports = pagedData?.items ?? [];
     const totalImports = pagedData?.totalItems ?? 0;
 
-    useEffect(() => { setPage(0); }, [month, year]);
+    function changePeriod(next: Partial<{ month: number; year: number }>) {
+        if (next.month !== undefined) setMonth(next.month);
+        if (next.year !== undefined) setYear(next.year);
+        setPage(0);
+    }
 
     const { data: detail, isLoading: detailLoading } = useQuery({
         queryKey: ['vpp-import-detail', detailId],
@@ -102,6 +114,11 @@ export default function TabImport() {
         staleTime: 5 * 60 * 1000,
     });
 
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: `Phieu_Nhap_Kho_${new Date().getTime()}`,
+    });
+
     const createMut = useMutation({
         mutationFn: (dto: VppImportCreateDto) => vppApi.createImport(dto),
         onSuccess: () => {
@@ -111,7 +128,7 @@ export default function TabImport() {
             resetForm();
             toast.success('Đã tạo phiếu nhập kho');
         },
-        onError: (err: any) => { toast.error(err?.message || 'Tạo phiếu nhập thất bại'); },
+        onError: (err: unknown) => { toast.error(errMessage(err, 'Tạo phiếu nhập thất bại')); },
     });
 
     const deleteMut = useMutation({
@@ -122,7 +139,7 @@ export default function TabImport() {
             setDeleteId(null);
             toast.success('Đã xóa phiếu nhập');
         },
-        onError: (err: any) => toast.error(err?.message || 'Xóa phiếu nhập thất bại'),
+        onError: (err: unknown) => toast.error(errMessage(err, 'Xóa phiếu nhập thất bại')),
     });
 
     // Quick-create catalog item from within import form
@@ -141,7 +158,7 @@ export default function TabImport() {
             setQuickCreateOpen(false);
             toast.success('Đã thêm vật tư mới vào danh mục');
         },
-        onError: (err: any) => { toast.error(err?.message || 'Tạo vật tư thất bại'); },
+        onError: (err: unknown) => { toast.error(errMessage(err, 'Tạo vật tư thất bại')); },
     });
 
     function resetForm() {
@@ -218,10 +235,10 @@ export default function TabImport() {
                         sx={{ ...fieldSx, width: 220 }}
                         slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment> } }}
                     />
-                    <TextField select size="small" label="Tháng" value={month} onChange={e => setMonth(+e.target.value)} sx={{ ...fieldSx, minWidth: 130 }}>
+                    <TextField select size="small" label="Tháng" value={month} onChange={e => changePeriod({ month: +e.target.value })} sx={{ ...fieldSx, minWidth: 130 }}>
                         {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <MenuItem key={m} value={m}>Tháng {m}</MenuItem>)}
                     </TextField>
-                    <TextField select size="small" label="Năm" value={year} onChange={e => setYear(+e.target.value)} sx={{ ...fieldSx, minWidth: 100 }}>
+                    <TextField select size="small" label="Năm" value={year} onChange={e => changePeriod({ year: +e.target.value })} sx={{ ...fieldSx, minWidth: 100 }}>
                         {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
                     </TextField>
                     <Box sx={{ flex: 1 }} />
@@ -352,7 +369,7 @@ export default function TabImport() {
                                                 noOptionsText="Không tìm thấy"
                                                 renderInput={params => <TextField {...params} placeholder="Tìm vật tư..." sx={fieldSx} />}
                                                 renderOption={(props, it) => {
-                                                    const { key, ...rest } = props as any;
+                                                    const { key, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key: React.Key };
                                                     if (it.id === -1) return (
                                                         <Box key={key} component="li" {...rest} sx={{ color: BLUE, fontWeight: 700, gap: 0.8 }}>
                                                             <AddCircleOutlineRoundedIcon sx={{ fontSize: 15, flexShrink: 0 }} />
@@ -476,7 +493,21 @@ export default function TabImport() {
 
             {/* ── Detail Dialog ── */}
             <Dialog open={!!detailId} onClose={() => { setDetailId(null); setDetailAttachAnchor(null); }} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS } } }}>
-                <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>Chi tiết phiếu nhập #{detailId}</DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    Chi tiết phiếu nhập #{detailId}
+                    <Box sx={{ flex: 1 }} />
+                    {detail && (
+                        <Button
+                            variant="outlined"
+                            color="inherit"
+                            startIcon={<PrintRoundedIcon />}
+                            onClick={() => handlePrint()}
+                            sx={{ borderRadius: '10px', textTransform: 'none' }}
+                        >
+                            In phiếu
+                        </Button>
+                    )}
+                </DialogTitle>
                 <DialogContent>
                     {detailLoading ? (
                         <Typography sx={{ color: '#94a3b8', py: 2 }}>Đang tải...</Typography>
@@ -532,6 +563,9 @@ export default function TabImport() {
                             </TableContainer>
                         </Box>
                     ) : null}
+                    <Box sx={{ display: 'none' }}>
+                        <ImportPrintView ref={printRef} data={detail} />
+                    </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => { setDetailId(null); setDetailAttachAnchor(null); }} sx={{ textTransform: 'none', borderRadius: '12px', color: '#64748b' }}>Đóng</Button>

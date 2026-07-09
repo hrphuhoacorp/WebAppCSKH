@@ -418,20 +418,14 @@ export default function XntCellHistoryDialog({ open, onClose, closeDate, branch,
             </DialogTitle>
             <DialogContent>
                 {noSourceWarning ? (
-                    <Box sx={{ bgcolor: '#fef2f2', border: '2px dashed #dc2626', borderRadius: '12px', p: 2, mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, color: '#991b1b', fontWeight: 800, fontSize: 15, mb: 1 }}>
-                            <span>⚠️ CẢNH BÁO: DỮ LIỆU KHÔNG CÓ NGUỒN GỐC</span>
+                    <Box sx={{ bgcolor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', p: 2, mb: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, color: '#92400e', fontWeight: 800, fontSize: 14, mb: 0.75 }}>
+                            <span>⚠️ Chưa tìm thấy bút ký cho ô này</span>
                         </Box>
-                        <Box sx={{ fontSize: 13, color: '#7f1d1d', lineHeight: 1.6 }}>
-                            Mã <b>{itemCode}</b> đang có số lượng là <b>{currentVal}</b> nhưng hệ thống <b>không tìm thấy bất kỳ bút ký nào</b> ghi nhận việc này.
+                        <Box sx={{ fontSize: 13, color: '#78350f', lineHeight: 1.6 }}>
+                            Mã <b>{itemCode}</b> đang có số lượng <b>{currentVal}</b> nhưng chưa có bút ký nào ghi lại thao tác này — có thể do dữ liệu được nhập từ trước khi tính năng ghi vết hoạt động, hoặc số liệu được nhập bằng cách khác.
                             <br /><br />
-                            <b>Các nguyên nhân có thể đã xảy ra (Lỗi hệ thống cũ):</b>
-                            <Box component="ul" sx={{ mt: 1, pl: 2.5 }}>
-                                <li><b>Đồng bộ &quot;ngầm&quot;:</b> Hệ thống cũ tự tạo mã cho ngày mai nhưng không ghi log (Do lỗi logic Batch cũ).</li>
-                                <li><b>Ghi đè âm thầm:</b> Một User khác nạp Sapo/Tồn kho làm thay đổi số liệu nhưng Backend cũ chưa có cơ chế tự động ghi log.</li>
-                                <li><b>Dữ liệu rác:</b> Dòng này được tạo ra từ phiên bản phần mềm cũ chưa có chức năng lưu vết.</li>
-                            </Box>
-                            <Typography sx={{ mt: 1.25, fontWeight: 700, color: '#dc2626' }}>👉 Cần làm gì? Hãy cập nhật Backend mới ngay để chặn việc tự ý thay đổi mà không để lại vết.</Typography>
+                            Nếu thấy số này chưa đúng, vào tab <b>Sửa SL</b> để chỉnh lại và ghi rõ lý do — từ lúc đó mọi thay đổi sẽ được lưu vết đầy đủ.
                         </Box>
                     </Box>
                 ) : (

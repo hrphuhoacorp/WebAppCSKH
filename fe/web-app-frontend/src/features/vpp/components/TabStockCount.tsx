@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
     IconButton, InputAdornment, MenuItem, Paper, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, TextField, Tooltip, Typography, alpha,
+    TableContainer, TableHead, TableRow, TableSortLabel, TextField, Tooltip, Typography, alpha,
 } from '@mui/material';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
@@ -13,7 +13,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import FactCheckRoundedIcon from '@mui/icons-material/FactCheckRounded';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vppApi, VPP_GREEN } from '../api/vpp.api';
+import { vppApi } from '../api/vpp.api';
 
 import { useReactToPrint } from 'react-to-print';
 import toast from 'react-hot-toast';
@@ -21,10 +21,13 @@ import { usePermission } from '@/hooks/usePermission';
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import { StockCountPrintView } from './StockCountPrintTemplate';
 
-const GREEN = VPP_GREEN;
 const TEAL = '#0f766e';
 const CARD_RADIUS = '20px';
 const BORDER = '#e2e8f0';
+
+function errMessage(err: unknown, fallback: string): string {
+    return (err as { message?: string })?.message || fallback;
+}
 
 const fieldSx = {
     '& .MuiOutlinedInput-root': { borderRadius: '12px', '& fieldset': { borderColor: BORDER }, '&.Mui-focused fieldset': { borderColor: TEAL, borderWidth: 1.5 } },
@@ -44,6 +47,7 @@ function StatusChip({ status }: { status: string }) {
 }
 
 interface EditedLines { [lineId: number]: { actualQty: number; note: string } }
+type SortField = 'itemCode' | 'itemName' | 'systemQty' | 'actualQty' | 'diff' | null;
 
 export default function TabStockCount() {
     const qc = useQueryClient();
@@ -61,6 +65,8 @@ export default function TabStockCount() {
     const [edited, setEdited] = useState<EditedLines>({});
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
+    const [sortField, setSortField] = useState<SortField>(null);
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const printRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const t = setTimeout(() => setSearch(searchInput), 400);
@@ -119,8 +125,8 @@ export default function TabStockCount() {
             qc.invalidateQueries({ queryKey: ['vpp-stock-count-size', sizeId] });
             setEdited({});
             toast.success('Đã lưu số lượng thực tế');
-        } catch (err: any) {
-            toast.error(err?.message || 'Có lỗi khi lưu, vui lòng thử lại');
+        } catch (err: unknown) {
+            toast.error(errMessage(err, 'Có lỗi khi lưu, vui lòng thử lại'));
         }
     }
 
@@ -134,8 +140,37 @@ export default function TabStockCount() {
     const filtered = counts.filter(r =>
         !q || (r.note ?? '').toLowerCase().includes(q) || r.createdBy.toLowerCase().includes(q)
     );
-    const sizeLines = size?.lines ?? [];
+    const sizeLines = useMemo(() => size?.lines ?? [], [size?.lines]);
     const isDraft = size?.status === 'draft';
+
+    // Sắp xếp danh sách dòng trong phiếu — áp dụng cả lên bảng xem lẫn khi in (StockCountPrintView
+    // nhận đúng mảng đã sắp xếp thay vì size.lines gốc).
+    const sortedLines = useMemo(() => {
+        if (!sortField) return sizeLines;
+        const rows = sizeLines.map(l => {
+            const e = edited[l.id];
+            const actualQty = e !== undefined ? e.actualQty : l.actualQty;
+            return { line: l, actualQty, diff: actualQty - l.systemQty };
+        });
+        rows.sort((a, b) => {
+            let cmp = 0;
+            switch (sortField) {
+                case 'itemCode': cmp = a.line.itemCode.localeCompare(b.line.itemCode); break;
+                case 'itemName': cmp = a.line.itemName.localeCompare(b.line.itemName); break;
+                case 'systemQty': cmp = a.line.systemQty - b.line.systemQty; break;
+                case 'actualQty': cmp = a.actualQty - b.actualQty; break;
+                case 'diff': cmp = a.diff - b.diff; break;
+            }
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+        return rows.map(r => r.line);
+    }, [sizeLines, sortField, sortDir, edited]);
+
+    function toggleSort(field: SortField) {
+        if (!field) return;
+        if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        else { setSortField(field); setSortDir('asc'); }
+    }
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -297,13 +332,32 @@ export default function TabStockCount() {
                                 <Table size="small" stickyHeader>
                                     <TableHead>
                                         <TableRow>
-                                            {['Mã', 'Tên vật tư', 'ĐVT', 'Sổ sách', 'Thực tế', 'Chênh lệch', 'Ghi chú'].map(h => (
-                                                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#f8fafc', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '2px solid #e2e8f0' }}>{h}</TableCell>
+                                            {([
+                                                { label: 'Mã', field: 'itemCode' as const },
+                                                { label: 'Tên vật tư', field: 'itemName' as const },
+                                                { label: 'ĐVT', field: null },
+                                                { label: 'Sổ sách', field: 'systemQty' as const },
+                                                { label: 'Thực tế', field: 'actualQty' as const },
+                                                { label: 'Chênh lệch', field: 'diff' as const },
+                                                { label: 'Ghi chú', field: null },
+                                            ]).map(c => (
+                                                <TableCell key={c.label} sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#f8fafc', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '2px solid #e2e8f0' }}>
+                                                    {c.field ? (
+                                                        <TableSortLabel
+                                                            active={sortField === c.field}
+                                                            direction={sortField === c.field ? sortDir : 'asc'}
+                                                            onClick={() => toggleSort(c.field)}
+                                                            sx={{ '&.Mui-active, &.Mui-active .MuiTableSortLabel-icon': { color: TEAL } }}
+                                                        >
+                                                            {c.label}
+                                                        </TableSortLabel>
+                                                    ) : c.label}
+                                                </TableCell>
                                             ))}
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {sizeLines.map((l, i) => {
+                                        {sortedLines.map((l, i) => {
                                             const e = getLine(l.id);
                                             const actualQty = e !== undefined ? e.actualQty : l.actualQty;
                                             const noteVal = e !== undefined ? e.note : l.note;
@@ -350,7 +404,7 @@ export default function TabStockCount() {
                         </Box>
                     ) : null}
                     <Box sx={{ display: 'none' }}>
-                        <StockCountPrintView ref={printRef} data={size} />
+                        <StockCountPrintView ref={printRef} data={size ? { ...size, lines: sortedLines } : undefined} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
