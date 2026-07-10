@@ -60,6 +60,7 @@ export default function NxtPage() {
                 boxShadow: '0 2px 16px rgba(8,104,57,0.05)',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, pr: 2,
             }}>
+                
                 <Tabs
                     value={safeTab}
                     onChange={(_, v) => setTab(v)}
