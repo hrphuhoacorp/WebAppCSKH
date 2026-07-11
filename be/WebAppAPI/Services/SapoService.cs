@@ -145,6 +145,7 @@ public class SapoService
             @"(H\d{2,5}[A-Z]?(?:-Z)?)",
             @"(AT\d{1,3}[A-Z]?(?:-Z)?)",
             @"(GT\d{2,5}[A-Z]?(?:-Z)?)",
+            @"(BK\d{1,4}[A-Z]?(?:-Z)?)",
         };
         foreach (var p in patterns)
         {
@@ -852,7 +853,6 @@ public class SapoService
 
             var resolved = ResolveCode(sapoCode, mappingIndex, date);
             var reportCode = resolved.ReportCode ?? sapoCode;
-            var material = IsGiftMaterialRow(first.Category, g.Key.Sku, first.ProductName);
 
             result.Add(new SapoSalesRow
             {
@@ -878,7 +878,7 @@ public class SapoService
                 MappingDate = resolved.MappingDate,
                 MappingNote = resolved.MappingNote,
                 AutoGroupNote = resolved.AutoGroupNote,
-                Warning = material ? "MATERIAL_EXCLUDED_FROM_DASHBOARD" : "",
+                Warning = "",
                 UploadedBy = uploadedBy,
                 UploadedAt = uploadedAt,
                 ImportHistoryId = importHistoryId,
@@ -886,6 +886,105 @@ public class SapoService
         }
 
         return ApplyNearCodeAutoGrouping(result);
+    }
+
+    // Đồng bộ NxtRow.SapoSold từ SapoSalesRows cho các ngày bị ảnh hưởng.
+    // Gọi sau import (sau khi SapoSalesRows đã được SaveChanges) VÀ sau rollback (sau khi đã xóa).
+    // Logic: re-query toàn bộ SapoSalesRows còn lại cho các ngày đó, group lại, SET NxtRow.
+    // Nếu không còn row nào cho (ngày, CN, mã), SapoSold về 0 (không xóa NxtRow vì có thể có dữ liệu khác).
+    public async Task SyncNxtSapoSoldAsync(IEnumerable<string> affectedDates)
+    {
+        var dates = affectedDates.Where(d => !string.IsNullOrEmpty(d)).Distinct().ToHashSet();
+        if (dates.Count == 0) return;
+
+        // Re-query tất cả SapoSalesRows còn lại cho các ngày này (không filter Warning vì muốn tổng thực)
+        var sapoRows = await _db.SapoSalesRows
+            .Where(r => dates.Contains(r.Date) && r.Warning != "MATERIAL_EXCLUDED_FROM_DASHBOARD")
+            .ToListAsync();
+
+        // Aggregate: (closeDate DD/MM/yyyy, branch, itemCode) → (sapoSold, revenue, orderCount)
+        var aggregated = sapoRows
+            .GroupBy(r => (
+                CloseDate: ToCloseDate(r.Date),
+                r.Branch,
+                ItemCode: (r.ReportCode ?? r.SapoCode ?? "").Trim()
+            ))
+            .Where(g => !string.IsNullOrEmpty(g.Key.ItemCode))
+            .Select(g => new
+            {
+                g.Key.CloseDate,
+                g.Key.Branch,
+                g.Key.ItemCode,
+                SapoSold = g.Sum(r => r.Qty),
+                Revenue = g.Sum(r => r.Revenue),
+                OrderCount = (decimal)g.Sum(r => r.Orders),
+            })
+            .ToList();
+
+        var closeDates = aggregated.Select(a => a.CloseDate).ToHashSet();
+
+        // Load NxtRows cho các closeDate bị ảnh hưởng
+        var nxtRows = await _db.NxtRows
+            .Where(r => closeDates.Contains(r.CloseDate))
+            .ToListAsync();
+
+        var activeKeys = new HashSet<(string, string, string)>(
+            aggregated.Select(a => (a.CloseDate, a.Branch, a.ItemCode))
+        );
+
+        // SET SapoSold cho từng aggregated group
+        foreach (var agg in aggregated)
+        {
+            var existing = nxtRows.FirstOrDefault(r =>
+                r.CloseDate == agg.CloseDate &&
+                r.Branch == agg.Branch &&
+                r.ItemCode == agg.ItemCode
+            );
+
+            if (existing != null)
+            {
+                existing.SapoSold = agg.SapoSold;
+                existing.Revenue = agg.Revenue;
+                existing.OrderCount = agg.OrderCount;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _db.NxtRows.Add(new WebAppInfractor.Models.NxtRow
+                {
+                    CloseDate = agg.CloseDate,
+                    Branch = agg.Branch,
+                    ItemCode = agg.ItemCode,
+                    SapoSold = agg.SapoSold,
+                    Revenue = agg.Revenue,
+                    OrderCount = agg.OrderCount,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                });
+            }
+        }
+
+        // Với NxtRows cũ có SapoSold > 0 nhưng không còn SapoSalesRow nào → reset về 0
+        foreach (var nxt in nxtRows.Where(r => r.SapoSold != 0))
+        {
+            var key = (nxt.CloseDate, nxt.Branch, nxt.ItemCode);
+            if (!activeKeys.Contains(key))
+            {
+                nxt.SapoSold = 0;
+                nxt.Revenue = 0;
+                nxt.OrderCount = 0;
+                nxt.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+    }
+
+    private static string ToCloseDate(string isoDate)
+    {
+        if (DateTime.TryParseExact(isoDate, "yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d))
+            return d.ToString("dd/MM/yyyy");
+        return isoDate;
     }
 
     private static bool SameSignature(List<SapoSalesRow> a, List<SapoSalesRow> b)
@@ -1132,7 +1231,9 @@ public class SapoService
     {
         if (row == null)
             return false;
-        if (IsGiftMaterialRow(row.ProductType, row.Sku, row.ProductName))
+        // Dùng Warning field đã lưu khi import — tránh re-evaluate IsGiftMaterialRow
+        // vì rows từ order import (SKU 600 = giỏ tự chọn) không phải vật liệu bao bì.
+        if (row.Warning == "MATERIAL_EXCLUDED_FROM_DASHBOARD")
             return false;
         var code = (row.ReportCode ?? row.SapoCode ?? "").Trim();
         return !string.IsNullOrEmpty(code);
