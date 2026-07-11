@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Tab, Tabs } from '@mui/material';
+import { Badge, Box, Tab, Tabs } from '@mui/material';
 import WorkRoundedIcon from '@mui/icons-material/WorkRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
@@ -17,6 +17,7 @@ import TabCandidates from '@/features/recruitment/components/TabCandidates';
 import TabComposeMail, { ComposePrefill } from '@/features/recruitment/components/TabComposeMail';
 import TabSettings from '@/features/recruitment/components/TabSettings';
 import { RecruitmentCandidateDto } from '@/features/recruitment/api/recruitment.api';
+import { useNewCandidatesCount } from '@/features/recruitment/hooks/useNewCandidatesCount';
 
 const T = { overview: 0, cvSummary: 1, campaigns: 2, candidates: 3, compose: 4, settings: 5 } as const;
 
@@ -34,6 +35,7 @@ const TABS = [
 export default function RecruitmentPage() {
     const [tab, setTab] = useState(0);
     const [composePrefill, setComposePrefill] = useState<ComposePrefill | null>(null);
+    const newCandidatesCount = useNewCandidatesCount();
 
     function handleOpenCompose(c: RecruitmentCandidateDto, mailType: string) {
         setComposePrefill({ candidate: c, mailType });
@@ -87,7 +89,14 @@ export default function RecruitmentPage() {
                     }}
                 >
                     {TABS.map((t, i) => (
-                        <Tab key={i} icon={t.icon} iconPosition="start" label={t.label} />
+                        <Tab
+                            key={i}
+                            icon={t.label === 'Chi tiết xử lý' && newCandidatesCount > 0
+                                ? <Badge badgeContent={newCandidatesCount} color="error" sx={{ '& .MuiBadge-badge': { fontSize: 10, height: 16, minWidth: 16 } }}>{t.icon}</Badge>
+                                : t.icon}
+                            iconPosition="start"
+                            label={t.label}
+                        />
                     ))}
                 </Tabs>
             </Box>

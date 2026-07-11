@@ -20,18 +20,21 @@ public class VppImportService : IVppImportService
     private readonly IVppImportRepository _repo;
     private readonly IVppImportLineRepository _lineRepo;
     private readonly IVppItemRepository _itemRepo;
+    private readonly IVppItemLotRepository _lotRepo;
     private readonly IUnitOfWork _uow;
 
     public VppImportService(
         IVppImportRepository repo,
         IVppImportLineRepository lineRepo,
         IVppItemRepository itemRepo,
+        IVppItemLotRepository lotRepo,
         IUnitOfWork uow
     )
     {
         _repo = repo;
         _lineRepo = lineRepo;
         _itemRepo = itemRepo;
+        _lotRepo = lotRepo;
         _uow = uow;
     }
 
@@ -175,6 +178,9 @@ public class VppImportService : IVppImportService
                 ?? throw new BadRequestException($"Không tìm thấy vật tư ID {line.ItemId}");
             var price = line.UnitPrice > 0 ? line.UnitPrice : item.UnitPrice;
             var vatAmount = price * item.VatRate * line.Quantity;
+
+            var lot = await FindOrCreateLotAsync(line.ItemId, price, entity.PeriodMonth, entity.PeriodYear, line.Quantity);
+
             await _lineRepo.AddAsync(
                 new VppImportLine
                 {
@@ -187,19 +193,9 @@ public class VppImportService : IVppImportService
                     Attachments = line.Attachments is { Count: > 0 }
                         ? JsonSerializer.Serialize(line.Attachments)
                         : null,
+                    LotId = lot.Id,
                 }
             );
-
-            // Cập nhật giá nhập mới nhất lên vật tư
-            if (line.UnitPrice > 0)
-            {
-                var itemEntity = await _itemRepo.GetByIdAsync(line.ItemId);
-                if (itemEntity != null)
-                {
-                    itemEntity.UnitPrice = line.UnitPrice;
-                    itemEntity.UpdatedAt = DateTime.UtcNow.AddHours(7);
-                }
-            }
         }
         await _uow.SaveChangesAsync();
         return (await GetByIdAsync(entity.Id))!;
@@ -212,8 +208,73 @@ public class VppImportService : IVppImportService
             ?? throw new NotFoundException("Không tìm thấy phiếu nhập");
         if (entity.DeletedAt != null)
             throw new NotFoundException("Không tìm thấy phiếu nhập");
+
+        // Hoàn lại số lượng về lô hàng
+        var lines = await _lineRepo.GetAll()
+            .Where(l => l.ImportId == id && l.LotId != null)
+            .ToListAsync();
+
+        foreach (var line in lines)
+        {
+            var lot = await _lotRepo.GetByIdAsync(line.LotId!.Value);
+            if (lot == null) continue;
+
+            lot.InitialQty -= line.Quantity;
+            lot.RemainingQty -= line.Quantity;
+
+            if (lot.InitialQty <= 0)
+            {
+                // Lô này chỉ do phiếu nhập này tạo ra — xóa hẳn
+                await _lotRepo.DeleteAsync(lot);
+            }
+            else
+            {
+                if (lot.RemainingQty < 0) lot.RemainingQty = 0;
+                if (lot.Status == "depleted" && lot.RemainingQty > 0)
+                    lot.Status = "active";
+                lot.UpdatedAt = DateTime.UtcNow.AddHours(7);
+            }
+        }
+
         entity.DeletedAt = DateTime.UtcNow.AddHours(7);
         await _uow.SaveChangesAsync();
+    }
+
+    private async Task<VppItemLot> FindOrCreateLotAsync(int itemId, decimal unitPrice, int periodMonth, int periodYear, decimal qty)
+    {
+        // Same item + same price → cộng vào lô hiện có (bất kể kỳ, lấy lô active đầu tiên khớp giá)
+        var existing = await _lotRepo.GetAll()
+            .FirstOrDefaultAsync(l => l.ItemId == itemId && l.UnitPrice == unitPrice && l.Status == "active");
+
+        if (existing != null)
+        {
+            existing.InitialQty += qty;
+            existing.RemainingQty += qty;
+            existing.UpdatedAt = DateTime.UtcNow.AddHours(7);
+            return existing;
+        }
+
+        // Khác giá → tạo lô mới, lot_number = MAX hiện tại + 1
+        var maxLotNumber = await _lotRepo.GetAll()
+            .Where(l => l.ItemId == itemId)
+            .Select(l => (int?)l.LotNumber)
+            .MaxAsync() ?? 0;
+
+        var newLot = new VppItemLot
+        {
+            ItemId = itemId,
+            LotNumber = maxLotNumber + 1,
+            PeriodMonth = periodMonth,
+            PeriodYear = periodYear,
+            UnitPrice = unitPrice,
+            InitialQty = qty,
+            RemainingQty = qty,
+            Status = "active",
+            CreatedAt = DateTime.UtcNow,
+        };
+        await _lotRepo.AddAsync(newLot);
+        await _uow.SaveChangesAsync();
+        return newLot;
     }
 
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };

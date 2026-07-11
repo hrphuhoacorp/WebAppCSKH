@@ -13,4 +13,6 @@ public class VppDispatchLine
     public decimal UnitPrice { get; set; }
     public decimal VatAmount { get; set; }
     public decimal TotalAmount { get; set; }
+    public int? LotId { get; set; }
+    public VppItemLot? Lot { get; set; }
 }

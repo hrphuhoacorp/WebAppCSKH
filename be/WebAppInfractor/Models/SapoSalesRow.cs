@@ -29,4 +29,5 @@ public class SapoSalesRow
     public string? UploadedBy { get; set; }
     public string? UploadedAt { get; set; }
     public DateTime? CreatedAt { get; set; }
+    public int? ImportHistoryId { get; set; }
 }

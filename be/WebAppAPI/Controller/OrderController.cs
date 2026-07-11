@@ -62,7 +62,7 @@ namespace WebAppAPI.Controllers
 
         [RequirePermission("cskh.order.restore")]
         [HttpPost("RestoreImportAsync/{importHistoryId}")]
-        public async Task<ResponseValue<bool>> RestoreImportAsync(int importHistoryId)
+        public async Task<ResponseValue<RestoreResultDTO>> RestoreImportAsync(int importHistoryId)
         {
             var userIdClaim = _httpContextAccessor.HttpContext?.User.Claims.FirstOrDefault(c =>
                 c.Type == "Id"
@@ -73,9 +73,13 @@ namespace WebAppAPI.Controllers
                 int.Parse(userIdClaim!.Value)
             );
 
-            return new ResponseValue<bool>(
+            var message = result.SkippedDuplicateCount > 0
+                ? $"Đã khôi phục {result.RestoredCount} đơn, bỏ qua {result.SkippedDuplicateCount} đơn vì đã có bản ghi trùng đang hoạt động."
+                : "Khôi phục nhập khẩu thành công";
+
+            return new ResponseValue<RestoreResultDTO>(
                 result,
-                "Khôi phục nhập khẩu thành công",
+                message,
                 StatusReponse.Success
             );
         }

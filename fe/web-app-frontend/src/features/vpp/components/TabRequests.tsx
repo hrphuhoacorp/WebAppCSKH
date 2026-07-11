@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vppApi, VPP_GREEN } from '../api/vpp.api';
 import toast from 'react-hot-toast';
 import { usePermission } from '@/hooks/usePermission';
+import { VPP_PENDING_REQUESTS_KEY } from '../hooks/usePendingRequestsCount';
 
 const GREEN = VPP_GREEN;
 const CARD_RADIUS = '20px';
@@ -101,6 +102,7 @@ export default function TabRequests() {
             vppApi.approveRequest(id, note, lines),
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['vpp-requests'] });
+            qc.invalidateQueries({ queryKey: VPP_PENDING_REQUESTS_KEY });
             setApproveId(null); setApproveNote(''); setApproveLines([]);
             toast.success('Đã duyệt và tạo phiếu xuất kho');
         },
@@ -110,7 +112,11 @@ export default function TabRequests() {
 
     const rejectMut = useMutation({
         mutationFn: ({ id, note }: { id: number; note: string }) => vppApi.rejectRequest(id, note),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-requests'] }); setRejectId(null); setAdminNote(''); toast.success('Đã từ chối đề nghị'); },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['vpp-requests'] });
+            qc.invalidateQueries({ queryKey: VPP_PENDING_REQUESTS_KEY });
+            setRejectId(null); setAdminNote(''); toast.success('Đã từ chối đề nghị');
+        },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: (err: any) => { toast.error(err?.response?.data?.message || err?.response?.data?.Message || 'Từ chối thất bại'); },
     });

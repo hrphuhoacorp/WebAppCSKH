@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { sidebarMenu } from './sidebar-menu';
-import { Box, Collapse, List, ListItemButton, ListItemText, Typography, Drawer, IconButton } from '@mui/material';
+import { Badge, Box, Collapse, List, ListItemButton, ListItemText, Typography, Drawer, IconButton } from '@mui/material';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import { ChevronDown, LogOut, Menu as MenuIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -11,11 +11,24 @@ import { authApi } from '@/features/auth/api/auth.api';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import { useAuth } from '@/providers/AuthProviders';
+import { usePendingVppRequestsCount } from '@/features/vpp/hooks/usePendingRequestsCount';
+import { useNewCandidatesCount } from '@/features/recruitment/hooks/useNewCandidatesCount';
 
 export default function Sidebar() {
     const pathname = usePathname();                                                                                                             
     const router = useRouter();
     const { profile } = useAuth();
+    const vppPendingCount = usePendingVppRequestsCount();
+    const newCandidatesCount = useNewCandidatesCount();
+
+    // Số badge theo href — đi từ ngoài (nhóm cha) vào trong (mục con): khi nhóm cha đang đóng thì
+    // hiện số gộp trên nhóm cha để báo có việc cần xem; khi mở ra (đã thấy số ở mục con), số ở
+    // nhóm cha biến mất để tránh hiện trùng 2 nơi cùng lúc.
+    const BADGE_BY_HREF: Record<string, number> = {
+        '/dashboard/administration/vpp': vppPendingCount,
+        '/dashboard/administration/recruitment': newCandidatesCount,
+    };
+    const getBadgeCount = (href: string): number => BADGE_BY_HREF[href] ?? 0;
 
     // State quản lý việc đóng/mở các nhóm menu cha
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -139,6 +152,7 @@ export default function Sidebar() {
                         const singleItem = group.children[0];
                         const Icon = singleItem.icon;
                         const selected = pathname === singleItem.href;
+                        const badgeCount = getBadgeCount(singleItem.href);
 
                         return (
                             <ListItemButton
@@ -180,7 +194,13 @@ export default function Sidebar() {
                                     },
                                 }}
                             >
-                                <Icon size={16} style={{ flexShrink: 0, marginRight: 10, opacity: selected ? 1 : 0.6 }} />
+                                {badgeCount > 0 ? (
+                                    <Badge badgeContent={badgeCount} color="error" sx={{ mr: '10px', '& .MuiBadge-badge': { fontSize: 9, height: 15, minWidth: 15 } }}>
+                                        <Icon size={16} style={{ flexShrink: 0, opacity: selected ? 1 : 0.6 }} />
+                                    </Badge>
+                                ) : (
+                                    <Icon size={16} style={{ flexShrink: 0, marginRight: 10, opacity: selected ? 1 : 0.6 }} />
+                                )}
                                 <ListItemText
                                     primary={singleItem.title}
                                     slotProps={{ primary: { style: { fontSize: 13, fontWeight: 500 } } }}
@@ -191,6 +211,7 @@ export default function Sidebar() {
 
                     // TRƯỜNG HỢP 2: Nhóm có TỪ 2 phần tử con trở lên -> Giữ nguyên cấu trúc Accordion xổ xuống
                     const GroupIcon = group.icon;
+                    const groupBadgeCount = isOpen ? 0 : group.children.reduce((sum, c) => sum + getBadgeCount(c.href), 0);
                     return (
                         <Box key={group.title} sx={{ mb: 0.5 }} onMouseLeave={() => leaveGroup(group)}>
                             {/* Group Header Button */}
@@ -212,7 +233,15 @@ export default function Sidebar() {
                                     },
                                 }}
                             >
-                                {GroupIcon && <GroupIcon size={16} style={{ flexShrink: 0, marginRight: 10, opacity: 0.6 }} />}
+                                {GroupIcon && (
+                                    groupBadgeCount > 0 ? (
+                                        <Badge badgeContent={groupBadgeCount} color="error" sx={{ mr: '10px', '& .MuiBadge-badge': { fontSize: 9, height: 15, minWidth: 15 } }}>
+                                            <GroupIcon size={16} style={{ flexShrink: 0, opacity: 0.6 }} />
+                                        </Badge>
+                                    ) : (
+                                        <GroupIcon size={16} style={{ flexShrink: 0, marginRight: 10, opacity: 0.6 }} />
+                                    )
+                                )}
                                 <ListItemText
                                     primary={group.title}
                                     slotProps={{ primary: { style: { fontSize: 13, fontWeight: 500 } } }}
@@ -234,6 +263,7 @@ export default function Sidebar() {
                                     {group.children.map((item) => {
                                         const Icon = item.icon;
                                         const selected = pathname === item.href;
+                                        const itemBadgeCount = getBadgeCount(item.href);
 
                                         return (
                                             <ListItemButton
@@ -275,7 +305,13 @@ export default function Sidebar() {
                                                     },
                                                 }}
                                             >
-                                                <Icon size={15} style={{ flexShrink: 0, marginRight: 10, opacity: selected ? 1 : 0.6 }} />
+                                                {itemBadgeCount > 0 ? (
+                                                    <Badge badgeContent={itemBadgeCount} color="error" sx={{ mr: '10px', '& .MuiBadge-badge': { fontSize: 9, height: 15, minWidth: 15 } }}>
+                                                        <Icon size={15} style={{ flexShrink: 0, opacity: selected ? 1 : 0.6 }} />
+                                                    </Badge>
+                                                ) : (
+                                                    <Icon size={15} style={{ flexShrink: 0, marginRight: 10, opacity: selected ? 1 : 0.6 }} />
+                                                )}
                                                 <ListItemText
                                                     primary={item.title}
                                                     slotProps={{ primary: { style: { fontSize: 13, fontWeight: 500 } } }}

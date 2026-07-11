@@ -192,7 +192,7 @@ export default function TabInventory() {
     const getDpItem = (itemId: number) => dpItems.find(i => i.id === itemId) ?? null;
 
     const isDP = (group: string) => group === 'DP';
-    const headers = ['Mã', 'Nhóm', 'Tên vật tư', 'ĐVT', 'Đầu kỳ', 'Nhập', 'Xuất', 'Điều chỉnh', 'Cuối kỳ', 'Giá trị', 'Hoàn trả', 'Trạng thái'];
+    const headers = ['Mã', 'Nhóm', 'Tên vật tư', 'ĐVT', 'Đầu kỳ', 'Nhập', 'Xuất', 'Điều chỉnh', 'Cuối kỳ', 'Giá trị', 'Lô hàng', 'Hoàn trả', 'Trạng thái'];
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -263,6 +263,29 @@ export default function TabInventory() {
                                     <TableCell align="center" sx={{ color: row.adjustedQty >= 0 ? '#15803d' : '#dc2626', fontWeight: 600, py: 1.5 }}>{row.adjustedQty > 0 ? `+${row.adjustedQty}` : row.adjustedQty}</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 800, color: row.closingQty <= 0 ? '#dc2626' : '#1e293b', py: 1.5 }}>{row.closingQty}</TableCell>
                                     <TableCell sx={{ color: '#0f766e', fontWeight: 700, whiteSpace: 'nowrap', py: 1.5 }}>{row.totalValue.toLocaleString('vi-VN')}đ</TableCell>
+                                    <TableCell sx={{ py: 1.5 }}>
+                                        {row.lots && row.lots.length > 0 ? (
+                                            <Tooltip arrow title={
+                                                <Box sx={{ p: 0.5 }}>
+                                                    {row.lots.map(l => (
+                                                        <Box key={l.lotNumber} sx={{ display: 'flex', gap: 1.5, mb: 0.5, alignItems: 'center' }}>
+                                                            <Typography sx={{ fontSize: 11, fontWeight: 700, color: l.status === 'active' ? '#86efac' : '#94a3b8' }}>Lô {l.lotNumber}</Typography>
+                                                            <Typography sx={{ fontSize: 11, color: '#e2e8f0' }}>{l.unitPrice.toLocaleString('vi-VN')}đ</Typography>
+                                                            <Typography sx={{ fontSize: 11, color: l.remainingQty > 0 ? '#86efac' : '#f87171' }}>×{l.remainingQty}</Typography>
+                                                        </Box>
+                                                    ))}
+                                                </Box>
+                                            }>
+                                                <Chip
+                                                    label={`${row.lots.filter(l => l.status === 'active').length} lô`}
+                                                    size="small"
+                                                    sx={{ bgcolor: alpha('#0f766e', 0.1), color: '#0f766e', fontWeight: 700, fontSize: 11, borderRadius: '8px', height: 22, cursor: 'help' }}
+                                                />
+                                            </Tooltip>
+                                        ) : (
+                                            <Typography sx={{ color: '#cbd5e1', fontSize: 12 }}>—</Typography>
+                                        )}
+                                    </TableCell>
                                     <TableCell align="center" sx={{ py: 1.5 }}>
                                         {isDP(row.group) ? (
                                             <Tooltip title="Xem / thêm hoàn trả đồng phục">

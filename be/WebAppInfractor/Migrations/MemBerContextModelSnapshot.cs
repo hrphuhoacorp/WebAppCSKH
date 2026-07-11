@@ -1382,6 +1382,388 @@ namespace WebAppInfractor.Migrations
                     b.ToTable("permissions", (string)null);
                 });
 
+            modelBuilder.Entity("WebAppInfractor.Models.PersonalFiles.PersonalFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_size");
+
+                    b.Property<int?>("FolderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("folder_id");
+
+                    b.Property<string>("MimeType")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("mime_type");
+
+                    b.Property<string>("OriginalName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("original_name");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("storage_path");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("personal_files_pkey");
+
+                    b.HasIndex("FolderId");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("personal_files", (string)null);
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.PersonalFiles.PersonalFolder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("owner_id");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parent_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("personal_folders_pkey");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("personal_folders", (string)null);
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.Reconciliation.ReconciliationExcessRow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("integer")
+                        .HasColumnName("branch_id");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int?>("DeletedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<int?>("DuplicateOfImportHistoryId")
+                        .HasColumnType("integer")
+                        .HasColumnName("duplicate_of_import_history_id");
+
+                    b.Property<int?>("DuplicateOfOrderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("duplicate_of_order_id");
+
+                    b.Property<int?>("ImportHistoryId")
+                        .HasColumnType("integer")
+                        .HasColumnName("import_history_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("MatchType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("match_type");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<string>("OrderCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("order_code");
+
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_id");
+
+                    b.Property<int?>("OrderItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_item_id");
+
+                    b.Property<DateTime>("PurchaseDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purchase_date");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("quantity");
+
+                    b.Property<decimal>("Revenue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("revenue");
+
+                    b.Property<int>("RunId")
+                        .HasColumnType("integer")
+                        .HasColumnName("run_id");
+
+                    b.Property<string>("ServiceName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("service_name");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("sku");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("source");
+
+                    b.Property<decimal?>("SourceQuantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("source_quantity");
+
+                    b.Property<decimal?>("SourceRevenue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("source_revenue");
+
+                    b.HasKey("Id")
+                        .HasName("reconciliation_excess_rows_pkey");
+
+                    b.HasIndex("RunId");
+
+                    b.ToTable("reconciliation_excess_rows", (string)null);
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.Reconciliation.ReconciliationMissingRow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BranchName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("branch_name");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text")
+                        .HasColumnName("note");
+
+                    b.Property<string>("OrderCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("order_code");
+
+                    b.Property<DateTime>("PurchaseDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purchase_date");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("quantity");
+
+                    b.Property<decimal>("Revenue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("revenue");
+
+                    b.Property<int>("RunId")
+                        .HasColumnType("integer")
+                        .HasColumnName("run_id");
+
+                    b.Property<string>("ServiceName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("service_name");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("sku");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("source");
+
+                    b.HasKey("Id")
+                        .HasName("reconciliation_missing_rows_pkey");
+
+                    b.HasIndex("RunId");
+
+                    b.ToTable("reconciliation_missing_rows", (string)null);
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.Reconciliation.ReconciliationRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("PeriodMonth")
+                        .HasColumnType("integer")
+                        .HasColumnName("period_month");
+
+                    b.Property<int>("PeriodYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("period_year");
+
+                    b.Property<DateTime?>("RunAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("run_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("RunBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("run_by");
+
+                    b.Property<string>("SourceFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("source_file_name");
+
+                    b.Property<string>("SourceFilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("source_file_path");
+
+                    b.Property<decimal>("TotalExcessAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("total_excess_amount");
+
+                    b.Property<int>("TotalExcessRows")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("total_excess_rows");
+
+                    b.Property<decimal>("TotalMismatchAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("total_mismatch_amount");
+
+                    b.Property<int>("TotalMismatchRows")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("total_mismatch_rows");
+
+                    b.Property<decimal>("TotalMissingAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("total_missing_amount");
+
+                    b.Property<int>("TotalMissingRows")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("total_missing_rows");
+
+                    b.HasKey("Id")
+                        .HasName("reconciliation_runs_pkey");
+
+                    b.HasIndex("PeriodMonth", "PeriodYear");
+
+                    b.ToTable("reconciliation_runs", (string)null);
+                });
+
             modelBuilder.Entity("WebAppInfractor.Models.Recruitment.RecruitmentCampaign", b =>
                 {
                     b.Property<int>("Id")
@@ -2048,6 +2430,10 @@ namespace WebAppInfractor.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("date");
 
+                    b.Property<int?>("ImportHistoryId")
+                        .HasColumnType("integer")
+                        .HasColumnName("import_history_id");
+
                     b.Property<string>("MappingDate")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
@@ -2407,6 +2793,10 @@ namespace WebAppInfractor.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("item_id");
 
+                    b.Property<int?>("LotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("lot_id");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
@@ -2433,6 +2823,8 @@ namespace WebAppInfractor.Migrations
                     b.HasIndex("DispatchId");
 
                     b.HasIndex("ItemId");
+
+                    b.HasIndex("LotId");
 
                     b.ToTable("vpp_dispatch_lines", (string)null);
                 });
@@ -2524,6 +2916,10 @@ namespace WebAppInfractor.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("item_id");
 
+                    b.Property<int?>("LotId")
+                        .HasColumnType("integer")
+                        .HasColumnName("lot_id");
+
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
@@ -2550,6 +2946,8 @@ namespace WebAppInfractor.Migrations
                     b.HasIndex("ImportId");
 
                     b.HasIndex("ItemId");
+
+                    b.HasIndex("LotId");
 
                     b.ToTable("vpp_import_lines", (string)null);
                 });
@@ -2652,6 +3050,76 @@ namespace WebAppInfractor.Migrations
                     b.ToTable("vpp_items", (string)null);
                 });
 
+            modelBuilder.Entity("WebAppInfractor.Models.Vpp.VppItemLot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<decimal>("InitialQty")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("initial_qty");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_id");
+
+                    b.Property<int>("LotNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("lot_number");
+
+                    b.Property<int>("PeriodMonth")
+                        .HasColumnType("integer")
+                        .HasColumnName("period_month");
+
+                    b.Property<int>("PeriodYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("period_year");
+
+                    b.Property<decimal>("RemainingQty")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("remaining_qty");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("active")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("Id")
+                        .HasName("vpp_item_lots_pkey");
+
+                    b.HasIndex("ItemId", "UnitPrice", "Status");
+
+                    b.HasIndex("ItemId", "Status", "PeriodYear", "PeriodMonth");
+
+                    b.ToTable("vpp_item_lots", (string)null);
+                });
+
             modelBuilder.Entity("WebAppInfractor.Models.Vpp.VppRequest", b =>
                 {
                     b.Property<int>("Id")
@@ -2664,6 +3132,11 @@ namespace WebAppInfractor.Migrations
                     b.Property<string>("AdminNote")
                         .HasColumnType("text")
                         .HasColumnName("admin_note");
+
+                    b.Property<string>("Branch")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("branch");
 
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -3170,6 +3643,40 @@ namespace WebAppInfractor.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.Vpp.VppDispatchLine", b =>
+                {
+                    b.HasOne("WebAppInfractor.Models.Vpp.VppItemLot", "Lot")
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("vpp_dispatch_lines_lot_id_fkey");
+
+                    b.Navigation("Lot");
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.Vpp.VppImportLine", b =>
+                {
+                    b.HasOne("WebAppInfractor.Models.Vpp.VppItemLot", "Lot")
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("vpp_import_lines_lot_id_fkey");
+
+                    b.Navigation("Lot");
+                });
+
+            modelBuilder.Entity("WebAppInfractor.Models.Vpp.VppItemLot", b =>
+                {
+                    b.HasOne("WebAppInfractor.Models.Vpp.VppItem", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("vpp_item_lots_item_id_fkey");
+
+                    b.Navigation("Item");
                 });
 
             modelBuilder.Entity("WebAppInfractor.Models.Branch", b =>

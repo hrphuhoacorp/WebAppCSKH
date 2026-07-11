@@ -16,16 +16,19 @@ public interface IVppItemService
     Task<VppItemDto> AppendUniformReturnAsync(int id, UniformReturnRecordDto dto);
     Task<VppItemDto> DeleteUniformReturnAsync(int id, int index);
     Task<VppItemDto> ToggleActiveAsync(int id);
+    Task<List<VppItemLotDto>> GetLotsAsync(int itemId, bool activeOnly = false);
 }
 
 public class VppItemService : IVppItemService
 {
     private readonly IVppItemRepository _repo;
+    private readonly IVppItemLotRepository _lotRepo;
     private readonly IUnitOfWork _uow;
 
-    public VppItemService(IVppItemRepository repo, IUnitOfWork uow)
+    public VppItemService(IVppItemRepository repo, IVppItemLotRepository lotRepo, IUnitOfWork uow)
     {
         _repo = repo;
+        _lotRepo = lotRepo;
         _uow = uow;
     }
 
@@ -188,6 +191,24 @@ public class VppItemService : IVppItemService
         return ToDto(entity);
     }
 
+    public async Task<List<VppItemLotDto>> GetLotsAsync(int itemId, bool activeOnly = false)
+    {
+        var query = _lotRepo.GetAll().AsNoTracking().Where(l => l.ItemId == itemId);
+        if (activeOnly) query = query.Where(l => l.Status == "active");
+        var lots = await query.OrderBy(l => l.LotNumber).ToListAsync();
+        return lots.Select(l => new VppItemLotDto
+        {
+            Id = l.Id,
+            LotNumber = l.LotNumber,
+            PeriodMonth = l.PeriodMonth,
+            PeriodYear = l.PeriodYear,
+            UnitPrice = l.UnitPrice,
+            InitialQty = l.InitialQty,
+            RemainingQty = l.RemainingQty,
+            Status = l.Status,
+        }).ToList();
+    }
+
     private async Task<string> GenerateCodeAsync(string group)
     {
         var prefix = group.ToUpper();
@@ -281,4 +302,16 @@ public class UniformReturnRecordDto
     public int Quantity { get; set; }
     public string ReturnedBy { get; set; } = null!;
     public string? Note { get; set; }
+}
+
+public class VppItemLotDto
+{
+    public int Id { get; set; }
+    public int LotNumber { get; set; }
+    public int PeriodMonth { get; set; }
+    public int PeriodYear { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal InitialQty { get; set; }
+    public decimal RemainingQty { get; set; }
+    public string Status { get; set; } = "active";
 }

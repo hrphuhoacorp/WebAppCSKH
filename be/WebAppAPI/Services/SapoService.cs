@@ -786,6 +786,108 @@ public class SapoService
         };
     }
 
+    // ─── AUTO-GENERATE TỪ ORDER IMPORT ──────────────────────────────────────────
+    // Chỉ xử lý SKU bắt đầu bằng 200 (giỏ mẫu) hoặc 600 (giỏ tự chọn).
+    // Kết quả được group-by (ngày, chi nhánh, sku, sapoCode) rồi cộng qty/doanh thu.
+    // Caller chịu trách nhiệm AddRangeAsync + SaveChangesAsync (để nằm trong cùng transaction).
+    public async Task<List<SapoSalesRow>> BuildRowsFromOrderItemsAsync(
+        IEnumerable<SapoImportRowDTO> rows,
+        int importHistoryId,
+        string uploadedBy
+    )
+    {
+        var uploadedAt = NowText();
+        var batchId = $"ORDER-{importHistoryId}";
+        var mappingIndex = await BuildMappingIndexAsync();
+
+        // Aggregate: (date, branch, sku, sapoCode) → sum qty / revenue / count orders
+        var grouped = rows
+            .Where(r =>
+            {
+                var sku = (r.Sku ?? "").Trim();
+                return sku.StartsWith("200") || sku.StartsWith("600");
+            })
+            .Select(r =>
+            {
+                var sku = (r.Sku ?? "").Trim();
+                string sapoCode;
+                if (sku.StartsWith("200"))
+                {
+                    sapoCode = ExtractGiftCodeFromName(r.ProductName);
+                    if (string.IsNullOrEmpty(sapoCode))
+                        sapoCode = ExtractGiftCodeFromName(sku);
+                    if (string.IsNullOrEmpty(sapoCode))
+                        sapoCode = sku;
+                }
+                else
+                {
+                    // SKU 600: giỏ tự chọn — dùng mã đơn hàng làm mã định danh
+                    sapoCode = r.OrderCode;
+                }
+                return new
+                {
+                    Date = r.PurchaseDate.ToString("yyyy-MM-dd"),
+                    Branch = string.IsNullOrEmpty(r.BranchName) ? "Chưa rõ" : r.BranchName,
+                    r.Category,
+                    Sku = sku,
+                    SapoCode = sapoCode,
+                    r.ProductName,
+                    r.UnitPrice,
+                    r.Quantity,
+                    r.Revenue,
+                };
+            })
+            .GroupBy(x => (x.Date, x.Branch, x.Sku, x.SapoCode))
+            .ToList();
+
+        var result = new List<SapoSalesRow>(grouped.Count);
+        foreach (var g in grouped)
+        {
+            var first = g.First();
+            var qty = g.Sum(x => x.Quantity);
+            var revenue = g.Sum(x => x.Revenue);
+            var price = qty != 0 ? Math.Abs(revenue / qty) : first.UnitPrice;
+            var date = g.Key.Date;
+            var sapoCode = g.Key.SapoCode;
+
+            var resolved = ResolveCode(sapoCode, mappingIndex, date);
+            var reportCode = resolved.ReportCode ?? sapoCode;
+            var material = IsGiftMaterialRow(first.Category, g.Key.Sku, first.ProductName);
+
+            result.Add(new SapoSalesRow
+            {
+                BatchId = batchId,
+                Date = date,
+                Branch = g.Key.Branch,
+                ProductType = first.Category,
+                Sku = g.Key.Sku,
+                SapoCode = sapoCode,
+                ReportCode = reportCode,
+                ReportName = reportCode,
+                ProductName = first.ProductName,
+                BasketGroup = ClassifyBasket(g.Key.Sku, first.ProductName),
+                PriceBucket = PriceBucket(price),
+                Price = price,
+                Qty = qty,
+                Orders = g.Count(),
+                Revenue = revenue,
+                NetRevenue = revenue,
+                ResolveSource = resolved.ResolveSource,
+                MatchedCode = resolved.MatchedCode,
+                MappingPrice = resolved.MappingPrice,
+                MappingDate = resolved.MappingDate,
+                MappingNote = resolved.MappingNote,
+                AutoGroupNote = resolved.AutoGroupNote,
+                Warning = material ? "MATERIAL_EXCLUDED_FROM_DASHBOARD" : "",
+                UploadedBy = uploadedBy,
+                UploadedAt = uploadedAt,
+                ImportHistoryId = importHistoryId,
+            });
+        }
+
+        return ApplyNearCodeAutoGrouping(result);
+    }
+
     private static bool SameSignature(List<SapoSalesRow> a, List<SapoSalesRow> b)
     {
         static object Key(SapoSalesRow r) =>

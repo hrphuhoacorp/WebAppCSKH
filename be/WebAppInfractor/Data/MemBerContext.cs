@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Models;
+using WebAppInfractor.Models.PersonalFiles;
+using WebAppInfractor.Models.Reconciliation;
 using WebAppInfractor.Models.Recruitment;
 using WebAppInfractor.Models.Vpp;
 
@@ -65,6 +67,7 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<RecruitmentMailTemplate> RecruitmentMailTemplates { get; set; }
 
     public virtual DbSet<VppItem> VppItems { get; set; }
+    public virtual DbSet<VppItemLot> VppItemLots { get; set; }
     public virtual DbSet<VppRequest> VppRequests { get; set; }
     public virtual DbSet<VppRequestLine> VppRequestLines { get; set; }
     public virtual DbSet<VppImport> VppImports { get; set; }
@@ -73,6 +76,13 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<VppDispatchLine> VppDispatchLines { get; set; }
     public virtual DbSet<VppStockCount> VppStockCounts { get; set; }
     public virtual DbSet<VppStockCountLine> VppStockCountLines { get; set; }
+
+    public virtual DbSet<ReconciliationRun> ReconciliationRuns { get; set; }
+    public virtual DbSet<ReconciliationExcessRow> ReconciliationExcessRows { get; set; }
+    public virtual DbSet<ReconciliationMissingRow> ReconciliationMissingRows { get; set; }
+
+    public virtual DbSet<PersonalFolder> PersonalFolders { get; set; }
+    public virtual DbSet<PersonalFile> PersonalFiles { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
@@ -934,6 +944,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.UploadedBy).HasMaxLength(100).HasColumnName("uploaded_by");
             entity.Property(e => e.UploadedAt).HasMaxLength(30).HasColumnName("uploaded_at");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.ImportHistoryId).HasColumnName("import_history_id");
         });
 
         modelBuilder.Entity<SapoCodeMapping>(entity =>
@@ -1137,6 +1148,28 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
         });
 
+        modelBuilder.Entity<VppItemLot>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("vpp_item_lots_pkey");
+            entity.ToTable("vpp_item_lots");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.LotNumber).HasColumnName("lot_number");
+            entity.Property(e => e.PeriodMonth).HasColumnName("period_month");
+            entity.Property(e => e.PeriodYear).HasColumnName("period_year");
+            entity.Property(e => e.UnitPrice).HasPrecision(18, 2).HasColumnName("unit_price");
+            entity.Property(e => e.InitialQty).HasPrecision(18, 3).HasColumnName("initial_qty");
+            entity.Property(e => e.RemainingQty).HasPrecision(18, 3).HasColumnName("remaining_qty");
+            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("active").HasColumnName("status");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.HasOne(e => e.Item)
+                .WithMany()
+                .HasForeignKey(e => e.ItemId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("vpp_item_lots_item_id_fkey");
+        });
+
         modelBuilder.Entity<VppRequest>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("vpp_requests_pkey");
@@ -1144,6 +1177,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.RequesterId).HasColumnName("requester_id");
             entity.Property(e => e.Department).HasMaxLength(100).HasColumnName("department");
+            entity.Property(e => e.Branch).HasMaxLength(100).HasColumnName("branch");
             entity.Property(e => e.Reason).HasColumnName("reason");
             entity.Property(e => e.ReferencePrice).HasMaxLength(200).HasColumnName("reference_price");
             entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("pending").HasColumnName("status");
@@ -1193,6 +1227,12 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.VatAmount).HasPrecision(18, 2).HasColumnName("vat_amount");
             entity.Property(e => e.TotalAmount).HasPrecision(18, 2).HasColumnName("total_amount");
             entity.Property(e => e.Attachments).HasColumnName("attachments");
+            entity.Property(e => e.LotId).HasColumnName("lot_id");
+            entity.HasOne(e => e.Lot)
+                .WithMany()
+                .HasForeignKey(e => e.LotId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("vpp_import_lines_lot_id_fkey");
         });
 
         modelBuilder.Entity<VppDispatch>(entity =>
@@ -1225,6 +1265,12 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.UnitPrice).HasPrecision(18, 2).HasColumnName("unit_price");
             entity.Property(e => e.VatAmount).HasPrecision(18, 2).HasColumnName("vat_amount");
             entity.Property(e => e.TotalAmount).HasPrecision(18, 2).HasColumnName("total_amount");
+            entity.Property(e => e.LotId).HasColumnName("lot_id");
+            entity.HasOne(e => e.Lot)
+                .WithMany()
+                .HasForeignKey(e => e.LotId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("vpp_dispatch_lines_lot_id_fkey");
         });
 
         modelBuilder.Entity<VppStockCount>(entity =>
@@ -1254,6 +1300,100 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.ActualQty).HasPrecision(18, 3).HasColumnName("actual_qty");
             entity.Property(e => e.Difference).HasPrecision(18, 3).HasColumnName("difference");
             entity.Property(e => e.Note).HasColumnName("note");
+        });
+
+        modelBuilder.Entity<ReconciliationRun>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("reconciliation_runs_pkey");
+            entity.ToTable("reconciliation_runs");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.PeriodMonth).HasColumnName("period_month");
+            entity.Property(e => e.PeriodYear).HasColumnName("period_year");
+            entity.Property(e => e.SourceFileName).HasMaxLength(255).HasColumnName("source_file_name");
+            entity.Property(e => e.SourceFilePath).HasMaxLength(500).HasColumnName("source_file_path");
+            entity.Property(e => e.RunBy).HasColumnName("run_by");
+            entity.Property(e => e.RunAt).HasDefaultValueSql("now()").HasColumnName("run_at");
+            entity.Property(e => e.TotalExcessRows).HasDefaultValue(0).HasColumnName("total_excess_rows");
+            entity.Property(e => e.TotalExcessAmount).HasPrecision(18, 2).HasDefaultValue(0m).HasColumnName("total_excess_amount");
+            entity.Property(e => e.TotalMissingRows).HasDefaultValue(0).HasColumnName("total_missing_rows");
+            entity.Property(e => e.TotalMissingAmount).HasPrecision(18, 2).HasDefaultValue(0m).HasColumnName("total_missing_amount");
+            entity.Property(e => e.TotalMismatchRows).HasDefaultValue(0).HasColumnName("total_mismatch_rows");
+            entity.Property(e => e.TotalMismatchAmount).HasPrecision(18, 2).HasDefaultValue(0m).HasColumnName("total_mismatch_amount");
+        });
+
+        modelBuilder.Entity<ReconciliationExcessRow>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("reconciliation_excess_rows_pkey");
+            entity.ToTable("reconciliation_excess_rows");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RunId).HasColumnName("run_id");
+            entity.Property(e => e.OrderId).HasColumnName("order_id");
+            entity.Property(e => e.OrderItemId).HasColumnName("order_item_id");
+            entity.Property(e => e.OrderCode).HasMaxLength(50).HasColumnName("order_code");
+            entity.Property(e => e.PurchaseDate).HasColumnName("purchase_date");
+            entity.Property(e => e.Sku).HasMaxLength(100).HasColumnName("sku");
+            entity.Property(e => e.ServiceName).HasMaxLength(255).HasColumnName("service_name");
+            entity.Property(e => e.Quantity).HasPrecision(18, 4).HasColumnName("quantity");
+            entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
+            entity.Property(e => e.SourceQuantity).HasPrecision(18, 4).HasColumnName("source_quantity");
+            entity.Property(e => e.SourceRevenue).HasPrecision(18, 2).HasColumnName("source_revenue");
+            entity.Property(e => e.ImportHistoryId).HasColumnName("import_history_id");
+            entity.Property(e => e.BranchId).HasColumnName("branch_id");
+            entity.Property(e => e.Source).HasMaxLength(100).HasColumnName("source");
+            entity.Property(e => e.MatchType).HasMaxLength(20).HasColumnName("match_type");
+            entity.Property(e => e.DuplicateOfOrderId).HasColumnName("duplicate_of_order_id");
+            entity.Property(e => e.DuplicateOfImportHistoryId).HasColumnName("duplicate_of_import_history_id");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.IsDeleted).HasDefaultValue(false).HasColumnName("is_deleted");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+            entity.Property(e => e.DeletedBy).HasColumnName("deleted_by");
+        });
+
+        modelBuilder.Entity<ReconciliationMissingRow>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("reconciliation_missing_rows_pkey");
+            entity.ToTable("reconciliation_missing_rows");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RunId).HasColumnName("run_id");
+            entity.Property(e => e.OrderCode).HasMaxLength(50).HasColumnName("order_code");
+            entity.Property(e => e.PurchaseDate).HasColumnName("purchase_date");
+            entity.Property(e => e.Sku).HasMaxLength(100).HasColumnName("sku");
+            entity.Property(e => e.ServiceName).HasMaxLength(255).HasColumnName("service_name");
+            entity.Property(e => e.Quantity).HasPrecision(18, 4).HasColumnName("quantity");
+            entity.Property(e => e.Revenue).HasPrecision(18, 2).HasColumnName("revenue");
+            entity.Property(e => e.Source).HasMaxLength(100).HasColumnName("source");
+            entity.Property(e => e.BranchName).HasMaxLength(100).HasColumnName("branch_name");
+            entity.Property(e => e.Note).HasColumnName("note");
+        });
+
+        modelBuilder.Entity<PersonalFolder>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("personal_folders_pkey");
+            entity.ToTable("personal_folders");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ParentId).HasColumnName("parent_id");
+            entity.Property(e => e.Name).HasMaxLength(255).HasColumnName("name");
+            entity.Property(e => e.OwnerId).HasColumnName("owner_id");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<PersonalFile>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("personal_files_pkey");
+            entity.ToTable("personal_files");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.FolderId).HasColumnName("folder_id");
+            entity.Property(e => e.FileName).HasMaxLength(255).HasColumnName("file_name");
+            entity.Property(e => e.OriginalName).HasMaxLength(255).HasColumnName("original_name");
+            entity.Property(e => e.StoragePath).HasMaxLength(500).HasColumnName("storage_path");
+            entity.Property(e => e.MimeType).HasMaxLength(150).HasColumnName("mime_type");
+            entity.Property(e => e.FileSize).HasColumnName("file_size");
+            entity.Property(e => e.OwnerId).HasColumnName("owner_id");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
         });
 
         OnModelCreatingPartial(modelBuilder);

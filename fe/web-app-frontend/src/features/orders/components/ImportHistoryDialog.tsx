@@ -71,8 +71,8 @@ export default function ImportHistoryDialog({ open, onClose, historyData, onRefr
                 await userApi.rollbackImportExcel(selectedFile.id);
                 toast.success('Hoàn tác thành công, số liệu tài chính đã được hoàn tác', { id: toastId });
             } else {
-                await userApi.restoreImportExcel(selectedFile.id);
-                toast.success('Khôi phục thành công, đơn hàng đã hoạt động trở lại', { id: toastId });
+                const res = await userApi.restoreImportExcel(selectedFile.id);
+                toast.success(res?.message || 'Khôi phục thành công, đơn hàng đã hoạt động trở lại', { id: toastId });
             }
             await onRefresh();
         } catch (error: any) {

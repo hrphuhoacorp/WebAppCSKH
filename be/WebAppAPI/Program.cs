@@ -54,6 +54,7 @@ builder.Services.AddScoped<IRecruitmentMailTemplateRepository, RecruitmentMailTe
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IUserPermissionRepository, UserPermissionRepository>();
 builder.Services.AddScoped<IVppItemRepository, VppItemRepository>();
+builder.Services.AddScoped<IVppItemLotRepository, VppItemLotRepository>();
 builder.Services.AddScoped<IVppRequestRepository, VppRequestRepository>();
 builder.Services.AddScoped<IVppRequestLineRepository, VppRequestLineRepository>();
 builder.Services.AddScoped<IVppImportRepository, VppImportRepository>();
@@ -258,6 +259,8 @@ builder
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
+builder.Services.AddScoped<IPersonalFileService, PersonalFileService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();

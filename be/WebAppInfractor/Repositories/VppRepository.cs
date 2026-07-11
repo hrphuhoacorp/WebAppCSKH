@@ -1,6 +1,15 @@
 using WebAppInfractor.Data;
 using WebAppInfractor.Models.Vpp;
 
+public interface IVppItemLotRepository : IRepository<VppItemLot> { }
+
+public class VppItemLotRepository : Repository<VppItemLot>, IVppItemLotRepository
+{
+    public VppItemLotRepository(MemBerContext context)
+        : base(context) { }
+}
+
+
 public interface IVppItemRepository : IRepository<VppItem> { }
 
 public class VppItemRepository : Repository<VppItem>, IVppItemRepository

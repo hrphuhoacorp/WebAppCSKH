@@ -574,7 +574,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                     {lc ? (
                         <Box sx={{ display: 'flex', gap: 2, p: 1 }}>
                             {KANBAN_COLUMNS.map(col => (
-                                <Box key={col.id} sx={{ minWidth: 260, flex: '0 0 260px' }}>
+                                <Box key={col.id} sx={{ minWidth: 220, flex: '0 0 260px' }}>
                                     <Skeleton height={40} sx={{ borderRadius: '10px', mb: 1 }} />
                                     {[1, 2, 3].map(i => <Skeleton key={i} height={80} sx={{ borderRadius: '10px', mb: 1 }} />)}
                                 </Box>
@@ -585,7 +585,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
                             {KANBAN_COLUMNS.map(col => {
                                 const cards = displayRows.filter(c => col.statuses.includes(c.status));
                                 return (
-                                    <Box key={col.id} sx={{ width: 434, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                                    <Box key={col.id} sx={{ width: 347, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
                                         <Paper elevation={0} sx={{
                                             borderRadius: '14px', border: `1px solid ${BORDER}`,
                                             overflow: 'hidden', display: 'flex', flexDirection: 'column',

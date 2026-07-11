@@ -50,8 +50,7 @@ import {
     ErrorRounded,
     Close,
     WarningAmberRounded,
-    InfoOutlined,
-    TableChartRounded,
+    HelpOutlineRounded,
 } from '@mui/icons-material';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import toast from 'react-hot-toast';
@@ -61,7 +60,9 @@ import { ReceiptLongRounded } from '@mui/icons-material';
 import OrderDetailDialog from '@/features/orders/components/OrderDetailDialog';
 import { useAuth } from '@/providers/AuthProviders';
 import ImportHistoryDialog from '@/features/orders/components/ImportHistoryDialog';
+import OrderImportGuideDialog from '@/features/orders/components/OrderImportGuideDialog';
 import { usePermission } from '@/hooks/usePermission';
+import { GREEN } from '@/features/xnt/styles';
 
 const branchColors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f43f5e'];
 
@@ -301,98 +302,7 @@ export default function OrdersStaffPage() {
         >
             <LoadingOverlay open={loading} text="Đang tải đơn hàng..." fullScreen />
 
-            {/* Dialog hướng dẫn cột Excel */}
-            <Dialog
-                open={importGuideOpen}
-                onClose={() => setImportGuideOpen(false)}
-                maxWidth="md"
-                fullWidth
-                slotProps={{ paper: { sx: { borderRadius: '20px', p: 1 } } }}
-            >
-                <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ width: 36, height: 36, borderRadius: '10px', bgcolor: alpha('#086839', 0.1), color: '#086839', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <TableChartRounded sx={{ fontSize: 20 }} />
-                        </Box>
-                        <Box>
-                            <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>Cấu trúc file Excel nhập đơn hàng</Typography>
-                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>Đảm bảo file của bạn có đúng thứ tự cột bên dưới</Typography>
-                        </Box>
-                    </Box>
-                    <IconButton onClick={() => setImportGuideOpen(false)} sx={{ color: '#94a3b8', '&:hover': { color: '#475569', bgcolor: '#f1f5f9' } }}>
-                        <Close sx={{ fontSize: 18 }} />
-                    </IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ pt: 0 }}>
-                    <Box sx={{ bgcolor: alpha('#f59e0b', 0.08), border: `1px solid ${alpha('#f59e0b', 0.3)}`, borderRadius: '10px', p: 1.5, mb: 2, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                        <InfoOutlined sx={{ color: '#f59e0b', fontSize: 18, mt: 0.1, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: 12.5, color: '#92400e' }}>
-                            Các cột đánh dấu <b style={{ color: '#dc2626' }}>(*)</b> là bắt buộc. Dòng đầu tiên trong file sẽ được bỏ qua (tiêu đề).
-                            Hệ thống sẽ bỏ qua các dòng trùng hoàn toàn (mã đơn + ngày + doanh thu + số lượng).
-                        </Typography>
-                    </Box>
-                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px', maxHeight: 360, overflow: 'auto', '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 2 } }}>
-                        <Table size="small" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    {['Cột', 'Tên cột', 'Bắt buộc', 'Ghi chú'].map(h => (
-                                        <TableCell key={h} sx={{ bgcolor: '#f8fafc', fontWeight: 700, fontSize: 12, color: '#475569', py: 1.2 }}>{h}</TableCell>
-                                    ))}
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {[
-                                    { col: 'A (1)', name: 'Ngày mua', required: false, note: 'Định dạng dd/MM/yyyy' },
-                                    { col: 'B (2)', name: 'Tên khách hàng', required: false, note: '' },
-                                    { col: 'C (3)', name: 'Số điện thoại', required: false, note: '' },
-                                    { col: 'D (4)', name: 'Mã khách hàng', required: false, note: '' },
-                                    { col: 'E (5)', name: 'Phân loại sản phẩm', required: false, note: '' },
-                                    { col: 'F (6)', name: 'Tên sản phẩm', required: false, note: '' },
-                                    { col: 'G (7)', name: 'SKU', required: false, note: '' },
-                                    { col: 'H (8)', name: 'Đơn giá', required: false, note: 'Số thực' },
-                                    { col: 'I (9)', name: 'Dịch vụ đi kèm', required: false, note: '' },
-                                    { col: 'J (10)', name: 'Đơn vị tính', required: false, note: '' },
-                                    { col: 'K (11)', name: 'Mã đơn hàng', required: true, note: 'Dùng để nhận diện đơn hàng' },
-                                    { col: 'L (12)', name: 'Trạng thái', required: true, note: 'Phải trùng tên trạng thái trong hệ thống' },
-                                    { col: 'M (13)', name: 'Chi nhánh', required: true, note: 'Phải trùng tên chi nhánh trong hệ thống' },
-                                    { col: 'N (14)', name: 'Nguồn', required: false, note: '' },
-                                    { col: 'O (15)', name: 'Số lượng', required: false, note: 'Có thể âm (hoàn trả)' },
-                                    { col: 'U (21)', name: 'Thuế', required: false, note: 'Số thực' },
-                                    { col: 'V (22)', name: 'Phí vận chuyển', required: false, note: 'Số thực' },
-                                    { col: 'W (23)', name: 'Doanh thu', required: false, note: 'Số thực, có thể âm' },
-                                    { col: 'X (24)', name: 'Lợi nhuận gộp', required: false, note: 'Số thực' },
-                                ].map(({ col, name, required, note }) => (
-                                    <TableRow key={col} sx={{ '&:nth-of-type(odd)': { bgcolor: '#fafafa' }, '&:hover': { bgcolor: '#f0fdf4' } }}>
-                                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#086839', whiteSpace: 'nowrap' }}>{col}</TableCell>
-                                        <TableCell sx={{ fontWeight: required ? 700 : 400, fontSize: 13, color: '#1e293b' }}>
-                                            {name}{required && <Box component="span" sx={{ color: '#dc2626', ml: 0.5 }}>*</Box>}
-                                        </TableCell>
-                                        <TableCell>
-                                            {required
-                                                ? <Chip label="Bắt buộc" size="small" sx={{ bgcolor: '#fee2e2', color: '#991b1b', fontWeight: 700, fontSize: 11, borderRadius: '6px' }} />
-                                                : <Chip label="Tùy chọn" size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 600, fontSize: 11, borderRadius: '6px' }} />}
-                                        </TableCell>
-                                        <TableCell sx={{ fontSize: 12, color: '#64748b', fontStyle: note ? 'normal' : 'italic' }}>{note || '—'}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 2.5 }}>
-                        <Button onClick={() => setImportGuideOpen(false)} variant="outlined" sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, borderColor: '#cbd5e1', color: '#64748b', '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' } }}>
-                            Đóng
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<FileUpload />}
-                            onClick={() => { setImportGuideOpen(false); fileInputRef.current?.click(); }}
-                            sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#086839', '&:hover': { bgcolor: '#064e2b' } }}
-                        >
-                            Chọn file Excel
-                        </Button>
-                    </Box>
-                </DialogContent>
-            </Dialog>
+            <OrderImportGuideDialog open={importGuideOpen} onClose={() => setImportGuideOpen(false)} />
 
             {/* Dialog kết quả import */}
             <Dialog
@@ -515,7 +425,13 @@ export default function OrdersStaffPage() {
                 title="Danh Sách Đơn Hàng"
                 subtitle="Theo dõi, quản lý doanh thu và trạng thái đơn hàng thời gian thực"
                 icon={<ReceiptLongRounded />}
-                actions={<Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                actions={<Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    flexWrap: 'wrap',
+                }}>
                     {importing && (
                         <Box sx={{ minWidth: 220, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: 1.5 }}>
                             <Typography sx={{ fontSize: 12, color: '#64748b', mb: 0.5 }}>
@@ -530,7 +446,7 @@ export default function OrdersStaffPage() {
                             />
                         </Box>
                     )}
-
+                    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                     {canImport && (
                         <>
                             <input type="file" hidden ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls" />
@@ -538,7 +454,7 @@ export default function OrdersStaffPage() {
                                 variant="outlined"
                                 startIcon={importing ? <CircularProgress size={16} color="inherit" /> : <FileUpload sx={{ fontSize: 18 }} />}
                                 disabled={importing}
-                                onClick={() => !importing && setImportGuideOpen(true)}
+                                onClick={() => !importing && fileInputRef.current?.click()}
                                 sx={{
                                     borderColor: '#086839', color: '#086839', borderWidth: '1.5px',
                                     fontWeight: 700, borderRadius: '12px', px: 2.5, textTransform: 'none',
@@ -547,6 +463,7 @@ export default function OrdersStaffPage() {
                             >
                                 {importing ? 'Đang xử lý...' : 'Nhập Excel'}
                             </Button>
+
                             <Tooltip title="Xem lịch sử các file Excel đã tải lên của bản thân" arrow>
                                 <Button
                                     variant="outlined"
@@ -578,6 +495,21 @@ export default function OrdersStaffPage() {
                             Xóa lọc
                         </Button>
                     </Tooltip>
+                    </Box>
+                    <Button
+                        size="small"
+                        startIcon={<HelpOutlineRounded />}
+                        onClick={() => setImportGuideOpen(true)}
+                        sx={{
+                            ml: 'auto',
+                            flexShrink: 0, textTransform: 'none', fontWeight: 700, fontSize: 13,
+                            color: GREEN, bgcolor: '#fff', border: '1px solid #d1fae5',
+                            borderRadius: '999px', px: 1.8, py: 0.5,
+                            '&:hover': { bgcolor: '#f0fdf4' },
+                        }}
+                    >
+                        Hướng dẫn sử dụng
+                    </Button>
                 </Box>}
             />
             {/* ── Filter Bar ── */}

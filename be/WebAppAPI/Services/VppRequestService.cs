@@ -194,6 +194,7 @@ public class VppRequestService : IVppRequestService
         {
             RequesterId = requesterId,
             Department = dto.Department,
+            Branch = dto.Branch,
             Reason = dto.Reason,
             ReferencePrice = dto.ReferencePrice,
             Status = "pending",
@@ -373,7 +374,7 @@ public class VppRequestService : IVppRequestService
         {
             Id = r.Id,
             RequesterName = requesterName,
-            Branch = branch,
+            Branch = r.Branch ?? branch,
             Department = r.Department,
             Reason = r.Reason ?? "",
             Status = r.Status,
@@ -416,6 +417,7 @@ public class VppRequestLineDto
 public class VppRequestCreateDto
 {
     public string Department { get; set; } = null!;
+    public string? Branch { get; set; }
     public string? Reason { get; set; }
     public string? ReferencePrice { get; set; }
     public List<VppRequestLineCreateDto> Lines { get; set; } = new();

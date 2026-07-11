@@ -205,4 +205,14 @@ public class VppItemController : ControllerBase
             StatusReponse.Success
         );
     }
+
+    [RequirePermission("vpp.request.create")]
+    [HttpGet("{id:int}/lots")]
+    public async Task<ResponseValue<List<VppItemLotDto>>> GetLots(
+        int id,
+        [FromQuery] bool activeOnly = false)
+    {
+        var result = await _service.GetLotsAsync(id, activeOnly);
+        return new ResponseValue<List<VppItemLotDto>>(result, "OK", StatusReponse.Success);
+    }
 }

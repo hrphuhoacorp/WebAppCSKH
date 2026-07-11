@@ -15,6 +15,7 @@ public class VppDispatchService : IVppDispatchService
     private readonly IVppDispatchRepository _repo;
     private readonly IVppDispatchLineRepository _lineRepo;
     private readonly IVppItemRepository _itemRepo;
+    private readonly IVppItemLotRepository _lotRepo;
     private readonly IVppInventoryService _inventoryService;
     private readonly IUnitOfWork _uow;
 
@@ -22,12 +23,14 @@ public class VppDispatchService : IVppDispatchService
         IVppDispatchRepository repo,
         IVppDispatchLineRepository lineRepo,
         IVppItemRepository itemRepo,
+        IVppItemLotRepository lotRepo,
         IVppInventoryService inventoryService,
         IUnitOfWork uow)
     {
         _repo = repo;
         _lineRepo = lineRepo;
         _itemRepo = itemRepo;
+        _lotRepo = lotRepo;
         _inventoryService = inventoryService;
         _uow = uow;
     }
@@ -118,6 +121,7 @@ public class VppDispatchService : IVppDispatchService
                     UnitPrice = l.UnitPrice,
                     VatAmount = l.VatAmount,
                     TotalAmount = l.TotalAmount,
+                    LotId = l.LotId,
                 };
             }).ToList(),
         };
@@ -128,9 +132,6 @@ public class VppDispatchService : IVppDispatchService
         var itemIds = dto.Lines.Select(l => l.ItemId).ToList();
         var items = await _itemRepo.GetAll().AsNoTracking()
             .Where(x => itemIds.Contains(x.Id)).ToListAsync();
-
-        var avgPrices = await _inventoryService.GetAvgPricesAsync(
-            dto.DispatchDate.Month, dto.DispatchDate.Year, itemIds);
 
         var code = await GenerateCodeAsync(dto.DispatchDate);
         var entity = new VppDispatch
@@ -153,9 +154,32 @@ public class VppDispatchService : IVppDispatchService
         {
             var item = items.FirstOrDefault(i => i.Id == line.ItemId)
                 ?? throw new BadRequestException($"Không tìm thấy vật tư ID {line.ItemId}");
-            var avgPrice = avgPrices.TryGetValue(line.ItemId, out var ap) && ap > 0 ? ap : item.UnitPrice;
-            var price = line.UnitPrice > 0 ? line.UnitPrice : avgPrice;
+
+            // FIFO: nếu FE truyền LotId → dùng lô đó; không thì lấy lô active cũ nhất
+            VppItemLot? lot = null;
+            if (line.LotId.HasValue)
+            {
+                lot = await _lotRepo.GetByIdAsync(line.LotId.Value);
+            }
+            lot ??= await _lotRepo.GetAll()
+                .Where(l => l.ItemId == line.ItemId && l.Status == "active")
+                .OrderBy(l => l.LotNumber)
+                .FirstOrDefaultAsync();
+
+            var price = lot?.UnitPrice ?? item.UnitPrice;
             var vatAmount = price * item.VatRate * line.Quantity;
+
+            if (lot != null)
+            {
+                lot.RemainingQty -= line.Quantity;
+                if (lot.RemainingQty <= 0)
+                {
+                    lot.RemainingQty = 0;
+                    lot.Status = "depleted";
+                }
+                lot.UpdatedAt = DateTime.UtcNow.AddHours(7);
+            }
+
             await _lineRepo.AddAsync(new VppDispatchLine
             {
                 DispatchId = entity.Id,
@@ -164,6 +188,7 @@ public class VppDispatchService : IVppDispatchService
                 UnitPrice = price,
                 VatAmount = vatAmount,
                 TotalAmount = price * line.Quantity + vatAmount,
+                LotId = lot?.Id,
             });
         }
         await _uow.SaveChangesAsync();
@@ -254,6 +279,7 @@ public class VppDispatchLineDto
     public decimal UnitPrice { get; set; }
     public decimal VatAmount { get; set; }
     public decimal TotalAmount { get; set; }
+    public int? LotId { get; set; }
 }
 
 public class VppDispatchCreateDto
@@ -282,4 +308,5 @@ public class VppDispatchLineCreateDto
     public int ItemId { get; set; }
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public int? LotId { get; set; }
 }

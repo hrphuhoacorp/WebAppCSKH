@@ -52,6 +52,24 @@ export interface VppItemUpsertDto {
     note?: string;
 }
 
+export interface VppItemLotDto {
+    id: number;
+    lotNumber: number;
+    periodMonth: number;
+    periodYear: number;
+    unitPrice: number;
+    initialQty: number;
+    remainingQty: number;
+    status: 'active' | 'depleted';
+}
+
+export interface VppLotBreakdownDto {
+    lotNumber: number;
+    unitPrice: number;
+    remainingQty: number;
+    status: 'active' | 'depleted';
+}
+
 export interface VppInventoryRowDto {
     itemId: number;
     code: string;
@@ -69,6 +87,7 @@ export interface VppInventoryRowDto {
     totalValue: number;
     isActive: boolean;
     stockStatus: 'normal' | 'low' | 'out_of_stock' | 'inactive';
+    lots: VppLotBreakdownDto[];
 }
 
 export interface VppInventorySummaryDto {
@@ -110,6 +129,7 @@ export interface VppRequestDetailDto extends VppRequestDto {
 
 export interface VppRequestCreateDto {
     department: string;
+    branch?: string;
     reason?: string;
     referencePrice?: string;
     lines: { itemId: number; quantity: number; note?: string }[];
@@ -143,6 +163,7 @@ export interface VppImportLineDto {
     vatAmount: number;
     totalAmount: number;
     attachments: VppAttachmentItem[];
+    lotId?: number;
 }
 
 export interface VppImportDetailDto extends VppImportDto {
@@ -181,7 +202,7 @@ export interface VppDispatchCreateDto {
     branch?: string;
     requestId?: number;
     note?: string;
-    lines: { itemId: number; quantity: number; unitPrice: number }[];
+    lines: { itemId: number; quantity: number; unitPrice: number; lotId?: number }[];
 }
 
 export interface VppDispatchDeptStatsDto {
@@ -246,6 +267,12 @@ export const vppApi = {
     },
     deleteItem: async (id: number) => {
         await api.delete(`/vpp/items/${id}`);
+    },
+
+    // Lots
+    getItemLots: async (itemId: number, activeOnly = false) => {
+        const res = await api.get(`/vpp/items/${itemId}/lots`, { params: { activeOnly } });
+        return res.data.content as VppItemLotDto[];
     },
 
     // Inventory

@@ -57,7 +57,9 @@ public class DashboardService : IDashboardService
 
             if (filter.ToDate.HasValue)
             {
-                ordersQuery = ordersQuery.Where(o => o.PurchaseDate <= filter.ToDate.Value);
+                // Bao trọn hết ngày kết thúc — xem chú thích ở OrderService.cs (cùng bug: "<=" so
+                // với đúng nửa đêm ngày kết thúc sẽ bỏ sót đơn có giờ giấc khác 00:00:00 trong ngày đó).
+                ordersQuery = ordersQuery.Where(o => o.PurchaseDate < filter.ToDate.Value.AddDays(1));
             }
 
             if (
@@ -261,7 +263,9 @@ public class DashboardService : IDashboardService
 
             if (filter.ToDate.HasValue)
             {
-                ordersQuery = ordersQuery.Where(o => o.PurchaseDate <= filter.ToDate.Value);
+                // Bao trọn hết ngày kết thúc — xem chú thích ở OrderService.cs (cùng bug: "<=" so
+                // với đúng nửa đêm ngày kết thúc sẽ bỏ sót đơn có giờ giấc khác 00:00:00 trong ngày đó).
+                ordersQuery = ordersQuery.Where(o => o.PurchaseDate < filter.ToDate.Value.AddDays(1));
             }
 
             if (

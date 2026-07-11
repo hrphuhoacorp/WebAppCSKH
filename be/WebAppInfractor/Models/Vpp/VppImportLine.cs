@@ -14,4 +14,6 @@ public class VppImportLine
     public decimal VatAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public string? Attachments { get; set; }
+    public int? LotId { get; set; }
+    public VppItemLot? Lot { get; set; }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Tab, Tabs } from '@mui/material';
+import { Badge, Box, Tab, Tabs } from '@mui/material';
 import InventoryRoundedIcon from '@mui/icons-material/InventoryRounded';
 import ListAltRoundedIcon from '@mui/icons-material/ListAltRounded';
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded';
@@ -19,6 +19,7 @@ import TabImport from '@/features/vpp/components/TabImport';
 import TabDispatch from '@/features/vpp/components/TabDispatch';
 import TabStockCount from '@/features/vpp/components/TabStockCount';
 import { usePermission } from '@/hooks/usePermission';
+import { usePendingVppRequestsCount } from '@/features/vpp/hooks/usePendingRequestsCount';
 
 const GREEN = '#086839';
 
@@ -27,6 +28,7 @@ export default function VppPage() {
 
     const canManage  = usePermission('vpp.manage');
     const canApprove = usePermission('vpp.request.approve');
+    const pendingRequestsCount = usePendingVppRequestsCount();
 
     const ALL_TABS = [
         { label: 'Tổng quan',   icon: <BarChartRoundedIcon      sx={{ fontSize: 16 }} />, show: canManage,              component: <TabOverview /> },
@@ -77,7 +79,14 @@ export default function VppPage() {
                     }}
                 >
                     {visibleTabs.map(t => (
-                        <Tab key={t.label} icon={t.icon} iconPosition="start" label={t.label} />
+                        <Tab
+                            key={t.label}
+                            icon={t.label === 'Đề nghị cấp' && pendingRequestsCount > 0
+                                ? <Badge badgeContent={pendingRequestsCount} color="error" sx={{ '& .MuiBadge-badge': { fontSize: 10, height: 16, minWidth: 16 } }}>{t.icon}</Badge>
+                                : t.icon}
+                            iconPosition="start"
+                            label={t.label}
+                        />
                     ))}
                 </Tabs>
             </Box>

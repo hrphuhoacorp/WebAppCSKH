@@ -55,13 +55,6 @@ export default function VppRequestPage() {
     const [historyDetailId, setHistoryDetailId] = useState<number | null>(null);
     const [historyPage, setHistoryPage] = useState(0);
 
-    useEffect(() => {
-        if (profile?.branchesName && !department) {
-            setDepartment(profile.branchesName);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [profile?.branchesName]);
-
     const { data: items = [] } = useQuery<VppItemDto[]>({
         queryKey: ['vpp-items-all'],
         queryFn: () => vppApi.getItemsAll(),
@@ -99,7 +92,8 @@ export default function VppRequestPage() {
 
     const submitMut = useMutation({
         mutationFn: () => vppApi.createRequest({
-            department,
+            branch: profile?.branchesName || undefined,
+            department: department.trim() || (profile?.branchesName ?? ''),
             reason: reason || undefined,
             referencePrice: referencePrice || undefined,
             lines: lines.filter(l => l.itemId > 0 && l.quantity > 0).map(l => ({
@@ -120,7 +114,7 @@ export default function VppRequestPage() {
         const stock = stockMap.get(l.itemId);
         return stock !== undefined && l.quantity > stock;
     });
-    const canSubmit = department.trim() && validLines.length > 0 && !submitMut.isPending && !hasOverStock;
+    const canSubmit = (department.trim() || profile?.branchesName) && validLines.length > 0 && !submitMut.isPending && !hasOverStock;
 
     if (submitted) {
         return (
@@ -131,7 +125,7 @@ export default function VppRequestPage() {
                     <Typography sx={{ color: '#64748b', fontSize: 14, mb: 3, lineHeight: 1.6 }}>Bộ phận hành chính sẽ xem xét và phản hồi sớm nhất có thể.</Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Button variant="contained" fullWidth
-                            onClick={() => { setSubmitted(false); setLines([{ itemId: 0, quantity: 1, note: '' }]); setReason(''); setReferencePrice(''); }}
+                            onClick={() => { setSubmitted(false); setLines([{ itemId: 0, quantity: 1, note: '' }]); setReason(''); setReferencePrice(''); setDepartment(''); }}
                             sx={{ bgcolor: GREEN, '&:hover': { bgcolor: '#065f35' }, textTransform: 'none', fontWeight: 700, borderRadius: '12px', height: 44 }}>
                             Gửi đề nghị mới
                         </Button>
@@ -190,16 +184,17 @@ export default function VppRequestPage() {
                                 size="small" label="Chi nhánh"
                                 value={profile?.branchesName ?? ''}
                                 slotProps={{ htmlInput: { readOnly: true } }}
-                                sx={{ ...fieldSx, minWidth: 200, '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                                sx={{ ...fieldSx, minWidth: 180, '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
                             />
                             <TextField
-                                size="small" label="Vai trò"
-                                value={(profile?.roles ?? []).map(r => r.name).join(', ')}
-                                slotProps={{ htmlInput: { readOnly: true } }}
-                                sx={{ ...fieldSx, minWidth: 200, '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                                size="small" label="Bộ phận / Phòng ban *"
+                                value={department}
+                                onChange={e => setDepartment(e.target.value)}
+                                placeholder="VD: Kế toán, Marketing, Kho..."
+                                sx={{ ...fieldSx, minWidth: 220 }}
                             />
                             <TextField size="small" label="Lý do / mục đích" value={reason} onChange={e => setReason(e.target.value)} sx={{ ...fieldSx, flex: 1, minWidth: 220 }} />
-                            <TextField size="small" label="Giá tham khảo" value={referencePrice} onChange={e => setReferencePrice(e.target.value)} placeholder="VD: ~50,000đ/cây" sx={{ ...fieldSx, minWidth: 200 }} />
+                            <TextField size="small" label="Giá tham khảo" value={referencePrice} onChange={e => setReferencePrice(e.target.value)} placeholder="VD: ~50,000đ/cây" sx={{ ...fieldSx, minWidth: 180 }} />
                         </Box>
                     </Paper>
 

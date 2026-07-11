@@ -15,7 +15,7 @@ import RemoveCircleOutlineRoundedIcon from '@mui/icons-material/RemoveCircleOutl
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import { useReactToPrint } from 'react-to-print';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vppApi, VppDispatchCreateDto } from '../api/vpp.api';
+import { vppApi, VppDispatchCreateDto, VppItemLotDto } from '../api/vpp.api';
 import { usePermission } from '@/hooks/usePermission';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import { userApi } from '@/features/user/api/user.api';
@@ -46,7 +46,7 @@ function errMessage(err: unknown, fallback: string): string {
     return (err as { message?: string })?.message || fallback;
 }
 
-interface DispatchLine { itemId: number; unit: string; quantity: number; unitPrice: number; vatRate: number; }
+interface DispatchLine { itemId: number; unit: string; quantity: number; unitPrice: number; vatRate: number; lotId?: number; }
 
 function lineTotal(l: DispatchLine) { return l.quantity * l.unitPrice * (1 + l.vatRate); }
 
@@ -66,6 +66,15 @@ export default function TabDispatch() {
     const [branch, setBranch] = useState('');
     const [note, setNote] = useState('');
     const [lines, setLines] = useState<DispatchLine[]>([{ itemId: 0, unit: '', quantity: 1, unitPrice: 0, vatRate: 0 }]);
+    const [lotsCache, setLotsCache] = useState<Record<number, VppItemLotDto[]>>({});
+
+    const loadLotsForItem = async (itemId: number) => {
+        if (!itemId || lotsCache[itemId]) return;
+        try {
+            const lots = await vppApi.getItemLots(itemId, true);
+            setLotsCache(prev => ({ ...prev, [itemId]: lots }));
+        } catch { /* silently ignore */ }
+    };
 
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -156,7 +165,10 @@ export default function TabDispatch() {
     function handleCreate() {
         const valid = lines.filter(l => l.itemId > 0 && l.quantity > 0);
         if (!valid.length) { toast.error('Cần ít nhất 1 dòng hợp lệ'); return; }
-        createMut.mutate({ dispatchDate, department: department || undefined, branch: branch || undefined, note: note || undefined, lines: valid });
+        createMut.mutate({
+            dispatchDate, department: department || undefined, branch: branch || undefined, note: note || undefined,
+            lines: valid.map(l => ({ itemId: l.itemId, quantity: l.quantity, unitPrice: l.unitPrice, lotId: l.lotId })),
+        });
     }
 
     const totalAmount = lines.reduce((s, l) => s + lineTotal(l), 0);
@@ -303,7 +315,7 @@ export default function TabDispatch() {
                         <Table size="small">
                             <TableHead>
                                 <TableRow>
-                                    {['Vật tư *', 'Đơn vị', 'Số lượng', 'Đơn giá (đ)', 'Thuế', 'Thành tiền', ''].map(h => (
+                                    {['Vật tư *', 'Đơn vị', 'Lô (FIFO)', 'Số lượng', 'Đơn giá (đ)', 'Thuế', 'Thành tiền', ''].map(h => (
                                         <TableCell key={h} sx={{ fontWeight: 700, fontSize: 11, bgcolor: '#f8fafc', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '2px solid #e2e8f0' }}>{h}</TableCell>
                                     ))}
                                 </TableRow>
@@ -317,7 +329,19 @@ export default function TabDispatch() {
                                                 options={allItems}
                                                 getOptionLabel={it => `${it.code} — ${it.name}`}
                                                 value={allItems.find(x => x.id === line.itemId) ?? null}
-                                                onChange={(_, it) => updateLine(idx, { itemId: it?.id ?? 0, unit: it?.unit ?? '', unitPrice: it?.unitPrice ?? 0, vatRate: it?.vatRate ?? 0 })}
+                                                onChange={async (_, it) => {
+                                                    const itemId = it?.id ?? 0;
+                                                    updateLine(idx, { itemId, unit: it?.unit ?? '', unitPrice: it?.unitPrice ?? 0, vatRate: it?.vatRate ?? 0, lotId: undefined });
+                                                    if (itemId) {
+                                                        let lots = lotsCache[itemId];
+                                                        if (!lots) {
+                                                            try { lots = await vppApi.getItemLots(itemId, true); setLotsCache(prev => ({ ...prev, [itemId]: lots })); }
+                                                            catch { lots = []; }
+                                                        }
+                                                        const fifoLot = lots[0]; // sorted by lot_number asc = oldest first = FIFO
+                                                        if (fifoLot) updateLine(idx, { lotId: fifoLot.id, unitPrice: fifoLot.unitPrice });
+                                                    }
+                                                }}
                                                 isOptionEqualToValue={(o, v) => o.id === v.id}
                                                 noOptionsText="Không tìm thấy"
                                                 renderInput={params => <TextField {...params} placeholder="Tìm vật tư..." sx={fieldSx} />}
@@ -334,6 +358,28 @@ export default function TabDispatch() {
                                         </TableCell>
                                         <TableCell sx={{ width: 90, color: '#475569', fontSize: 13, fontWeight: 500 }}>
                                             {line.unit || <Typography component="span" sx={{ color: '#cbd5e1', fontSize: 12 }}>—</Typography>}
+                                        </TableCell>
+                                        <TableCell sx={{ width: 160 }}>
+                                            {line.itemId > 0 ? (
+                                                <TextField select size="small" fullWidth sx={fieldSx}
+                                                    value={line.lotId ?? ''}
+                                                    onChange={e => {
+                                                        const lotId = Number(e.target.value);
+                                                        const lot = lotsCache[line.itemId]?.find(l => l.id === lotId);
+                                                        updateLine(idx, { lotId, unitPrice: lot?.unitPrice ?? line.unitPrice });
+                                                    }}
+                                                    slotProps={{ select: { displayEmpty: true } }}
+                                                >
+                                                    <MenuItem value=""><em style={{ color: '#94a3b8' }}>Tự động</em></MenuItem>
+                                                    {(lotsCache[line.itemId] ?? []).map(lot => (
+                                                        <MenuItem key={lot.id} value={lot.id}>
+                                                            Lô {lot.lotNumber} — {lot.unitPrice.toLocaleString('vi-VN')}đ (còn {lot.remainingQty})
+                                                        </MenuItem>
+                                                    ))}
+                                                </TextField>
+                                            ) : (
+                                                <Typography sx={{ color: '#cbd5e1', fontSize: 12 }}>—</Typography>
+                                            )}
                                         </TableCell>
                                         <TableCell sx={{ width: 110 }}>
                                             <TextField size="small" type="number"

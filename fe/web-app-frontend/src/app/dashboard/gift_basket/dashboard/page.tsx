@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePermission } from '@/hooks/usePermission';
 import {
     Alert,
@@ -35,7 +35,6 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket';
 import CalculateIcon from '@mui/icons-material/Calculate';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
@@ -125,18 +124,7 @@ const filterFieldSx = {
     '& label.Mui-focused': { color: GREEN },
 };
 
-const uploadBoxSx = {
-    border: '1.5px dashed #bbf7d0',
-    borderRadius: '16px',
-    p: 2,
-    bgcolor: '#f8fdf9',
-    transition: 'all 0.2s ease',
-    '&:hover': {
-        borderColor: GREEN,
-        bgcolor: '#f0fdf4',
-        boxShadow: 'inset 0 0 0 1px rgba(8,104,57,0.04)',
-    },
-};
+
 
 const tableContainerSx = {
     borderRadius: CARD_RADIUS,
@@ -395,11 +383,8 @@ export default function SapoDashboardPage() {
     const [selectedMonth, setSelectedMonth] = useState('');
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
-    const [importMsg, setImportMsg] = useState<{ text: string; err: boolean } | null>(null);
     const [expandedImportId, setExpandedImportId] = useState<number | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const sapoFileRef = useRef<HTMLInputElement>(null);
-    const mappingFileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const today = new Date();
@@ -430,31 +415,6 @@ export default function SapoDashboardPage() {
         } catch (e: any) {
             const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Có lỗi xảy ra';
             toast.error(msg);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleImport() {
-        const sapoFile = sapoFileRef.current?.files?.[0];
-        if (!sapoFile) { toast.error('Chọn file báo cáo Sapo trước.'); return; }
-        try {
-            setLoading(true);
-            setImportMsg({ text: 'Đang kiểm tra và cập nhật dữ liệu...', err: false });
-            const fd = new FormData();
-            fd.append('sapoFile', sapoFile);
-            const mappingFile = mappingFileRef.current?.files?.[0];
-            if (mappingFile) fd.append('mappingFile', mappingFile);
-            const result = await api.post('/sapo/import', fd, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            setImportMsg({ text: result.data.Message ?? 'Đã nạp xong', err: false });
-            // Reload với latest_month để luôn hiển thị dữ liệu mới nhất, không phụ thuộc filter hiện tại
-            const dashResult = await api.get('/sapo/dashboard', { params: { filter: 'latest_month' } });
-            setData(dashResult.data);
-        } catch (e: any) {
-            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message;
-            setImportMsg({ text: msg, err: true });
         } finally {
             setLoading(false);
         }
@@ -598,147 +558,23 @@ export default function SapoDashboardPage() {
                 shadowColor="rgba(8,104,57,0.28)"
             />
 
-            {/* ── Import Section ── */}
-            <Paper
-                elevation={0}
-                sx={{
-                    ...cardSx,
-                    mb: 3,
-                }}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.2, flexWrap: 'wrap', gap: 1.5 }}>
-                    <Box sx={{ flex: 1, minWidth: 220 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.6 }}>
-                            <Box sx={{ width: 32, height: 32, borderRadius: '10px', bgcolor: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <UploadFileIcon sx={{ color: GREEN, fontSize: 18 }} />
-                            </Box>
-                            <Typography sx={{ fontWeight: 850, fontSize: 15, color: '#1e293b' }}>
-                                Nhập báo cáo & lọc dữ liệu
-                            </Typography>
-                            <Chip
-                                label={filterMode === 'month' ? 'Theo tháng' : 'Theo khoảng ngày'}
-                                size="small"
-                                sx={{ bgcolor: '#f0fdf4', color: '#15803d', fontWeight: 800, fontSize: 11, height: 22, border: '1px solid #bbf7d0' }}
-                            />
-                        </Box>
-                        <Typography sx={{ fontSize: 12.5, color: '#94a3b8' }}>
-                            File có ngày nào cập nhật ngày đó · phần xử lý dữ liệu giữ nguyên như hiện tại
-                        </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <Button
-                            component="a"
-                            href="/templates/mau-report-gio-qua.xlsx"
-                            download
-                            variant="outlined"
-                            startIcon={<DownloadIcon />}
-                            sx={{
-                                height: 42,
-                                px: 2,
-                                fontSize: 13,
-                                fontWeight: 700,
-                                borderRadius: '12px',
-                                borderColor: '#bbf7d0',
-                                color: GREEN_DARK,
-                                bgcolor: '#f0fdf4',
-                                whiteSpace: 'nowrap',
-                                '&:hover': { borderColor: GREEN, bgcolor: '#dcfce7' },
-                            }}
-                        >
-                            Mẫu báo cáo Sapo
-                        </Button>
-                        <Button
-                            component="a"
-                            href="/templates/mau-doi-ma-gio-qua.xlsx"
-                            download
-                            variant="outlined"
-                            startIcon={<DownloadIcon />}
-                            sx={{
-                                height: 42,
-                                px: 2,
-                                fontSize: 13,
-                                fontWeight: 700,
-                                borderRadius: '12px',
-                                borderColor: '#bfdbfe',
-                                color: '#1e40af',
-                                bgcolor: '#eff6ff',
-                                whiteSpace: 'nowrap',
-                                '&:hover': { borderColor: '#3b82f6', bgcolor: '#dbeafe' },
-                            }}
-                        >
-                            Mẫu đổi mã
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="success"
-                            startIcon={<UploadFileIcon />}
-                            onClick={handleImport}
-                            disabled={loading}
-                            sx={{
-                                height: 42,
-                                px: 2.8,
-                                fontSize: 13.5,
-                                fontWeight: 800,
-                                borderRadius: '12px',
-                                background: GRADIENT_GREEN,
-                                boxShadow: '0 10px 24px rgba(8,104,57,0.18)',
-                                '&:hover': {
-                                    background: 'linear-gradient(135deg, #064a27 0%, #16a34a 100%)',
-                                    boxShadow: '0 12px 28px rgba(8,104,57,0.24)',
-                                },
-                                flexShrink: 0,
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            Nhập báo cáo
-                        </Button>
-                    </Box>
+            {/* ── Filter Section ── */}
+            <Paper elevation={0} sx={{ ...cardSx, mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <CalendarTodayIcon sx={{ color: GREEN, fontSize: 18 }} />
+                    <Typography sx={{ fontWeight: 850, fontSize: 15, color: '#1e293b' }}>
+                        Lọc dữ liệu
+                    </Typography>
+                    <Chip
+                        label={filterMode === 'month' ? 'Theo tháng' : 'Theo khoảng ngày'}
+                        size="small"
+                        sx={{ bgcolor: '#f0fdf4', color: '#15803d', fontWeight: 800, fontSize: 11, height: 22, border: '1px solid #bbf7d0' }}
+                    />
                 </Box>
-
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                    <Box sx={{ flex: '1 1 240px' }}>
-                        <Box sx={uploadBoxSx}>
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                📄 File báo cáo Sapo *
-                            </Typography>
-                            <input type="file" ref={sapoFileRef} accept=".csv,.xlsx,.xls" style={{ fontSize: 13, width: '100%' }} />
-                            <Typography sx={{ fontSize: 11, color: '#94a3b8', mt: 0.5 }}>
-                                CSV / XLSX · Doanh thu, số lượng, số đơn
-                            </Typography>
-                        </Box>
-                    </Box>
-
-                    <Box sx={{ flex: '1 1 240px' }}>
-                        <Box sx={uploadBoxSx}>
-                            <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                🔄 File đổi mã (tùy chọn)
-                            </Typography>
-                            <input type="file" ref={mappingFileRef} accept=".csv,.xlsx,.xls" style={{ fontSize: 13, width: '100%' }} />
-                            <Typography sx={{ fontSize: 11, color: '#94a3b8', mt: 0.5 }}>
-                                Mã báo cáo gốc → mã Sapo đang bán
-                            </Typography>
-                        </Box>
-                    </Box>
-                </Box>
-
-                {importMsg && (
-                    <Fade in>
-                        <Alert severity={importMsg.err ? 'error' : 'success'} sx={{ borderRadius: '14px', border: `1px solid ${importMsg.err ? '#fecaca' : '#bbf7d0'}` }}>
-                            {importMsg.text}
-                        </Alert>
-                    </Fade>
-                )}
-
-                {/* ── Filter Section ── */}
-                <Divider sx={{ my: 2.5, borderColor: '#e2e8f0' }} />
-                <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                        <CalendarTodayIcon sx={{ color: GREEN, fontSize: 17 }} />
-                        <Typography sx={{ fontWeight: 800, fontSize: 13, color: '#475569' }}>
-                            Bộ lọc
-                        </Typography>
-                    </Box>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                <Typography sx={{ fontSize: 12.5, color: '#94a3b8', mb: 2 }}>
+                    Dữ liệu được tổng hợp tự động từ đơn hàng đã import · không cần nạp file Sapo riêng
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
                         <TextField
                             select
                             size="small"
@@ -785,7 +621,6 @@ export default function SapoDashboardPage() {
                                 />
                             </>
                         )}
-                    </Box>
                 </Box>
             </Paper>
 

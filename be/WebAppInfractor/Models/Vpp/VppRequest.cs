@@ -10,6 +10,7 @@ public class VppRequest
     public int Id { get; set; }
     public int RequesterId { get; set; }
     public string Department { get; set; } = null!;
+    public string? Branch { get; set; }
     public string? Reason { get; set; }
     public string? ReferencePrice { get; set; }
     public string Status { get; set; } = "pending";

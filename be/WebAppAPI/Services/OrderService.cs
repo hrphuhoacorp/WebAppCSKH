@@ -18,7 +18,8 @@ public interface IOrderService
     Task<StatusDTO[]> GetAllStatusesAsync();
     Task<BranchDTO[]> GetAllBranchesAsync();
     Task<bool> RollbackImportAsync(int importHistoryId, int userId);
-    Task<bool> RestoreImportAsync(int importHistoryId, int userId);
+    Task<RestoreResultDTO> RestoreImportAsync(int importHistoryId, int userId);
+    Task<ReverseOrderItemsResultDTO> ReverseOrderItemsRevenueAsync(List<int> orderItemIds, int userId);
 }
 
 public class OrderService : IOrderService
@@ -35,6 +36,7 @@ public class OrderService : IOrderService
     private readonly IHubContext<ImportHub> _hubContext;
     private readonly IActivityService _auditLogService;
     private readonly MediaSettings _mediaSettings;
+    private readonly WebAppAPI.Services.SapoService _sapoService;
 
     public OrderService(
         ICustomerRepository customerRepository,
@@ -48,7 +50,8 @@ public class OrderService : IOrderService
         IOrderItemRepository orderItemRepository,
         IHubContext<ImportHub> hubContext,
         IActivityService auditLogService,
-        IOptions<MediaSettings> mediaOptions
+        IOptions<MediaSettings> mediaOptions,
+        WebAppAPI.Services.SapoService sapoService
     )
     {
         _customerRepository = customerRepository;
@@ -63,6 +66,7 @@ public class OrderService : IOrderService
         _hubContext = hubContext;
         _auditLogService = auditLogService;
         _mediaSettings = mediaOptions.Value;
+        _sapoService = sapoService;
     }
 
     public async Task<ImportResultDTO> ImportExcelAsync(IFormFile file, int userId)
@@ -107,98 +111,9 @@ public class OrderService : IOrderService
                     "File Excel không có dữ liệu hoặc thiếu dòng tiêu đề."
                 );
 
-            // Đọc và validate header row
-            var rawHeaders = Enumerable
-                .Range(1, allRows[0].LastCellUsed()?.Address.ColumnNumber ?? 30)
-                .Select(c => NormalizeImportHeader(allRows[0].Cell(c).GetString()))
-                .ToList();
-
-            int iDate = FindImportCol(rawHeaders, "ngay mua", "ngay dat hang", "ngay");
-            int iCustName = FindImportCol(rawHeaders, "ten khach hang", "ten khach", "khach hang");
-            int iPhone = FindImportCol(rawHeaders, "dien thoai", "so dien thoai", "sdt");
-            int iCustCode = FindImportCol(rawHeaders, "ma khach hang", "ma khach");
-            int iCategory = FindImportCol(
-                rawHeaders,
-                "loai san pham",
-                "nhom hang",
-                "danh muc",
-                "loai hang"
-            );
-            int iProduct = FindImportCol(rawHeaders, "ten hang", "ten san pham");
-            int iSku = FindImportCol(rawHeaders, "ma hang", "sku", "ma sku");
-            int iUnitPrice = FindImportCol(rawHeaders, "don gia", "gia ban");
-            int iService = FindImportCol(rawHeaders, "ten dich vu", "dich vu");
-            int iUnit = FindImportCol(rawHeaders, "dvt", "don vi tinh", "don vi");
-            int iOrderCode = FindImportCol(rawHeaders, "ma don hang", "ma don", "so don");
-            int iStatus = FindImportCol(rawHeaders, "trang thai");
-            int iBranch = FindImportCol(rawHeaders, "chi nhanh");
-            int iSource = FindImportCol(rawHeaders, "kenh ban", "nguon", "kenh");
-            int iRevenue = FindImportCol(rawHeaders, "doanh thu", "thanh tien");
-            int iShipping = FindImportCol(rawHeaders, "phi van chuyen", "phi ship", "phi giao");
-            int iTax = FindImportCol(rawHeaders, "thue", "vat", "tien thue");
-            int iGrossProfit = FindImportCol(rawHeaders, "loi nhuan gop", "loi nhuan");
-
-            // Số lượng: ưu tiên "SL hàng thực bán" (col thực tế), fallback "SL hàng bán ra"
-            int iQtyStr = FindImportCol(
-                rawHeaders,
-                "sl hang ban ra",
-                "so luong hang ban",
-                "so luong"
-            );
-            int iQty = FindImportCol(
-                rawHeaders,
-                "sl hang thuc ban",
-                "sl thuc ban",
-                "so luong thuc ban",
-                "sl hang ban ra",
-                "so luong"
-            );
-
-            // Validate toàn bộ các cột theo đúng tên Sapo
-            var missingCols = new List<string>();
-            if (iDate < 0)
-                missingCols.Add("Ngày");
-            if (iCustName < 0)
-                missingCols.Add("Tên khách hàng");
-            if (iPhone < 0)
-                missingCols.Add("SĐT khách hàng");
-            if (iCustCode < 0)
-                missingCols.Add("Mã khách hàng");
-            if (iCategory < 0)
-                missingCols.Add("Loại sản phẩm");
-            if (iProduct < 0)
-                missingCols.Add("Tên sản phẩm");
-            if (iSku < 0)
-                missingCols.Add("Mã SKU");
-            if (iUnitPrice < 0)
-                missingCols.Add("Đơn giá bán");
-            if (iService < 0)
-                missingCols.Add("Tên dịch vụ");
-            if (iUnit < 0)
-                missingCols.Add("Đơn vị tính");
-            if (iOrderCode < 0)
-                missingCols.Add("Mã đơn hàng");
-            if (iStatus < 0)
-                missingCols.Add("Trạng thái đơn hàng");
-            if (iBranch < 0)
-                missingCols.Add("Tên chi nhánh");
-            if (iSource < 0)
-                missingCols.Add("Tên nguồn đơn hàng");
-            if (iQtyStr < 0)
-                missingCols.Add("SL hàng bán ra");
-            if (iQty < 0)
-                missingCols.Add("SL hàng thực bán");
-            if (iTax < 0)
-                missingCols.Add("Tiền thuế");
-            if (iShipping < 0)
-                missingCols.Add("Phí giao hàng");
-            if (iRevenue < 0)
-                missingCols.Add("Doanh thu");
-            if (missingCols.Any())
-                throw new BadRequestException(
-                    $"File Excel không đúng định dạng — không tìm thấy {missingCols.Count} cột: {string.Join(", ", missingCols)}. "
-                        + "Vui lòng xuất lại file từ Sapo đúng mẫu."
-                );
+            // Đọc và validate header row (dùng parser dùng chung với ReconciliationService)
+            var columnMap = SapoExcelRowParser.ParseHeader(allRows[0]);
+            SapoExcelRowParser.EnsureNoMissingColumns(columnMap);
 
             var rows = allRows.Skip(1).ToList();
             var totalRows = rows.Count;
@@ -254,7 +169,7 @@ public class OrderService : IOrderService
                 .ToDictionaryAsync(x => x.CustomerCode);
 
             // Pre-check trùng dữ liệu theo mã đơn hàng (khác tên file nhưng cùng data)
-            var orderCodesUniqueScan = rows.Select(r => r.Cell(iOrderCode + 1).GetString().Trim())
+            var orderCodesUniqueScan = rows.Select(r => r.Cell(columnMap.OrderCode + 1).GetString().Trim())
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .Distinct()
                 .ToList();
@@ -280,7 +195,7 @@ public class OrderService : IOrderService
             }
 
             // Cấp 2: Fingerprint dedup — phân biệt đơn gốc và đơn hoàn trả (cùng mã nhưng qty/revenue âm)
-            var orderCodesInFile = rows.Select(r => r.Cell(iOrderCode + 1).GetString().Trim())
+            var orderCodesInFile = rows.Select(r => r.Cell(columnMap.OrderCode + 1).GetString().Trim())
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .ToHashSet();
 
@@ -299,12 +214,8 @@ public class OrderService : IOrderService
                 }
             ).AsNoTracking().ToListAsync();
 
-            // Normalize decimal để tránh precision mismatch (320714.50 vs 320714.5)
-            static string MakeFp(string code, DateTime date, decimal rev, decimal qty, string sku, string svc) =>
-                $"{code}|{date:yyyyMMdd}|{Math.Round(rev, 0, MidpointRounding.AwayFromZero)}|{Math.Round(qty, 4)}|{sku}|{svc}";
-
             var dbFingerprints = rawFps
-                .Select(x => MakeFp(x.OrderCode, x.PurchaseDate, x.Revenue, x.Quantity, x.Sku ?? "", x.ServiceName ?? ""))
+                .Select(x => SapoExcelRowParser.MakeFingerprint(x.OrderCode, x.PurchaseDate, x.Revenue, x.Quantity, x.Sku ?? "", x.ServiceName ?? ""))
                 .ToHashSet();
 
             var fileFingerprints = new HashSet<string>();
@@ -313,6 +224,7 @@ public class OrderService : IOrderService
             var pendingCustomers = new Dictionary<string, Customer>();
             var skippedCount = 0;
             var skippedMessages = new List<string>();
+            var sapoGiftRows = new List<SapoImportRowDTO>(); // thu thập để tạo SapoSalesRow sau
 
             foreach (var row in rows)
             {
@@ -321,69 +233,28 @@ public class OrderService : IOrderService
                 {
                     Console.WriteLine($"Đang xử lý dòng {row.RowNumber()} / {totalRows}");
 
-                    // Đọc dữ liệu thô theo index động (chống lệch cột)
-                    var dateCell = row.Cell(iDate + 1).GetString().Trim();
-                    if (
-                        !DateTime.TryParseExact(
-                            dateCell,
-                            "dd/MM/yyyy",
-                            CultureInfo.InvariantCulture,
-                            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                            out var orderDate
-                        )
-                    )
-                    {
-                        throw new BadRequestException($"Ngày mua không hợp lệ: '{dateCell}'");
-                    }
+                    // Đọc + validate dữ liệu thô theo index động (dùng parser dùng chung)
+                    var raw = SapoExcelRowParser.ParseRow(row, columnMap);
 
-                    var customerName =
-                        iCustName >= 0 ? row.Cell(iCustName + 1).GetString().Trim() : "";
-                    var customerPhone = iPhone >= 0 ? row.Cell(iPhone + 1).GetString().Trim() : "";
-                    var customerCode = row.Cell(iCustCode + 1).GetString().Trim();
-                    var category = iCategory >= 0 ? row.Cell(iCategory + 1).GetString().Trim() : "";
-                    var productName =
-                        iProduct >= 0 ? row.Cell(iProduct + 1).GetString().Trim() : "";
-                    var sku = iSku >= 0 ? row.Cell(iSku + 1).GetString().Trim() : "";
-                    var unitPrice = iUnitPrice >= 0 ? GetDecimal(row.Cell(iUnitPrice + 1)) : 0;
-                    var serviceName =
-                        iService >= 0 ? row.Cell(iService + 1).GetString().Trim() : "";
-                    var unit = iUnit >= 0 ? row.Cell(iUnit + 1).GetString().Trim() : "";
-                    var orderCode = row.Cell(iOrderCode + 1).GetString().Trim();
-                    var statusName = row.Cell(iStatus + 1).GetString().Trim();
-                    var branchName = row.Cell(iBranch + 1).GetString().Trim();
-                    var source = iSource >= 0 ? row.Cell(iSource + 1).GetString().Trim() : "";
-                    var quantity = iQtyStr >= 0 ? row.Cell(iQtyStr + 1).GetString().Trim() : "";
-                    var revenue = GetDecimal(row.Cell(iRevenue + 1));
-                    var grossProfit =
-                        iGrossProfit >= 0 ? GetDecimal(row.Cell(iGrossProfit + 1)) : 0;
-                    var shippingFee = iShipping >= 0 ? GetDecimal(row.Cell(iShipping + 1)) : 0;
-                    var taxAmount = iTax >= 0 ? GetDecimal(row.Cell(iTax + 1)) : 0;
-                    var qty = GetDecimal(row.Cell(iQty + 1));
-
-                    // Validate dữ liệu bắt buộc
-                    if (string.IsNullOrWhiteSpace(customerCode))
-                        throw new BadRequestException("Mã khách hàng không được để trống");
-                    if (string.IsNullOrWhiteSpace(orderCode))
-                        throw new BadRequestException("Mã đơn hàng không được để trống");
-                    if (!statuses.TryGetValue(statusName, out var status))
-                        throw new BadRequestException($"Trạng thái '{statusName}' không tồn tại");
-                    if (!branches.TryGetValue(branchName, out var branch))
-                        throw new BadRequestException($"Chi nhánh '{branchName}' không tồn tại");
+                    if (!statuses.TryGetValue(raw.StatusName, out var status))
+                        throw new BadRequestException($"Trạng thái '{raw.StatusName}' không tồn tại");
+                    if (!branches.TryGetValue(raw.BranchName, out var branch))
+                        throw new BadRequestException($"Chi nhánh '{raw.BranchName}' không tồn tại");
 
                     // Số lượng âm hoặc doanh thu âm → tự động gắn trạng thái "Hoàn trả"
                     if (
-                        (qty < 0 || revenue < 0)
+                        (raw.Quantity < 0 || raw.Revenue < 0)
                         && statuses.TryGetValue("Hoàn trả", out var hoanTraStatus)
                     )
                         status = hoanTraStatus;
 
                     // Fingerprint: trùng DB hoặc trùng dòng khác trong file → bỏ qua
-                    var fingerprint = MakeFp(orderCode, orderDate, revenue, qty, sku, serviceName);
+                    var fingerprint = SapoExcelRowParser.MakeFingerprint(raw.OrderCode, raw.PurchaseDate, raw.Revenue, raw.Quantity, raw.Sku, raw.ServiceName);
                     if (dbFingerprints.Contains(fingerprint) || fileFingerprints.Contains(fingerprint))
                     {
                         skippedCount++;
                         skippedMessages.Add(
-                            $"Dòng {row.RowNumber()}: Mã '{orderCode}' ngày {orderDate:dd/MM/yyyy} doanh thu {revenue:N0} SL {qty} — đã tồn tại, bỏ qua"
+                            $"Dòng {row.RowNumber()}: Mã '{raw.OrderCode}' ngày {raw.PurchaseDate:dd/MM/yyyy} doanh thu {raw.Revenue:N0} SL {raw.Quantity} — đã tồn tại, bỏ qua"
                         );
                         continue;
                     }
@@ -393,25 +264,25 @@ public class OrderService : IOrderService
 
                     Customer customer;
                     int customerId;
-                    if (customerCache.TryGetValue(customerCode, out customer))
+                    if (customerCache.TryGetValue(raw.CustomerCode, out customer))
                     {
                         customerId = customer.Id;
                         // Restore soft-deleted customer (e.g. sau rollback) tránh unique constraint
                         if (
                             customer.DeletedAt != null
-                            && !pendingCustomers.ContainsKey(customerCode)
+                            && !pendingCustomers.ContainsKey(raw.CustomerCode)
                         )
                         {
                             customer.DeletedAt = null;
-                            customer.Name = customerName;
-                            customer.Phone = customerPhone;
+                            customer.Name = raw.CustomerName;
+                            customer.Phone = raw.CustomerPhone;
                             customer.ImportHistoryId = currentImportId;
                             _context.Attach(customer);
                             _context.Entry(customer).State = EntityState.Modified;
-                            pendingCustomers[customerCode] = customer;
+                            pendingCustomers[raw.CustomerCode] = customer;
                         }
                     }
-                    else if (pendingCustomers.TryGetValue(customerCode, out customer))
+                    else if (pendingCustomers.TryGetValue(raw.CustomerCode, out customer))
                     {
                         customerId = 0;
                     }
@@ -419,21 +290,21 @@ public class OrderService : IOrderService
                     {
                         customer = new Customer
                         {
-                            Name = customerName,
-                            Phone = customerPhone,
-                            CustomerCode = customerCode,
+                            Name = raw.CustomerName,
+                            Phone = raw.CustomerPhone,
+                            CustomerCode = raw.CustomerCode,
                             CreatedBy = userId,
                             ImportHistoryId = currentImportId,
                         };
 
                         await _customerRepository.AddAsync(customer);
-                        pendingCustomers[customerCode] = customer;
+                        pendingCustomers[raw.CustomerCode] = customer;
                         customerId = 0;
                     }
 
                     // XỬ LÝ ORDER — key = mã+ngày, cùng mã khác ngày → 2 đơn riêng biệt
 
-                    var orderKey = $"{orderCode}|{orderDate:yyyyMMdd}";
+                    var orderKey = $"{raw.OrderCode}|{raw.PurchaseDate:yyyyMMdd}";
                     Order orderEntity;
                     if (pendingOrders.TryGetValue(orderKey, out orderEntity))
                     {
@@ -444,24 +315,24 @@ public class OrderService : IOrderService
                             _context.Entry(orderEntity).State = EntityState.Modified;
                             pendingOrdersNeedReattach.Remove(orderKey);
                         }
-                        orderEntity.Revenue += revenue;
-                        orderEntity.GrossProfit += grossProfit;
-                        orderEntity.ShippingFee += shippingFee;
-                        orderEntity.TaxAmount += taxAmount;
+                        orderEntity.Revenue += raw.Revenue;
+                        orderEntity.GrossProfit += raw.GrossProfit;
+                        orderEntity.ShippingFee += raw.ShippingFee;
+                        orderEntity.TaxAmount += raw.TaxAmount;
                     }
                     else
                     {
                         orderEntity = new Order
                         {
-                            OrderCode = orderCode,
+                            OrderCode = raw.OrderCode,
                             CustomerId = customerId > 0 ? customerId : null,
                             Customer = customerId > 0 ? null : customer,
-                            PurchaseDate = orderDate,
-                            Revenue = revenue,
-                            GrossProfit = grossProfit,
-                            ShippingFee = shippingFee,
-                            TaxAmount = taxAmount,
-                            Source = source,
+                            PurchaseDate = raw.PurchaseDate,
+                            Revenue = raw.Revenue,
+                            GrossProfit = raw.GrossProfit,
+                            ShippingFee = raw.ShippingFee,
+                            TaxAmount = raw.TaxAmount,
+                            Source = raw.Source,
                             StatusId = status.Id,
                             BranchesId = branch.Id,
                             CreatedBy = userId,
@@ -478,22 +349,27 @@ public class OrderService : IOrderService
                     {
                         OrderId = orderEntity.Id > 0 ? orderEntity.Id : 0,
                         Order = orderEntity.Id > 0 ? null : orderEntity,
-                        Category = category,
-                        ProductName = productName,
-                        Sku = sku,
-                        UnitPrice = unitPrice,
-                        Quantity = qty,
-                        ServiceName = serviceName,
-                        Unit = unit,
-                        Revenue = revenue,
-                        GrossProfit = grossProfit,
-                        ShippingFee = shippingFee,
-                        TaxAmount = taxAmount,
+                        Category = raw.Category,
+                        ProductName = raw.ProductName,
+                        Sku = raw.Sku,
+                        UnitPrice = raw.UnitPrice,
+                        Quantity = raw.Quantity,
+                        ServiceName = raw.ServiceName,
+                        Unit = raw.Unit,
+                        Revenue = raw.Revenue,
+                        GrossProfit = raw.GrossProfit,
+                        ShippingFee = raw.ShippingFee,
+                        TaxAmount = raw.TaxAmount,
                         ImportHistoryId = currentImportId,
                     };
                     await _orderItemRepository.AddAsync(orderItem);
 
                     successCount++;
+
+                    // Thu thập dòng giỏ quà để tạo SapoSalesRow tự động
+                    var skuVal = (raw.Sku ?? "").Trim();
+                    if (skuVal.StartsWith("200") || skuVal.StartsWith("600"))
+                        sapoGiftRows.Add(raw);
 
                     // Xử lý cơ chế giải phóng bộ nhớ (Batch 500 dòng)
                     if (processedRows % 500 == 0)
@@ -539,6 +415,16 @@ public class OrderService : IOrderService
 
             // Lưu toàn bộ dữ liệu dòng dư còn lại
             await _unitOfWork.SaveChangesAsync();
+
+            // Tự động tạo SapoSalesRow cho các dòng giỏ quà (SKU 200/600)
+            if (sapoGiftRows.Count > 0)
+            {
+                var sapoRows = await _sapoService.BuildRowsFromOrderItemsAsync(
+                    sapoGiftRows, currentImportId, userId.ToString()
+                );
+                if (sapoRows.Count > 0)
+                    await _context.SapoSalesRows.AddRangeAsync(sapoRows);
+            }
 
             //CẬP NHẬT LẠI KẾT QUẢ CHO IMPORT HISTORY BAN ĐẦU
 
@@ -675,6 +561,12 @@ public class OrderService : IOrderService
                 .Where(o => o.ImportHistoryId == importHistoryId && o.DeletedAt == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(o => o.DeletedAt, crmNow));
 
+            // BƯỚC 2c: XÓA SapoSalesRows được tạo tự động từ import này
+            await _context
+                .Set<SapoSalesRow>()
+                .Where(r => r.ImportHistoryId == importHistoryId)
+                .ExecuteDeleteAsync();
+
             // BƯỚC 3: XÓA MỀM KHÁCH HÀNG — bulk UPDATE
             await _context
                 .Set<Customer>()
@@ -714,7 +606,7 @@ public class OrderService : IOrderService
         }
     }
 
-    public async Task<bool> RestoreImportAsync(int importHistoryId, int userId)
+    public async Task<RestoreResultDTO> RestoreImportAsync(int importHistoryId, int userId)
     {
         var importHistory = await _importsHistoryRepository
             .GetAll()
@@ -744,9 +636,30 @@ public class OrderService : IOrderService
                 .Where(o => o.ImportHistoryId == importHistoryId && o.DeletedAt != null)
                 .ToListAsync();
 
+            var restoredCount = 0;
+            var skippedDuplicateCount = 0;
             foreach (var order in ordersToRestore)
             {
+                // Kiểm tra xem đã có đơn hàng active khác trùng Mã + Ngày mua chưa (vd: file
+                // này bị rollback rồi sau đó có người import lại dữ liệu tương tự thành batch
+                // khác) — nếu có, KHÔNG khôi phục để tránh đếm doanh thu 2 lần.
+                var duplicateExists = await _orderRepository
+                    .GetAll()
+                    .AnyAsync(o =>
+                        o.OrderCode == order.OrderCode
+                        && o.PurchaseDate == order.PurchaseDate
+                        && o.DeletedAt == null
+                        && o.Id != order.Id
+                    );
+
+                if (duplicateExists)
+                {
+                    skippedDuplicateCount++;
+                    continue; // giữ nguyên soft-deleted
+                }
+
                 order.DeletedAt = null;
+                restoredCount++;
 
                 // Lệnh này kích hoạt Trigger dưới DB tự động CỘNG LẠI TIỀN cho khách hàng
                 await _orderRepository.Update(order);
@@ -796,7 +709,9 @@ public class OrderService : IOrderService
                 oldData: JsonSerializer.Serialize(
                     new
                     {
-                        Message = $"Khôi phục thành công {ordersToRestore.Count} đơn hàng từ file bị hủy.",
+                        Message = skippedDuplicateCount > 0
+                            ? $"Khôi phục {restoredCount} đơn hàng từ file bị hủy, bỏ qua {skippedDuplicateCount} đơn vì đã có bản ghi active trùng Mã đơn + Ngày mua."
+                            : $"Khôi phục thành công {restoredCount} đơn hàng từ file bị hủy.",
                     }
                 ),
                 newData: null
@@ -806,7 +721,11 @@ public class OrderService : IOrderService
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return true;
+            return new RestoreResultDTO
+            {
+                RestoredCount = restoredCount,
+                SkippedDuplicateCount = skippedDuplicateCount,
+            };
         }
         catch (Exception)
         {
@@ -815,110 +734,91 @@ public class OrderService : IOrderService
         }
     }
 
-    private static string NormalizeImportHeader(string raw)
+    // Dùng chung cho RollbackImportAsync (gián tiếp, cùng công thức) và ReconciliationService
+    // (ConfirmDeleteExcessRowsAsync) — trừ đúng doanh thu của Order cha khi xóa 1 phần OrderItem,
+    // không phải xóa nguyên batch import như Rollback. KHÔNG tự mở transaction — caller chịu
+    // trách nhiệm bọc transaction (để gộp chung với các thay đổi khác của caller trong 1 giao dịch).
+    public async Task<ReverseOrderItemsResultDTO> ReverseOrderItemsRevenueAsync(List<int> orderItemIds, int userId)
     {
-        if (string.IsNullOrWhiteSpace(raw))
-            return "";
-        var normalized = raw.Trim().ToLowerInvariant();
-        var sb = new StringBuilder(normalized.Length);
-        foreach (var c in normalized)
-        {
-            if (
-                c
-                is 'à'
-                    or 'á'
-                    or 'ả'
-                    or 'ã'
-                    or 'ạ'
-                    or 'ă'
-                    or 'ắ'
-                    or 'ặ'
-                    or 'ằ'
-                    or 'ẳ'
-                    or 'ẵ'
-                    or 'â'
-                    or 'ấ'
-                    or 'ầ'
-                    or 'ẩ'
-                    or 'ẫ'
-                    or 'ậ'
-            )
-                sb.Append('a');
-            else if (c is 'è' or 'é' or 'ẻ' or 'ẽ' or 'ẹ' or 'ê' or 'ế' or 'ề' or 'ể' or 'ễ' or 'ệ')
-                sb.Append('e');
-            else if (c is 'ì' or 'í' or 'ỉ' or 'ĩ' or 'ị')
-                sb.Append('i');
-            else if (
-                c
-                is 'ò'
-                    or 'ó'
-                    or 'ỏ'
-                    or 'õ'
-                    or 'ọ'
-                    or 'ô'
-                    or 'ố'
-                    or 'ồ'
-                    or 'ổ'
-                    or 'ỗ'
-                    or 'ộ'
-                    or 'ơ'
-                    or 'ớ'
-                    or 'ờ'
-                    or 'ở'
-                    or 'ỡ'
-                    or 'ợ'
-            )
-                sb.Append('o');
-            else if (c is 'ù' or 'ú' or 'ủ' or 'ũ' or 'ụ' or 'ư' or 'ứ' or 'ừ' or 'ử' or 'ữ' or 'ự')
-                sb.Append('u');
-            else if (c is 'ỳ' or 'ý' or 'ỷ' or 'ỹ' or 'ỵ')
-                sb.Append('y');
-            else if (c == 'đ')
-                sb.Append('d');
-            else if (char.IsLetterOrDigit(c))
-                sb.Append(c);
-            else if (c == ' ' || c == '_' || c == '-')
-                sb.Append(' ');
-        }
-        return string.Join(" ", sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
+        var result = new ReverseOrderItemsResultDTO();
+        if (orderItemIds == null || orderItemIds.Count == 0)
+            return result;
 
-    private static int FindImportCol(List<string> headers, params string[] candidates)
-    {
-        foreach (var candidate in candidates)
-            for (int i = 0; i < headers.Count; i++)
-                if (headers[i] == candidate || headers[i].Contains(candidate))
-                    return i;
-        return -1;
-    }
+        var itemsToDelete = await _context
+            .Set<OrderItem>()
+            .Where(oi => orderItemIds.Contains(oi.Id))
+            .Select(oi => new
+            {
+                oi.Id,
+                oi.OrderId,
+                oi.Revenue,
+                oi.GrossProfit,
+                oi.ShippingFee,
+                oi.TaxAmount,
+            })
+            .ToListAsync();
 
-    private decimal GetDecimal(IXLCell cell)
-    {
-        try
-        {
-            if (cell.IsEmpty())
-                return 0;
+        if (itemsToDelete.Count == 0)
+            return result;
 
-            return cell.GetValue<decimal>();
-        }
-        catch
+        var deltasByOrder = itemsToDelete
+            .GroupBy(x => x.OrderId)
+            .Select(g => new
+            {
+                OrderId = g.Key,
+                Revenue = g.Sum(x => x.Revenue),
+                GrossProfit = g.Sum(x => x.GrossProfit),
+                ShippingFee = g.Sum(x => x.ShippingFee),
+                TaxAmount = g.Sum(x => x.TaxAmount),
+            })
+            .ToList();
+
+        var orderIds = deltasByOrder.Select(d => d.OrderId).ToList();
+        var orders = await _orderRepository
+            .GetAll()
+            .Where(o => orderIds.Contains(o.Id) && o.DeletedAt == null)
+            .ToListAsync();
+        var orderDict = orders.ToDictionary(o => o.Id);
+
+        foreach (var delta in deltasByOrder)
         {
-            var str = cell.GetString()?.Trim().Replace(",", ".");
-            if (
-                !string.IsNullOrEmpty(str)
-                && decimal.TryParse(
-                    str,
-                    NumberStyles.Any,
-                    CultureInfo.InvariantCulture,
-                    out var parsed
-                )
-            )
-                return parsed;
-            Console.WriteLine(
-                $"[Import] Không đọc được số tại cell {cell.Address}: '{cell.GetString()}'"
-            );
-            return 0;
+            if (orderDict.TryGetValue(delta.OrderId, out var order))
+            {
+                order.Revenue -= delta.Revenue;
+                order.GrossProfit -= delta.GrossProfit;
+                order.ShippingFee -= delta.ShippingFee;
+                order.TaxAmount -= delta.TaxAmount;
+                _context.Entry(order).State = EntityState.Modified;
+            }
         }
+
+        // Xóa cứng OrderItem đã chọn
+        var deleteIds = itemsToDelete.Select(x => x.Id).ToList();
+        await _context.Set<OrderItem>().Where(oi => deleteIds.Contains(oi.Id)).ExecuteDeleteAsync();
+
+        // Order nào hết sạch OrderItem sau khi xóa thì soft-delete luôn (không còn ý nghĩa hiển thị)
+        var stillHasItems = await _context
+            .Set<OrderItem>()
+            .Where(oi => orderIds.Contains(oi.OrderId))
+            .Select(oi => oi.OrderId)
+            .Distinct()
+            .ToListAsync();
+        var emptyOrderIds = orderIds.Except(stillHasItems).ToList();
+        var softDeletedCount = 0;
+        if (emptyOrderIds.Count > 0)
+        {
+            softDeletedCount = await _context
+                .Set<Order>()
+                .Where(o => emptyOrderIds.Contains(o.Id) && o.DeletedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.DeletedAt, DateTime.UtcNow));
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        result.DeletedItemCount = deleteIds.Count;
+        result.AdjustedOrderCount = orderDict.Count;
+        result.SoftDeletedOrderCount = softDeletedCount;
+        return result;
     }
 
     public async Task<PagedResult<OrderDTO>> GetAllOrdersForOnlineAsync(OrderFilterDTO filter)
@@ -953,7 +853,9 @@ public class OrderService : IOrderService
 
         if (filter.ToDate.HasValue)
         {
-            query = query.Where(o => o.PurchaseDate <= filter.ToDate.Value);
+            // Bao trọn hết ngày kết thúc (đến trước nửa đêm ngày hôm sau) — dùng "<=" so với
+            // đúng nửa đêm ngày kết thúc sẽ bỏ sót mọi đơn có giờ giấc khác 00:00:00 trong ngày đó.
+            query = query.Where(o => o.PurchaseDate < filter.ToDate.Value.AddDays(1));
         }
 
         //filter
@@ -1068,7 +970,9 @@ public class OrderService : IOrderService
 
         if (filter.ToDate.HasValue)
         {
-            query = query.Where(o => o.PurchaseDate <= filter.ToDate.Value);
+            // Bao trọn hết ngày kết thúc (đến trước nửa đêm ngày hôm sau) — dùng "<=" so với
+            // đúng nửa đêm ngày kết thúc sẽ bỏ sót mọi đơn có giờ giấc khác 00:00:00 trong ngày đó.
+            query = query.Where(o => o.PurchaseDate < filter.ToDate.Value.AddDays(1));
         }
 
         //filter

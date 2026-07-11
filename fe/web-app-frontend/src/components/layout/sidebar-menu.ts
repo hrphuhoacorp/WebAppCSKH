@@ -19,6 +19,7 @@ import {
     Zap,
     Newspaper,
     ScanSearch,
+    FolderOpen,
 } from 'lucide-react';
 import React from 'react';
 
@@ -89,6 +90,12 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/sales/return_rate',
                 icon: TrendingUp,
                 permissions: ['cskh.customer.return_rate'],
+            },
+            {
+                title: 'Rà Soát Số Liệu',
+                href: '/dashboard/sales/reconciliation',
+                icon: ScanSearch,
+                permissions: ['reconciliation.view'],
             },
         ],
     },
@@ -205,6 +212,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Thông Tin Cá Nhân',
                 href: '/dashboard/profile',
                 icon: User,
+            },
+            {
+                title: 'Quản Lý File Cá Nhân',
+                href: '/dashboard/personal-files',
+                icon: FolderOpen,
             },
         ],
     },
