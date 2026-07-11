@@ -13,7 +13,7 @@ import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { xntApi, type NxtStockBatchRow } from '../api/xnt.api';
 import { parseCodeQtyText } from '../utils/parseCodeQty';
 import { inferStockStatus, isSoldNotPickedStatus, mergeStockRows, parseTransferToBranch, type StockPreviewRow } from '../utils/stockParsing';
-import { GREEN, cardSx, errBoxSx, fieldSx, ghostBtnSx, hintBoxSx, primaryBtnSx, sectionTitleSx, tableContainerSx, thLSx, thSx, zebraRowSx } from '../styles';
+import { GREEN, cardSx, errBoxSx, fieldSx, ghostBtnSx, hintBoxSx, primaryBtnSx, sectionTitleSx, tableContainerSx, thLSx, thSx, warnBoxSx, zebraRowSx } from '../styles';
 
 const BRANCHES = ['Phú Lợi', 'Ngô Quyền', 'Lái Thiêu'];
 const STATUS_OPTIONS = ['Tồn bình thường', 'Đã thanh toán - khách chưa lấy', 'Chưa thanh toán - giữ giỏ', 'Chờ xử lý khác'];
@@ -62,20 +62,19 @@ export default function XntStockTab() {
     };
 
     const errorRows = preview.filter(r => r._error);
-    const hasIssues = errorRows.length > 0 || trueWarnings.length > 0;
+    const hasErrors = errorRows.length > 0;
+    const hasIssues = hasErrors || trueWarnings.length > 0;
     const totalQty = preview.filter(r => !r._error).reduce((s, r) => s + Math.abs(r.qty), 0);
-    const canSave = previewed && preview.length > 0 && !hasIssues;
+    const canSave = previewed && preview.length > 0 && !hasErrors;
 
     const handleSave = async () => {
         let rows = preview;
-        let warnings = trueWarnings;
         if (!previewed) {
             const result = runPreview(text);
             rows = result.mergedRows;
-            warnings = result.warnings;
         }
         const validRows = rows.filter(r => !r._error);
-        if (warnings.length > 0 || validRows.length === 0) return;
+        if (validRows.length === 0) return;
 
         const payload: NxtStockBatchRow[] = validRows.map(r => {
             if (r.status === 'Chuyển chi nhánh' && r.transferToBranch) {
@@ -98,6 +97,7 @@ export default function XntStockTab() {
             queryClient.invalidateQueries({ queryKey: ['xnt-overview-rows'] });
             queryClient.invalidateQueries({ queryKey: ['xnt-overview-kpis'] });
             queryClient.invalidateQueries({ queryKey: ['xnt-check-days'] });
+            queryClient.invalidateQueries({ queryKey: ['xnt-all-active-rows'] });
         } catch (e) {
             const err = e as { response?: { data?: { Message?: string } }; message?: string };
             toast.error(err?.response?.data?.Message || err?.message || 'Lưu thất bại');
@@ -138,12 +138,14 @@ export default function XntStockTab() {
                         value={text} onChange={e => { setText(e.target.value); setPreviewed(false); }}
                         sx={fieldSx}
                     />
-                    {hasIssues && (
+                    {hasErrors && (
                         <Box sx={{ ...errBoxSx, mt: 1, mb: 0 }}>
-                            ⚠️ {errorRows.length > 0 && `${errorRows.length} dòng không đọc được (xem chi tiết màu đỏ bên dưới)`}
-                            {errorRows.length > 0 && trueWarnings.length > 0 && ' · '}
-                            {[...new Set(trueWarnings)].map(code => `Mã ${code} nhập trùng cùng trạng thái`).join(', ')}
-                            {' — vui lòng kiểm tra lại trước khi lưu.'}
+                            ❌ {errorRows.length} dòng không đọc được — xem chi tiết màu đỏ bên dưới.
+                        </Box>
+                    )}
+                    {trueWarnings.length > 0 && (
+                        <Box sx={{ ...warnBoxSx, mt: 1, mb: 0 }}>
+                            ⚠️ {[...new Set(trueWarnings)].map(code => `Mã ${code} nhập trùng cùng trạng thái`).join(', ')} — vui lòng kiểm tra lại trước khi lưu.
                         </Box>
                     )}
                     <Paper elevation={0} sx={{ bgcolor: '#f0fdf4', border: '1px dashed #a3c98b', borderRadius: '14px', p: 1.5, mt: 1.25, display: 'flex', flexDirection: 'column', gap: 1 }}>

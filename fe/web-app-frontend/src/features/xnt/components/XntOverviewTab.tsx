@@ -488,7 +488,7 @@ export default function XntOverviewTab() {
                                     <TableCell align="right"><TraceableCell value={row.receiveBranch} onClick={() => openHistory('receiveBranch')} /></TableCell>
                                     <TableCell align="right"><TraceableCell value={row.transferBranch} onClick={() => openHistory('transferBranch')} /></TableCell>
                                     <TableCell align="right"><TraceableCell value={row.cancelBasket} onClick={() => openHistory('cancelBasket')} /></TableCell>
-                                    <TableCell align="right"><TraceableCell value={row.sapoSold} onClick={() => openHistory('sapoSold')} /></TableCell>
+                                    <TableCell align="right" sx={{ color: row.sapoSold !== 0 ? '#1e293b' : '#94a3b8' }}>{row.sapoSold}</TableCell>
                                     <TableCell align="right"><TraceableCell value={row.adjustment} onClick={() => openHistory('adjustment')} /></TableCell>
                                     <TableCell align="right"><TraceableCell value={row.actualStock} onClick={() => openHistory('actualStock')} /></TableCell>
                                     <TableCell align="right"><TraceableCell value={row.soldNotPicked} onClick={() => openHistory('soldNotPicked')} /></TableCell>

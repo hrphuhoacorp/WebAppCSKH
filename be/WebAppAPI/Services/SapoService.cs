@@ -791,6 +791,11 @@ public class SapoService
     // Chỉ xử lý SKU bắt đầu bằng 200 (giỏ mẫu) hoặc 600 (giỏ tự chọn).
     // Kết quả được group-by (ngày, chi nhánh, sku, sapoCode) rồi cộng qty/doanh thu.
     // Caller chịu trách nhiệm AddRangeAsync + SaveChangesAsync (để nằm trong cùng transaction).
+    // Đơn có "DỊCH VỤ ĐÓNG GÓI" trong cột Tên dịch vụ (ServiceName) nhưng không có SKU 600
+    // → giỏ tự chọn không có mã chuẩn; dùng mã đơn hàng làm định danh giống SKU 600.
+    private static bool IsPackagingServiceRow(string? serviceName) =>
+        RemoveDiacritics((serviceName ?? "").ToUpperInvariant()).Contains("DICH VU DONG GOI");
+
     public async Task<List<SapoSalesRow>> BuildRowsFromOrderItemsAsync(
         IEnumerable<SapoImportRowDTO> rows,
         int importHistoryId,
@@ -800,13 +805,29 @@ public class SapoService
         var uploadedAt = NowText();
         var batchId = $"ORDER-{importHistoryId}";
         var mappingIndex = await BuildMappingIndexAsync();
+        var rowList = rows.ToList();
 
+        // ── Nhánh 1: SKU 200 (giỏ mẫu) / SKU 600 (giỏ tự chọn có mã) ──────────
         // Aggregate: (date, branch, sku, sapoCode) → sum qty / revenue / count orders
-        var grouped = rows
+        var handledOrderCodes = rowList
+            .Where(r =>
+            {
+                var s = (r.Sku ?? "").Trim();
+                if (!s.StartsWith("200") && !s.StartsWith("600")) return false;
+                if (s.StartsWith("600") && RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI")) return false;
+                return true;
+            })
+            .Select(r => r.OrderCode)
+            .ToHashSet();
+
+        var grouped = rowList
             .Where(r =>
             {
                 var sku = (r.Sku ?? "").Trim();
-                return sku.StartsWith("200") || sku.StartsWith("600");
+                if (!sku.StartsWith("200") && !sku.StartsWith("600")) return false;
+                // SKU 600 mà tên SP là "Túi vải" → phụ kiện đóng gói, không phải giỏ → bỏ qua
+                if (sku.StartsWith("600") && RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI")) return false;
+                return true;
             })
             .Select(r =>
             {
@@ -883,6 +904,64 @@ public class SapoService
                 UploadedAt = uploadedAt,
                 ImportHistoryId = importHistoryId,
             });
+        }
+
+        // ── Nhánh 2: Đơn có "DỊCH VỤ ĐÓNG GÓI" nhưng không có SKU 200/600 ──────
+        // Mỗi đơn = 1 giỏ tự chọn, qty=1, revenue = tổng tất cả dòng trong đơn.
+        var packagingOrderCodes = rowList
+            .Where(r => IsPackagingServiceRow(r.ServiceName) && !handledOrderCodes.Contains(r.OrderCode))
+            .Select(r => r.OrderCode)
+            .ToHashSet();
+
+        if (packagingOrderCodes.Count > 0)
+        {
+            var packagingGrouped = rowList
+                .Where(r => packagingOrderCodes.Contains(r.OrderCode))
+                .GroupBy(r => (
+                    Date: r.PurchaseDate.ToString("yyyy-MM-dd"),
+                    Branch: string.IsNullOrEmpty(r.BranchName) ? "Chưa rõ" : r.BranchName,
+                    OrderCode: r.OrderCode
+                ))
+                .ToList();
+
+            foreach (var g in packagingGrouped)
+            {
+                var revenue = g.Sum(x => x.Revenue);
+                var sapoCode = g.Key.OrderCode;
+                var date = g.Key.Date;
+                var resolved = ResolveCode(sapoCode, mappingIndex, date);
+                var reportCode = resolved.ReportCode ?? sapoCode;
+
+                result.Add(new SapoSalesRow
+                {
+                    BatchId = batchId,
+                    Date = date,
+                    Branch = g.Key.Branch,
+                    ProductType = "Giỏ tự chọn",
+                    Sku = "",
+                    SapoCode = sapoCode,
+                    ReportCode = reportCode,
+                    ReportName = reportCode,
+                    ProductName = "DỊCH VỤ ĐÓNG GÓI",
+                    BasketGroup = "Nhóm khác",
+                    PriceBucket = PriceBucket(revenue),
+                    Price = revenue,
+                    Qty = 1,
+                    Orders = 1,
+                    Revenue = revenue,
+                    NetRevenue = revenue,
+                    ResolveSource = resolved.ResolveSource,
+                    MatchedCode = resolved.MatchedCode,
+                    MappingPrice = resolved.MappingPrice,
+                    MappingDate = resolved.MappingDate,
+                    MappingNote = resolved.MappingNote,
+                    AutoGroupNote = resolved.AutoGroupNote,
+                    Warning = "",
+                    UploadedBy = uploadedBy,
+                    UploadedAt = uploadedAt,
+                    ImportHistoryId = importHistoryId,
+                });
+            }
         }
 
         return ApplyNearCodeAutoGrouping(result);

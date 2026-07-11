@@ -303,8 +303,25 @@ export default function XntCellHistoryDialog({ open, onClose, closeDate, branch,
     const prevDayLogs = prevDayLogsQuery.data ?? EMPTY_LOGS;
     const sapoPending = sapoPendingQuery.data ?? EMPTY_SAPO_PENDING;
 
-    const relatedLogs = useMemo(() => dbLogs.filter(l => logMatchesCell(l, closeDate, branch, itemCode, fieldKey)), [dbLogs, closeDate, branch, itemCode, fieldKey]);
-    const otherLogs = useMemo(() => dbLogs.filter(l => !relatedLogs.includes(l)), [dbLogs, relatedLogs]);
+    // openingStock = tồn CN của ngày trước → tìm trong prevDayLogs, không tìm trong dbLogs hiện tại
+    const relatedLogs = useMemo(() => {
+        if (fieldKey === 'openingStock') {
+            return prevDayLogs.filter(l =>
+                l.type === 'Nạp Tồn CN' &&
+                (l.detail || '').split(',').some(p => {
+                    const s = p.trim();
+                    return s.includes(`|${itemCode}:`) || s.startsWith(`${itemCode}:`);
+                })
+            );
+        }
+        return dbLogs.filter(l => logMatchesCell(l, closeDate, branch, itemCode, fieldKey));
+    }, [dbLogs, prevDayLogs, closeDate, branch, itemCode, fieldKey]);
+
+    // openingStock không cần "other logs" — nguồn gốc đã nằm ở prevDay, không có gì ở current day
+    const otherLogs = useMemo(() => {
+        if (fieldKey === 'openingStock') return [];
+        return dbLogs.filter(l => !relatedLogs.includes(l));
+    }, [dbLogs, relatedLogs, fieldKey]);
 
     const counterField = fieldKey === 'receiveBranch' ? 'transferBranch' : 'receiveBranch';
     const counterRows = useMemo(() =>
@@ -318,7 +335,8 @@ export default function XntCellHistoryDialog({ open, onClose, closeDate, branch,
         [row, closeDate, branch, itemCode, fieldKey, relatedLogs, dbLogs, prevDayLogs, counterRows, sapoPending],
     );
 
-    const noSourceWarning = !cellLogsQuery.isLoading && relatedLogs.length === 0 && currentVal !== 0;
+    const isLoadingLogs = fieldKey === 'openingStock' ? prevDayLogsQuery.isLoading : cellLogsQuery.isLoading;
+    const noSourceWarning = !isLoadingLogs && relatedLogs.length === 0 && currentVal !== 0;
 
     const renderLogRows = (logs: CellLog[]) => {
         if (!logs.length) {
@@ -442,7 +460,9 @@ export default function XntCellHistoryDialog({ open, onClose, closeDate, branch,
                     </Box>
                 )}
 
-                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.6px', mb: 1 }}>Bút ký thao tác chi tiết</Typography>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.6px', mb: 1 }}>
+                    {fieldKey === 'openingStock' ? `Bút ký Nạp Tồn CN ngày ${prevDate || addDaysToDisplayDate(closeDate, -1)} (nguồn tồn đầu)` : 'Bút ký thao tác chi tiết'}
+                </Typography>
                 <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: '12px' }}>
                     <Table size="small">
                         <TableHead>

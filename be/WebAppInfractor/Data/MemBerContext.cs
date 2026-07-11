@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Models;
 using WebAppInfractor.Models.PersonalFiles;
+using WebAppInfractor.Models.Persona;
 using WebAppInfractor.Models.Reconciliation;
 using WebAppInfractor.Models.Recruitment;
 using WebAppInfractor.Models.Vpp;
@@ -83,6 +84,12 @@ public partial class MemBerContext : DbContext
 
     public virtual DbSet<PersonalFolder> PersonalFolders { get; set; }
     public virtual DbSet<PersonalFile> PersonalFiles { get; set; }
+
+    public virtual DbSet<PersonaTag> PersonaTags { get; set; }
+    public virtual DbSet<PersonaTagAssignment> PersonaTagAssignments { get; set; }
+    public virtual DbSet<PersonaClassificationRun> PersonaClassificationRuns { get; set; }
+    public virtual DbSet<PersonaCustomerInteraction> PersonaCustomerInteractions { get; set; }
+    public virtual DbSet<PersonaCareSchedule> PersonaCareSchedules { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
@@ -1391,6 +1398,105 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.MimeType).HasMaxLength(150).HasColumnName("mime_type");
             entity.Property(e => e.FileSize).HasColumnName("file_size");
             entity.Property(e => e.OwnerId).HasColumnName("owner_id");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<PersonaTag>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("persona_tags_pkey");
+            entity.ToTable("persona_tags");
+            entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName("ux_persona_tags_code");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Code).HasMaxLength(50).HasColumnName("code");
+            entity.Property(e => e.Name).HasMaxLength(150).HasColumnName("name");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.Color).HasMaxLength(20).HasColumnName("color");
+            entity.Property(e => e.RuleConfig).HasColumnType("jsonb").HasColumnName("rule_config");
+            entity.Property(e => e.IsActive).HasDefaultValue(true).HasColumnName("is_active");
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0).HasColumnName("display_order");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<PersonaTagAssignment>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("persona_tag_assignments_pkey");
+            entity.ToTable("persona_tag_assignments");
+            entity.HasIndex(e => e.CustomerId).HasDatabaseName("idx_persona_tag_assignments_customer_id");
+            entity.HasIndex(e => e.TagId).HasDatabaseName("idx_persona_tag_assignments_tag_id");
+            entity.HasIndex(e => e.RunId).HasDatabaseName("idx_persona_tag_assignments_run_id");
+            entity.HasIndex(e => new { e.CustomerId, e.TagId, e.Source })
+                .IsUnique()
+                .HasFilter("is_active = true")
+                .HasDatabaseName("ux_persona_tag_assignments_customer_tag_source_active");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.TagId).HasColumnName("tag_id");
+            entity.Property(e => e.Source).HasMaxLength(10).HasColumnName("source");
+            entity.Property(e => e.RunId).HasColumnName("run_id");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.AssignedBy).HasColumnName("assigned_by");
+            entity.Property(e => e.AssignedAt).HasDefaultValueSql("now()").HasColumnName("assigned_at");
+            entity.Property(e => e.IsActive).HasDefaultValue(true).HasColumnName("is_active");
+            entity.Property(e => e.DeactivatedAt).HasColumnName("deactivated_at");
+            entity.Property(e => e.DeactivatedByRunId).HasColumnName("deactivated_by_run_id");
+            entity.Property(e => e.RemovedBy).HasColumnName("removed_by");
+        });
+
+        modelBuilder.Entity<PersonaClassificationRun>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("persona_classification_runs_pkey");
+            entity.ToTable("persona_classification_runs");
+            entity.HasIndex(e => new { e.TagId, e.RunAt }).HasDatabaseName("idx_persona_classification_runs_tag_run_at");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.TagId).HasColumnName("tag_id");
+            entity.Property(e => e.RuleConfigSnapshot).HasColumnType("jsonb").HasColumnName("rule_config_snapshot");
+            entity.Property(e => e.RunBy).HasColumnName("run_by");
+            entity.Property(e => e.RunAt).HasDefaultValueSql("now()").HasColumnName("run_at");
+            entity.Property(e => e.MatchedCustomerCount).HasDefaultValue(0).HasColumnName("matched_customer_count");
+            entity.Property(e => e.NewlyAddedCount).HasDefaultValue(0).HasColumnName("newly_added_count");
+            entity.Property(e => e.RemovedCount).HasDefaultValue(0).HasColumnName("removed_count");
+            entity.Property(e => e.UnchangedCount).HasDefaultValue(0).HasColumnName("unchanged_count");
+        });
+
+        modelBuilder.Entity<PersonaCustomerInteraction>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("persona_customer_interactions_pkey");
+            entity.ToTable("persona_customer_interactions");
+            entity.HasIndex(e => new { e.CustomerId, e.OccurredAt }).HasDatabaseName("idx_persona_customer_interactions_customer_occurred");
+            entity.HasIndex(e => e.ComplaintStatus)
+                .HasFilter("type = 'complaint' AND complaint_status <> 'resolved'")
+                .HasDatabaseName("idx_persona_customer_interactions_open_complaints");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.Type).HasMaxLength(20).HasColumnName("type");
+            entity.Property(e => e.Channel).HasMaxLength(20).HasColumnName("channel");
+            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.ComplaintStatus).HasMaxLength(20).HasColumnName("complaint_status");
+            entity.Property(e => e.OccurredAt).HasColumnName("occurred_at");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<PersonaCareSchedule>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("persona_care_schedules_pkey");
+            entity.ToTable("persona_care_schedules");
+            entity.HasIndex(e => e.TagId).HasDatabaseName("idx_persona_care_schedules_tag_id");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.TagId).HasColumnName("tag_id");
+            entity.Property(e => e.Name).HasMaxLength(150).HasColumnName("name");
+            entity.Property(e => e.OccasionType).HasMaxLength(20).HasColumnName("occasion_type");
+            entity.Property(e => e.OccasionConfig).HasColumnType("jsonb").HasColumnName("occasion_config");
+            entity.Property(e => e.LeadDays).HasDefaultValue(0).HasColumnName("lead_days");
+            entity.Property(e => e.IsActive).HasDefaultValue(true).HasColumnName("is_active");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");

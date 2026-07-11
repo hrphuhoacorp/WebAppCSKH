@@ -366,10 +366,9 @@ public class OrderService : IOrderService
 
                     successCount++;
 
-                    // Thu thập dòng giỏ quà để tạo SapoSalesRow tự động
-                    var skuVal = (raw.Sku ?? "").Trim();
-                    if (skuVal.StartsWith("200") || skuVal.StartsWith("600"))
-                        sapoGiftRows.Add(raw);
+                    // Thu thập tất cả dòng mới để BuildRowsFromOrderItemsAsync tự phát hiện
+                    // giỏ quà (SKU 200/600 và đơn có "DỊCH VỤ ĐÓNG GÓI" không có SKU 600)
+                    sapoGiftRows.Add(raw);
 
                     // Xử lý cơ chế giải phóng bộ nhớ (Batch 500 dòng)
                     if (processedRows % 500 == 0)
