@@ -193,6 +193,7 @@ export interface VppDispatchDto {
 export interface VppDispatchDetailDto extends VppDispatchDto {
     attachmentInvoice: string;
     attachmentApproval: string;
+    requesterName: string;
     lines: VppImportLineDto[];
 }
 

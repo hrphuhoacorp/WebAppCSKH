@@ -11,30 +11,67 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
+import PlayCircleFilledRoundedIcon from '@mui/icons-material/PlayCircleFilledRounded';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { personaApi, PersonaTagDto } from '../api/persona.api';
 import { BORDER, CARD_RADIUS, GREEN } from '../styles';
+import { usePermission } from '@/hooks/usePermission';
 import TagFormDialog, { TagFormValues } from './TagFormDialog';
 import TagRuleDialog from './TagRuleDialog';
 import RunHistoryDialog from './RunHistoryDialog';
 
 function errMessage(err: unknown, fallback: string): string {
-    return (err as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
+    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
+    return data?.Message || data?.message || fallback;
 }
 
 export default function PersonaAutoClassificationTab() {
     const qc = useQueryClient();
+    const canRun = usePermission('persona.classification.run');
     const [formOpen, setFormOpen] = useState(false);
     const [editingTag, setEditingTag] = useState<PersonaTagDto | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<PersonaTagDto | null>(null);
     const [ruleTarget, setRuleTarget] = useState<PersonaTagDto | null>(null);
     const [historyTarget, setHistoryTarget] = useState<PersonaTagDto | null>(null);
+    const [runningAll, setRunningAll] = useState(false);
 
     const { data: tags = [], isLoading } = useQuery({ queryKey: ['persona-tags'], queryFn: personaApi.getTags });
 
     function refresh() {
         qc.invalidateQueries({ queryKey: ['persona-tags'] });
+    }
+
+    async function handleRunAll() {
+        const runnable = tags.filter(t => t.isActive && t.hasAutoRule);
+        if (runnable.length === 0) {
+            toast.error('Chưa có tag nào đang bật và có luật tự động');
+            return;
+        }
+
+        setRunningAll(true);
+        let added = 0;
+        let removed = 0;
+        let failed = 0;
+        try {
+            for (const tag of runnable) {
+                try {
+                    const result = await personaApi.runClassification(tag.id);
+                    added += result.newlyAddedCount;
+                    removed += result.removedCount;
+                } catch {
+                    failed++;
+                }
+            }
+            toast.success(
+                failed > 0
+                    ? `Đã chạy ${runnable.length - failed}/${runnable.length} tag — thêm ${added}, gỡ ${removed} (${failed} tag lỗi)`
+                    : `Đã chạy xong ${runnable.length} tag — thêm ${added}, gỡ ${removed}`
+            );
+            refresh();
+        } finally {
+            setRunningAll(false);
+        }
     }
 
     async function handleSubmit(values: TagFormValues) {
@@ -68,7 +105,15 @@ export default function PersonaAutoClassificationTab() {
 
     return (
         <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 2 }}>
+                {canRun && (
+                    <Button variant="outlined" startIcon={<PlayCircleFilledRoundedIcon />}
+                        disabled={runningAll}
+                        onClick={handleRunAll}
+                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '10px', borderColor: GREEN, color: GREEN, '&:hover': { borderColor: '#065f2d', bgcolor: 'rgba(8,104,57,0.05)' } }}>
+                        {runningAll ? 'Đang chạy...' : 'Chạy tất cả'}
+                    </Button>
+                )}
                 <Button variant="contained" startIcon={<AddRoundedIcon />}
                     onClick={() => { setEditingTag(null); setFormOpen(true); }}
                     sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '10px', bgcolor: GREEN, '&:hover': { bgcolor: '#065f2d' } }}>

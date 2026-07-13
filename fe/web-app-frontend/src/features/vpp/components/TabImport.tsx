@@ -44,7 +44,8 @@ function fmtDate(s?: string | null) {
 function fmtVND(v: number) { return Math.round(v).toLocaleString('vi-VN') + 'đ'; }
 
 function errMessage(err: unknown, fallback: string): string {
-    return (err as { message?: string })?.message || fallback;
+    const data = (err as { response?: { data?: { Message?: string; message?: string } }; message?: string })?.response?.data;
+    return data?.Message || data?.message || (err as { message?: string })?.message || fallback;
 }
 
 interface AttachmentEntry extends VppAttachmentItem { size?: number; }

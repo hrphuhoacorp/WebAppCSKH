@@ -58,6 +58,11 @@ public class CustomerService : ICustomerService
 
         query = query.Where(c => c.DeletedAt == null);
 
+        if (filter.IsBusiness.HasValue)
+        {
+            query = query.Where(c => c.IsBusinessCustomer == filter.IsBusiness.Value);
+        }
+
         var totalItems = await query.CountAsync();
 
         var customers = await query
@@ -80,6 +85,7 @@ public class CustomerService : ICustomerService
                 CreatedBy = c.CreatedBy,
                 CreatedName = c.CreatedByNavigation.Name,
                 DayOfBirth = c.DayOfBirth,
+                IsBusinessCustomer = c.IsBusinessCustomer,
                 Orders = c
                     .Orders.Select(o => new OrderDTO
                     {
@@ -147,6 +153,7 @@ public class CustomerService : ICustomerService
             DeletedAt = customer.DeletedAt,
             CreatedBy = customer.CreatedBy,
             DayOfBirth = customer.DayOfBirth,
+            IsBusinessCustomer = customer.IsBusinessCustomer,
             Orders = customer
                 .Orders.Select(o => new OrderDTO
                 {

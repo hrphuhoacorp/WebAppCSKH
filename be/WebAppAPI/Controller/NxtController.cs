@@ -169,6 +169,16 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<NxtApplyWrongCodeResultDto>(result, result.Message, StatusReponse.Success);
         }
 
+        [RequirePermission("sales.nxt.edit")]
+        [HttpPost("late-delivery/apply")]
+        public async Task<ResponseValue<NxtLateDeliveryResultDto>> ApplyLateDelivery(
+            [FromBody] NxtLateDeliveryRequestDto dto
+        )
+        {
+            var result = await _nxtService.ApplyLateDeliveryAsync(dto);
+            return new ResponseValue<NxtLateDeliveryResultDto>(result, result.Message, StatusReponse.Success);
+        }
+
         [RequirePermission("sales.nxt.delete_logs")]
         [HttpPost("logs/{id:long}/rollback")]
         public async Task<ResponseValue<object>> RollbackLog(long id)

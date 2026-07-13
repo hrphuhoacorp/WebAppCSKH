@@ -97,6 +97,16 @@ export const userApi = {
         };
     },
 
+    setZaloUserId: async (id: number, zaloUserId: string | null) => {
+        const response = await api.patch(`/User/${id}/zalo-user-id`, { zaloUserId });
+        return response.data;
+    },
+
+    getZaloFollowers: async () => {
+        const response = await api.get('/Zalo/followers');
+        return response.data as { userId: string; displayName: string }[];
+    },
+
     downloadImportTemplate: async () => {
         const response = await api.get('/User/ImportStaffTemplate', { responseType: 'blob' });
         const url = URL.createObjectURL(new Blob([response.data]));

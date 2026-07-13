@@ -57,6 +57,10 @@ export const DispatchPrintView = React.forwardRef<HTMLDivElement, Props>(({ data
                 <Grid size={5} sx={{ textAlign: 'center' }}>
                     <Typography sx={{ fontSize: '11px' }}>Bộ phận: Quản Trị Tổng Hợp</Typography>
                     <Typography sx={{ fontSize: '11px' }}>Người tạo phiếu: {data.createdBy}</Typography>
+                    {data.requesterName && (
+                        <Typography sx={{ fontSize: '11px' }}>Người đề nghị: {data.requesterName}</Typography>
+                    )}
+
                 </Grid>
             </Grid>
 
@@ -80,8 +84,6 @@ export const DispatchPrintView = React.forwardRef<HTMLDivElement, Props>(({ data
                             <TableCell sx={printHeaderCellStyle}>Tên vật tư</TableCell>
                             <TableCell sx={{ ...printHeaderCellStyle, width: '60px' }}>ĐVT</TableCell>
                             <TableCell sx={{ ...printHeaderCellStyle, width: '60px' }}>SL</TableCell>
-                            <TableCell sx={{ ...printHeaderCellStyle, width: '90px' }}>Đơn giá</TableCell>
-                            <TableCell sx={{ ...printHeaderCellStyle, width: '100px' }}>Thành tiền</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -92,14 +94,8 @@ export const DispatchPrintView = React.forwardRef<HTMLDivElement, Props>(({ data
                                 <TableCell sx={printTableCellStyle}>{line.itemName}</TableCell>
                                 <TableCell sx={{ ...printTableCellStyle, textAlign: 'center' }}>{line.unit}</TableCell>
                                 <TableCell sx={{ ...printTableCellStyle, textAlign: 'right' }}>{line.quantity}</TableCell>
-                                <TableCell sx={{ ...printTableCellStyle, textAlign: 'right' }}>{fmtVND(line.unitPrice)}</TableCell>
-                                <TableCell sx={{ ...printTableCellStyle, textAlign: 'right' }}>{fmtVND(line.totalAmount)}</TableCell>
-                            </TableRow>
+                                 </TableRow>
                         ))}
-                        <TableRow>
-                            <TableCell colSpan={6} sx={{ ...printTableCellStyle, textAlign: 'right', fontWeight: 'bold' }}>Tổng cộng</TableCell>
-                            <TableCell sx={{ ...printTableCellStyle, textAlign: 'right', fontWeight: 'bold' }}>{fmtVND(data.totalAmount)}</TableCell>
-                        </TableRow>
                     </TableBody>
                 </Table>
             </TableContainer>

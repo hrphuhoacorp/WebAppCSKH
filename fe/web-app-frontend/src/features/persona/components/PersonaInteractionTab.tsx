@@ -16,7 +16,8 @@ import { BORDER, CARD_RADIUS, GREEN } from '../styles';
 import InteractionFormDialog, { InteractionFormValues } from './InteractionFormDialog';
 
 function errMessage(err: unknown, fallback: string): string {
-    return (err as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
+    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
+    return data?.Message || data?.message || fallback;
 }
 
 const TYPE_LABELS: Record<PersonaInteractionType, string> = {

@@ -10,6 +10,7 @@ public class UserGetAllDTO
     public string BranchesName { get; set; }
     public DateOnly? DayOfBirth { get; set; }
     public List<string> Roles { get; set; } = new List<string>();
+    public string? ZaloUserId { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }
@@ -42,6 +43,7 @@ public class UserDTO
     public DateOnly? DayOfBirth { get; set; }
     public List<RoleDTO> Roles { get; set; } = new();
     public List<string> Permissions { get; set; } = new();
+    public string? ZaloUserId { get; set; }
 
     public List<ImportHistoryDTO> ImportHistories { get; set; } = new();
 

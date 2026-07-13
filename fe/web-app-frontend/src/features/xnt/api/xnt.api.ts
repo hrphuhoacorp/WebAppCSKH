@@ -136,6 +136,11 @@ export const xntApi = {
         });
         return response.data;
     },
+
+    applyLateDelivery: async (dto: NxtLateDeliveryRequest) => {
+        const response = await api.post<Envelope<{ detail: string; message: string }>>("/Nxt/late-delivery/apply", dto);
+        return response.data;
+    },
 };
 
 export type NxtBatchRow = { closeDate: string; branch: string; itemCode: string; qty: number };
@@ -268,6 +273,17 @@ export type NxtSapoPendingCompleteRequest = {
     completionNote?: string;
     loginCode: string;
     displayName?: string;
+};
+
+export type NxtLateDeliveryRequest = {
+    itemCode: string;
+    saleDate: string;       // DD/MM/YYYY — ngày Sapo ghi nhận bán
+    deliveryDate?: string;  // DD/MM/YYYY — ngày giao thật (chỉ để log)
+    branch: string;
+    qty: number;
+    note?: string;
+    loginCode: string;
+    userName?: string;
 };
 
 export type CellLog = {

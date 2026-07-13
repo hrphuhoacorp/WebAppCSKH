@@ -17,6 +17,8 @@ public class VppDispatchService : IVppDispatchService
     private readonly IVppItemRepository _itemRepo;
     private readonly IVppItemLotRepository _lotRepo;
     private readonly IVppInventoryService _inventoryService;
+    private readonly IVppRequestRepository _requestRepo;
+    private readonly IUserRepository _userRepo;
     private readonly IUnitOfWork _uow;
 
     public VppDispatchService(
@@ -25,6 +27,8 @@ public class VppDispatchService : IVppDispatchService
         IVppItemRepository itemRepo,
         IVppItemLotRepository lotRepo,
         IVppInventoryService inventoryService,
+        IVppRequestRepository requestRepo,
+        IUserRepository userRepo,
         IUnitOfWork uow)
     {
         _repo = repo;
@@ -32,6 +36,8 @@ public class VppDispatchService : IVppDispatchService
         _itemRepo = itemRepo;
         _lotRepo = lotRepo;
         _inventoryService = inventoryService;
+        _requestRepo = requestRepo;
+        _userRepo = userRepo;
         _uow = uow;
     }
 
@@ -93,6 +99,18 @@ public class VppDispatchService : IVppDispatchService
         var items = await _itemRepo.GetAll().AsNoTracking()
             .Where(x => itemIds.Contains(x.Id)).ToListAsync();
 
+        // Người đề nghị — chỉ có khi phiếu được tạo từ duyệt đề nghị (RequestId != null).
+        var requesterName = "";
+        if (e.RequestId.HasValue)
+        {
+            var req = await _requestRepo.GetByIdAsync(e.RequestId.Value);
+            if (req != null)
+            {
+                var requester = await _userRepo.GetByIdAsync(req.RequesterId);
+                requesterName = requester?.Name ?? "";
+            }
+        }
+
         return new VppDispatchDetailDto
         {
             Id = e.Id,
@@ -105,6 +123,7 @@ public class VppDispatchService : IVppDispatchService
             AttachmentApproval = e.AttachmentApproval ?? "",
             Note = e.Note ?? "",
             CreatedBy = e.CreatedBy ?? "",
+            RequesterName = requesterName,
             TotalAmount = lines.Sum(l => l.TotalAmount),
             CreatedAt = e.CreatedAt?.AddHours(7).ToString("yyyy-MM-dd"),
             Lines = lines.Select(l =>
@@ -265,6 +284,7 @@ public class VppDispatchDetailDto : VppDispatchDto
 {
     public string AttachmentInvoice { get; set; } = "";
     public string AttachmentApproval { get; set; } = "";
+    public string RequesterName { get; set; } = "";
     public List<VppDispatchLineDto> Lines { get; set; } = new();
 }
 

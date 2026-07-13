@@ -27,6 +27,8 @@ public partial class User
 
     public DateOnly? DayOfBirth { get; set; }
 
+    public string? ZaloUserId { get; set; }
+
     public virtual ICollection<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
 
     public virtual Branch? Branches { get; set; }

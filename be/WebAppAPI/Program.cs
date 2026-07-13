@@ -69,6 +69,9 @@ builder.Services.AddScoped<INxtSapoPendingRepository, NxtSapoPendingRepository>(
 //Cache
 builder.Services.AddMemoryCache();
 
+// Zalo OA integration
+builder.Services.AddHttpClient<IZaloService, ZaloService>();
+
 //signalR
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -263,6 +266,7 @@ builder.Services.AddScoped<IReconciliationService, ReconciliationService>();
 builder.Services.AddScoped<IPersonalFileService, PersonalFileService>();
 builder.Services.AddScoped<IPersonaTagService, PersonaTagService>();
 builder.Services.AddScoped<IPersonaCareService, PersonaCareService>();
+builder.Services.AddScoped<IPersonaInvoiceService, PersonaInvoiceService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();

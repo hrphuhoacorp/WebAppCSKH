@@ -8,6 +8,8 @@ import LocalOfferRoundedIcon from '@mui/icons-material/LocalOfferRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import NotificationsActiveRoundedIcon from '@mui/icons-material/NotificationsActiveRounded';
 import TagRoundedIcon from '@mui/icons-material/TagRounded';
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
+import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
 import { useAuth } from '@/providers/AuthProviders';
 import PageHeader from '@/components/common/PageHeader';
 import { GREEN, PAGE_BG, PAGE_BG_IMAGE } from '@/features/persona/styles';
@@ -16,6 +18,8 @@ import PersonaAutoClassificationTab from '@/features/persona/components/PersonaA
 import PersonaManualTagTab from '@/features/persona/components/PersonaManualTagTab';
 import PersonaInteractionTab from '@/features/persona/components/PersonaInteractionTab';
 import PersonaReminderTab from '@/features/persona/components/PersonaReminderTab';
+import PersonaInvoiceImportTab from '@/features/persona/components/PersonaInvoiceImportTab';
+import PersonaBusinessCustomerTab from '@/features/persona/components/PersonaBusinessCustomerTab';
 
 type TabDef = { key: string; label: string; icon: React.ReactElement; permission?: string; component: React.ReactNode };
 
@@ -48,6 +52,16 @@ export default function PersonaPage() {
             key: 'reminders', label: 'Nhắc lịch chăm sóc', icon: <NotificationsActiveRoundedIcon sx={{ fontSize: 16 }} />,
             permission: 'persona.reminder.view',
             component: <PersonaReminderTab />,
+        },
+        {
+            key: 'invoice-import', label: 'Nạp hóa đơn doanh nghiệp', icon: <UploadFileRoundedIcon sx={{ fontSize: 16 }} />,
+            permission: 'persona.dashboard.view',
+            component: <PersonaInvoiceImportTab />,
+        },
+        {
+            key: 'business-customers', label: 'Khách hàng doanh nghiệp', icon: <BusinessRoundedIcon sx={{ fontSize: 16 }} />,
+            permission: 'persona.dashboard.view',
+            component: <PersonaBusinessCustomerTab />,
         },
     ];
 

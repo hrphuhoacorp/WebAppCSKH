@@ -77,7 +77,15 @@ export interface LunarDateRecurrenceCondition {
     lookbackMonths: number;
 }
 
-export type PersonaCondition = CategoryRevenueShareCondition | OrderFrequencyCondition | LunarDateRecurrenceCondition;
+export interface BusinessCustomerCondition {
+    type: 'business_customer';
+}
+
+export type PersonaCondition =
+    | CategoryRevenueShareCondition
+    | OrderFrequencyCondition
+    | LunarDateRecurrenceCondition
+    | BusinessCustomerCondition;
 
 export interface PersonaRuleConfig {
     combinator: 'AND';
@@ -209,6 +217,31 @@ export interface PersonaOverview {
     tagDistribution: PersonaTagDistribution[];
 }
 
+export interface PersonaInvoiceImportDto {
+    id: number;
+    fileName: string;
+    importedByName: string;
+    importedAt?: string | null;
+    totalRows: number;
+    matchedRows: number;
+    unmatchedRows: number;
+}
+
+export interface PersonaInvoiceImportResultDto extends PersonaInvoiceImportDto {
+    sampleUnmatchedOrderCodes: string[];
+}
+
+export interface BusinessCustomerDto {
+    customerId: number;
+    customerCode: string;
+    name: string;
+    phone?: string | null;
+    totalRevenue: number;
+    latestCompanyName?: string | null;
+    invoiceCount: number;
+    latestInvoiceDate?: string | null;
+}
+
 export const personaApi = {
     getTags: async (): Promise<PersonaTagDto[]> => {
         const res = await api.get('/PersonaTag/Tags');
@@ -338,5 +371,24 @@ export const personaApi = {
     getOverview: async (): Promise<PersonaOverview> => {
         const res = await api.get('/PersonaCare/Overview');
         return res.data.content;
+    },
+
+    importInvoices: async (file: File): Promise<PersonaInvoiceImportResultDto> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await api.post('/PersonaInvoice/Import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return res.data.content;
+    },
+
+    getInvoiceImports: async (params: { page: number; pageSize: number }): Promise<PagedResult<PersonaInvoiceImportDto>> => {
+        const res = await api.get('/PersonaInvoice/Imports', { params });
+        return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
+    },
+
+    getBusinessCustomers: async (params: { search?: string; page: number; pageSize: number }): Promise<PagedResult<BusinessCustomerDto>> => {
+        const res = await api.get('/PersonaInvoice/BusinessCustomers', { params });
+        return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
     },
 };

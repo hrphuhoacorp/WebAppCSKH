@@ -12,7 +12,8 @@ import { BORDER, CARD_RADIUS, GREEN } from '../styles';
 import RuleConditionBuilder from './RuleConditionBuilder';
 
 function errMessage(err: unknown, fallback: string): string {
-    return (err as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
+    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
+    return data?.Message || data?.message || fallback;
 }
 
 function fmtMoney(n: number): string {

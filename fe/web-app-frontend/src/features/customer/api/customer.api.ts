@@ -5,6 +5,7 @@ export const customerApi = {
         page: number;
         pageSize: number;
         search?: string;
+        isBusiness?: boolean;
     }) => {
         const response = await api.get('/Customer/GetAllCustomersAsync', { params: data });
         return response.data;

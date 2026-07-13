@@ -6,7 +6,14 @@ using System.Text.Json.Serialization;
 [JsonDerivedType(typeof(CategoryRevenueShareConditionDTO), "category_revenue_share")]
 [JsonDerivedType(typeof(OrderFrequencyConditionDTO), "order_frequency")]
 [JsonDerivedType(typeof(LunarDateRecurrenceConditionDTO), "lunar_date_recurrence")]
+[JsonDerivedType(typeof(BusinessCustomerConditionDTO), "business_customer")]
 public abstract class PersonaConditionDTO
+{
+}
+
+// Không có tham số — khớp Customer.IsBusinessCustomer (được bật khi nạp file hóa đơn VAT
+// khớp được mã đơn hàng với "Tên đơn vị" khác rỗng). Xem PersonaInvoiceService.
+public class BusinessCustomerConditionDTO : PersonaConditionDTO
 {
 }
 

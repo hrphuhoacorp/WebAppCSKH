@@ -40,3 +40,7 @@ coverage/
 *.tmp
 *.temp
 issue.txt
+
+# Zalo tokens (sensitive, runtime-generated)
+zalo-tokens.json
+**/zalo-tokens.json

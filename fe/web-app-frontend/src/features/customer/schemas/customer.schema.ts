@@ -14,5 +14,6 @@ type CustomerSchema = {
     createdBy: number;
     createdName:string;
     dayOfBirth: string | null;
+    isBusinessCustomer: boolean;
     orders: OrderSchema[];
 }

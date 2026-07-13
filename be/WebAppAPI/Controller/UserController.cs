@@ -135,6 +135,14 @@ namespace WebAppAPI.Controllers
             return new ResponseValue<ImportStaffResultDTO>(result, "Import hoàn tất", StatusReponse.Success);
         }
 
+        [RequirePermission("staff.update")]
+        [HttpPatch("{id}/zalo-user-id")]
+        public async Task<IActionResult> SetZaloUserId(int id, [FromBody] SetZaloUserIdDto dto)
+        {
+            await _userService.SetZaloUserIdAsync(id, dto.ZaloUserId);
+            return Ok(new { message = "Cập nhật Zalo user ID thành công" });
+        }
+
         [RequirePermission("staff.import")]
         [HttpGet("ImportStaffTemplate")]
         public IActionResult DownloadImportTemplate()

@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/providers/AuthProviders';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
-import { xntApi, type AdjustmentLog, type AdjustmentLogFilter } from '../api/xnt.api';
+import { xntApi, type AdjustmentLog, type AdjustmentLogFilter, type NxtLateDeliveryRequest } from '../api/xnt.api';
 import { checkTempCodeBranch, formatSourceName, normalizeItemCode, type TempCodeCheckResult } from '../utils/wrongCode';
 import {
     cardSx, fieldSx, ghostBtnSx, hintBoxSx, okBoxSx, primaryBtnSx, sectionTitleSx, tableContainerSx, thLSx, thSx, warnBoxSx, zebraRowSx,
@@ -106,6 +106,43 @@ export default function XntWrongCodeTab() {
         }
     };
 
+    // ── Giao hàng trễ ────────────────────────────────────────────────────────
+    const [ldBranch, setLdBranch] = useState(BRANCHES[0]);
+    const [ldItemCode, setLdItemCode] = useState('');
+    const [ldSaleDate, setLdSaleDate] = useState(todayIso());
+    const [ldDeliveryDate, setLdDeliveryDate] = useState(todayIso());
+    const [ldQty, setLdQty] = useState(1);
+    const [ldNote, setLdNote] = useState('');
+    const [ldApplying, setLdApplying] = useState(false);
+
+    const handleApplyLateDelivery = async () => {
+        const sd = isoToDisplay(ldSaleDate);
+        const dd = isoToDisplay(ldDeliveryDate);
+        const code = normalizeItemCode(ldItemCode);
+        if (!code || !sd || !ldBranch || ldQty <= 0) {
+            toast.error('Vui lòng nhập đủ mã giỏ, ngày Sapo bán, chi nhánh, số lượng.');
+            return;
+        }
+        setLdApplying(true);
+        try {
+            const dto: NxtLateDeliveryRequest = {
+                itemCode: code, saleDate: sd, deliveryDate: dd,
+                branch: ldBranch, qty: Math.abs(ldQty), note: ldNote, loginCode, userName,
+            };
+            const res = await xntApi.applyLateDelivery(dto);
+            toast.success(res.content.message);
+            queryClient.invalidateQueries({ queryKey: ['xnt-overview-rows'] });
+            queryClient.invalidateQueries({ queryKey: ['xnt-overview-kpis'] });
+            queryClient.invalidateQueries({ queryKey: ['xnt-check-days'] });
+            queryClient.invalidateQueries({ queryKey: ['xnt-adjustment-logs'] });
+        } catch (e) {
+            const err = e as { response?: { data?: { Message?: string } }; message?: string };
+            toast.error(err?.response?.data?.Message || err?.message || 'Lỗi khi áp dụng giao hàng trễ.');
+        } finally {
+            setLdApplying(false);
+        }
+    };
+
     // ── Lịch sử điều chỉnh ───────────────────────────────────────────────────
     const [filterDateFrom, setFilterDateFrom] = useState(todayIso());
     const [filterDateTo, setFilterDateTo] = useState(todayIso());
@@ -169,8 +206,8 @@ export default function XntWrongCodeTab() {
     return (
         <Paper elevation={0} sx={{ ...cardSx, position: 'relative' }}>
             <LoadingOverlay
-                open={applying || rollingBackId !== null || isLoading}
-                text={rollingBackId !== null ? 'Đang hoàn tác...' : applying ? 'Đang áp dụng điều chỉnh...' : 'Đang tải dữ liệu...'}
+                open={applying || ldApplying || rollingBackId !== null || isLoading}
+                text={rollingBackId !== null ? 'Đang hoàn tác...' : (applying || ldApplying) ? 'Đang áp dụng điều chỉnh...' : 'Đang tải dữ liệu...'}
                 fullScreen
             />
             <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1e293b', mb: 0.5 }}>Sai mã / đổi mã tạm</Typography>
@@ -218,6 +255,45 @@ export default function XntWrongCodeTab() {
             <Box sx={{ ...hintBoxSx, mb: 2 }}>
                 <b>Đổi mã tạm / nhập nhầm:</b> dùng cho mã nhập từ Gói ra, Tồn CN, Hủy, Chuyển/Nhận CN. App chuyển phát sinh từ mã cũ sang mã đúng và ẩn mã cũ nếu đã hết phát sinh.<br />
                 <b>Sai mã Sapo / check đơn:</b> dùng khi file Sapo bán sai mã. App chuyển Sapo bán/doanh thu/số đơn từ mã sai sang mã đúng để Tổng quan không còn giữ mã sai như dòng chính.
+            </Box>
+
+            {/* ── Giao hàng trễ ─────────────────────────────────────────────── */}
+            <Box sx={{ borderTop: '1px solid #e2e8f0', mt: 2, pt: 2, mb: 2 }}>
+                <Typography sx={sectionTitleSx}>Giao hàng trễ / Gói trễ</Typography>
+                <Box sx={{ ...hintBoxSx, mb: 1.5 }}>
+                    Dùng khi khách đặt giỏ hôm nay nhưng <b>6–7 ngày sau mới đến lấy / bộ phận gói mới gói xong</b>. Sapo đã ghi nhận bán ngày 0 nhưng kho chưa có giỏ → lệch dương. App sẽ cộng <b>+{ldQty} vào Điều chỉnh ngày Sapo bán</b> để xóa lệch đó.
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(4,1fr)' }, gap: 1.5, mb: 1.5 }}>
+                    <TextField label="Ngày Sapo bán (ngày 0)" type="date" size="small" value={ldSaleDate}
+                        onChange={e => setLdSaleDate(e.target.value)} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+                    <TextField label="Ngày giao thật (để log)" type="date" size="small" value={ldDeliveryDate}
+                        onChange={e => setLdDeliveryDate(e.target.value)} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+                    <TextField select label="Chi nhánh" size="small" value={ldBranch}
+                        onChange={e => setLdBranch(e.target.value)} sx={fieldSx}>
+                        {BRANCHES.map(b => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                    </TextField>
+                    <TextField label="Mã giỏ" placeholder="Ví dụ: H1234" size="small" value={ldItemCode}
+                        onChange={e => setLdItemCode(e.target.value)} sx={fieldSx} />
+                    <TextField label="Số lượng" type="number" size="small" value={ldQty}
+                        onChange={e => setLdQty(Number(e.target.value))} sx={fieldSx}
+                        slotProps={{ htmlInput: { min: 1 } }} />
+                    <Box sx={{ gridColumn: { xs: '1/-1', md: 'span 3' } }}>
+                        <TextField label="Ghi chú" placeholder="VD: H1234 đặt 05/07, khách đến lấy 11/07"
+                            fullWidth size="small" value={ldNote}
+                            onChange={e => setLdNote(e.target.value)} sx={fieldSx} />
+                    </Box>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                    <Button variant="contained" size="small" sx={primaryBtnSx}
+                        onClick={handleApplyLateDelivery} disabled={!canEdit}>
+                        Xác nhận giao hàng trễ
+                    </Button>
+                    {!canEdit && (
+                        <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>
+                            Chỉ Admin/Trưởng ca mới có quyền áp dụng.
+                        </Typography>
+                    )}
+                </Box>
             </Box>
 
             <Typography sx={sectionTitleSx}>Lịch sử điều chỉnh</Typography>

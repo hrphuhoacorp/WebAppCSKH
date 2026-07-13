@@ -20,6 +20,12 @@ public interface IUserService
     Task<UserDTO> UpdateAsync(UserUpdateDTO dto, int id);
     Task<ImportStaffResultDTO> ImportStaffAsync(IFormFile file, int importerUserId);
     byte[] GenerateImportTemplate();
+    Task SetZaloUserIdAsync(int userId, string? zaloUserId);
+}
+
+public class SetZaloUserIdDto
+{
+    public string? ZaloUserId { get; set; }
 }
 
 public class UserService : IUserService
@@ -168,6 +174,7 @@ public class UserService : IUserService
             BranchesId = user.BranchesId,
             BranchesName = user.Branches?.Name,
             DayOfBirth = user.DayOfBirth,
+            ZaloUserId = user.ZaloUserId,
             Roles = roles,
 
             ImportHistories = user
@@ -742,5 +749,13 @@ public class UserService : IUserService
         using var stream = new MemoryStream();
         wb.SaveAs(stream);
         return stream.ToArray();
+    }
+
+    public async Task SetZaloUserIdAsync(int userId, string? zaloUserId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId)
+            ?? throw new NotFoundException("Không tìm thấy người dùng");
+        user.ZaloUserId = string.IsNullOrWhiteSpace(zaloUserId) ? null : zaloUserId.Trim();
+        await _unitOfWork.SaveChangesAsync();
     }
 }

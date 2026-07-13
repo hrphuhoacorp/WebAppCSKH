@@ -13,5 +13,6 @@ public class CustomerDTO
     public int? CreatedBy { get; set; }
     public string? CreatedName { get; set; }
     public DateOnly? DayOfBirth { get; set; }
+    public bool IsBusinessCustomer { get; set; }
     public List<OrderDTO> Orders { get; set; }
 }

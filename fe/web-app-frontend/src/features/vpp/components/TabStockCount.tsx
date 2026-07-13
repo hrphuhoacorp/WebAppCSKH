@@ -26,7 +26,8 @@ const CARD_RADIUS = '20px';
 const BORDER = '#e2e8f0';
 
 function errMessage(err: unknown, fallback: string): string {
-    return (err as { message?: string })?.message || fallback;
+    const data = (err as { response?: { data?: { Message?: string; message?: string } }; message?: string })?.response?.data;
+    return data?.Message || data?.message || (err as { message?: string })?.message || fallback;
 }
 
 const fieldSx = {

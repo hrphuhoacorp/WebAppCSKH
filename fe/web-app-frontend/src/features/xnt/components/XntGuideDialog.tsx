@@ -76,14 +76,27 @@ const SECTIONS: { title: string; open?: boolean; body: string }[] = [
       Nhân viên thường chỉ tạo được <b>đề xuất</b> (chưa đổi số ngay) — cần Admin/Trưởng ca vào duyệt thì số liệu Tổng quan mới thay đổi.
     ` },
     {
-        title: '6. Sửa SL', body: `
-      Sửa nhanh <b>1 trường cụ thể</b> cho 1 mã/ngày/chi nhánh (không cần vào đúng dòng trong Tổng quan). Bắt buộc nhập lý do. Mọi lần sửa đều tự ghi bút ký &quot;Sửa SL&quot; — bấm Truy vết vào ô đó sẽ thấy ngay cũ → mới, ai sửa, lúc nào.
+        title: '6. Giao hàng trễ / Gói trễ', body: `
+      Dùng khi khách đặt giỏ và thanh toán hôm nay (Sapo đã ghi nhận bán ngay ngày 0), nhưng <b>6–7 ngày sau mới đến lấy / bộ phận gói mới gói xong</b>.
+      <br/><br/>
+      <b>Vấn đề:</b> kho chưa có giỏ vật lý ngày 0, nên khi kiểm Tồn CN staff không thể đếm giỏ đó vào tồn thực tế → Sapo bán = 1 nhưng Gói ra = 0 → Tồn kỳ vọng âm 1 → cột <b>Lệch</b> dương 1 tại ngày 0.
+      <br/><br/>
+      <b>Cách xử lý:</b> khi khách đã đến lấy giỏ / bộ phận gói hoàn tất, vào tab <b>Sai mã</b> → phần <b>Giao hàng trễ / Gói trễ</b> → nhập:
+      ${guideTable([
+        ['Ngày Sapo bán (ngày 0)', 'Ngày Sapo đã ghi nhận bán — không phải ngày hôm nay.'],
+        ['Ngày giao thật', 'Ngày khách đến lấy (chỉ để ghi log, không ảnh hưởng số liệu).'],
+        ['Chi nhánh & Mã giỏ', 'Chi nhánh và mã giỏ cụ thể.'],
+        ['Số lượng', 'Số giỏ giao trễ (thường là 1).'],
+      ])}
+      Hệ thống sẽ cộng <b>+SL vào cột Điều chỉnh ngày Sapo bán</b> → Lệch ngày đó về 0.<br/>
+      <b>Tại sao không sửa ngày giao?</b> Vì giỏ đi thẳng từ gói ra tay khách, không qua kho (không đếm vào Tồn thực tế ngày giao) — không cần nhập Gói ra thêm. Chỉ cần xóa lệch ngày gốc là đủ.
+      <div style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12.5px;">⚠️ Chỉ dùng khi giỏ <b>chưa được gói</b> vào ngày Sapo bán (staff không đếm được giỏ). Nếu giỏ đã gói trong ngày 0 nhưng chỉ khách chưa lấy → dùng nhãn <b>DTT</b> ở Tồn CN thay thế (xem mục 3).</div>
     ` },
     {
-        title: '7. Sửa trực tiếp ở Tổng quan (nút &quot;Sửa&quot;)', body: `
-      Bấm nút <b>Sửa</b> ngay trên 1 dòng của bảng Tổng quan để chỉnh nhanh nhiều trường cùng lúc (Gói ra, Nhận CN, Chuyển CN, Hủy giỏ, Điều chỉnh, Tồn thực tế, DTT). Mỗi trường thực sự thay đổi đều tự ghi bút ký riêng, và nếu sửa Tồn thực tế/DTT thì <b>tự đồng bộ luôn tồn đầu ngày kế tiếp</b> — giống hệt luồng Tồn CN, tránh Lệch ảo về sau.
-      <div style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:12.5px;">⚠️ Nút <b>Sửa</b> chỉ hiện ra với tài khoản được cấp quyền chỉnh nhanh (<code>sales.nxt.edit_quatity_nxt</code>). Không thấy nút này nghĩa là tài khoản chưa có quyền, không phải lỗi hệ thống — liên hệ Admin để được cấp nếu cần.</div>
+        title: '7. Sửa SL', body: `
+      Sửa nhanh <b>1 trường cụ thể</b> cho 1 mã/ngày/chi nhánh (không cần vào đúng dòng trong Tổng quan). Bắt buộc nhập lý do. Mọi lần sửa đều tự ghi bút ký &quot;Sửa SL&quot; — bấm Truy vết vào ô đó sẽ thấy ngay cũ → mới, ai sửa, lúc nào.
     ` },
+  
     {
         title: '8. Sapo treo — khi khách đã lấy hàng nhưng Sapo chưa ghi nhận', body: `
       Dùng khi khách đã trả tiền/lấy hàng nhưng đơn chưa lên hệ thống Sapo (xử lý trễ, đồng bộ chậm...).
@@ -112,7 +125,7 @@ export default function XntGuideDialog({ open, onClose }: { open: boolean; onClo
             <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pb: 1 }}>
                 <Box>
                     <Typography sx={{ fontWeight: 900, fontSize: 17, color: '#065f2d' }}>📖 Hướng dẫn sử dụng — Xuất Nhập Tồn</Typography>
-                    <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.5 }}>Bấm vào từng mục để mở rộng/thu gọn. Đọc kỹ mục 3 (DTT/CTT) và mục 8 (Sapo treo) nếu hay gặp Lệch khó hiểu.</Typography>
+                    <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: 0.5 }}>Bấm vào từng mục để mở rộng/thu gọn. Đọc kỹ mục 3 (DTT/CTT), mục 6 (Giao hàng trễ) và mục 9 (Sapo treo) nếu hay gặp Lệch khó hiểu.</Typography>
                 </Box>
                 <IconButton size="small" onClick={onClose}><CloseRounded fontSize="small" /></IconButton>
             </DialogTitle>

@@ -43,7 +43,8 @@ function fmtVND(v: number) {
 }
 
 function errMessage(err: unknown, fallback: string): string {
-    return (err as { message?: string })?.message || fallback;
+    const data = (err as { response?: { data?: { Message?: string; message?: string } }; message?: string })?.response?.data;
+    return data?.Message || data?.message || (err as { message?: string })?.message || fallback;
 }
 
 interface DispatchLine { itemId: number; unit: string; quantity: number; unitPrice: number; vatRate: number; lotId?: number; }

@@ -9,6 +9,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import PieChartRoundedIcon from '@mui/icons-material/PieChartRounded';
 import EventRepeatRoundedIcon from '@mui/icons-material/EventRepeatRounded';
 import NightsStayRoundedIcon from '@mui/icons-material/NightsStayRounded';
+import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
 import { useQuery } from '@tanstack/react-query';
 import { personaApi, PersonaCondition, PersonaRuleConfig } from '../api/persona.api';
 import { BORDER, GREEN } from '../styles';
@@ -27,6 +28,8 @@ function defaultCondition(type: PersonaCondition['type']): PersonaCondition {
             return { type, minOrderCount: 3, lookbackDays: 30, categories: null };
         case 'lunar_date_recurrence':
             return { type, lunarDays: [1, 15], windowDays: 2, minOccurrences: 3, lookbackMonths: 6 };
+        case 'business_customer':
+            return { type };
     }
 }
 
@@ -34,6 +37,7 @@ const TYPE_LABELS: Record<PersonaCondition['type'], { label: string; icon: React
     category_revenue_share: { label: 'Tỉ trọng nhóm hàng', icon: <PieChartRoundedIcon sx={{ fontSize: 16 }} /> },
     order_frequency: { label: 'Tần suất đơn hàng', icon: <EventRepeatRoundedIcon sx={{ fontSize: 16 }} /> },
     lunar_date_recurrence: { label: 'Chu kỳ theo lịch âm', icon: <NightsStayRoundedIcon sx={{ fontSize: 16 }} /> },
+    business_customer: { label: 'Là khách hàng doanh nghiệp', icon: <BusinessRoundedIcon sx={{ fontSize: 16 }} /> },
 };
 
 export default function RuleConditionBuilder({ initialConfig, onChange }: {
@@ -171,6 +175,13 @@ export default function RuleConditionBuilder({ initialConfig, onChange }: {
                                             sx={{ width: 160 }} />
                                     </Box>
                                 </Box>
+                            )}
+
+                            {cond.type === 'business_customer' && (
+                                <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+                                    Khớp khách hàng đã được đánh dấu &quot;khách hàng doanh nghiệp&quot; qua tab &quot;Nạp hóa đơn doanh nghiệp&quot;
+                                    (có hóa đơn VAT khớp mã đơn hàng, cột &quot;Tên đơn vị&quot; khác rỗng). Không có tham số nào để chỉnh.
+                                </Typography>
                             )}
                         </Paper>
                     </Box>

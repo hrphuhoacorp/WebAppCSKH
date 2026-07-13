@@ -31,6 +31,8 @@ public partial class Customer
 
     public DateOnly? DayOfBirth { get; set; }
 
+    public bool IsBusinessCustomer { get; set; }
+
     public virtual User? CreatedByNavigation { get; set; }
 
     public virtual ImportsHistory? ImportHistory { get; set; }

@@ -43,7 +43,8 @@ const CARD_RADIUS = '20px';
 const BORDER = '#e2e8f0';
 
 function errMessage(err: unknown, fallback: string): string {
-    return (err as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
+    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
+    return data?.Message || data?.message || fallback;
 }
 
 function nowMs(): number {

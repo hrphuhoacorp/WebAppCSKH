@@ -146,9 +146,9 @@ export default function XntOverviewTab() {
     const userName = profile?.name;
     // Permission gate khớp đúng backend: sửa nhanh dùng sales.nxt.edit_quatity_nxt (giống tab Sửa
     // SL/POST overview/inline-edit), xóa dòng dùng sales.nxt.delete_logs (giống DELETE overview/rows).
-    const canEditQty = !!profile?.permissions?.includes('sales.nxt.edit_quatity_nxt');
+
     const canDelete = !!profile?.permissions?.includes('sales.nxt.delete_logs');
-    const extraCols = (canDelete ? 1 : 0) + (canEditQty ? 1 : 0);
+    const extraCols = (canDelete ? 1 : 0) + (canDelete ? 1 : 0);
 
     /* ── Sửa nhanh (inline edit) ───────────────────────────────────────────── */
     const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -411,7 +411,7 @@ export default function XntOverviewTab() {
                             {['Tồn đầu', 'Gói ra', 'Nhận CN', 'Chuyển CN', 'Hủy', 'Sapo bán', 'Điều chỉnh', 'Tồn thực tế', 'DTT/chưa lấy', 'Tồn so sánh', 'Tồn còn lại theo app', 'Lệch'].map(h =>
                                 <TableCell key={h} sx={thSx}>{h}</TableCell>)}
                             <TableCell sx={{ ...thLSx, minWidth: 200 }}>Gợi ý kiểm tra</TableCell>
-                            {canEditQty && <TableCell sx={thSx}>Sửa</TableCell>}
+                            {canDelete && <TableCell sx={thSx}>Sửa</TableCell>}
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -462,7 +462,7 @@ export default function XntOverviewTab() {
                                             <DiffChip diff={(editDraft.actualStock - editDraft.soldNotPicked) - (row.openingStock + editDraft.giftIn + editDraft.receiveBranch - editDraft.transferBranch - row.sapoSold - editDraft.cancelBasket + editDraft.adjustment)} />
                                         </TableCell>
                                         <TableCell sx={{ fontSize: 12, lineHeight: 1.5, color: '#374151', minWidth: 200 }}>{row.diffReasonHint}</TableCell>
-                                        {canEditQty && (
+                                        {canDelete && (
                                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
                                                 <IconButton size="small" onClick={() => saveEdit(row)} sx={{ bgcolor: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', borderRadius: '8px', mr: 0.5, p: 0.5 }}><SaveRounded sx={{ fontSize: 15 }} /></IconButton>
                                                 <IconButton size="small" onClick={cancelEdit} sx={{ bgcolor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '8px', p: 0.5 }}><CloseRounded sx={{ fontSize: 15 }} /></IconButton>
@@ -496,7 +496,7 @@ export default function XntOverviewTab() {
                                     <TableCell align="right">{row.expectedStock}</TableCell>
                                     <TableCell><DiffChip diff={row.diff} /></TableCell>
                                     <TableCell sx={{ fontSize: 12, lineHeight: 1.5, color: '#374151', minWidth: 200 }}>{row.diffReasonHint}</TableCell>
-                                    {canEditQty && (
+                                    {canDelete && (
                                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                                             <IconButton size="small" onClick={() => startEdit(row)} title="Chỉnh sửa trực tiếp dòng này"
                                                 sx={{ bgcolor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', p: 0.5 }}>

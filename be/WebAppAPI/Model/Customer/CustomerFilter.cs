@@ -5,4 +5,5 @@ public class CustomerFilterDTO
 
     public string? Search { get; set; } // mã đơn / tên KH / SĐT
 
+    public bool? IsBusiness { get; set; } // true = chỉ khách doanh nghiệp
 }

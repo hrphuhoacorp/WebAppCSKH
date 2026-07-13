@@ -24,6 +24,7 @@ public interface INxtService
     Task<NxtSapoPendingDto> CreateSapoPendingAsync(NxtSapoPendingCreateRequestDto dto);
     Task<NxtSapoPendingDto> CompleteSapoPendingAsync(int id, NxtSapoPendingCompleteRequestDto dto);
     Task DeleteSapoPendingAsync(int id, string? loginCode, string? displayName);
+    Task<NxtLateDeliveryResultDto> ApplyLateDeliveryAsync(NxtLateDeliveryRequestDto dto);
 }
 
 // Toàn bộ công thức/luật trong file này port 1:1 từ fe/web-app-frontend/public/js/nxt-core.js
@@ -1203,6 +1204,76 @@ public class NxtService : INxtService
         return new NxtApplyWrongCodeResultDto { Detail = result.Detail, Message = message };
     }
 
+    // Giao hàng trễ — khách đặt giỏ ngày 0 (Sapo bán), nhưng 6-7 ngày sau mới đến lấy/gói xong.
+    // Sapo đã ghi nhận bán ngay ngày 0, kho chưa có giỏ → tồn bị lệch. Khi xác nhận đã giao,
+    // cộng Adjustment += qty vào dòng ngày Sapo bán để xóa lệch đó. Không cần sửa ngày giao
+    // (không có giỏ nào vật lý vào tồn tại ngày đó).
+    public async Task<NxtLateDeliveryResultDto> ApplyLateDeliveryAsync(NxtLateDeliveryRequestDto dto)
+    {
+        if (
+            string.IsNullOrWhiteSpace(dto.ItemCode)
+            || string.IsNullOrWhiteSpace(dto.SaleDate)
+            || string.IsNullOrWhiteSpace(dto.Branch)
+            || dto.Qty <= 0
+        )
+            throw new BadRequestException("Vui lòng nhập đủ mã giỏ, ngày Sapo bán, chi nhánh, số lượng.");
+
+        var code = NormalizeItemCode(dto.ItemCode);
+        var row = await _nxtRowRepo.SingleOrDefaultAsync(r =>
+            r.CloseDate == dto.SaleDate && r.Branch == dto.Branch && r.ItemCode == code
+        );
+        if (row == null)
+            throw new NotFoundException(
+                $"Không tìm thấy dòng ngày {dto.SaleDate} — mã {code} — chi nhánh {dto.Branch}."
+            );
+        if (row.SapoSold < dto.Qty)
+            throw new BadRequestException(
+                $"Sapo bán tại dòng này là {row.SapoSold}, không đủ {dto.Qty} để điều chỉnh."
+            );
+
+        await _nxtRowRepo.Update(row);
+        var prevAdj = row.Adjustment;
+        row.Adjustment += dto.Qty;
+        row.UpdatedAt = DateTime.UtcNow;
+
+        var userId = await ResolveUserIdAsync(dto.LoginCode);
+        var detail = $"{dto.SaleDate}|{code}:adjustment:{prevAdj}→{row.Adjustment}";
+        await _activityLogRepo.AddAsync(
+            new ActivityLog
+            {
+                UserId = userId,
+                StaffCode = dto.LoginCode,
+                Action = "Giao hàng trễ",
+                TableName = "nxt_rows",
+                CreatedAt = DateTime.UtcNow,
+                NewData = JsonSerializer.Serialize(
+                    new
+                    {
+                        closeDate = dto.SaleDate,
+                        branch = dto.Branch,
+                        source = "adjustment",
+                        wrongCode = code,
+                        rightCode = code,
+                        qty = dto.Qty,
+                        note = dto.Note ?? "",
+                        userName = dto.UserName ?? "",
+                        status = "Đã áp dụng",
+                        detail,
+                        deliveryDate = dto.DeliveryDate ?? "",
+                    }
+                ),
+            }
+        );
+        await _uow.SaveChangesAsync();
+
+        return new NxtLateDeliveryResultDto
+        {
+            Message =
+                $"Đã cộng +{dto.Qty} vào Điều chỉnh ngày {dto.SaleDate} — mã {code} / {dto.Branch}. Lệch ngày đó đã được xóa.",
+            Detail = detail,
+        };
+    }
+
     // ─── ROLLBACK (Nhật ký / Lịch sử điều chỉnh) port ───
     // Khác JS: rollbackLog cũ chạy 2 giai đoạn từ client (lưu batch → xóa log riêng, có thể fail
     // giữa chừng để lại dữ liệu đã đảo ngược nhưng log vẫn còn). Ở đây gộp thành 1 transaction
@@ -1918,6 +1989,24 @@ public class NxtApplyWrongCodeRequestDto
 }
 
 public class NxtApplyWrongCodeResultDto
+{
+    public string Detail { get; set; } = "";
+    public string Message { get; set; } = "";
+}
+
+public class NxtLateDeliveryRequestDto
+{
+    public string ItemCode { get; set; } = "";
+    public string SaleDate { get; set; } = "";    // DD/MM/YYYY — ngày Sapo ghi nhận bán
+    public string? DeliveryDate { get; set; }     // DD/MM/YYYY — ngày giao thật (chỉ để log)
+    public string Branch { get; set; } = "";
+    public decimal Qty { get; set; }
+    public string? Note { get; set; }
+    public string? LoginCode { get; set; }
+    public string? UserName { get; set; }
+}
+
+public class NxtLateDeliveryResultDto
 {
     public string Detail { get; set; } = "";
     public string Message { get; set; } = "";

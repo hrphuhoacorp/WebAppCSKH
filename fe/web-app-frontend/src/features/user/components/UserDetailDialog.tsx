@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { userApi } from '../api/user.api';
-import { Box, Dialog, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, Typography, IconButton, Grid, Paper, Divider, alpha, TableContainer } from '@mui/material';
+import { Box, Dialog, DialogContent, DialogTitle, Table, TableBody, TableCell, TableHead, TableRow, Typography, IconButton, Grid, Paper, Divider, alpha, TableContainer, TextField, Button, Tooltip } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/Check';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { sidebarMenu } from '../../../components/layout/sidebar-menu';
 import toast from 'react-hot-toast';
@@ -11,6 +13,9 @@ import toast from 'react-hot-toast';
 function UserDetailDialog({ open, userId, onClose }: any) {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [editingZalo, setEditingZalo] = useState(false);
+    const [zaloInput, setZaloInput] = useState('');
+    const [zaloSaving, setZaloSaving] = useState(false);
 
     useEffect(() => {
         if (!open || !userId) {
@@ -35,6 +40,20 @@ function UserDetailDialog({ open, userId, onClose }: any) {
 
         fetchUser();
     }, [open, userId]);
+
+    const handleSaveZaloId = async () => {
+        try {
+            setZaloSaving(true);
+            await userApi.setZaloUserId(userId, zaloInput.trim() || null);
+            setUser((u: any) => ({ ...u, zaloUserId: zaloInput.trim() || null }));
+            setEditingZalo(false);
+            toast.success('Đã cập nhật Zalo User ID');
+        } catch {
+            toast.error('Lỗi khi cập nhật Zalo User ID');
+        } finally {
+            setZaloSaving(false);
+        }
+    };
 
     const formatDate = (value?: string | null) => {
         if (!value) return '-';
@@ -88,6 +107,27 @@ function UserDetailDialog({ open, userId, onClose }: any) {
                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Vai trò</Typography>
                                     <Typography sx={{ fontWeight: 600, color: '#086839' }}>{user.roles?.length ? user.roles.map((item: any) => item.name).join(', ') : '-'}</Typography>
+                                </Grid>
+                                <Grid size={12}>
+                                    <Typography sx={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>Zalo User ID</Typography>
+                                    {!editingZalo ? (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Typography sx={{ fontWeight: 600, color: user.zaloUserId ? '#1e293b' : '#94a3b8', fontStyle: user.zaloUserId ? 'normal' : 'italic' }}>
+                                                {user.zaloUserId || 'Chưa gán'}
+                                            </Typography>
+                                            <Tooltip title="Chỉnh sửa Zalo User ID">
+                                                <IconButton size="small" onClick={() => { setZaloInput(user.zaloUserId || ''); setEditingZalo(true); }}>
+                                                    <EditIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
+                                            <TextField size="small" value={zaloInput} onChange={e => setZaloInput(e.target.value)} placeholder="Nhập Zalo User ID" sx={{ flex: 1 }} />
+                                            <Button size="small" variant="contained" color="success" onClick={handleSaveZaloId} disabled={zaloSaving} startIcon={<CheckIcon />}>Lưu</Button>
+                                            <Button size="small" onClick={() => setEditingZalo(false)}>Huỷ</Button>
+                                        </Box>
+                                    )}
                                 </Grid>
                             </Grid>
                         </Paper>

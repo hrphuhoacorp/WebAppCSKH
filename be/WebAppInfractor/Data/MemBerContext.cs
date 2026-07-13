@@ -90,6 +90,8 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<PersonaClassificationRun> PersonaClassificationRuns { get; set; }
     public virtual DbSet<PersonaCustomerInteraction> PersonaCustomerInteractions { get; set; }
     public virtual DbSet<PersonaCareSchedule> PersonaCareSchedules { get; set; }
+    public virtual DbSet<PersonaBusinessInvoiceImport> PersonaBusinessInvoiceImports { get; set; }
+    public virtual DbSet<CustomerBusinessInvoice> CustomerBusinessInvoices { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
@@ -221,6 +223,7 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.DayOfBirth).HasColumnName("day_of_birth");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
             entity.Property(e => e.ImportHistoryId).HasColumnName("import_history_id");
+            entity.Property(e => e.IsBusinessCustomer).HasDefaultValue(false).HasColumnName("is_business_customer");
             entity.Property(e => e.LastOrderAt).HasColumnName("last_order_at");
             entity.Property(e => e.Name).HasMaxLength(255).HasColumnName("name");
             entity.Property(e => e.Phone).HasMaxLength(20).HasColumnName("phone");
@@ -1500,6 +1503,38 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
+        });
+
+        modelBuilder.Entity<PersonaBusinessInvoiceImport>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("persona_business_invoice_imports_pkey");
+            entity.ToTable("persona_business_invoice_imports");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.FileName).HasMaxLength(255).HasColumnName("file_name");
+            entity.Property(e => e.ImportedBy).HasColumnName("imported_by");
+            entity.Property(e => e.ImportedAt).HasDefaultValueSql("now()").HasColumnName("imported_at");
+            entity.Property(e => e.TotalRows).HasDefaultValue(0).HasColumnName("total_rows");
+            entity.Property(e => e.MatchedRows).HasDefaultValue(0).HasColumnName("matched_rows");
+            entity.Property(e => e.UnmatchedRows).HasDefaultValue(0).HasColumnName("unmatched_rows");
+        });
+
+        modelBuilder.Entity<CustomerBusinessInvoice>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("customer_business_invoices_pkey");
+            entity.ToTable("customer_business_invoices");
+            entity.HasIndex(e => e.CustomerId).HasDatabaseName("idx_customer_business_invoices_customer_id");
+            entity.HasIndex(e => e.OrderId).IsUnique().HasDatabaseName("ux_customer_business_invoices_order_id");
+            entity.HasIndex(e => e.ImportBatchId).HasDatabaseName("idx_customer_business_invoices_import_batch_id");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.OrderId).HasColumnName("order_id");
+            entity.Property(e => e.OrderCode).HasMaxLength(50).HasColumnName("order_code");
+            entity.Property(e => e.InvoiceNumber).HasMaxLength(50).HasColumnName("invoice_number");
+            entity.Property(e => e.CompanyName).HasMaxLength(255).HasColumnName("company_name");
+            entity.Property(e => e.BuyerName).HasMaxLength(255).HasColumnName("buyer_name");
+            entity.Property(e => e.InvoiceDate).HasColumnName("invoice_date");
+            entity.Property(e => e.ImportBatchId).HasColumnName("import_batch_id");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
         });
 
         OnModelCreatingPartial(modelBuilder);

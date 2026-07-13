@@ -119,6 +119,7 @@ export default function CustomerPage() {
     const [pageSize, setPageSize] = useState(25);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [businessOnly, setBusinessOnly] = useState(false);
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [visibleColumns, setVisibleColumns] = useState<string[]>(
@@ -146,13 +147,14 @@ export default function CustomerPage() {
 
     const queryClient = useQueryClient();
     const { data: customersData, isFetching: loading } = useQuery({
-        queryKey: ['customers', page, pageSize, debouncedSearch],
+        queryKey: ['customers', page, pageSize, debouncedSearch, businessOnly],
         queryFn: async () => {
             try {
                 const response = await customerApi.getCustomers({
                     page: page + 1,
                     pageSize,
                     search: debouncedSearch || undefined,
+                    isBusiness: businessOnly || undefined,
                 });
                 return response.content;
             } catch (error: any) {
@@ -246,6 +248,30 @@ export default function CustomerPage() {
                         '& label.Mui-focused': { color: '#086839' },
                     }}
                 />
+
+                {/* Business customer filter toggle */}
+                <Box sx={{ display: 'flex', gap: 0.5, bgcolor: '#f1f5f9', borderRadius: '10px', p: 0.5 }}>
+                    <Chip
+                        label="Tất cả"
+                        onClick={() => { setBusinessOnly(false); setPage(0); }}
+                        sx={{
+                            fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+                            bgcolor: !businessOnly ? '#086839' : 'transparent',
+                            color: !businessOnly ? '#fff' : '#64748b',
+                            '&:hover': { bgcolor: !businessOnly ? '#065f2e' : '#e2e8f0' },
+                        }}
+                    />
+                    <Chip
+                        label="Doanh nghiệp"
+                        onClick={() => { setBusinessOnly(true); setPage(0); }}
+                        sx={{
+                            fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+                            bgcolor: businessOnly ? '#086839' : 'transparent',
+                            color: businessOnly ? '#fff' : '#64748b',
+                            '&:hover': { bgcolor: businessOnly ? '#065f2e' : '#e2e8f0' },
+                        }}
+                    />
+                </Box>
 
                 {/* Column toggle button */}
                 <Tooltip title="Tùy chỉnh cột hiển thị" arrow>
@@ -394,6 +420,20 @@ export default function CustomerPage() {
                                                 <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap' }}>
                                                     {customer.name}
                                                 </Typography>
+                                                {customer.isBusinessCustomer && (
+                                                    <Chip
+                                                        label="Doanh nghiệp"
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: alpha('#0ea5e9', 0.1),
+                                                            color: '#0284c7',
+                                                            fontWeight: 700,
+                                                            fontSize: 10.5,
+                                                            height: 20,
+                                                            border: `1px solid ${alpha('#0ea5e9', 0.25)}`,
+                                                        }}
+                                                    />
+                                                )}
                                             </Box>
                                         </TableCell>
                                     )}

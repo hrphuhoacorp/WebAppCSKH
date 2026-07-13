@@ -294,7 +294,7 @@ export default function TabComposeMail({ prefill, onClearPrefill }: TabComposeMa
             toast.success(res.message || 'Đã gửi email thành công');
             qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Gửi email thất bại');
+            toast.error(err?.response?.data?.Message || err?.response?.data?.message || 'Gửi email thất bại');
         } finally { setSending(false); }
     }
 

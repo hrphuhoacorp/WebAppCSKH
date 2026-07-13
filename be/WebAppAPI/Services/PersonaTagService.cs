@@ -559,6 +559,8 @@ public class PersonaTagService : IPersonaTagService
                     if (lunar.LookbackMonths <= 0)
                         throw new BadRequestException("Số tháng nhìn lại phải lớn hơn 0");
                     break;
+                case BusinessCustomerConditionDTO:
+                    break;
                 default:
                     throw new BadRequestException("Loại điều kiện không hợp lệ");
             }
@@ -579,6 +581,7 @@ public class PersonaTagService : IPersonaTagService
                 CategoryRevenueShareConditionDTO share => await EvaluateCategoryShareAsync(share),
                 OrderFrequencyConditionDTO freq => await EvaluateOrderFrequencyAsync(freq),
                 LunarDateRecurrenceConditionDTO lunar => await EvaluateLunarRecurrenceAsync(lunar),
+                BusinessCustomerConditionDTO => await EvaluateBusinessCustomerAsync(),
                 _ => new HashSet<int>(),
             };
             result = result == null ? matched : new HashSet<int>(result.Intersect(matched));
@@ -661,6 +664,15 @@ public class PersonaTagService : IPersonaTagService
         }
 
         return counts.Where(kv => kv.Value >= cond.MinOccurrences).Select(kv => kv.Key).ToHashSet();
+    }
+
+    private async Task<HashSet<int>> EvaluateBusinessCustomerAsync()
+    {
+        var ids = await _context.Set<Customer>().AsNoTracking()
+            .Where(c => c.DeletedAt == null && c.IsBusinessCustomer)
+            .Select(c => c.Id)
+            .ToListAsync();
+        return ids.ToHashSet();
     }
 
     private static int CircularDayDistance(int a, int b)
