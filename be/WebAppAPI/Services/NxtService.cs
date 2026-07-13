@@ -165,7 +165,7 @@ public class NxtService : INxtService
         return sb.ToString().Normalize(NormalizationForm.FormC).Replace('đ', 'd').Replace('Đ', 'D');
     }
 
-    // ─── guessDiffReason — heuristic gợi ý nguyên nhân lệch, giữ NGUYÊN VĂN mọi câu tiếng Việt ───
+    // ─── guessDiffReason — heuristic gợi ý nguyên nhân lệch ───
     public static string GuessDiffReason(NxtRow r)
     {
         var diff = CalcDiff(r);
@@ -184,32 +184,34 @@ public class NxtService : INxtService
         var hasTransferNote = HasTransferNotes(r);
 
         if (Regex.IsMatch(code, "^(SON|TEMP|TMP)"))
-            hints.Add("Mã tạm/SON: kiểm đổi mã");
+            hints.Add("Mã tạm/SON — cần đổi sang mã chính thức trước khi đối chiếu");
 
         if (opening == 0 && sapo > 0 && giftIn == 0 && receive == 0)
-            hints.Add("Có bán nhưng không có tồn đầu/gói ra: kiểm mã bán hoặc thiếu tồn đầu");
+            hints.Add("Có bán nhưng không ghi tồn đầu/gói ra — kiểm tra lại mã bán hoặc bổ sung tồn đầu");
 
         if (actual > 0 && opening == 0 && giftIn == 0 && receive == 0)
-            hints.Add("Có tồn thực tế nhưng thiếu nguồn vào: kiểm tồn đầu/gói ra/nhận CN");
+            hints.Add("Có tồn thực tế nhưng không có nguồn vào — kiểm tra tồn đầu, gói ra, nhận CN");
 
         if (CalcExpectedStock(r) < 0 && transfer > 0)
-            hints.Add("Chuyển CN thiếu nguồn: kiểm tồn đầu/gói ra/nhận CN");
+            hints.Add("Chuyển CN vượt quá nguồn có — kiểm tra tồn đầu, gói ra, nhận CN");
         else if (hasTransferNote || transfer != 0 || receive != 0)
-            hints.Add("Có luân chuyển: đối chiếu gửi/nhận CN");
+            hints.Add("Có luân chuyển giữa chi nhánh — đối chiếu lại gửi/nhận CN");
 
         if (diff > 0 && giftIn == 0 && receive == 0 && opening == 0)
-            hints.Add("Dư: hay thiếu Gói ra hoặc Nhận CN");
+            hints.Add("Dư hàng — kiểm tra có bỏ sót Gói ra hoặc Nhận CN chưa ghi nhận");
 
         if (diff < 0 && sapo == 0 && cancel == 0 && transfer == 0)
-            hints.Add("Thiếu: kiểm Sapo bán, Hủy giỏ hoặc Chuyển CN");
+            hints.Add("Thiếu hàng — kiểm tra Sapo bán, Hủy giỏ, Chuyển CN");
 
         if (sapo > 0 && actual > 0 && dtt == 0)
-            hints.Add("Bán rồi vẫn còn tại quầy: nếu đã thanh toán/chưa lấy thì gắn DTT");
+            hints.Add("Đã bán nhưng vẫn còn tại quầy — nếu khách đã thanh toán chưa lấy hàng, gắn trạng thái DTT");
 
         if (hints.Count == 0)
-            hints.Add(diff > 0 ? "Dư nhẹ: kiểm nguồn vào" : "Thiếu nhẹ: kiểm nguồn ra");
+            hints.Add(diff > 0
+                ? "Dư hàng chưa rõ nguyên nhân — kiểm tra lại tồn đầu, gói ra, nhận CN"
+                : "Thiếu hàng chưa rõ nguyên nhân — kiểm tra lại Sapo bán, hủy giỏ, chuyển CN");
 
-        return string.Join(" · ", hints.Take(2)) + " — app chỉ nghi thôi 😄";
+        return string.Join(" · ", hints.Take(2));
     }
 
     // ─── displayToIso / addDaysToDisplayDate — format DD/MM/YYYY <-> ISO ───

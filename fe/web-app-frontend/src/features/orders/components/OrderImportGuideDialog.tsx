@@ -65,7 +65,7 @@ const SECTIONS: { title: string; open?: boolean; body: string }[] = [
       Dòng số lượng âm (hoàn trả) được xử lý riêng và tự động gắn trạng thái <b>"Hoàn trả"</b>.
     ` },
     {
-        title: '3. Tự động tạo dữ liệu giỏ quà (SKU 200 & 600)', body: `
+        title: '3. Tự động tạo dữ liệu giỏ quà & đồng bộ Kiểm giỏ quà (SKU 200 & 600)', body: `
       Khi import đơn hàng, hệ thống tự sinh <b>dữ liệu bán hàng giỏ quà</b> cho dashboard Giỏ Quà — không cần nạp file Sapo riêng nữa.
       ${guideTable([
             ['SKU bắt đầu 200', 'Giỏ mẫu sẵn có. Hệ thống trích mã giỏ từ <b>Tên sản phẩm</b> (tìm pattern GN..., H..., AT..., GT...). Nếu không tìm thấy → dùng SKU làm mã.'],
@@ -73,7 +73,8 @@ const SECTIONS: { title: string; open?: boolean; body: string }[] = [
             ['SKU khác', 'Bỏ qua, không tạo dữ liệu giỏ quà.'],
       ])}
       Các dòng cùng ngày + chi nhánh + SKU + mã giỏ sẽ được <b>cộng dồn</b> (không tạo nhiều dòng thừa).<br/>
-      Dữ liệu này cũng liên kết với batch import — khi <b>rollback</b> đơn hàng, phần dữ liệu giỏ quà tương ứng sẽ bị xóa cùng.
+      Dữ liệu này cũng liên kết với batch import — khi <b>rollback</b> đơn hàng, phần dữ liệu giỏ quà tương ứng sẽ bị xóa cùng.<br/><br/>
+      <b>Đồng bộ sang trang Xuất Nhập Tồn (Kiểm giỏ quà):</b> ngay sau khi sinh xong dữ liệu giỏ quà ở trên, hệ thống tự động cập nhật cột <b>Sapo bán</b> trên trang Kiểm giỏ quà cho đúng ngày/chi nhánh/mã giỏ bị ảnh hưởng — không cần thao tác gì thêm ở trang đó.
     ` },
     {
         title: '4. Rollback & khôi phục', body: `
@@ -82,7 +83,7 @@ const SECTIONS: { title: string; open?: boolean; body: string }[] = [
             ['Rollback', 'Xóa toàn bộ đơn hàng, khách hàng mới, và dữ liệu giỏ quà được tạo từ batch đó. Không thể rollback 1 phần.'],
             ['Khôi phục', 'Hoàn tác rollback — phục hồi lại header đơn hàng và khách hàng. <b>Lưu ý:</b> chi tiết sản phẩm (OrderItems) và dữ liệu giỏ quà đã bị xóa cứng khi rollback — khôi phục <b>không thể phục hồi</b> 2 phần này.'],
       ])}
-      <b>Lưu ý:</b> rollback chỉ ảnh hưởng đơn hàng tạo từ batch đó. Khách hàng đã tồn tại trước khi import sẽ không bị xóa (chỉ doanh thu của họ được điều chỉnh lại).
+      <b>Lưu ý:</b> rollback chỉ ảnh hưởng đơn hàng tạo từ batch đó. Khách hàng đã tồn tại trước khi import sẽ không bị xóa (chỉ doanh thu của họ được điều chỉnh lại). Cột <b>Sapo bán</b> trên trang Kiểm giỏ quà cũng được tính lại theo đúng dữ liệu còn lại sau rollback/khôi phục.
     ` },
     {
         title: '5. Xem lịch sử nhập file', body: `
