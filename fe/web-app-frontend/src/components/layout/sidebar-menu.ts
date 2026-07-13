@@ -20,6 +20,8 @@ import {
     Newspaper,
     ScanSearch,
     FolderOpen,
+    Tags,
+    Scale,
 } from 'lucide-react';
 import React from 'react';
 
@@ -60,6 +62,12 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/customer_care/customers',
                 icon: Users,
                 permissions: ['cskh.customer.view_list'],
+            },
+            {
+                title: 'Phân Loại & Chăm Sóc KH',
+                href: '/dashboard/customer_care/persona',
+                icon: Tags,
+                permissions: ['persona.dashboard.view'],
             },
         ],
     },
@@ -189,6 +197,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Kiểm Tra Mã Hàng Sapo',
                 href: '/dashboard/tools/sapo_checker',
                 icon: ScanSearch,
+            },
+            {
+                title: 'Đối Soát TCB × HĐDT',
+                href: '/dashboard/tools/bank_reconcile',
+                icon: Scale,
             },
         ],
     },

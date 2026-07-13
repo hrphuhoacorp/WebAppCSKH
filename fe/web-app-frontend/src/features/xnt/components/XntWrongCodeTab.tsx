@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-    Box, Button, Chip, IconButton, MenuItem, Paper, TextField, Typography,
+    Box, Button, Chip, IconButton, MenuItem, Paper, TablePagination, TextField, Typography,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import { RestartAltRounded, VisibilityRounded } from '@mui/icons-material';
@@ -107,12 +107,14 @@ export default function XntWrongCodeTab() {
     };
 
     // ── Lịch sử điều chỉnh ───────────────────────────────────────────────────
-    const [filterDateFrom, setFilterDateFrom] = useState('');
-    const [filterDateTo, setFilterDateTo] = useState('');
+    const [filterDateFrom, setFilterDateFrom] = useState(todayIso());
+    const [filterDateTo, setFilterDateTo] = useState(todayIso());
     const [filterBranch, setFilterBranch] = useState('Tất cả');
     const [filterType, setFilterType] = useState('all');
     const [filterUser, setFilterUser] = useState('');
     const [detailLog, setDetailLog] = useState<AdjustmentLog | null>(null);
+    const [logPage, setLogPage] = useState(0);
+    const LOG_PAGE_SIZE = 50;
 
     const logFilter: AdjustmentLogFilter = {
         branch: filterBranch !== 'Tất cả' ? filterBranch : undefined,
@@ -127,6 +129,7 @@ export default function XntWrongCodeTab() {
     });
     const logs = useMemo(() => logsQuery.data?.content ?? [], [logsQuery.data]);
     const typeOptions = useMemo(() => [...new Set(logs.map(l => l.type).filter(Boolean))], [logs]);
+    const pagedLogs = logs.slice(logPage * LOG_PAGE_SIZE, (logPage + 1) * LOG_PAGE_SIZE);
 
     const [rollingBackId, setRollingBackId] = useState<number | null>(null);
     const handleRollback = async (log: AdjustmentLog) => {
@@ -219,17 +222,17 @@ export default function XntWrongCodeTab() {
 
             <Typography sx={sectionTitleSx}>Lịch sử điều chỉnh</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(5,1fr)' }, gap: 1.5, mb: 1.75 }}>
-                <TextField label="Ngày đóng gói (từ)" type="date" size="small" onChange={e => setFilterDateFrom(e.target.value)} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
-                <TextField label="Ngày đóng gói (đến)" type="date" size="small" onChange={e => setFilterDateTo(e.target.value)} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
-                <TextField select label="Chi nhánh" size="small" value={filterBranch} onChange={e => setFilterBranch(e.target.value)} sx={fieldSx}>
+                <TextField label="Ngày đóng gói (từ)" type="date" size="small" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setLogPage(0); }} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label="Ngày đóng gói (đến)" type="date" size="small" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setLogPage(0); }} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField select label="Chi nhánh" size="small" value={filterBranch} onChange={e => { setFilterBranch(e.target.value); setLogPage(0); }} sx={fieldSx}>
                     <MenuItem value="Tất cả">Tất cả</MenuItem>
                     {BRANCHES.map(b => <MenuItem key={b} value={b}>{b}</MenuItem>)}
                 </TextField>
-                <TextField select label="Loại thao tác" size="small" value={filterType} onChange={e => setFilterType(e.target.value)} sx={fieldSx}>
+                <TextField select label="Loại thao tác" size="small" value={filterType} onChange={e => { setFilterType(e.target.value); setLogPage(0); }} sx={fieldSx}>
                     <MenuItem value="all">Tất cả loại</MenuItem>
                     {typeOptions.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </TextField>
-                <TextField label="User" placeholder="Tìm theo tên người thực hiện..." size="small" value={filterUser} onChange={e => setFilterUser(e.target.value)} sx={fieldSx} />
+                <TextField label="User" placeholder="Tìm theo tên người thực hiện..." size="small" value={filterUser} onChange={e => { setFilterUser(e.target.value); setLogPage(0); }} sx={fieldSx} />
             </Box>
 
             <TableContainer sx={{ ...tableContainerSx, maxHeight: 360 }}>
@@ -253,7 +256,7 @@ export default function XntWrongCodeTab() {
                     <TableBody>
                         {logs.length === 0 ? (
                             <TableRow><TableCell colSpan={canDelete ? 12 : 11} sx={{ textAlign: 'center', color: '#94a3b8', py: 3 }}>Chưa có điều chỉnh/đề xuất.</TableCell></TableRow>
-                        ) : logs.map((log, i) => (
+                        ) : pagedLogs.map((log, i) => (
                             <TableRow key={log.id} sx={zebraRowSx(i)}>
                                 <TableCell>
                                     <IconButton size="small" onClick={() => setDetailLog(log)} title="Xem chi tiết"
@@ -295,6 +298,16 @@ export default function XntWrongCodeTab() {
                     </TableBody>
                 </Table>
             </TableContainer>
+            <TablePagination
+                component="div"
+                count={logs.length}
+                page={logPage}
+                rowsPerPage={LOG_PAGE_SIZE}
+                rowsPerPageOptions={[LOG_PAGE_SIZE]}
+                onPageChange={(_, p) => setLogPage(p)}
+                labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
+                sx={{ borderTop: '1px solid #f1f5f9', '.MuiTablePagination-toolbar': { minHeight: 40, fontSize: 12 } }}
+            />
 
             <XntAdjustmentDetailDialog open={detailLog !== null} onClose={() => setDetailLog(null)} log={detailLog} />
         </Paper>
