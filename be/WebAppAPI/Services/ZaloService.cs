@@ -31,6 +31,7 @@ public class ZaloService : IZaloService
 {
     private readonly HttpClient _http;
     private readonly IConfiguration _cfg;
+    private readonly ILogger<ZaloService> _logger;
     private readonly string _tokenFilePath;
     private ZaloTokenInfo? _cached;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -38,10 +39,11 @@ public class ZaloService : IZaloService
     private string AppId => _cfg["Zalo:AppId"] ?? "";
     private string AppSecret => _cfg["Zalo:AppSecret"] ?? "";
 
-    public ZaloService(HttpClient http, IConfiguration cfg, IWebHostEnvironment env)
+    public ZaloService(HttpClient http, IConfiguration cfg, IWebHostEnvironment env, ILogger<ZaloService> logger)
     {
         _http = http;
         _cfg = cfg;
+        _logger = logger;
         _tokenFilePath = Path.Combine(env.ContentRootPath, _cfg["Zalo:TokenFilePath"] ?? "zalo-tokens.json");
         _cached = LoadFromFile();
     }
@@ -135,6 +137,7 @@ public class ZaloService : IZaloService
 
         var res = await _http.SendAsync(req);
         var json = await res.Content.ReadAsStringAsync();
+        _logger.LogInformation("Zalo SendOaMessage response: {Json}", json);
         var doc = JsonDocument.Parse(json);
         return doc.RootElement.TryGetProperty("error", out var e) && e.GetInt32() == 0;
     }
