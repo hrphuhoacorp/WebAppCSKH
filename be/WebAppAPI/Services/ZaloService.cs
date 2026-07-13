@@ -121,14 +121,13 @@ public class ZaloService : IZaloService
         var token = await GetValidTokenAsync();
         if (token == null) return false;
 
-        // Dùng promotion type — không cần 48h window, chỉ cần follower quan tâm OA
         var payload = new
         {
             recipient = new { user_id = userId },
             message = new { text }
         };
 
-        var req = new HttpRequestMessage(HttpMethod.Post, "https://openapi.zalo.me/v3.0/oa/message/promotion")
+        var req = new HttpRequestMessage(HttpMethod.Post, "https://openapi.zalo.me/v3.0/oa/message/cs")
         {
             Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
         };
