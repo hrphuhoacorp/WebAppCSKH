@@ -139,13 +139,15 @@ public class SapoService
     private static string ExtractGiftCodeFromName(string? name)
     {
         var s = NormalizeSapoCode(name);
+        // (?:-Z[A-Z]*)? — nhận "-Z" hoặc "-Z" kèm bất kỳ chữ nào theo sau (vd "-ZB"), tránh
+        // cắt mất chữ cuối như trước đây (bug thật: H1175-ZB bị cắt còn H1175-Z).
         var patterns = new[]
         {
-            @"(GN\d{1,4}[A-Z]?(?:-Z)?)",
-            @"(H\d{2,5}[A-Z]?(?:-Z)?)",
-            @"(AT\d{1,3}[A-Z]?(?:-Z)?)",
-            @"(GT\d{2,5}[A-Z]?(?:-Z)?)",
-            @"(BK\d{1,4}[A-Z]?(?:-Z)?)",
+            @"(GN\d{1,4}[A-Z]?(?:-Z[A-Z]*)?)",
+            @"(H\d{2,5}[A-Z]?(?:-Z[A-Z]*)?)",
+            @"(AT\d{1,3}[A-Z]?(?:-Z[A-Z]*)?)",
+            @"(GT\d{2,5}[A-Z]?(?:-Z[A-Z]*)?)",
+            @"(BK\d{1,4}[A-Z]?(?:-Z[A-Z]*)?)",
         };
         foreach (var p in patterns)
         {
@@ -264,7 +266,7 @@ public class SapoService
         );
         if (m.Success)
             return m.Groups[1].Value;
-        m = System.Text.RegularExpressions.Regex.Match(key, @"^((?:H|GN|GT|AT)\d{1,5})-Z$");
+        m = System.Text.RegularExpressions.Regex.Match(key, @"^((?:H|GN|GT|AT)\d{1,5})-Z[A-Z]*$");
         if (m.Success)
             return m.Groups[1].Value;
         return "";
@@ -791,10 +793,15 @@ public class SapoService
     // Chỉ xử lý SKU bắt đầu bằng 200 (giỏ mẫu) hoặc 600 (giỏ tự chọn).
     // Kết quả được group-by (ngày, chi nhánh, sku, sapoCode) rồi cộng qty/doanh thu.
     // Caller chịu trách nhiệm AddRangeAsync + SaveChangesAsync (để nằm trong cùng transaction).
-    // Đơn có "DỊCH VỤ ĐÓNG GÓI" trong cột Tên dịch vụ (ServiceName) nhưng không có SKU 600
-    // → giỏ tự chọn không có mã chuẩn; dùng mã đơn hàng làm định danh giống SKU 600.
-    private static bool IsPackagingServiceRow(string? serviceName) =>
-        RemoveDiacritics((serviceName ?? "").ToUpperInvariant()).Contains("DICH VU DONG GOI");
+    // Đơn có "DỊCH VỤ ĐÓNG GÓI" hoặc "DỊCH VỤ GÓI QUÀ" trong cột Tên dịch vụ (ServiceName)
+    // nhưng không có SKU 600 → giỏ tự chọn không có mã chuẩn; dùng mã đơn hàng làm định danh
+    // giống SKU 600. Trước đây chỉ nhận "đóng gói", bỏ sót đơn dùng tên "gói quà" — đơn đó
+    // không khớp Nhánh 1 (Sku rỗng) lẫn Nhánh 2, nên bị rớt hoàn toàn khỏi Sapo bán.
+    private static bool IsPackagingServiceRow(string? serviceName)
+    {
+        var normalized = RemoveDiacritics((serviceName ?? "").ToUpperInvariant());
+        return normalized.Contains("DICH VU DONG GOI") || normalized.Contains("DICH VU GOI QUA");
+    }
 
     public async Task<List<SapoSalesRow>> BuildRowsFromOrderItemsAsync(
         IEnumerable<SapoImportRowDTO> rows,
