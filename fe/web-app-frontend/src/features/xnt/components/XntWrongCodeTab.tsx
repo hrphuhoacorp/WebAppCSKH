@@ -5,7 +5,7 @@ import {
     Box, Button, Chip, IconButton, MenuItem, Paper, TablePagination, TextField, Typography,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
-import { RestartAltRounded, VisibilityRounded } from '@mui/icons-material';
+import { FilterAltOffRounded, FilterAltRounded, RestartAltRounded, VisibilityRounded } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/providers/AuthProviders';
@@ -19,6 +19,8 @@ import XntAdjustmentDetailDialog from './XntAdjustmentDetailDialog';
 
 const BRANCHES = ['Phú Lợi', 'Ngô Quyền', 'Lái Thiêu'];
 const ROLLBACK_TYPES = ['Nạp Gói ra', 'Nạp Hủy giỏ', 'Nạp Sapo', 'Nạp Tồn CN', 'Sửa SL'];
+
+type LogFilterDraft = { dateFrom: string; dateTo: string; branch: string; type: string; user: string };
 
 function isoToDisplay(isoDate: string): string {
     if (!isoDate) return '';
@@ -144,22 +146,41 @@ export default function XntWrongCodeTab() {
     };
 
     // ── Lịch sử điều chỉnh ───────────────────────────────────────────────────
-    const [filterDateFrom, setFilterDateFrom] = useState(todayIso());
-    const [filterDateTo, setFilterDateTo] = useState(todayIso());
-    const [filterBranch, setFilterBranch] = useState('Tất cả');
-    const [filterType, setFilterType] = useState('all');
-    const [filterUser, setFilterUser] = useState('');
+    // Bộ lọc: chỉnh tự do trong "logDraft", chỉ gọi API khi bấm Lọc — tránh gọi lại API
+    // mỗi lần đổi ngày/chi nhánh/loại, và nhất là mỗi lần gõ 1 ký tự vào ô User.
     const [detailLog, setDetailLog] = useState<AdjustmentLog | null>(null);
     const [logPage, setLogPage] = useState(0);
     const LOG_PAGE_SIZE = 50;
 
-    const logFilter: AdjustmentLogFilter = {
-        branch: filterBranch !== 'Tất cả' ? filterBranch : undefined,
-        type: filterType !== 'all' ? filterType : undefined,
-        user: filterUser.trim() || undefined,
-        dateFrom: filterDateFrom || undefined,
-        dateTo: filterDateTo || undefined,
+    const defaultLogDraft = (): LogFilterDraft => ({ dateFrom: todayIso(), dateTo: todayIso(), branch: 'Tất cả', type: 'all', user: '' });
+    const [logDraft, setLogDraft] = useState<LogFilterDraft>(defaultLogDraft);
+    const [logApplied, setLogApplied] = useState<LogFilterDraft>(defaultLogDraft);
+
+    const filterDateFrom = logDraft.dateFrom, filterDateTo = logDraft.dateTo, filterBranch = logDraft.branch, filterType = logDraft.type, filterUser = logDraft.user;
+    const setFilterDateFrom = (v: string) => setLogDraft(d => ({ ...d, dateFrom: v }));
+    const setFilterDateTo = (v: string) => setLogDraft(d => ({ ...d, dateTo: v }));
+    const setFilterBranch = (v: string) => setLogDraft(d => ({ ...d, branch: v }));
+    const setFilterType = (v: string) => setLogDraft(d => ({ ...d, type: v }));
+    const setFilterUser = (v: string) => setLogDraft(d => ({ ...d, user: v }));
+
+    const hasLogDraftChanges = JSON.stringify(logDraft) !== JSON.stringify(logApplied);
+    const isLogDefaultApplied = JSON.stringify(logApplied) === JSON.stringify(defaultLogDraft());
+
+    const applyLogFilter = () => { setLogApplied(logDraft); setLogPage(0); };
+    const clearLogFilter = () => {
+        const d = defaultLogDraft();
+        setLogDraft(d);
+        setLogApplied(d);
+        setLogPage(0);
     };
+
+    const logFilter: AdjustmentLogFilter = useMemo(() => ({
+        branch: logApplied.branch !== 'Tất cả' ? logApplied.branch : undefined,
+        type: logApplied.type !== 'all' ? logApplied.type : undefined,
+        user: logApplied.user.trim() || undefined,
+        dateFrom: logApplied.dateFrom || undefined,
+        dateTo: logApplied.dateTo || undefined,
+    }), [logApplied]);
     const logsQuery = useQuery({
         queryKey: ['xnt-adjustment-logs', logFilter],
         queryFn: () => xntApi.getAdjustmentLogs(logFilter),
@@ -297,18 +318,35 @@ export default function XntWrongCodeTab() {
             </Box>
 
             <Typography sx={sectionTitleSx}>Lịch sử điều chỉnh</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(5,1fr)' }, gap: 1.5, mb: 1.75 }}>
-                <TextField label="Ngày đóng gói (từ)" type="date" size="small" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setLogPage(0); }} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
-                <TextField label="Ngày đóng gói (đến)" type="date" size="small" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setLogPage(0); }} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
-                <TextField select label="Chi nhánh" size="small" value={filterBranch} onChange={e => { setFilterBranch(e.target.value); setLogPage(0); }} sx={fieldSx}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(5,1fr)' }, gap: 1.5, mb: 1.5 }}>
+                <TextField label="Ngày đóng gói (từ)" type="date" size="small" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label="Ngày đóng gói (đến)" type="date" size="small" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} sx={fieldSx} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField select label="Chi nhánh" size="small" value={filterBranch} onChange={e => setFilterBranch(e.target.value)} sx={fieldSx}>
                     <MenuItem value="Tất cả">Tất cả</MenuItem>
                     {BRANCHES.map(b => <MenuItem key={b} value={b}>{b}</MenuItem>)}
                 </TextField>
-                <TextField select label="Loại thao tác" size="small" value={filterType} onChange={e => { setFilterType(e.target.value); setLogPage(0); }} sx={fieldSx}>
+                <TextField select label="Loại thao tác" size="small" value={filterType} onChange={e => setFilterType(e.target.value)} sx={fieldSx}>
                     <MenuItem value="all">Tất cả loại</MenuItem>
                     {typeOptions.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </TextField>
-                <TextField label="User" placeholder="Tìm theo tên người thực hiện..." size="small" value={filterUser} onChange={e => { setFilterUser(e.target.value); setLogPage(0); }} sx={fieldSx} />
+                <TextField label="User" placeholder="Tìm theo tên người thực hiện..." size="small" value={filterUser}
+                    onChange={e => setFilterUser(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') applyLogFilter(); }}
+                    sx={fieldSx} />
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75 }}>
+                <Button variant="contained" size="small" startIcon={<FilterAltRounded />} sx={primaryBtnSx} onClick={applyLogFilter}>
+                    Lọc
+                </Button>
+                {!isLogDefaultApplied && (
+                    <Button variant="outlined" size="small" startIcon={<FilterAltOffRounded />} sx={ghostBtnSx} onClick={clearLogFilter}>
+                        Xóa lọc
+                    </Button>
+                )}
+                {hasLogDraftChanges && (
+                    <Typography sx={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>Có thay đổi chưa áp dụng — bấm Lọc để xem.</Typography>
+                )}
             </Box>
 
             <TableContainer sx={{ ...tableContainerSx, maxHeight: 360 }}>

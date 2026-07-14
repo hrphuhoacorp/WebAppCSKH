@@ -5,7 +5,7 @@ import {
     Box, Button, Checkbox, IconButton, MenuItem, Paper, TextField, Typography,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, alpha,
 } from '@mui/material';
-import { CloseRounded, DeleteOutlineRounded, EditRounded, FileDownloadRounded, SaveRounded } from '@mui/icons-material';
+import { CloseRounded, DeleteOutlineRounded, EditRounded, FileDownloadRounded, FilterAltOffRounded, FilterAltRounded, SaveRounded } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/providers/AuthProviders';
@@ -14,7 +14,7 @@ import { xntApi } from '../api/xnt.api';
 import type { XntInlineEditFields, XntOverviewFilter, XntOverviewRow } from '../schemas/xnt.schema';
 import {
     DiffChip, EmptyState, GREEN, StatCard, StockLabelChip,
-    cardSx, fieldSx, ghostBtnSx, hintBoxSx, sectionTitleSx, tableContainerSx, thLSx, thSx, warnBoxSx, zebraRowSx,
+    cardSx, fieldSx, ghostBtnSx, hintBoxSx, primaryBtnSx, sectionTitleSx, tableContainerSx, thLSx, thSx, warnBoxSx, zebraRowSx,
 } from '../styles';
 import XntCellHistoryDialog from './XntCellHistoryDialog';
 
@@ -100,20 +100,48 @@ const editInputSx = {
     '& .MuiOutlinedInput-root': { borderRadius: '8px' },
 } as const;
 
+type OverviewFilterDraft = { dateFrom: string; dateTo: string; branch: string; status: XntOverviewFilter['status'] };
+
+function defaultOverviewDraft(): OverviewFilterDraft {
+    return { dateFrom: todayIso(), dateTo: todayIso(), branch: 'Tất cả', status: 'all' };
+}
+
 export default function XntOverviewTab() {
     const queryClient = useQueryClient();
 
-    const [dateFrom, setDateFrom] = useState(todayIso());
-    const [dateTo, setDateTo] = useState(todayIso());
-    const [branch, setBranch] = useState('Tất cả');
-    const [status, setStatus] = useState<XntOverviewFilter['status']>('all');
+    // ── Bộ lọc: chỉnh tự do trong "draft", chỉ gọi API khi bấm Lọc (hoặc bấm nhanh
+    // từ thẻ "Ngày cần kiểm tra") — tránh gọi lại API mỗi lần đổi 1 ô lọc.
+    const [draft, setDraft] = useState<OverviewFilterDraft>(defaultOverviewDraft);
+    const [applied, setApplied] = useState<OverviewFilterDraft>(defaultOverviewDraft);
+
+    const dateFrom = draft.dateFrom, dateTo = draft.dateTo, branch = draft.branch, status = draft.status;
+    const setDateFrom = (v: string) => setDraft(d => ({ ...d, dateFrom: v }));
+    const setDateTo = (v: string) => setDraft(d => ({ ...d, dateTo: v }));
+    const setBranch = (v: string) => setDraft(d => ({ ...d, branch: v }));
+    const setStatus = (v: XntOverviewFilter['status']) => setDraft(d => ({ ...d, status: v }));
+
+    const hasDraftChanges = JSON.stringify(draft) !== JSON.stringify(applied);
+    const isDefaultApplied = JSON.stringify(applied) === JSON.stringify(defaultOverviewDraft());
+
+    const applyFilters = () => setApplied(draft);
+    const clearFilters = () => {
+        const d = defaultOverviewDraft();
+        setDraft(d);
+        setApplied(d);
+    };
+    // Bấm thẻ "Ngày cần kiểm tra" là 1 hành động điều hướng có chủ đích (không phải gõ lọc
+    // từng ký tự) — nên áp dụng lọc ngay, không chờ bấm Lọc.
+    const jumpToCheckDay = (next: OverviewFilterDraft) => {
+        setDraft(next);
+        setApplied(next);
+    };
 
     const filter: XntOverviewFilter = useMemo(() => ({
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        branch: branch !== 'Tất cả' ? branch : undefined,
-        status,
-    }), [dateFrom, dateTo, branch, status]);
+        dateFrom: applied.dateFrom || undefined,
+        dateTo: applied.dateTo || undefined,
+        branch: applied.branch !== 'Tất cả' ? applied.branch : undefined,
+        status: applied.status,
+    }), [applied]);
     const filterKey = JSON.stringify(filter);
 
     const rowsQuery = useQuery({
@@ -290,6 +318,20 @@ export default function XntOverviewTab() {
                 </TextField>
             </Box>
 
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Button variant="contained" size="small" startIcon={<FilterAltRounded />} sx={primaryBtnSx} onClick={applyFilters}>
+                    Lọc
+                </Button>
+                {!isDefaultApplied && (
+                    <Button variant="outlined" size="small" startIcon={<FilterAltOffRounded />} sx={ghostBtnSx} onClick={clearFilters}>
+                        Xóa lọc
+                    </Button>
+                )}
+                {hasDraftChanges && (
+                    <Typography sx={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>Có thay đổi chưa áp dụng — bấm Lọc để xem.</Typography>
+                )}
+            </Box>
+
             <Box sx={hintBoxSx}>Nguyên tắc dễ nhớ: so số giỏ đếm thực tế với số giỏ hệ thống đang tính là còn lại.</Box>
 
             {/* KPIs */}
@@ -327,7 +369,7 @@ export default function XntOverviewTab() {
                                             key={`${d.date}-${d.branch}`}
                                             component="button"
                                             type="button"
-                                            onClick={() => { setDateFrom(d.date.split('/').reverse().join('-')); setDateTo(d.date.split('/').reverse().join('-')); setBranch(d.branch); setStatus('diff'); }}
+                                            onClick={() => jumpToCheckDay({ dateFrom: d.date.split('/').reverse().join('-'), dateTo: d.date.split('/').reverse().join('-'), branch: d.branch, status: 'diff' })}
                                             sx={{
                                                 width: '100%', border: '1px solid #fde68a', bgcolor: '#fff', borderRadius: '10px',
                                                 p: '9px 12px', textAlign: 'left', cursor: 'pointer', color: '#78350f', fontFamily: 'inherit',
