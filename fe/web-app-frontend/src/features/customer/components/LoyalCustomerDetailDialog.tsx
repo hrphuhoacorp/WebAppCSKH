@@ -8,8 +8,21 @@ import {
 import { Close, ShoppingBag, TrendingUp, Schedule, Star } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { customerApi } from '@/features/customer/api/customer.api';
-import { LoyalCustomerDTO } from '@/features/customer/api/returnRate.api';
 import toast from 'react-hot-toast';
+
+export interface LoyalCustomerDTO {
+    id: number;
+    name: string;
+    customerCode: string;
+    phone?: string;
+    orderCount: number;
+    totalRevenue: number;
+    avgOrderValue: number;
+    avgDaysBetweenOrders: number;
+    lastOrderAt?: string;
+    firstOrderAt?: string;
+    daysSinceLastOrder: number;
+}
 
 const VND = (v: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);

@@ -10,10 +10,12 @@ import NotificationsActiveRoundedIcon from '@mui/icons-material/NotificationsAct
 import TagRoundedIcon from '@mui/icons-material/TagRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import { useAuth } from '@/providers/AuthProviders';
 import PageHeader from '@/components/common/PageHeader';
 import { GREEN, PAGE_BG, PAGE_BG_IMAGE } from '@/features/persona/styles';
 import PersonaOverviewTab from '@/features/persona/components/PersonaOverviewTab';
+import PersonaRetentionTab from '@/features/persona/components/PersonaRetentionTab';
 import PersonaAutoClassificationTab from '@/features/persona/components/PersonaAutoClassificationTab';
 import PersonaManualTagTab from '@/features/persona/components/PersonaManualTagTab';
 import PersonaInteractionTab from '@/features/persona/components/PersonaInteractionTab';
@@ -32,6 +34,11 @@ export default function PersonaPage() {
             key: 'overview', label: 'Tổng quan', icon: <DashboardRoundedIcon sx={{ fontSize: 16 }} />,
             permission: 'persona.dashboard.view',
             component: <PersonaOverviewTab />,
+        },
+        {
+            key: 'retention', label: 'Tỉ lệ quay lại', icon: <ReplayRoundedIcon sx={{ fontSize: 16 }} />,
+            permission: 'persona.dashboard.view',
+            component: <PersonaRetentionTab />,
         },
         {
             key: 'auto', label: 'Phân loại tự động', icon: <AutoAwesomeRoundedIcon sx={{ fontSize: 16 }} />,

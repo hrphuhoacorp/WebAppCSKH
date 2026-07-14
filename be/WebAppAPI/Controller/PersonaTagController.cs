@@ -83,9 +83,9 @@ namespace WebAppAPI.Controllers
         [RequirePermission("persona.assignment.manual")]
         [HttpGet("CustomersWithTags")]
         public async Task<ResponseValue<PagedResult<CustomerWithTagsDTO>>> GetCustomersWithTagsAsync(
-            [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
+            [FromQuery] string? search, [FromQuery] int? tagId, [FromQuery] bool? hasTag, [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
         {
-            var result = await _personaTagService.GetCustomersWithTagsAsync(search, page, pageSize);
+            var result = await _personaTagService.GetCustomersWithTagsAsync(search, tagId, hasTag, page, pageSize);
             return new ResponseValue<PagedResult<CustomerWithTagsDTO>>(result, "Lấy danh sách khách hàng thành công", StatusReponse.Success);
         }
 

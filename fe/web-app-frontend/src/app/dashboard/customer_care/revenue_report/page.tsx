@@ -23,8 +23,7 @@ import PageHeader from '@/components/common/PageHeader';
 import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import { messageReportApi } from '@/features/orders/api/messageReport.api';
-import LoyalCustomerDetailDialog from '@/features/customer/components/LoyalCustomerDetailDialog';
-import { LoyalCustomerDTO } from '@/features/customer/api/returnRate.api';
+import LoyalCustomerDetailDialog, { LoyalCustomerDTO } from '@/features/customer/components/LoyalCustomerDetailDialog';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 

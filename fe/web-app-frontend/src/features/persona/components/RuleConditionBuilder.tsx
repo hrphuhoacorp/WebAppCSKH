@@ -10,6 +10,10 @@ import PieChartRoundedIcon from '@mui/icons-material/PieChartRounded';
 import EventRepeatRoundedIcon from '@mui/icons-material/EventRepeatRounded';
 import NightsStayRoundedIcon from '@mui/icons-material/NightsStayRounded';
 import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded';
+import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
+import ShoppingBagRoundedIcon from '@mui/icons-material/ShoppingBagRounded';
+import HourglassBottomRoundedIcon from '@mui/icons-material/HourglassBottomRounded';
+import FiberNewRoundedIcon from '@mui/icons-material/FiberNewRounded';
 import { useQuery } from '@tanstack/react-query';
 import { personaApi, PersonaCondition, PersonaRuleConfig } from '../api/persona.api';
 import { BORDER, GREEN } from '../styles';
@@ -30,6 +34,14 @@ function defaultCondition(type: PersonaCondition['type']): PersonaCondition {
             return { type, lunarDays: [1, 15], windowDays: 2, minOccurrences: 3, lookbackMonths: 6 };
         case 'business_customer':
             return { type };
+        case 'total_revenue':
+            return { type, minRevenue: 5000000 };
+        case 'total_order_count':
+            return { type, minCount: 1, maxCount: null };
+        case 'days_since_last_order':
+            return { type, minDays: 90, maxDays: null };
+        case 'days_since_first_order':
+            return { type, maxDays: 30 };
     }
 }
 
@@ -38,6 +50,10 @@ const TYPE_LABELS: Record<PersonaCondition['type'], { label: string; icon: React
     order_frequency: { label: 'Tần suất đơn hàng', icon: <EventRepeatRoundedIcon sx={{ fontSize: 16 }} /> },
     lunar_date_recurrence: { label: 'Chu kỳ theo lịch âm', icon: <NightsStayRoundedIcon sx={{ fontSize: 16 }} /> },
     business_customer: { label: 'Là khách hàng doanh nghiệp', icon: <BusinessRoundedIcon sx={{ fontSize: 16 }} /> },
+    total_revenue: { label: 'Tổng doanh thu lũy kế', icon: <PaidRoundedIcon sx={{ fontSize: 16 }} /> },
+    total_order_count: { label: 'Tổng số đơn lũy kế', icon: <ShoppingBagRoundedIcon sx={{ fontSize: 16 }} /> },
+    days_since_last_order: { label: 'Số ngày từ đơn gần nhất', icon: <HourglassBottomRoundedIcon sx={{ fontSize: 16 }} /> },
+    days_since_first_order: { label: 'Số ngày từ đơn đầu tiên', icon: <FiberNewRoundedIcon sx={{ fontSize: 16 }} /> },
 };
 
 export default function RuleConditionBuilder({ initialConfig, onChange }: {
@@ -182,6 +198,54 @@ export default function RuleConditionBuilder({ initialConfig, onChange }: {
                                     Khớp khách hàng đã được đánh dấu &quot;khách hàng doanh nghiệp&quot; qua tab &quot;Nạp hóa đơn doanh nghiệp&quot;
                                     (có hóa đơn VAT khớp mã đơn hàng, cột &quot;Tên đơn vị&quot; khác rỗng). Không có tham số nào để chỉnh.
                                 </Typography>
+                            )}
+
+                            {cond.type === 'total_revenue' && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <TextField size="small" type="number" label="Tổng doanh thu tối thiểu (đ)" value={cond.minRevenue}
+                                        onChange={e => updateAt(i, { ...cond, minRevenue: Number(e.target.value) })}
+                                        sx={{ width: 240 }} />
+                                    <Typography sx={{ fontSize: 11.5, color: '#94a3b8' }}>Tính trên tổng doanh thu lũy kế toàn bộ lịch sử mua của khách (Customer.TotalRevenue).</Typography>
+                                </Box>
+                            )}
+
+                            {cond.type === 'total_order_count' && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                        <TextField size="small" type="number" label="Số đơn tối thiểu (lũy kế)" value={cond.minCount}
+                                            onChange={e => updateAt(i, { ...cond, minCount: Number(e.target.value) })}
+                                            sx={{ width: 200 }} />
+                                        <TextField size="small" type="number" label="Số đơn tối đa (tùy chọn)" value={cond.maxCount ?? ''}
+                                            onChange={e => updateAt(i, { ...cond, maxCount: e.target.value ? Number(e.target.value) : null })}
+                                            helperText="Để trống = không giới hạn trên" sx={{ width: 200 }} />
+                                    </Box>
+                                    <Typography sx={{ fontSize: 11.5, color: '#94a3b8' }}>Vd: tối thiểu 1, tối đa 1 → khách mới mua đúng 1 lần.</Typography>
+                                </Box>
+                            )}
+
+                            {cond.type === 'days_since_last_order' && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                        <TextField size="small" type="number" label="Ít nhất (ngày) chưa mua lại" value={cond.minDays}
+                                            onChange={e => updateAt(i, { ...cond, minDays: Number(e.target.value) })}
+                                            sx={{ width: 220 }} />
+                                        <TextField size="small" type="number" label="Tối đa (ngày, tùy chọn)" value={cond.maxDays ?? ''}
+                                            onChange={e => updateAt(i, { ...cond, maxDays: e.target.value ? Number(e.target.value) : null })}
+                                            helperText="Để trống = không giới hạn trên" sx={{ width: 220 }} />
+                                    </Box>
+                                    <Typography sx={{ fontSize: 11.5, color: '#94a3b8' }}>
+                                        Khớp khách có đơn gần nhất cách hiện tại trong khoảng [tối thiểu, tối đa] ngày. Vd 90-không giới hạn → &quot;lâu không quay lại&quot;; 60-180 → &quot;nguy cơ rời bỏ&quot;.
+                                    </Typography>
+                                </Box>
+                            )}
+
+                            {cond.type === 'days_since_first_order' && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <TextField size="small" type="number" label="Trong vòng (ngày) kể từ đơn đầu tiên" value={cond.maxDays}
+                                        onChange={e => updateAt(i, { ...cond, maxDays: Number(e.target.value) })}
+                                        sx={{ width: 260 }} />
+                                    <Typography sx={{ fontSize: 11.5, color: '#94a3b8' }}>Khớp khách có đơn ĐẦU TIÊN trong vòng số ngày này — dùng cho tag &quot;khách mới&quot;.</Typography>
+                                </Box>
                             )}
                         </Paper>
                     </Box>

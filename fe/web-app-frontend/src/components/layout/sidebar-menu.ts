@@ -1,4 +1,4 @@
-import { Checklist, CampaignRounded, TrendingUp } from '@mui/icons-material';
+import { Checklist, CampaignRounded } from '@mui/icons-material';
 import {
     LayoutDashboard,
     ShoppingCart,
@@ -22,6 +22,7 @@ import {
     FolderOpen,
     Tags,
     Scale,
+    BarChart2,
 } from 'lucide-react';
 import React from 'react';
 
@@ -69,6 +70,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 icon: Tags,
                 permissions: ['persona.dashboard.view'],
             },
+            {
+                title: 'Facebook Ads',
+                href: '/dashboard/marketing/facebook',
+                icon: BarChart2,
+            },
         ],
     },
     {
@@ -92,12 +98,6 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/sales/xnt',
                 icon: Import,
                 permissions: ['sales.nxt.view'],
-            },
-            {
-                title: 'Tỉ Lệ Quay Lại',
-                href: '/dashboard/sales/return_rate',
-                icon: TrendingUp,
-                permissions: ['cskh.customer.return_rate'],
             },
             {
                 title: 'Rà Soát Số Liệu',

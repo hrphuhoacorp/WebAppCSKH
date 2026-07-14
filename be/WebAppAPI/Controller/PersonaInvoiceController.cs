@@ -50,5 +50,13 @@ namespace WebAppAPI.Controllers
             var result = await _personaInvoiceService.GetBusinessCustomersAsync(search, page, pageSize);
             return new ResponseValue<PagedResult<BusinessCustomerDTO>>(result, "Lấy danh sách khách hàng doanh nghiệp thành công", StatusReponse.Success);
         }
+
+        [RequirePermission("persona.dashboard.view")]
+        [HttpDelete("BusinessCustomers/{customerId}")]
+        public async Task<ResponseValue<bool>> RemoveBusinessFlagAsync(int customerId)
+        {
+            await _personaInvoiceService.RemoveBusinessFlagAsync(CurrentUserId(), customerId);
+            return new ResponseValue<bool>(true, "Đã gỡ nhãn khách hàng doanh nghiệp", StatusReponse.Success);
+        }
     }
 }

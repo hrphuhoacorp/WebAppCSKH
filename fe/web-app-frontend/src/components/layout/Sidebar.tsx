@@ -57,19 +57,6 @@ export default function Sidebar() {
         setOpenGroups(next);
     };
 
-    const hoverGroup = (title: string) => {
-        const next: Record<string, boolean> = {};
-        sidebarMenu.forEach(g => {
-            next[g.title] = g.title === title || isGroupActive(g);
-        });
-        setOpenGroups(next);
-    };
-
-    const leaveGroup = (group: typeof sidebarMenu[0]) => {
-        if (!isGroupActive(group)) {
-            setOpenGroups(prev => ({ ...prev, [group.title]: false }));
-        }
-    };
 
     const handleLogout = async () => {
         try {
@@ -190,7 +177,6 @@ export default function Sidebar() {
                                     '&:hover': {
                                         background: 'rgba(255,255,255,0.07)',
                                         color: 'rgba(255,255,255,0.85)',
-                                        transform: 'translateX(2px)',
                                     },
                                 }}
                             >
@@ -213,11 +199,10 @@ export default function Sidebar() {
                     const GroupIcon = group.icon;
                     const groupBadgeCount = isOpen ? 0 : group.children.reduce((sum, c) => sum + getBadgeCount(c.href), 0);
                     return (
-                        <Box key={group.title} sx={{ mb: 0.5 }} onMouseLeave={() => leaveGroup(group)}>
+                        <Box key={group.title} sx={{ mb: 0.5 }}>
                             {/* Group Header Button */}
                             <ListItemButton
                                 onClick={() => toggleGroup(group.title)}
-                                onMouseEnter={() => hoverGroup(group.title)}
                                 sx={{
                                     borderRadius: 2.2,
                                     py: '10px',
@@ -229,7 +214,6 @@ export default function Sidebar() {
                                     '&:hover': {
                                         background: 'rgba(255,255,255,0.07)',
                                         color: 'rgba(255,255,255,0.85)',
-                                        transform: 'translateX(2px)',
                                     },
                                 }}
                             >
@@ -301,8 +285,7 @@ export default function Sidebar() {
                                                     '&:hover': {
                                                         background: 'rgba(255,255,255,0.07)',
                                                         color: 'rgba(255,255,255,0.85)',
-                                                        transform: 'translateX(2px)',
-                                                    },
+                                                                    },
                                                 }}
                                             >
                                                 {itemBadgeCount > 0 ? (

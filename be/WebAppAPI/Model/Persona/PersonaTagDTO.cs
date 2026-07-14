@@ -55,5 +55,18 @@ public class CustomerWithTagsDTO
     public string CustomerCode { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Phone { get; set; }
+    public decimal TotalRevenue { get; set; }
     public List<PersonaTagAssignmentDTO> Tags { get; set; } = new();
+    public List<CustomerSignatureCategoryDTO> Signature { get; set; } = new();
+}
+
+// "Chữ ký" mua hàng của khách — top 3 nhóm hàng (OrderItem.Category) theo doanh thu, dùng để
+// nhận diện nhanh khách này thường mua gì mà không cần mở từng đơn hàng ra xem. Nền tảng cho
+// hướng phát triển sau này: ghép với dữ liệu chiến dịch marketing để gợi ý danh sách liên hệ
+// theo đúng sở thích, hoặc gợi ý ưu đãi phù hợp cho khách lâu không quay lại.
+public class CustomerSignatureCategoryDTO
+{
+    public string Category { get; set; } = string.Empty;
+    public decimal Revenue { get; set; }
+    public double SharePercent { get; set; }
 }

@@ -18,6 +18,8 @@ public interface IPersonaCareService
     Task DeleteScheduleAsync(int userId, int id);
     Task<List<PersonaReminderDTO>> GetRemindersAsync(int daysAhead);
     Task<PersonaOverviewDTO> GetOverviewAsync();
+    Task<PersonaDashboardDTO> GetDashboardAsync();
+    Task<PersonaRetentionDTO> GetRetentionStatsAsync();
 }
 
 public class PersonaCareService : IPersonaCareService
@@ -410,6 +412,296 @@ public class PersonaCareService : IPersonaCareService
             OpenComplaints = openComplaints,
             UpcomingReminders7Days = upcomingReminders.Count,
             TagDistribution = tagDistribution,
+        };
+    }
+
+    // Thống kê toàn diện cho Tab Tổng quan — không riêng khách doanh nghiệp, bao quát tất cả
+    // chân dung. Doanh thu dùng Customer.TotalRevenue (tổng lũy kế đã có sẵn, nhất quán với
+    // các DTO khác trong module) — 1 khách giữ nhiều tag thì doanh thu của họ CỘNG VÀO MỖI tag
+    // (có chủ đích: đây là view "mỗi chân dung đóng góp bao nhiêu", không phải phân bổ độc quyền).
+    public async Task<PersonaDashboardDTO> GetDashboardAsync()
+    {
+        var now = DateTime.UtcNow.AddHours(7);
+        var cutoff = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var totalCustomers = await _context.Set<Customer>().CountAsync(c => c.DeletedAt == null);
+
+        var distinctAssignments = _context.Set<PersonaTagAssignment>().AsNoTracking()
+            .Where(a => a.IsActive)
+            .Select(a => new { a.TagId, a.CustomerId })
+            .Distinct();
+
+        var taggedCustomerIds = distinctAssignments.Select(a => a.CustomerId).Distinct();
+        var taggedCustomerCount = await taggedCustomerIds.CountAsync();
+
+        var activeCustomers = _context.Set<Customer>().AsNoTracking().Where(c => c.DeletedAt == null);
+
+        var totalRevenue = await activeCustomers.SumAsync(c => c.TotalRevenue);
+        var taggedRevenue = await activeCustomers.Where(c => taggedCustomerIds.Contains(c.Id)).SumAsync(c => c.TotalRevenue);
+        var businessCustomers = await activeCustomers.CountAsync(c => c.IsBusinessCustomer);
+        var businessRevenue = await activeCustomers.Where(c => c.IsBusinessCustomer).SumAsync(c => c.TotalRevenue);
+
+        var openComplaints = await _context.Set<PersonaCustomerInteraction>().AsNoTracking()
+            .CountAsync(i => i.DeletedAt == null && i.Type == "complaint" && i.ComplaintStatus != "resolved");
+        var upcomingReminders = await GetRemindersAsync(7);
+
+        var newTaggedThisMonth = await _context.Set<PersonaTagAssignment>().AsNoTracking()
+            .Where(a => a.IsActive && a.AssignedAt >= monthStart)
+            .Select(a => a.CustomerId)
+            .Distinct()
+            .CountAsync();
+
+        // ── Doanh thu theo từng chân dung ──
+        var tagRevenueRaw = await distinctAssignments
+            .Join(activeCustomers, a => a.CustomerId, c => c.Id, (a, c) => new { a.TagId, c.TotalRevenue })
+            .GroupBy(x => x.TagId)
+            .Select(g => new { TagId = g.Key, CustomerCount = g.Count(), Revenue = g.Sum(x => x.TotalRevenue) })
+            .ToListAsync();
+
+        var tagMeta = await _context.Set<PersonaTag>().AsNoTracking()
+            .Where(t => t.DeletedAt == null)
+            .ToDictionaryAsync(t => t.Id, t => new { t.Name, t.Color });
+
+        var tagStats = tagRevenueRaw
+            .Where(x => tagMeta.ContainsKey(x.TagId))
+            .Select(x => new PersonaTagStatsDTO
+            {
+                TagId = x.TagId,
+                TagName = tagMeta[x.TagId].Name,
+                TagColor = tagMeta[x.TagId].Color,
+                CustomerCount = x.CustomerCount,
+                TotalRevenue = x.Revenue,
+                AvgRevenuePerCustomer = x.CustomerCount > 0 ? x.Revenue / x.CustomerCount : 0,
+                RevenueSharePercent = totalRevenue > 0 ? (double)(x.Revenue / totalRevenue) * 100 : 0,
+            })
+            .OrderByDescending(t => t.TotalRevenue)
+            .ToList();
+
+        // ── Doanh thu theo tháng (12 tháng gần nhất, toàn hệ thống) ──
+        var monthlyRaw = await _context.Set<Order>().AsNoTracking()
+            .Where(o => o.DeletedAt == null && o.PurchaseDate >= cutoff)
+            .GroupBy(o => new { o.PurchaseDate.Year, o.PurchaseDate.Month })
+            .Select(g => new { g.Key.Year, g.Key.Month, Revenue = g.Sum(o => o.Revenue) })
+            .ToListAsync();
+
+        var months = Enumerable.Range(0, 12)
+            .Select(i => cutoff.AddMonths(i))
+            .Select(d => (d.Year, d.Month))
+            .ToList();
+
+        var monthlyRevenue = months.Select(m =>
+        {
+            var match = monthlyRaw.FirstOrDefault(x => x.Year == m.Year && x.Month == m.Month);
+            return new PersonaMonthlyRevenueDTO { Month = $"{m.Year:0000}-{m.Month:00}", TotalRevenue = match?.Revenue ?? 0 };
+        }).ToList();
+
+        // ── Doanh thu theo tháng cho top 5 chân dung giá trị nhất ──
+        var top5TagIds = tagStats.Take(5).Select(t => t.TagId).ToList();
+        var tagMonthlyRaw = top5TagIds.Count == 0
+            ? new List<(int TagId, int Year, int Month, decimal Revenue)>()
+            : (await _context.Set<Order>().AsNoTracking()
+                .Where(o => o.DeletedAt == null && o.PurchaseDate >= cutoff && o.CustomerId != null)
+                .Join(distinctAssignments.Where(a => top5TagIds.Contains(a.TagId)), o => o.CustomerId!.Value, a => a.CustomerId,
+                    (o, a) => new { a.TagId, o.PurchaseDate.Year, o.PurchaseDate.Month, o.Revenue })
+                .GroupBy(x => new { x.TagId, x.Year, x.Month })
+                .Select(g => new { g.Key.TagId, g.Key.Year, g.Key.Month, Revenue = g.Sum(x => x.Revenue) })
+                .ToListAsync())
+                .Select(x => (x.TagId, x.Year, x.Month, x.Revenue)).ToList();
+
+        var topTagMonthlyRevenue = top5TagIds.Select(tagId => new PersonaTagMonthlySeriesDTO
+        {
+            TagId = tagId,
+            TagName = tagMeta[tagId].Name,
+            TagColor = tagMeta[tagId].Color,
+            Points = months.Select(m =>
+            {
+                var match = tagMonthlyRaw.FirstOrDefault(x => x.TagId == tagId && x.Year == m.Year && x.Month == m.Month);
+                return new PersonaMonthlyRevenueDTO { Month = $"{m.Year:0000}-{m.Month:00}", TotalRevenue = match.Revenue };
+            }).ToList(),
+        }).ToList();
+
+        // ── Top 20 khách hàng theo doanh thu ──
+        var topCustomers = await BuildTopCustomerListAsync(activeCustomers.OrderByDescending(c => c.TotalRevenue), 20);
+
+        // ── Top 10 nhóm hàng theo doanh thu (toàn thời gian) ──
+        var topCategories = await _context.Set<OrderItem>().AsNoTracking()
+            .Where(oi => oi.Order.DeletedAt == null && oi.Category != null && oi.Category != "")
+            .GroupBy(oi => oi.Category)
+            .Select(g => new PersonaCategoryStatsDTO { Category = g.Key!, TotalRevenue = g.Sum(oi => oi.Revenue) })
+            .OrderByDescending(x => x.TotalRevenue)
+            .Take(10)
+            .ToListAsync();
+
+        return new PersonaDashboardDTO
+        {
+            TotalCustomers = totalCustomers,
+            TaggedCustomers = taggedCustomerCount,
+            UntaggedCustomers = totalCustomers - taggedCustomerCount,
+            TotalRevenue = totalRevenue,
+            TaggedRevenue = taggedRevenue,
+            BusinessCustomers = businessCustomers,
+            BusinessRevenue = businessRevenue,
+            OpenComplaints = openComplaints,
+            UpcomingReminders7Days = upcomingReminders.Count,
+            NewTaggedCustomersThisMonth = newTaggedThisMonth,
+            TagStats = tagStats,
+            MonthlyRevenue = monthlyRevenue,
+            TopTagMonthlyRevenue = topTagMonthlyRevenue,
+            TopCustomers = topCustomers,
+            TopCategories = topCategories,
+        };
+    }
+
+    private async Task<List<PersonaTopCustomerDTO>> BuildTopCustomerListAsync(IQueryable<Customer> orderedQuery, int take)
+    {
+        var raw = await orderedQuery
+            .Take(take)
+            .Select(c => new { c.Id, c.CustomerCode, c.Name, c.Phone, c.TotalRevenue, c.TotalOrders, c.IsBusinessCustomer })
+            .ToListAsync();
+        var ids = raw.Select(c => c.Id).ToList();
+
+        var tagRows = await _context.Set<PersonaTagAssignment>().AsNoTracking()
+            .Where(a => a.IsActive && ids.Contains(a.CustomerId))
+            .Join(_context.Set<PersonaTag>(), a => a.TagId, t => t.Id, (a, t) => new { a.CustomerId, t.Name })
+            .ToListAsync();
+        var tagsByCustomer = tagRows.GroupBy(x => x.CustomerId).ToDictionary(g => g.Key, g => g.Select(x => x.Name).Distinct().ToList());
+
+        return raw.Select(c => new PersonaTopCustomerDTO
+        {
+            CustomerId = c.Id,
+            CustomerCode = c.CustomerCode,
+            Name = c.Name,
+            Phone = c.Phone,
+            TotalRevenue = c.TotalRevenue,
+            TotalOrders = c.TotalOrders,
+            IsBusinessCustomer = c.IsBusinessCustomer,
+            TagNames = tagsByCustomer.TryGetValue(c.Id, out var names) ? names : new List<string>(),
+        }).ToList();
+    }
+
+    // Gộp từ trang "Tỉ Lệ Quay Lại" (CustomerService.GetReturnRateStatsAsync, đã retire) — viết
+    // lại theo lối SQL-side: chỉ vật chất hoá (customerId, ngày mua) cho khách có ≥2 đơn thay vì
+    // load NGUYÊN bảng orders của MỌI khách như bản cũ, và group-by tháng ở SQL trước khi phân
+    // loại mới/quay lại trong bộ nhớ trên tập đã rút gọn (mỗi khách 1 dòng/tháng có phát sinh).
+    public async Task<PersonaRetentionDTO> GetRetentionStatsAsync()
+    {
+        var now = DateTime.UtcNow.AddHours(7);
+        var cutoff = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
+        var activeCustomers = _context.Set<Customer>().AsNoTracking().Where(c => c.DeletedAt == null);
+
+        // ── Tần suất mua (lũy kế toàn thời gian) ──
+        var frequency = new PersonaFrequencyDistributionDTO
+        {
+            Once = await activeCustomers.CountAsync(c => c.TotalOrders == 1),
+            TwoToThree = await activeCustomers.CountAsync(c => c.TotalOrders >= 2 && c.TotalOrders <= 3),
+            FourToTen = await activeCustomers.CountAsync(c => c.TotalOrders >= 4 && c.TotalOrders <= 10),
+            MoreThanTen = await activeCustomers.CountAsync(c => c.TotalOrders > 10),
+        };
+
+        // ── Mức độ "im ắng" theo LastOrderAt ──
+        var d30 = now.AddDays(-30);
+        var d60 = now.AddDays(-60);
+        var d90 = now.AddDays(-90);
+        var dormancy = new PersonaDormancySegmentsDTO
+        {
+            Active30 = await activeCustomers.CountAsync(c => c.LastOrderAt != null && c.LastOrderAt >= d30),
+            Dormant30To60 = await activeCustomers.CountAsync(c => c.LastOrderAt != null && c.LastOrderAt < d30 && c.LastOrderAt >= d60),
+            Dormant60To90 = await activeCustomers.CountAsync(c => c.LastOrderAt != null && c.LastOrderAt < d60 && c.LastOrderAt >= d90),
+            Dormant90Plus = await activeCustomers.CountAsync(c => c.LastOrderAt != null && c.LastOrderAt < d90),
+            NeverBought = await activeCustomers.CountAsync(c => c.LastOrderAt == null),
+        };
+
+        var d180 = now.AddDays(-180);
+        var atRiskCount = await activeCustomers.CountAsync(c => c.TotalOrders >= 2 && c.LastOrderAt != null && c.LastOrderAt < d60 && c.LastOrderAt >= d180);
+
+        // ── Xu hướng khách mới/quay lại theo tháng ──
+        var firstOrderByCustomer = await _context.Set<Order>().AsNoTracking()
+            .Where(o => o.DeletedAt == null && o.CustomerId != null)
+            .GroupBy(o => o.CustomerId!.Value)
+            .Select(g => new { CustomerId = g.Key, FirstOrderDate = g.Min(o => o.PurchaseDate) })
+            .ToListAsync();
+        var firstOrderMonthByCustomer = firstOrderByCustomer.ToDictionary(x => x.CustomerId, x => new DateTime(x.FirstOrderDate.Year, x.FirstOrderDate.Month, 1));
+
+        var monthlyOrdersRaw = await _context.Set<Order>().AsNoTracking()
+            .Where(o => o.DeletedAt == null && o.CustomerId != null && o.PurchaseDate >= cutoff)
+            .GroupBy(o => new { o.CustomerId, o.PurchaseDate.Year, o.PurchaseDate.Month })
+            .Select(g => new { CustomerId = g.Key.CustomerId!.Value, g.Key.Year, g.Key.Month, Revenue = g.Sum(o => o.Revenue) })
+            .ToListAsync();
+
+        var months = Enumerable.Range(0, 12).Select(i => cutoff.AddMonths(i)).Select(d => (d.Year, d.Month)).ToList();
+
+        var monthlyTrend = months.Select(m =>
+        {
+            var monthDate = new DateTime(m.Year, m.Month, 1);
+            var rowsInMonth = monthlyOrdersRaw.Where(x => x.Year == m.Year && x.Month == m.Month).ToList();
+            var newCustomers = 0;
+            var returningCustomers = 0;
+            decimal newRevenue = 0;
+            decimal returningRevenue = 0;
+
+            foreach (var r in rowsInMonth)
+            {
+                var isNew = firstOrderMonthByCustomer.TryGetValue(r.CustomerId, out var firstMonth) && firstMonth == monthDate;
+                if (isNew) { newCustomers++; newRevenue += r.Revenue; }
+                else { returningCustomers++; returningRevenue += r.Revenue; }
+            }
+
+            var totalActive = newCustomers + returningCustomers;
+            return new PersonaRetentionMonthDTO
+            {
+                Month = $"{m.Year:0000}-{m.Month:00}",
+                NewCustomers = newCustomers,
+                ReturningCustomers = returningCustomers,
+                ReturnRatePercent = totalActive > 0 ? (double)returningCustomers / totalActive * 100 : 0,
+                NewRevenue = newRevenue,
+                ReturningRevenue = returningRevenue,
+            };
+        }).ToList();
+
+        var avgReturnRate = monthlyTrend.Count > 0 ? monthlyTrend.Average(m => m.ReturnRatePercent) : 0;
+
+        // ── TB số ngày giữa các đơn / TB số ngày đến đơn thứ 2 (chỉ khách có ≥2 đơn) ──
+        var repeatCustomerIds = await activeCustomers.Where(c => c.TotalOrders >= 2).Select(c => c.Id).ToListAsync();
+        var avgDaysBetweenOrders = 0.0;
+        var avgDaysToSecondPurchase = 0.0;
+
+        if (repeatCustomerIds.Count > 0)
+        {
+            var repeatOrderDates = await _context.Set<Order>().AsNoTracking()
+                .Where(o => o.DeletedAt == null && o.CustomerId != null && repeatCustomerIds.Contains(o.CustomerId.Value))
+                .Select(o => new { CustomerId = o.CustomerId!.Value, o.PurchaseDate })
+                .ToListAsync();
+
+            var gaps = new List<double>();
+            var toSecond = new List<double>();
+            foreach (var g in repeatOrderDates.GroupBy(x => x.CustomerId))
+            {
+                var dates = g.Select(x => x.PurchaseDate).OrderBy(d => d).ToList();
+                if (dates.Count >= 2)
+                    toSecond.Add((dates[1] - dates[0]).TotalDays);
+                for (var i = 1; i < dates.Count; i++)
+                    gaps.Add((dates[i] - dates[i - 1]).TotalDays);
+            }
+
+            avgDaysBetweenOrders = gaps.Count > 0 ? gaps.Average() : 0;
+            avgDaysToSecondPurchase = toSecond.Count > 0 ? toSecond.Average() : 0;
+        }
+
+        // ── Top 20 khách hàng thân thiết (theo số đơn) ──
+        var topLoyalCustomers = await BuildTopCustomerListAsync(
+            activeCustomers.Where(c => c.TotalOrders > 1).OrderByDescending(c => c.TotalOrders).ThenByDescending(c => c.TotalRevenue), 20);
+
+        return new PersonaRetentionDTO
+        {
+            AvgReturnRatePercent = avgReturnRate,
+            AvgDaysBetweenOrders = avgDaysBetweenOrders,
+            AvgDaysToSecondPurchase = avgDaysToSecondPurchase,
+            AtRiskCount = atRiskCount,
+            MonthlyTrend = monthlyTrend,
+            FrequencyDistribution = frequency,
+            DormancySegments = dormancy,
+            TopLoyalCustomers = topLoyalCustomers,
         };
     }
 

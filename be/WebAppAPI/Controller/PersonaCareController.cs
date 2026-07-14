@@ -112,5 +112,21 @@ namespace WebAppAPI.Controllers
             var result = await _personaCareService.GetOverviewAsync();
             return new ResponseValue<PersonaOverviewDTO>(result, "Lấy tổng quan thành công", StatusReponse.Success);
         }
+
+        [RequirePermission("persona.dashboard.view")]
+        [HttpGet("Dashboard")]
+        public async Task<ResponseValue<PersonaDashboardDTO>> GetDashboardAsync()
+        {
+            var result = await _personaCareService.GetDashboardAsync();
+            return new ResponseValue<PersonaDashboardDTO>(result, "Lấy thống kê thành công", StatusReponse.Success);
+        }
+
+        [RequirePermission("persona.dashboard.view")]
+        [HttpGet("Retention")]
+        public async Task<ResponseValue<PersonaRetentionDTO>> GetRetentionStatsAsync()
+        {
+            var result = await _personaCareService.GetRetentionStatsAsync();
+            return new ResponseValue<PersonaRetentionDTO>(result, "Lấy thống kê quay lại thành công", StatusReponse.Success);
+        }
     }
 }

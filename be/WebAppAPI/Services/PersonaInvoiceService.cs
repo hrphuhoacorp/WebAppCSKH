@@ -14,6 +14,7 @@ public interface IPersonaInvoiceService
     Task<PersonaInvoiceImportResultDTO> ImportInvoicesAsync(IFormFile file, int userId);
     Task<PagedResult<PersonaInvoiceImportDTO>> GetImportsAsync(int page, int pageSize);
     Task<PagedResult<BusinessCustomerDTO>> GetBusinessCustomersAsync(string? search, int page, int pageSize);
+    Task RemoveBusinessFlagAsync(int userId, int customerId);
 }
 
 public class PersonaInvoiceService : IPersonaInvoiceService
@@ -274,6 +275,25 @@ public class PersonaInvoiceService : IPersonaInvoiceService
         }).ToList();
 
         return new PagedResult<BusinessCustomerDTO> { TotalItems = totalItems, Page = page, PageSize = pageSize, Items = items };
+    }
+
+    // Gỡ cờ khách hàng doanh nghiệp — dùng khi khớp sai (vd hóa đơn ghi tên công ty người mua hộ
+    // chứ không phải khách thật). KHÔNG xóa lịch sử customer_business_invoices (giữ audit trail);
+    // nếu file hóa đơn được nạp lại sau này và đơn hàng đó vẫn khớp, cờ sẽ tự bật lại — đây là
+    // hành vi có chủ đích (dữ liệu hóa đơn vẫn là nguồn sự thật, gỡ tay chỉ là ghi đè tạm thời).
+    public async Task RemoveBusinessFlagAsync(int userId, int customerId)
+    {
+        var customer = await _context.Set<Customer>().FirstOrDefaultAsync(c => c.Id == customerId && c.DeletedAt == null);
+        if (customer == null)
+            throw new NotFoundException("Không tìm thấy khách hàng");
+        if (!customer.IsBusinessCustomer)
+            throw new BadRequestException("Khách hàng này chưa được đánh dấu là khách hàng doanh nghiệp");
+
+        customer.IsBusinessCustomer = false;
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditLogService.SaveLogAsync(userId, null, "REMOVE_BUSINESS_CUSTOMER_FLAG", "customers", customer.Id, null,
+            new { customer.CustomerCode, customer.Name });
     }
 
     private class InvoiceColumnMap

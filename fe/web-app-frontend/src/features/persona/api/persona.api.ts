@@ -40,12 +40,20 @@ export interface PersonaTagAssignmentDto {
     assignedAt?: string | null;
 }
 
+export interface CustomerSignatureCategory {
+    category: string;
+    revenue: number;
+    sharePercent: number;
+}
+
 export interface CustomerWithTagsDto {
     id: number;
     customerCode: string;
     name: string;
     phone?: string | null;
+    totalRevenue: number;
     tags: PersonaTagAssignmentDto[];
+    signature: CustomerSignatureCategory[];
 }
 
 export interface PagedResult<T> {
@@ -81,11 +89,37 @@ export interface BusinessCustomerCondition {
     type: 'business_customer';
 }
 
+export interface TotalRevenueCondition {
+    type: 'total_revenue';
+    minRevenue: number;
+}
+
+export interface TotalOrderCountCondition {
+    type: 'total_order_count';
+    minCount: number;
+    maxCount?: number | null;
+}
+
+export interface DaysSinceLastOrderCondition {
+    type: 'days_since_last_order';
+    minDays: number;
+    maxDays?: number | null;
+}
+
+export interface DaysSinceFirstOrderCondition {
+    type: 'days_since_first_order';
+    maxDays: number;
+}
+
 export type PersonaCondition =
     | CategoryRevenueShareCondition
     | OrderFrequencyCondition
     | LunarDateRecurrenceCondition
-    | BusinessCustomerCondition;
+    | BusinessCustomerCondition
+    | TotalRevenueCondition
+    | TotalOrderCountCondition
+    | DaysSinceLastOrderCondition
+    | DaysSinceFirstOrderCondition;
 
 export interface PersonaRuleConfig {
     combinator: 'AND';
@@ -202,19 +236,95 @@ export interface PersonaReminderDto {
     alreadyContacted: boolean;
 }
 
-export interface PersonaTagDistribution {
+export interface PersonaTagStats {
+    tagId: number;
     tagName: string;
     tagColor: string;
-    count: number;
+    customerCount: number;
+    totalRevenue: number;
+    avgRevenuePerCustomer: number;
+    revenueSharePercent: number;
 }
 
-export interface PersonaOverview {
+export interface PersonaMonthlyRevenuePoint {
+    month: string;
+    totalRevenue: number;
+}
+
+export interface PersonaTagMonthlySeries {
+    tagId: number;
+    tagName: string;
+    tagColor: string;
+    points: PersonaMonthlyRevenuePoint[];
+}
+
+export interface PersonaTopCustomer {
+    customerId: number;
+    customerCode: string;
+    name: string;
+    phone?: string | null;
+    totalRevenue: number;
+    totalOrders: number;
+    isBusinessCustomer: boolean;
+    tagNames: string[];
+}
+
+export interface PersonaCategoryStats {
+    category: string;
+    totalRevenue: number;
+}
+
+export interface PersonaDashboard {
     totalCustomers: number;
     taggedCustomers: number;
     untaggedCustomers: number;
+    totalRevenue: number;
+    taggedRevenue: number;
+    businessCustomers: number;
+    businessRevenue: number;
     openComplaints: number;
     upcomingReminders7Days: number;
-    tagDistribution: PersonaTagDistribution[];
+    newTaggedCustomersThisMonth: number;
+    tagStats: PersonaTagStats[];
+    monthlyRevenue: PersonaMonthlyRevenuePoint[];
+    topTagMonthlyRevenue: PersonaTagMonthlySeries[];
+    topCustomers: PersonaTopCustomer[];
+    topCategories: PersonaCategoryStats[];
+}
+
+export interface PersonaRetentionMonth {
+    month: string;
+    newCustomers: number;
+    returningCustomers: number;
+    returnRatePercent: number;
+    newRevenue: number;
+    returningRevenue: number;
+}
+
+export interface PersonaFrequencyDistribution {
+    once: number;
+    twoToThree: number;
+    fourToTen: number;
+    moreThanTen: number;
+}
+
+export interface PersonaDormancySegments {
+    active30: number;
+    dormant30To60: number;
+    dormant60To90: number;
+    dormant90Plus: number;
+    neverBought: number;
+}
+
+export interface PersonaRetention {
+    avgReturnRatePercent: number;
+    avgDaysBetweenOrders: number;
+    avgDaysToSecondPurchase: number;
+    atRiskCount: number;
+    monthlyTrend: PersonaRetentionMonth[];
+    frequencyDistribution: PersonaFrequencyDistribution;
+    dormancySegments: PersonaDormancySegments;
+    topLoyalCustomers: PersonaTopCustomer[];
 }
 
 export interface PersonaInvoiceImportDto {
@@ -278,7 +388,7 @@ export const personaApi = {
         return res.data.content ?? [];
     },
 
-    getCustomersWithTags: async (params: { search?: string; page: number; pageSize: number }): Promise<PagedResult<CustomerWithTagsDto>> => {
+    getCustomersWithTags: async (params: { search?: string; tagId?: number; hasTag?: boolean; page: number; pageSize: number }): Promise<PagedResult<CustomerWithTagsDto>> => {
         const res = await api.get('/PersonaTag/CustomersWithTags', { params });
         return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
     },
@@ -368,8 +478,13 @@ export const personaApi = {
         return res.data.content ?? [];
     },
 
-    getOverview: async (): Promise<PersonaOverview> => {
-        const res = await api.get('/PersonaCare/Overview');
+    getDashboard: async (): Promise<PersonaDashboard> => {
+        const res = await api.get('/PersonaCare/Dashboard');
+        return res.data.content;
+    },
+
+    getRetentionStats: async (): Promise<PersonaRetention> => {
+        const res = await api.get('/PersonaCare/Retention');
         return res.data.content;
     },
 
@@ -390,5 +505,10 @@ export const personaApi = {
     getBusinessCustomers: async (params: { search?: string; page: number; pageSize: number }): Promise<PagedResult<BusinessCustomerDto>> => {
         const res = await api.get('/PersonaInvoice/BusinessCustomers', { params });
         return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
+    },
+
+    removeBusinessFlag: async (customerId: number): Promise<boolean> => {
+        const res = await api.delete(`/PersonaInvoice/BusinessCustomers/${customerId}`);
+        return res.data.content;
     },
 };

@@ -7,6 +7,10 @@ using System.Text.Json.Serialization;
 [JsonDerivedType(typeof(OrderFrequencyConditionDTO), "order_frequency")]
 [JsonDerivedType(typeof(LunarDateRecurrenceConditionDTO), "lunar_date_recurrence")]
 [JsonDerivedType(typeof(BusinessCustomerConditionDTO), "business_customer")]
+[JsonDerivedType(typeof(TotalRevenueConditionDTO), "total_revenue")]
+[JsonDerivedType(typeof(TotalOrderCountConditionDTO), "total_order_count")]
+[JsonDerivedType(typeof(DaysSinceLastOrderConditionDTO), "days_since_last_order")]
+[JsonDerivedType(typeof(DaysSinceFirstOrderConditionDTO), "days_since_first_order")]
 public abstract class PersonaConditionDTO
 {
 }
@@ -15,6 +19,35 @@ public abstract class PersonaConditionDTO
 // khớp được mã đơn hàng với "Tên đơn vị" khác rỗng). Xem PersonaInvoiceService.
 public class BusinessCustomerConditionDTO : PersonaConditionDTO
 {
+}
+
+// Khớp Customer.TotalRevenue (tổng doanh thu lũy kế) — dùng cho tag kiểu "khách VIP".
+public class TotalRevenueConditionDTO : PersonaConditionDTO
+{
+    public decimal MinRevenue { get; set; }
+}
+
+// Khớp Customer.TotalOrders (tổng số đơn lũy kế, không giới hạn thời gian) — MaxCount để trống
+// nghĩa là không giới hạn trên (vd MinCount=1,MaxCount=1 cho "khách mua 1 lần").
+public class TotalOrderCountConditionDTO : PersonaConditionDTO
+{
+    public int MinCount { get; set; }
+    public int? MaxCount { get; set; }
+}
+
+// Khách "im ắng" — đơn gần nhất (Customer.LastOrderAt) đã cách hiện tại ít nhất MinDays ngày.
+// MaxDays để trống = không giới hạn trên (vd MinDays=90 cho "lâu không quay lại"); có MaxDays
+// để giới hạn thành khoảng (vd 60-180 cho "nguy cơ rời bỏ" — đã lâu nhưng chưa hẳn mất hẳn).
+public class DaysSinceLastOrderConditionDTO : PersonaConditionDTO
+{
+    public int MinDays { get; set; }
+    public int? MaxDays { get; set; }
+}
+
+// Khách mới — đơn ĐẦU TIÊN (MIN(Order.PurchaseDate)) nằm trong vòng MaxDays ngày gần đây.
+public class DaysSinceFirstOrderConditionDTO : PersonaConditionDTO
+{
+    public int MaxDays { get; set; }
 }
 
 public class CategoryRevenueShareConditionDTO : PersonaConditionDTO

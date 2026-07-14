@@ -12,6 +12,7 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import PlayCircleFilledRoundedIcon from '@mui/icons-material/PlayCircleFilledRounded';
+import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { personaApi, PersonaTagDto } from '../api/persona.api';
@@ -20,6 +21,7 @@ import { usePermission } from '@/hooks/usePermission';
 import TagFormDialog, { TagFormValues } from './TagFormDialog';
 import TagRuleDialog from './TagRuleDialog';
 import RunHistoryDialog from './RunHistoryDialog';
+import TagCustomerListDialog from './TagCustomerListDialog';
 
 function errMessage(err: unknown, fallback: string): string {
     const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
@@ -34,6 +36,7 @@ export default function PersonaAutoClassificationTab() {
     const [deleteTarget, setDeleteTarget] = useState<PersonaTagDto | null>(null);
     const [ruleTarget, setRuleTarget] = useState<PersonaTagDto | null>(null);
     const [historyTarget, setHistoryTarget] = useState<PersonaTagDto | null>(null);
+    const [listTarget, setListTarget] = useState<PersonaTagDto | null>(null);
     const [runningAll, setRunningAll] = useState(false);
 
     const { data: tags = [], isLoading } = useQuery({ queryKey: ['persona-tags'], queryFn: personaApi.getTags });
@@ -153,8 +156,22 @@ export default function PersonaAutoClassificationTab() {
                                             <Typography sx={{ fontSize: 12, color: '#cbd5e1' }}>Chỉ gắn thủ công</Typography>
                                         )}
                                     </TableCell>
-                                    <TableCell align="right" sx={{ fontSize: 13, fontWeight: 700 }}>{tag.activeAssignmentCount}</TableCell>
                                     <TableCell align="right">
+                                        <Typography component="span" onClick={() => setListTarget(tag)}
+                                            sx={{
+                                                fontSize: 13, fontWeight: 700, cursor: 'pointer', color: GREEN,
+                                                '&:hover': { textDecoration: 'underline' },
+                                            }}>
+                                            {tag.activeAssignmentCount}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <Tooltip title="Danh sách khách hàng" arrow>
+                                            <IconButton size="small" onClick={() => setListTarget(tag)}
+                                                sx={{ border: `1px solid ${BORDER}`, borderRadius: '8px', mr: 0.5 }}>
+                                                <PeopleAltRoundedIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
                                         <Tooltip title="Luật tự động" arrow>
                                             <IconButton size="small" onClick={() => setRuleTarget(tag)}
                                                 sx={{ border: `1px solid ${BORDER}`, borderRadius: '8px', mr: 0.5 }}>
@@ -192,6 +209,8 @@ export default function PersonaAutoClassificationTab() {
             <TagRuleDialog open={!!ruleTarget} tag={ruleTarget} onClose={() => setRuleTarget(null)} onSaved={refresh} />
 
             <RunHistoryDialog open={!!historyTarget} tag={historyTarget} onClose={() => setHistoryTarget(null)} />
+
+            <TagCustomerListDialog open={!!listTarget} tag={listTarget} onClose={() => setListTarget(null)} />
 
             <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS } } }}>
                 <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Xóa tag &quot;{deleteTarget?.name}&quot;?</DialogTitle>
