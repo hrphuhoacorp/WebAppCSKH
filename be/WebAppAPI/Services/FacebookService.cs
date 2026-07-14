@@ -76,11 +76,15 @@ public class FacebookService : IFacebookService
     private string AdAccountId => _cfg["Facebook:AdAccountId"] ?? "";
     private const string BaseUrl = "https://graph.facebook.com/v19.0";
 
-    private const string InsightFields =
-        "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name," +
-        "spend,impressions,clicks,reach,unique_clicks,cpc,cpm,ctr,unique_ctr,frequency," +
-        "video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions," +
-        "actions,date_start";
+    private const string CommonInsightFields =
+        "spend,impressions,clicks,reach,cpc,cpm,ctr,frequency,date_start";
+
+    private static string GetInsightFields(string level) => level switch
+    {
+        "ad"    => "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name," + CommonInsightFields,
+        "adset" => "campaign_id,campaign_name,adset_id,adset_name," + CommonInsightFields,
+        _       => "campaign_id,campaign_name," + CommonInsightFields,
+    };
 
     public FacebookService(HttpClient http, IConfiguration cfg, ILogger<FacebookService> logger)
     {
@@ -115,7 +119,7 @@ public class FacebookService : IFacebookService
 
     public async Task<List<FbInsight>> GetInsightsAsync(string since, string until, string level = "campaign")
     {
-        var url = BuildInsightUrl(since, until, level, InsightFields, "");
+        var url = BuildInsightUrl(since, until, level, GetInsightFields(level), "");
         var root = await FetchAsync(url);
         if (root == null) return [];
 

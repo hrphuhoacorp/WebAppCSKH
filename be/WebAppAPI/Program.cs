@@ -269,6 +269,7 @@ builder.Services.AddScoped<IPersonalFileService, PersonalFileService>();
 builder.Services.AddScoped<IPersonaTagService, PersonaTagService>();
 builder.Services.AddScoped<IPersonaCareService, PersonaCareService>();
 builder.Services.AddScoped<IPersonaInvoiceService, PersonaInvoiceService>();
+builder.Services.AddScoped<IFbCampaignTagService, FbCampaignTagService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();

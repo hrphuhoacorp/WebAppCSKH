@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Models;
 using WebAppInfractor.Models.PersonalFiles;
 using WebAppInfractor.Models.Persona;
+using WebAppInfractor.Models.Marketing;
 using WebAppInfractor.Models.Reconciliation;
 using WebAppInfractor.Models.Recruitment;
 using WebAppInfractor.Models.Vpp;
@@ -92,6 +93,8 @@ public partial class MemBerContext : DbContext
     public virtual DbSet<PersonaCareSchedule> PersonaCareSchedules { get; set; }
     public virtual DbSet<PersonaBusinessInvoiceImport> PersonaBusinessInvoiceImports { get; set; }
     public virtual DbSet<CustomerBusinessInvoice> CustomerBusinessInvoices { get; set; }
+
+    public virtual DbSet<FbCampaignTag> FbCampaignTags { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
 
@@ -1535,6 +1538,25 @@ public partial class MemBerContext : DbContext
             entity.Property(e => e.InvoiceDate).HasColumnName("invoice_date");
             entity.Property(e => e.ImportBatchId).HasColumnName("import_batch_id");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<FbCampaignTag>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("fb_campaign_tags_pkey");
+            entity.ToTable("fb_campaign_tags");
+            entity.HasIndex(e => e.CampaignId).HasDatabaseName("idx_fb_campaign_tags_campaign_id");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CampaignId).HasMaxLength(50).HasColumnName("campaign_id");
+            entity.Property(e => e.CampaignName).HasMaxLength(255).HasColumnName("campaign_name");
+            entity.Property(e => e.CategoriesJson).HasColumnType("jsonb").HasColumnName("categories_json");
+            entity.Property(e => e.BranchIdsJson).HasColumnType("jsonb").HasColumnName("branch_ids_json");
+            entity.Property(e => e.DateFrom).HasColumnName("date_from");
+            entity.Property(e => e.DateTo).HasColumnName("date_to");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()").HasColumnName("updated_at");
+            entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
         });
 
         OnModelCreatingPartial(modelBuilder);
