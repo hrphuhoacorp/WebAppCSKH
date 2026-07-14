@@ -71,6 +71,8 @@ builder.Services.AddMemoryCache();
 
 // Zalo OA integration
 builder.Services.AddHttpClient<IZaloService, ZaloService>();
+// Facebook Marketing API
+builder.Services.AddHttpClient<IFacebookService, FacebookService>();
 
 //signalR
 builder.WebHost.ConfigureKestrel(options =>
