@@ -3,7 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { Box, Typography, CircularProgress, IconButton, InputBase, Pagination } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { newsApi } from '@/features/news/api/news.api';
+import LoadingOverlay from '@/components/common/LoadingOverlay';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
@@ -63,19 +65,17 @@ function HeroArticle({ item, onClick }: { item: NewsItem; onClick: () => void })
           '&:hover .hero-title': { color: '#86efac' },
         }}
       >
-        <Box
-          className="hero-img"
-          component="img"
-          src={item.thumbnailUrl}
-          alt={item.title}
-          sx={{
-            width: '100%',
-            height: { xs: 280, sm: 420, md: 560 },
-            objectFit: 'cover',
-            display: 'block',
-            transition: 'transform 0.8s cubic-bezier(0.4,0,0.2,1)',
-          }}
-        />
+        <Box sx={{ position: 'relative', width: '100%', height: { xs: 280, sm: 420, md: 560 }, overflow: 'hidden' }}>
+          <Image
+            className="hero-img"
+            src={item.thumbnailUrl}
+            alt={item.title}
+            fill
+            priority
+            sizes="100vw"
+            style={{ objectFit: 'cover', transition: 'transform 0.8s cubic-bezier(0.4,0,0.2,1)' }}
+          />
+        </Box>
         {/* Gradient overlay */}
         <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.02) 20%, rgba(0,0,0,0.82) 100%)' }} />
         {/* Text trên overlay */}
@@ -150,13 +150,16 @@ function ArticleCard({ item, onClick }: { item: NewsItem; onClick: () => void })
       {/* Ảnh */}
       <Box sx={{ overflow: 'hidden', borderRadius: '6px', mb: 2, bgcolor: '#f1f5f9' }}>
         {item.thumbnailUrl ? (
-          <Box
-            className="card-img"
-            component="img"
-            src={item.thumbnailUrl}
-            alt={item.title}
-            sx={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block', transition: 'transform 0.55s cubic-bezier(0.4,0,0.2,1)' }}
-          />
+          <Box sx={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
+            <Image
+              className="card-img"
+              src={item.thumbnailUrl}
+              alt={item.title}
+              fill
+              sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 33vw"
+              style={{ objectFit: 'cover', transition: 'transform 0.55s cubic-bezier(0.4,0,0.2,1)' }}
+            />
+          </Box>
         ) : (
           <Box sx={{
             width: '100%', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -212,13 +215,14 @@ function FeedItem({ item, onClick }: { item: NewsItem; onClick: () => void }) {
         <MetaRow item={item} />
       </Box>
       {item.thumbnailUrl && (
-        <Box sx={{ overflow: 'hidden', borderRadius: '6px', flexShrink: 0 }}>
-          <Box
+        <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '6px', flexShrink: 0, height: { xs: 72, md: 110 } }}>
+          <Image
             className="feed-img"
-            component="img"
-            src={item.thumbnailUrl}
+            src={item.thumbnailUrl!}
             alt={item.title}
-            sx={{ width: '100%', height: { xs: 72, md: 110 }, objectFit: 'cover', display: 'block', transition: 'transform 0.5s cubic-bezier(0.4,0,0.2,1)' }}
+            fill
+            sizes="(max-width: 768px) 90px, 160px"
+            style={{ objectFit: 'cover', transition: 'transform 0.5s cubic-bezier(0.4,0,0.2,1)' }}
           />
         </Box>
       )}
@@ -244,6 +248,7 @@ export default function HomePage() {
   const router = useRouter();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [navigating, setNavigating] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchParams = useSearchParams();
@@ -278,7 +283,7 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, [page, pageSize, debouncedSearch, category]);
 
-  const go = (item: NewsItem) => router.push(`/home/${item.id}`);
+  const go = (item: NewsItem) => { setNavigating(true); router.push(`/home/${item.id}`); };
   const isFiltering = category !== 'all' || debouncedSearch !== '';
   const today = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -297,6 +302,7 @@ export default function HomePage() {
 
   return (
     <>
+      <LoadingOverlay open={navigating} fullScreen text="Đang mở bài viết..." />
       {/* ── Masthead strip ── */}
       <Box sx={{
         px: { xs: 2.5, md: 5, lg: 8 },
