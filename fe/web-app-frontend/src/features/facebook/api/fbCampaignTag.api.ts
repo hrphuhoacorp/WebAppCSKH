@@ -62,6 +62,23 @@ export interface FbCampaignPerformance {
     costPerOrderInCategory?: number | null;
 }
 
+export interface TagCountDto { tagId: number; count: number; }
+export interface CampaignTagCountsDto {
+    periodCounts: TagCountDto[];
+    allTimeCounts: TagCountDto[];
+}
+
+export interface CareOpportunityCustomerDto {
+    id: number;
+    customerCode: string;
+    name: string;
+    phone?: string | null;
+    totalRevenue: number;
+    categoryAffinityRevenue: number;
+    daysSinceLastOrder: number;
+    signature: import('@/features/persona/api/persona.api').CustomerSignatureCategory[];
+}
+
 export const fbCampaignTagApi = {
     getTags: async (campaignId?: string): Promise<FbCampaignTagDto[]> => {
         const res = await api.get('/FbCampaignTag/Tags', { params: { campaignId } });
@@ -91,5 +108,15 @@ export const fbCampaignTagApi = {
     getMatchedCustomers: async (id: number, params: { personaTagId?: number; page: number; pageSize: number }): Promise<PagedResult<CustomerWithTagsDto>> => {
         const res = await api.get(`/FbCampaignTag/Tags/${id}/MatchedCustomers`, { params });
         return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
+    },
+
+    getCareOpportunities: async (id: number, params: { personaTagId?: number; minDays?: number; maxDays?: number; page: number; pageSize: number }): Promise<PagedResult<CareOpportunityCustomerDto>> => {
+        const res = await api.get(`/FbCampaignTag/Tags/${id}/CareOpportunities`, { params });
+        return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
+    },
+
+    getTagCounts: async (id: number): Promise<CampaignTagCountsDto> => {
+        const res = await api.get(`/FbCampaignTag/Tags/${id}/TagCounts`);
+        return res.data.content ?? { periodCounts: [], allTimeCounts: [] };
     },
 };

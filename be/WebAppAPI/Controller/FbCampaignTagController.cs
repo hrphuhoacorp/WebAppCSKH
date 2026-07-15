@@ -72,5 +72,23 @@ namespace WebAppAPI.Controllers
             var result = await _service.GetMatchedCustomersAsync(id, personaTagId, page, pageSize);
             return new ResponseValue<PagedResult<CustomerWithTagsDTO>>(result, "Lấy danh sách khách hàng phù hợp thành công", StatusReponse.Success);
         }
+
+        [RequirePermission("facebook.campaign_tag.view")]
+        [HttpGet("Tags/{id}/TagCounts")]
+        public async Task<ResponseValue<CampaignTagCountsDTO>> GetTagCountsAsync(int id)
+        {
+            var result = await _service.GetTagCountsAsync(id);
+            return new ResponseValue<CampaignTagCountsDTO>(result, "Lấy số lượng tag thành công", StatusReponse.Success);
+        }
+
+        [RequirePermission("facebook.campaign_tag.view")]
+        [HttpGet("Tags/{id}/CareOpportunities")]
+        public async Task<ResponseValue<PagedResult<CareOpportunityCustomerDTO>>> GetCareOpportunitiesAsync(
+            int id, [FromQuery] int? personaTagId, [FromQuery] int? minDays, [FromQuery] int? maxDays,
+            [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
+        {
+            var result = await _service.GetCareOpportunitiesAsync(id, personaTagId, page, pageSize, minDays, maxDays);
+            return new ResponseValue<PagedResult<CareOpportunityCustomerDTO>>(result, "Lấy cơ hội chăm sóc thành công", StatusReponse.Success);
+        }
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Data;
 using WebAppInfractor.Models;
 using WebAppInfractor.Models.Marketing;
+using WebAppInfractor.Models.Persona;
 
 public interface IFbCampaignTagService
 {
@@ -12,6 +13,8 @@ public interface IFbCampaignTagService
     Task DeleteTagAsync(int userId, int id);
     Task<FbCampaignPerformanceDTO> GetPerformanceAsync(int id);
     Task<PagedResult<CustomerWithTagsDTO>> GetMatchedCustomersAsync(int id, int? personaTagId, int page, int pageSize);
+    Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(int id, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null);
+    Task<CampaignTagCountsDTO> GetTagCountsAsync(int id);
 }
 
 public class FbCampaignTagService : IFbCampaignTagService
@@ -193,7 +196,55 @@ public class FbCampaignTagService : IFbCampaignTagService
 
         var categories = JsonSerializer.Deserialize<List<string>>(tag.CategoriesJson) ?? new();
         var branchIds = string.IsNullOrEmpty(tag.BranchIdsJson) ? null : JsonSerializer.Deserialize<List<int>>(tag.BranchIdsJson);
-        return await _personaTagService.GetCustomersByCategoryAffinityAsync(categories, branchIds, personaTagId, page, pageSize);
+        var periodTo = tag.DateTo.AddDays(1).AddTicks(-1);
+        return await _personaTagService.GetCustomersByCategoryAffinityAsync(categories, branchIds, personaTagId, page, pageSize, tag.DateFrom, periodTo);
+    }
+
+    public async Task<CampaignTagCountsDTO> GetTagCountsAsync(int id)
+    {
+        var tag = await _context.Set<FbCampaignTag>().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id && t.DeletedAt == null)
+            ?? throw new NotFoundException("Không tìm thấy nhãn chiến dịch");
+
+        var categories = JsonSerializer.Deserialize<List<string>>(tag.CategoriesJson) ?? new();
+        var branchIds = string.IsNullOrEmpty(tag.BranchIdsJson) ? null : JsonSerializer.Deserialize<List<int>>(tag.BranchIdsJson);
+        var hasBranchFilter = branchIds != null && branchIds.Count > 0;
+        var periodTo = tag.DateTo.AddDays(1).AddTicks(-1);
+
+        var baseItemQuery = _context.Set<OrderItem>().AsNoTracking()
+            .Where(oi => oi.Order.DeletedAt == null && oi.Order.CustomerId != null
+                && oi.Category != null && categories.Contains(oi.Category)
+                && (!hasBranchFilter || (oi.Order.BranchesId != null && branchIds!.Contains(oi.Order.BranchesId.Value))));
+
+        var periodCustomerIds = await baseItemQuery
+            .Where(oi => oi.Order.PurchaseDate >= tag.DateFrom && oi.Order.PurchaseDate <= periodTo)
+            .Select(oi => oi.Order.CustomerId!.Value).Distinct().ToListAsync();
+
+        var allTimeCustomerIds = await baseItemQuery
+            .Select(oi => oi.Order.CustomerId!.Value).Distinct().ToListAsync();
+
+        var periodCounts = await _context.Set<PersonaTagAssignment>().AsNoTracking()
+            .Where(a => a.IsActive && periodCustomerIds.Contains(a.CustomerId))
+            .GroupBy(a => a.TagId)
+            .Select(g => new TagCountDTO { TagId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var allTimeCounts = await _context.Set<PersonaTagAssignment>().AsNoTracking()
+            .Where(a => a.IsActive && allTimeCustomerIds.Contains(a.CustomerId))
+            .GroupBy(a => a.TagId)
+            .Select(g => new TagCountDTO { TagId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        return new CampaignTagCountsDTO { PeriodCounts = periodCounts, AllTimeCounts = allTimeCounts };
+    }
+
+    public async Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(int id, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null)
+    {
+        var tag = await _context.Set<FbCampaignTag>().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id && t.DeletedAt == null)
+            ?? throw new NotFoundException("Không tìm thấy nhãn chiến dịch");
+
+        var categories = JsonSerializer.Deserialize<List<string>>(tag.CategoriesJson) ?? new();
+        var branchIds = string.IsNullOrEmpty(tag.BranchIdsJson) ? null : JsonSerializer.Deserialize<List<int>>(tag.BranchIdsJson);
+        return await _personaTagService.GetCareOpportunitiesAsync(categories, branchIds, personaTagId, page, pageSize, minDays, maxDays);
     }
 
     private async Task<(int OrderCount, decimal Revenue, int CustomerCount)> AggregateCategoryOrdersAsync(List<string> categories, List<int>? branchIds, DateTime from, DateTime to)

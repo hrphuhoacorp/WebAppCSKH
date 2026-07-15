@@ -149,7 +149,9 @@ public class CustomerService : ICustomerService
             DayOfBirth = customer.DayOfBirth,
             IsBusinessCustomer = customer.IsBusinessCustomer,
             Orders = customer
-                .Orders.Select(o => new OrderDTO
+                .Orders.Where(o => o.DeletedAt == null)
+                .OrderByDescending(o => o.PurchaseDate)
+                .Select(o => new OrderDTO
                 {
                     Id = o.Id,
                     OrderCode = o.OrderCode,
@@ -173,6 +175,7 @@ public class CustomerService : ICustomerService
                             ProductName = oi.ProductName,
                             SKU = oi.Sku,
                             UnitPrice = oi.UnitPrice,
+                            Quantity = oi.Quantity,
                             ServiceName = oi.ServiceName,
                             Unit = oi.Unit,
                         })
@@ -274,6 +277,11 @@ public class CustomerService : ICustomerService
         try
         {
             var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == authorId);
+
+            if (author == null)
+            {
+                throw new NotFoundException("Người dùng không tồn tại");
+            }
 
             var customer = await _customerRepository
                 .GetAll()

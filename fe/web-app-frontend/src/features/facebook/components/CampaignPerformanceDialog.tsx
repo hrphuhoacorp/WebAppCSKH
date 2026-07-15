@@ -8,7 +8,7 @@ import {
     Table, TableHead, TableBody, TableRow, TableCell,
     TablePagination, alpha, Tabs, Tab, Drawer, Divider, IconButton,
 } from '@mui/material';
-import { LocalOffer, Close, Person, Phone, CalendarToday, ShoppingBag, AccessTime } from '@mui/icons-material';
+import { LocalOffer, Close, Person, Phone, CalendarToday, ShoppingBag, AccessTime, KeyboardArrowDown } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { personaApi } from '@/features/persona/api/persona.api';
 import CustomerSignatureBar from '@/features/persona/components/CustomerSignatureBar';
@@ -91,7 +91,17 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
     const [careTagId, setCareTagId] = useState<number | null>(null);
     const [carePage, setCarePage] = useState(0);
     const [carePageSize, setCarePageSize] = useState(10);
+    const [careDaysFilter, setCareDaysFilter] = useState<{ label: string; minDays?: number; maxDays?: number } | null>(null);
     const [drawerCustomer, setDrawerCustomer] = useState<DrawerCustomer | null>(null);
+    const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
+
+    function toggleOrder(id: number) {
+        setExpandedOrders(prev => {
+            const s = new Set(prev);
+            s.has(id) ? s.delete(id) : s.add(id);
+            return s;
+        });
+    }
 
     const { data: perf, isLoading } = useQuery({
         queryKey: ['fb-campaign-performance', tagId],
@@ -127,8 +137,8 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
     const allTimeCountMap = Object.fromEntries((tagCounts?.allTimeCounts ?? []).map((x: TagCountDto) => [x.tagId, x.count]));
 
     const { data: careResult, isLoading: loadingCare } = useQuery({
-        queryKey: ['fb-campaign-care-opportunities', tagId, careTagId, carePage, carePageSize],
-        queryFn: () => fbCampaignTagApi.getCareOpportunities(tagId!, { personaTagId: careTagId ?? undefined, page: carePage + 1, pageSize: carePageSize }),
+        queryKey: ['fb-campaign-care-opportunities', tagId, careTagId, careDaysFilter?.label, carePage, carePageSize],
+        queryFn: () => fbCampaignTagApi.getCareOpportunities(tagId!, { personaTagId: careTagId ?? undefined, minDays: careDaysFilter?.minDays, maxDays: careDaysFilter?.maxDays, page: carePage + 1, pageSize: carePageSize }),
         enabled: open && !!tagId,
     });
 
@@ -146,9 +156,11 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
         setPersonaTagFilter(null);
         setPage(0);
         setCareTagId(null);
+        setCareDaysFilter(null);
         setCarePage(0);
         setTab(0);
         setDrawerCustomer(null);
+        setExpandedOrders(new Set());
         onClose();
     }
 
@@ -325,7 +337,8 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
                                                 <TableRow sx={{ bgcolor: '#f8fafc' }}>
                                                     <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Mã KH</TableCell>
                                                     <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Tên khách hàng</TableCell>
-                                                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }} align="right">Doanh thu</TableCell>
+                                                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }} align="right">DT trong chiến dịch</TableCell>
+                                                    <TableCell sx={{ fontWeight: 700, fontSize: 12 }} align="right">Tổng doanh thu</TableCell>
                                                     <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Thường mua</TableCell>
                                                 </TableRow>
                                             </TableHead>
@@ -341,7 +354,8 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
                                                             {c.customerCode}
                                                         </TableCell>
                                                         <TableCell sx={{ fontSize: 12.5 }}>{c.name}</TableCell>
-                                                        <TableCell align="right" sx={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtCompactVnd(c.totalRevenue)}</TableCell>
+                                                        <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', color: FB }}>{fmtCompactVnd(c.periodRevenue)}</TableCell>
+                                                        <TableCell align="right" sx={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', color: '#475569' }}>{fmtCompactVnd(c.totalRevenue)}</TableCell>
                                                         <TableCell><CustomerSignatureBar signature={c.signature} width={200} /></TableCell>
                                                     </TableRow>
                                                 ))}
@@ -379,23 +393,59 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
                                     </Box>
                                 </Box>
 
-                                <Box>
-                                    <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#64748b', mb: 1 }}>Lọc theo nhóm khách hàng:</Typography>
-                                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                        {personaTags.filter(t => t.isActive && (allTimeCountMap[t.id] ?? 0) > 0).map(t => (
-                                            <Chip
-                                                key={t.id}
-                                                label={`${t.name} (${allTimeCountMap[t.id] ?? 0})`}
-                                                onClick={() => { setCareTagId(careTagId === t.id ? null : t.id); setCarePage(0); }}
-                                                sx={{
-                                                    fontWeight: 600, fontSize: 12, cursor: 'pointer',
-                                                    bgcolor: careTagId === t.id ? t.color : alpha(t.color, 0.1),
-                                                    color: careTagId === t.id ? '#fff' : t.color,
-                                                    border: `1px solid ${alpha(t.color, 0.3)}`,
-                                                    '&:hover': { bgcolor: careTagId === t.id ? t.color : alpha(t.color, 0.2) },
-                                                }}
-                                            />
-                                        ))}
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                                    <Box>
+                                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#64748b', mb: 1 }}>Lọc theo nhóm khách hàng:</Typography>
+                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                            {personaTags.filter(t => t.isActive && (allTimeCountMap[t.id] ?? 0) > 0).map(t => (
+                                                <Chip
+                                                    key={t.id}
+                                                    label={`${t.name} (${allTimeCountMap[t.id] ?? 0})`}
+                                                    onClick={() => { setCareTagId(careTagId === t.id ? null : t.id); setCarePage(0); }}
+                                                    sx={{
+                                                        fontWeight: 600, fontSize: 12, cursor: 'pointer',
+                                                        bgcolor: careTagId === t.id ? t.color : alpha(t.color, 0.1),
+                                                        color: careTagId === t.id ? '#fff' : t.color,
+                                                        border: `1px solid ${alpha(t.color, 0.3)}`,
+                                                        '&:hover': { bgcolor: careTagId === t.id ? t.color : alpha(t.color, 0.2) },
+                                                    }}
+                                                />
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#64748b', mb: 1 }}>Lần cuối mua:</Typography>
+                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                            {[
+                                                { label: 'Tất cả' },
+                                                { label: '< 30 ngày', maxDays: 30 },
+                                                { label: '30–60 ngày', minDays: 30, maxDays: 60 },
+                                                { label: '60–90 ngày', minDays: 60, maxDays: 90 },
+                                                { label: '> 90 ngày', minDays: 90 },
+                                            ].map(opt => {
+                                                const isAll = opt.label === 'Tất cả';
+                                                const active = isAll ? careDaysFilter === null : careDaysFilter?.label === opt.label;
+                                                const chipColor = opt.label === '> 90 ngày' ? RED : opt.label === '60–90 ngày' ? AMBER : opt.label === '30–60 ngày' ? '#f97316' : GREEN;
+                                                const color = isAll ? '#64748b' : chipColor;
+                                                return (
+                                                    <Chip
+                                                        key={opt.label}
+                                                        label={opt.label}
+                                                        onClick={() => {
+                                                            setCareDaysFilter(isAll ? null : { label: opt.label, minDays: opt.minDays, maxDays: opt.maxDays });
+                                                            setCarePage(0);
+                                                        }}
+                                                        sx={{
+                                                            fontWeight: 600, fontSize: 12, cursor: 'pointer',
+                                                            bgcolor: active ? color : alpha(color, 0.1),
+                                                            color: active ? '#fff' : color,
+                                                            border: `1px solid ${alpha(color, 0.3)}`,
+                                                            '&:hover': { bgcolor: active ? color : alpha(color, 0.2) },
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </Box>
                                     </Box>
                                 </Box>
 
@@ -483,7 +533,7 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
             anchor="right"
             open={!!drawerCustomer}
             onClose={() => setDrawerCustomer(null)}
-            sx={{ zIndex: 1400, '& .MuiDrawer-paper': { width: 440, p: 0 } }}
+            sx={{ zIndex: 1400, '& .MuiDrawer-paper': { width: 500, p: 0 } }}
         >
             {local && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -601,27 +651,44 @@ export default function CampaignPerformanceDialog({ open, tagId, onClose }: {
                                 <Typography sx={{ fontSize: 12, color: '#cbd5e1' }}>Chưa có đơn hàng</Typography>
                             ) : (
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                    {detail.orders.slice(0, 5).map(o => (
-                                        <Box key={o.id} sx={{ p: 1.25, borderRadius: '10px', border: `1px solid ${BORDER}`, bgcolor: '#f8fafc' }}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.4 }}>
-                                                <Box>
-                                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>{o.orderCode}</Typography>
-                                                    <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
-                                                        {new Date(o.purchaseDate).toLocaleDateString('vi-VN')} · {o.branchName}
-                                                    </Typography>
+                                    {detail.orders.slice(0, 5).map(o => {
+                                        const hasItems = (o.items?.length ?? 0) > 0;
+                                        const expanded = hasItems && expandedOrders.has(o.id);
+                                        return (
+                                            <Box key={o.id} sx={{ borderRadius: '10px', border: `1px solid ${expanded ? alpha(FB, 0.3) : BORDER}`, overflow: 'hidden', transition: 'border-color 0.15s' }}>
+                                                <Box
+                                                    onClick={() => hasItems && toggleOrder(o.id)}
+                                                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.25, cursor: hasItems ? 'pointer' : 'default', bgcolor: expanded ? alpha(FB, 0.03) : '#f8fafc', '&:hover': hasItems ? { bgcolor: alpha(FB, 0.05) } : {}, transition: 'background 0.15s' }}>
+                                                    <Box>
+                                                        <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>{o.orderCode}</Typography>
+                                                        <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
+                                                            {new Date(o.purchaseDate).toLocaleDateString('vi-VN')} · {o.branchName}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Typography sx={{ fontSize: 13, fontWeight: 800, color: GREEN, whiteSpace: 'nowrap' }}>{fmtVnd(o.revenue)}</Typography>
+                                                        {hasItems && (
+                                                            <KeyboardArrowDown sx={{ fontSize: 18, color: '#94a3b8', transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                                                        )}
+                                                    </Box>
                                                 </Box>
-                                                <Typography sx={{ fontSize: 13, fontWeight: 800, color: GREEN, whiteSpace: 'nowrap' }}>{fmtVnd(o.revenue)}</Typography>
+                                                {expanded && (
+                                                    <Box sx={{ px: 1.5, pb: 1.25, pt: 0.5, borderTop: `1px solid ${BORDER}`, bgcolor: '#fff', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                        {o.items.map((item, i) => (
+                                                            <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1 }}>
+                                                                <Typography sx={{ fontSize: 11.5, color: '#374151', flex: 1 }}>
+                                                                    · {item.productName || item.category || 'Sản phẩm'}{item.quantity > 0 ? ` × ${item.quantity}` : ''}
+                                                                </Typography>
+                                                                {item.unitPrice > 0 && (
+                                                                    <Typography sx={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap' }}>{fmtVnd(item.unitPrice)}</Typography>
+                                                                )}
+                                                            </Box>
+                                                        ))}
+                                                    </Box>
+                                                )}
                                             </Box>
-                                            {o.items?.slice(0, 3).map((item, i) => (
-                                                <Typography key={i} sx={{ fontSize: 11, color: '#64748b', pl: 0.5 }}>
-                                                    · {item.productName || item.category || 'Sản phẩm'} × {item.quantity}
-                                                </Typography>
-                                            ))}
-                                            {(o.items?.length ?? 0) > 3 && (
-                                                <Typography sx={{ fontSize: 11, color: '#94a3b8', pl: 0.5 }}>+ {o.items.length - 3} sản phẩm khác</Typography>
-                                            )}
-                                        </Box>
-                                    ))}
+                                        );
+                                    })}
                                 </Box>
                             )}
                         </Box>

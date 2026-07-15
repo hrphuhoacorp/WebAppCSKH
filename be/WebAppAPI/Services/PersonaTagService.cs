@@ -17,7 +17,8 @@ public interface IPersonaTagService
     Task RemoveAssignmentAsync(int userId, int assignmentId);
     Task<List<PersonaTagAssignmentDTO>> GetCustomerTagsAsync(int customerId);
     Task<PagedResult<CustomerWithTagsDTO>> GetCustomersWithTagsAsync(string? search, int? tagId, bool? hasTag, int page, int pageSize);
-    Task<PagedResult<CustomerWithTagsDTO>> GetCustomersByCategoryAffinityAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize);
+    Task<PagedResult<CustomerWithTagsDTO>> GetCustomersByCategoryAffinityAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize, DateTime? dateFrom = null, DateTime? dateTo = null);
+    Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null);
 
     Task<List<string>> GetDistinctCategoriesAsync(string? search);
     Task<PersonaRuleConfigDTO?> GetTagRuleAsync(int tagId);
@@ -320,7 +321,7 @@ public class PersonaTagService : IPersonaTagService
         };
     }
 
-    public async Task<PagedResult<CustomerWithTagsDTO>> GetCustomersByCategoryAffinityAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize)
+    public async Task<PagedResult<CustomerWithTagsDTO>> GetCustomersByCategoryAffinityAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize, DateTime? dateFrom = null, DateTime? dateTo = null)
     {
         var normalizedCategories = categories.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList();
         if (normalizedCategories.Count == 0)
@@ -331,7 +332,9 @@ public class PersonaTagService : IPersonaTagService
         var affinityQuery = _context.Set<OrderItem>().AsNoTracking()
             .Where(oi => oi.Order.DeletedAt == null && oi.Order.CustomerId != null
                 && oi.Category != null && normalizedCategories.Contains(oi.Category)
-                && (!hasBranchFilter || (oi.Order.BranchesId != null && branchIds!.Contains(oi.Order.BranchesId.Value))))
+                && (!hasBranchFilter || (oi.Order.BranchesId != null && branchIds!.Contains(oi.Order.BranchesId.Value)))
+                && (dateFrom == null || oi.Order.PurchaseDate >= dateFrom)
+                && (dateTo == null || oi.Order.PurchaseDate <= dateTo))
             .GroupBy(oi => oi.Order.CustomerId!.Value)
             .Select(g => new { CustomerId = g.Key, AffinityRevenue = g.Sum(oi => oi.Revenue) });
 
@@ -366,9 +369,14 @@ public class PersonaTagService : IPersonaTagService
             .ToDictionaryAsync(c => c.Id);
 
         // Giữ đúng thứ tự xếp hạng theo AffinityRevenue (query Customer riêng làm mất thứ tự đó).
+        var affinityByCustomer = pageAffinity.ToDictionary(x => x.CustomerId, x => x.AffinityRevenue);
         var customers = orderedCustomerIds
             .Where(id => customersById.ContainsKey(id))
-            .Select(id => customersById[id])
+            .Select(id => {
+                var c = customersById[id];
+                c.PeriodRevenue = affinityByCustomer.TryGetValue(id, out var rev) ? rev : 0;
+                return c;
+            })
             .ToList();
 
         await HydrateTagsAndSignatureAsync(customers);
@@ -380,6 +388,98 @@ public class PersonaTagService : IPersonaTagService
             PageSize = pageSize,
             Items = customers,
         };
+    }
+
+    public async Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(
+        List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize,
+        int? minDays = null, int? maxDays = null)
+    {
+        var normalizedCategories = categories.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList();
+        if (normalizedCategories.Count == 0)
+            return new PagedResult<CareOpportunityCustomerDTO> { TotalItems = 0, Page = page, PageSize = pageSize, Items = new() };
+
+        var hasBranchFilter = branchIds != null && branchIds.Count > 0;
+
+        // Tất cả khách có lịch sử mua danh mục này (không giới hạn ngày)
+        var affinityAll = await _context.Set<OrderItem>().AsNoTracking()
+            .Where(oi => oi.Order.DeletedAt == null && oi.Order.CustomerId != null
+                && oi.Category != null && normalizedCategories.Contains(oi.Category)
+                && (!hasBranchFilter || (oi.Order.BranchesId != null && branchIds!.Contains(oi.Order.BranchesId.Value))))
+            .GroupBy(oi => oi.Order.CustomerId!.Value)
+            .Select(g => new { CustomerId = g.Key, AffinityRevenue = g.Sum(oi => oi.Revenue) })
+            .ToListAsync();
+
+        if (personaTagId.HasValue)
+        {
+            var taggedIds = (await _context.Set<PersonaTagAssignment>().AsNoTracking()
+                .Where(a => a.IsActive && a.TagId == personaTagId.Value)
+                .Select(a => a.CustomerId)
+                .ToListAsync()).ToHashSet();
+            affinityAll = affinityAll.Where(x => taggedIds.Contains(x.CustomerId)).ToList();
+        }
+
+        var allCustomerIds = affinityAll.Select(x => x.CustomerId).ToList();
+
+        // Ngày mua cuối của từng khách
+        var now = DateTime.UtcNow.AddHours(7);
+        var lastOrderDates = await _context.Set<Order>().AsNoTracking()
+            .Where(o => o.DeletedAt == null && o.CustomerId.HasValue && allCustomerIds.Contains(o.CustomerId.Value))
+            .GroupBy(o => o.CustomerId!.Value)
+            .Select(g => new { CustomerId = g.Key, LastDate = g.Max(o => o.PurchaseDate) })
+            .ToDictionaryAsync(x => x.CustomerId, x => x.LastDate);
+
+        // Sort: dormant (>= 60 ngày) lên đầu, sau đó theo affinityRevenue giảm dần
+        var sorted = affinityAll
+            .Select(x => new
+            {
+                x.CustomerId, x.AffinityRevenue,
+                Days = lastOrderDates.TryGetValue(x.CustomerId, out var d) ? (int)(now - d).TotalDays : 9999,
+            })
+            .Where(x => (minDays == null || x.Days >= minDays) && (maxDays == null || x.Days <= maxDays))
+            .OrderByDescending(x => x.Days >= 60 ? 1 : 0)
+            .ThenByDescending(x => x.AffinityRevenue)
+            .ToList();
+
+        var totalItems = sorted.Count;
+        var pageItems = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var pageCustomerIds = pageItems.Select(x => x.CustomerId).ToList();
+
+        var customersById = await _context.Set<Customer>().AsNoTracking()
+            .Where(c => pageCustomerIds.Contains(c.Id) && c.DeletedAt == null)
+            .Select(c => new { c.Id, c.CustomerCode, c.Name, c.Phone, c.TotalRevenue })
+            .ToDictionaryAsync(c => c.Id);
+
+        var dtoPage = pageItems
+            .Where(x => customersById.ContainsKey(x.CustomerId))
+            .Select(x => new CustomerWithTagsDTO
+            {
+                Id = x.CustomerId,
+                CustomerCode = customersById[x.CustomerId].CustomerCode,
+                Name = customersById[x.CustomerId].Name,
+                Phone = customersById[x.CustomerId].Phone,
+                TotalRevenue = customersById[x.CustomerId].TotalRevenue,
+            })
+            .ToList();
+
+        await HydrateTagsAndSignatureAsync(dtoPage);
+        var sigById = dtoPage.ToDictionary(d => d.Id, d => d.Signature);
+
+        var items = pageItems
+            .Where(x => customersById.ContainsKey(x.CustomerId))
+            .Select(x => new CareOpportunityCustomerDTO
+            {
+                Id = x.CustomerId,
+                CustomerCode = customersById[x.CustomerId].CustomerCode,
+                Name = customersById[x.CustomerId].Name,
+                Phone = customersById[x.CustomerId].Phone,
+                TotalRevenue = customersById[x.CustomerId].TotalRevenue,
+                CategoryAffinityRevenue = x.AffinityRevenue,
+                DaysSinceLastOrder = x.Days,
+                Signature = sigById.TryGetValue(x.CustomerId, out var sig) ? sig : new(),
+            })
+            .ToList();
+
+        return new PagedResult<CareOpportunityCustomerDTO> { TotalItems = totalItems, Page = page, PageSize = pageSize, Items = items };
     }
 
     // Gắn Tags + Signature (top 3 nhóm hàng theo doanh thu) cho đúng tập khách đang xem —

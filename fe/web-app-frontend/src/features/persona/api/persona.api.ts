@@ -52,6 +52,7 @@ export interface CustomerWithTagsDto {
     name: string;
     phone?: string | null;
     totalRevenue: number;
+    periodRevenue: number;
     tags: PersonaTagAssignmentDto[];
     signature: CustomerSignatureCategory[];
 }

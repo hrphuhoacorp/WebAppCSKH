@@ -56,6 +56,7 @@ public class CustomerWithTagsDTO
     public string Name { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public decimal TotalRevenue { get; set; }
+    public decimal PeriodRevenue { get; set; }
     public List<PersonaTagAssignmentDTO> Tags { get; set; } = new();
     public List<CustomerSignatureCategoryDTO> Signature { get; set; } = new();
 }
