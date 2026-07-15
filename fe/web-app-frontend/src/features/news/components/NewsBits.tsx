@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Typography } from '@mui/material';
+import Image from 'next/image';
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
@@ -138,18 +139,15 @@ export function FeedRow({ item, onClick }: { item: NewsItem; onClick: () => void
             </Box>
 
             {item.thumbnailUrl && (
-                <Box
-                    component="img"
-                    src={item.thumbnailUrl}
-                    alt={item.title}
-                    sx={{
-                        width: '100%',
-                        height: { xs: 80, md: 140 },
-                        objectFit: 'cover',
-                        borderRadius: '4px',
-                        display: 'block',
-                    }}
-                />
+                <Box sx={{ position: 'relative', width: '100%', height: { xs: 80, md: 140 }, borderRadius: '4px', overflow: 'hidden', flexShrink: 0 }}>
+                    <Image
+                        src={item.thumbnailUrl}
+                        alt={item.title}
+                        fill
+                        sizes="(max-width: 768px) 96px, 220px"
+                        style={{ objectFit: 'cover' }}
+                    />
+                </Box>
             )}
         </Box>
     );
