@@ -18,7 +18,7 @@ public interface IPersonaTagService
     Task<List<PersonaTagAssignmentDTO>> GetCustomerTagsAsync(int customerId);
     Task<PagedResult<CustomerWithTagsDTO>> GetCustomersWithTagsAsync(string? search, int? tagId, bool? hasTag, int page, int pageSize);
     Task<PagedResult<CustomerWithTagsDTO>> GetCustomersByCategoryAffinityAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize, DateTime? dateFrom = null, DateTime? dateTo = null);
-    Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null);
+    Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null, string? sortByDays = null);
 
     Task<List<string>> GetDistinctCategoriesAsync(string? search);
     Task<PersonaRuleConfigDTO?> GetTagRuleAsync(int tagId);
@@ -392,7 +392,7 @@ public class PersonaTagService : IPersonaTagService
 
     public async Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(
         List<string> categories, List<int>? branchIds, int? personaTagId, int page, int pageSize,
-        int? minDays = null, int? maxDays = null)
+        int? minDays = null, int? maxDays = null, string? sortByDays = null)
     {
         var normalizedCategories = categories.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().ToList();
         if (normalizedCategories.Count == 0)
@@ -428,17 +428,19 @@ public class PersonaTagService : IPersonaTagService
             .Select(g => new { CustomerId = g.Key, LastDate = g.Max(o => o.PurchaseDate) })
             .ToDictionaryAsync(x => x.CustomerId, x => x.LastDate);
 
-        // Sort: dormant (>= 60 ngày) lên đầu, sau đó theo affinityRevenue giảm dần
-        var sorted = affinityAll
+        var withDays = affinityAll
             .Select(x => new
             {
                 x.CustomerId, x.AffinityRevenue,
                 Days = lastOrderDates.TryGetValue(x.CustomerId, out var d) ? (int)(now - d).TotalDays : 9999,
             })
-            .Where(x => (minDays == null || x.Days >= minDays) && (maxDays == null || x.Days <= maxDays))
-            .OrderByDescending(x => x.Days >= 60 ? 1 : 0)
-            .ThenByDescending(x => x.AffinityRevenue)
-            .ToList();
+            .Where(x => (minDays == null || x.Days >= minDays) && (maxDays == null || x.Days <= maxDays));
+
+        var sorted = sortByDays == "asc"
+            ? withDays.OrderBy(x => x.Days).ThenByDescending(x => x.AffinityRevenue).ToList()
+            : sortByDays == "desc"
+                ? withDays.OrderByDescending(x => x.Days).ThenByDescending(x => x.AffinityRevenue).ToList()
+                : withDays.OrderByDescending(x => x.Days >= 60 ? 1 : 0).ThenByDescending(x => x.AffinityRevenue).ToList();
 
         var totalItems = sorted.Count;
         var pageItems = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
@@ -463,6 +465,7 @@ public class PersonaTagService : IPersonaTagService
 
         await HydrateTagsAndSignatureAsync(dtoPage);
         var sigById = dtoPage.ToDictionary(d => d.Id, d => d.Signature);
+        var tagsById = dtoPage.ToDictionary(d => d.Id, d => d.Tags);
 
         var items = pageItems
             .Where(x => customersById.ContainsKey(x.CustomerId))
@@ -476,6 +479,7 @@ public class PersonaTagService : IPersonaTagService
                 CategoryAffinityRevenue = x.AffinityRevenue,
                 DaysSinceLastOrder = x.Days,
                 Signature = sigById.TryGetValue(x.CustomerId, out var sig) ? sig : new(),
+                Tags = tagsById.TryGetValue(x.CustomerId, out var tags) ? tags : new(),
             })
             .ToList();
 

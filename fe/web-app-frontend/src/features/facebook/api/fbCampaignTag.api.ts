@@ -77,6 +77,7 @@ export interface CareOpportunityCustomerDto {
     categoryAffinityRevenue: number;
     daysSinceLastOrder: number;
     signature: import('@/features/persona/api/persona.api').CustomerSignatureCategory[];
+    tags: import('@/features/persona/api/persona.api').PersonaTagAssignmentDto[];
 }
 
 export const fbCampaignTagApi = {
@@ -110,7 +111,7 @@ export const fbCampaignTagApi = {
         return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
     },
 
-    getCareOpportunities: async (id: number, params: { personaTagId?: number; minDays?: number; maxDays?: number; page: number; pageSize: number }): Promise<PagedResult<CareOpportunityCustomerDto>> => {
+    getCareOpportunities: async (id: number, params: { personaTagId?: number; minDays?: number; maxDays?: number; sortByDays?: string; page: number; pageSize: number }): Promise<PagedResult<CareOpportunityCustomerDto>> => {
         const res = await api.get(`/FbCampaignTag/Tags/${id}/CareOpportunities`, { params });
         return res.data.content ?? { totalItems: 0, page: 1, pageSize: params.pageSize, items: [] };
     },

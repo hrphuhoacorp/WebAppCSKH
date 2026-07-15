@@ -13,7 +13,7 @@ public interface IFbCampaignTagService
     Task DeleteTagAsync(int userId, int id);
     Task<FbCampaignPerformanceDTO> GetPerformanceAsync(int id);
     Task<PagedResult<CustomerWithTagsDTO>> GetMatchedCustomersAsync(int id, int? personaTagId, int page, int pageSize);
-    Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(int id, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null);
+    Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(int id, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null, string? sortByDays = null);
     Task<CampaignTagCountsDTO> GetTagCountsAsync(int id);
 }
 
@@ -237,14 +237,14 @@ public class FbCampaignTagService : IFbCampaignTagService
         return new CampaignTagCountsDTO { PeriodCounts = periodCounts, AllTimeCounts = allTimeCounts };
     }
 
-    public async Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(int id, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null)
+    public async Task<PagedResult<CareOpportunityCustomerDTO>> GetCareOpportunitiesAsync(int id, int? personaTagId, int page, int pageSize, int? minDays = null, int? maxDays = null, string? sortByDays = null)
     {
         var tag = await _context.Set<FbCampaignTag>().AsNoTracking().FirstOrDefaultAsync(t => t.Id == id && t.DeletedAt == null)
             ?? throw new NotFoundException("Không tìm thấy nhãn chiến dịch");
 
         var categories = JsonSerializer.Deserialize<List<string>>(tag.CategoriesJson) ?? new();
         var branchIds = string.IsNullOrEmpty(tag.BranchIdsJson) ? null : JsonSerializer.Deserialize<List<int>>(tag.BranchIdsJson);
-        return await _personaTagService.GetCareOpportunitiesAsync(categories, branchIds, personaTagId, page, pageSize, minDays, maxDays);
+        return await _personaTagService.GetCareOpportunitiesAsync(categories, branchIds, personaTagId, page, pageSize, minDays, maxDays, sortByDays);
     }
 
     private async Task<(int OrderCount, decimal Revenue, int CustomerCount)> AggregateCategoryOrdersAsync(List<string> categories, List<int>? branchIds, DateTime from, DateTime to)

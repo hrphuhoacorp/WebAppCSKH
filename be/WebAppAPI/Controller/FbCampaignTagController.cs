@@ -85,9 +85,9 @@ namespace WebAppAPI.Controllers
         [HttpGet("Tags/{id}/CareOpportunities")]
         public async Task<ResponseValue<PagedResult<CareOpportunityCustomerDTO>>> GetCareOpportunitiesAsync(
             int id, [FromQuery] int? personaTagId, [FromQuery] int? minDays, [FromQuery] int? maxDays,
-            [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
+            [FromQuery] string? sortByDays, [FromQuery] int page = 1, [FromQuery] int pageSize = 25)
         {
-            var result = await _service.GetCareOpportunitiesAsync(id, personaTagId, page, pageSize, minDays, maxDays);
+            var result = await _service.GetCareOpportunitiesAsync(id, personaTagId, page, pageSize, minDays, maxDays, sortByDays);
             return new ResponseValue<PagedResult<CareOpportunityCustomerDTO>>(result, "Lấy cơ hội chăm sóc thành công", StatusReponse.Success);
         }
     }
