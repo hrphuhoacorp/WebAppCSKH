@@ -1,18 +1,22 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
+COPY WebAppInfractor/WebAppInfractor.csproj WebAppInfractor/
+COPY WebAppAPI/WebAppAPI.csproj WebAppAPI/
+
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet restore "WebAppAPI/WebAppAPI.csproj"
+
 COPY . .
-RUN dotnet restore "WebAppAPI/WebAppAPI.csproj"
-RUN dotnet publish "WebAppAPI/WebAppAPI.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet publish "WebAppAPI/WebAppAPI.csproj" -c Release --no-restore -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# Tạo thư mục media
 RUN mkdir -p /data/phf-media
-
-# Khai báo VOLUME (tùy chọn, quan trọng là -v khi docker run)
 VOLUME /data/phf-media
 
 ENV ASPNETCORE_URLS=http://+:10000
