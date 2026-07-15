@@ -17,7 +17,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     }, [profile, loading, router]);
 
     if (loading) {
-        return <LoadingOverlay open text="Đang xác thực tài khoản" />;
+        return <LoadingOverlay open fullScreen text="Đang xác thực tài khoản" />;
     }
 
     if (!profile) {
