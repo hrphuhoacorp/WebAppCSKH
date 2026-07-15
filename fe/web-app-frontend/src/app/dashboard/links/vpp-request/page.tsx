@@ -18,6 +18,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { vppApi, VppItemDto, VPP_GREEN } from '@/features/vpp/api/vpp.api';
 import { useAuth } from '@/providers/AuthProviders';
 import PageHeader from '@/components/common/PageHeader';
+import { errMessage } from '@/lib/errMessage';
 
 interface Line { itemId: number; quantity: number; note: string; }
 
@@ -306,7 +307,7 @@ export default function VppRequestPage() {
                             </Box>
                             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                                 {submitMut.isError && (
-                                    <Typography sx={{ color: '#dc2626', fontSize: 13 }}>Gửi thất bại, vui lòng thử lại.</Typography>
+                                    <Typography sx={{ color: '#dc2626', fontSize: 13 }}>{errMessage(submitMut.error, 'Gửi thất bại, vui lòng thử lại.')}</Typography>
                                 )}
                                 {hasOverStock && (
                                     <Typography sx={{ color: '#dc2626', fontSize: 13 }}>Có mặt hàng vượt quá số lượng tồn kho.</Typography>

@@ -21,6 +21,7 @@ import PageHeader from '@/components/common/PageHeader';
 import { newsApi } from '@/features/news/api/news.api';
 import NewsEditor from '@/features/news/components/NewsEditor';
 import { TYPE_LABEL, NewsItem } from '@/features/news/news.shared';
+import { errMessage } from '@/lib/errMessage';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ export default function NewsManagePage() {
             await newsApi.delete(id);
             toast.success('Đã xóa bài viết');
             refreshNews();
-        } catch { toast.error('Xóa thất bại'); }
+        } catch (e) { toast.error(errMessage(e, 'Xóa thất bại')); }
     };
 
     const handleTogglePin = async (id: number) => {

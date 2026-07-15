@@ -9,15 +9,11 @@ import toast from 'react-hot-toast';
 import { personaApi } from '@/features/persona/api/persona.api';
 import { ordersApi } from '@/features/orders/api/orders.api';
 import { fbCampaignTagApi, FbCampaignTagDto } from '../api/fbCampaignTag.api';
+import { errMessage } from '@/lib/errMessage';
 
 const FB = '#1877F2';
 const BORDER = '#e2e8f0';
 const CARD_RADIUS = '20px';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
 
 function fmtDate(iso: string): string {
     if (!iso) return '—';

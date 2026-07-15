@@ -23,6 +23,7 @@ import { vppApi, VppImportCreateDto, VppItemDto, VppItemUpsertDto, VppAttachment
 import toast from 'react-hot-toast';
 import { usePermission } from '@/hooks/usePermission';
 import { ImportPrintView } from './ImportPrintTemplate';
+import { errMessage } from '@/lib/errMessage';
 
 const GREEN = VPP_GREEN;
 const BLUE = '#0284c7';
@@ -42,11 +43,6 @@ function fmtDate(s?: string | null) {
 }
 
 function fmtVND(v: number) { return Math.round(v).toLocaleString('vi-VN') + 'đ'; }
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } }; message?: string })?.response?.data;
-    return data?.Message || data?.message || (err as { message?: string })?.message || fallback;
-}
 
 interface AttachmentEntry extends VppAttachmentItem { size?: number; }
 interface ImportLine {

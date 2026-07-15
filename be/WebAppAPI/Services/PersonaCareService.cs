@@ -422,8 +422,12 @@ public class PersonaCareService : IPersonaCareService
     public async Task<PersonaDashboardDTO> GetDashboardAsync()
     {
         var now = DateTime.UtcNow.AddHours(7);
-        var cutoff = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
-        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        // now.Year/now.Month đã là lịch VN (do +7h ở trên), nhưng "00:00 ngày 1" của lịch VN đó
+        // không phải là "00:00 UTC" — cần trừ thêm 7h mới ra đúng thời điểm UTC thật tương ứng
+        // với "00:00 giờ VN ngày 1". Thiếu bước này thì mốc lệch trễ 7 tiếng so với ý định, làm
+        // sai lệch việc phân loại phát sinh trong khung 00h-07h giờ VN ngày đầu tháng.
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddHours(-7);
+        var cutoff = monthStart.AddMonths(-11);
 
         var totalCustomers = await _context.Set<Customer>().CountAsync(c => c.DeletedAt == null);
 
@@ -587,7 +591,7 @@ public class PersonaCareService : IPersonaCareService
     public async Task<PersonaRetentionDTO> GetRetentionStatsAsync()
     {
         var now = DateTime.UtcNow.AddHours(7);
-        var cutoff = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
+        var cutoff = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddHours(-7).AddMonths(-11);
         var activeCustomers = _context.Set<Customer>().AsNoTracking().Where(c => c.DeletedAt == null);
 
         // ── Tần suất mua (lũy kế toàn thời gian) ──

@@ -14,11 +14,7 @@ import toast from 'react-hot-toast';
 import { personaApi, PersonaCustomerSample, PersonaInteractionDto, PersonaInteractionType } from '../api/persona.api';
 import { BORDER, CARD_RADIUS, GREEN } from '../styles';
 import InteractionFormDialog, { InteractionFormValues } from './InteractionFormDialog';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
+import { errMessage } from '@/lib/errMessage';
 
 const TYPE_LABELS: Record<PersonaInteractionType, string> = {
     note: 'Ghi chú',

@@ -22,6 +22,7 @@ import { getFullImageUrl } from '@/features/media/utils/media.utils';
 import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { MediaFileDto } from '@/features/media/schemas/media_file.schemas';
+import { errMessage } from '@/lib/errMessage';
 
 const fmtDate = (s?: string) =>
     s ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(s)) : '—';
@@ -176,8 +177,8 @@ export default function ChangeRequestsPage() {
                     isActive: activeFilter ?? undefined,
                 });
                 return res.content;
-            } catch (error: any) {
-                toast.error(error?.response?.data?.Message ?? 'Không tải được danh sách yêu cầu');
+            } catch (error) {
+                toast.error(errMessage(error, 'Không tải được danh sách yêu cầu'));
                 return { items: [], totalItems: 0 };
             }
         },
@@ -234,7 +235,7 @@ export default function ChangeRequestsPage() {
             setCreateOpen(false);
             setForm({ priority: 'normal', sentZaloPhoto: true });
             refreshRequests();
-        } catch (e: any) { toast.error(e?.response?.data?.MediaFileDtoessage ?? 'Lỗi'); }
+        } catch (e) { toast.error(errMessage(e, 'Lỗi')); }
         finally { setSaving(false); }
     };
 
@@ -244,7 +245,7 @@ export default function ChangeRequestsPage() {
         try {
             const res = await giftBasketApi.uploadImage(file);
             if (res.content) setForm((p: any) => ({ ...p, [uploadField]: res.content }));
-        } catch { toast.error('Lỗi tải ảnh'); }
+        } catch (e) { toast.error(errMessage(e, 'Lỗi tải ảnh')); }
         e.target.value = '';
     };
 
@@ -277,7 +278,7 @@ export default function ChangeRequestsPage() {
             toast.success(isActive ? 'Đã kích hoạt hiệu lực' : 'Đã đặt hết hiệu lực');
             setEditOpen(false);
             refreshRequests();
-        } catch (e: any) { toast.error(e?.response?.data?.Message ); }
+        } catch (e) { toast.error(errMessage(e, 'Lưu thất bại')); }
         finally { setEditSaving(false); }
     };
 

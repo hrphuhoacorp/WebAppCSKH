@@ -58,6 +58,7 @@ import RecycleBinDialog from '@/features/media/components/RecycleBinDialog';
 import { MediaFolderDto } from '@/features/media/schemas/media_folder.schemas';
 import { MediaFileDto } from '@/features/media/schemas/media_file.schemas';
 import RenameFolderDialog from '@/features/media/components/RenameFolderDialog';
+import { errMessage } from '@/lib/errMessage';
 
 export default function MediaGalleryPage() {
     const canUpload = usePermission('gift.basket.upload_image');
@@ -133,8 +134,8 @@ export default function MediaGalleryPage() {
             setLoadingMessage('Đang tải thư mục...');
             const data = await mediaApi.getFolder();
             setFolders(data.content);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message);
+        } catch (error) {
+            toast.error(errMessage(error, 'Không tải được thư mục'));
         } finally {
             setIsLoading(false);
         }
@@ -150,8 +151,8 @@ export default function MediaGalleryPage() {
             if (search.trim()) params.search = search.trim();
             const data = await mediaApi.getFiles(params);
             setFiles(data.content);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message);
+        } catch (error) {
+            toast.error(errMessage(error, 'Không tải được ảnh'));
         } finally {
             setIsLoading(false);
         }
@@ -269,8 +270,8 @@ export default function MediaGalleryPage() {
             setDeleteConfirmOpen(false);
             setDeleteTarget(null);
             await Promise.all([fetchFolders(), fetchFiles()]);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message);
+        } catch (error) {
+            toast.error(errMessage(error, 'Xóa thất bại'));
         } finally {
             setIsLoading(false);
         }

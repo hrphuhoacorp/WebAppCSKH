@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using WebAppInfractor.Models.Vpp;
 
 public interface IVppDispatchService
@@ -152,65 +153,92 @@ public class VppDispatchService : IVppDispatchService
         var items = await _itemRepo.GetAll().AsNoTracking()
             .Where(x => itemIds.Contains(x.Id)).ToListAsync();
 
-        var code = await GenerateCodeAsync(dto.DispatchDate);
-        var entity = new VppDispatch
+        // Khóa theo item trước khi đọc/trừ lô — tránh 2 phiếu xuất tay tạo đồng thời cho cùng
+        // 1 item cùng đọc trùng RemainingQty rồi cùng trừ, làm âm tồn thật. Khóa tự giải phóng
+        // khi transaction kết thúc.
+        using var transaction = await _uow.BeginTransactionAsync();
+        VppDispatch entity;
+        try
         {
-            Code = code,
-            DispatchDate = dto.DispatchDate,
-            Department = dto.Department,
-            Branch = dto.Branch,
-            RequestId = dto.RequestId,
-            AttachmentInvoice = dto.AttachmentInvoice,
-            AttachmentApproval = dto.AttachmentApproval,
-            Note = dto.Note,
-            CreatedBy = createdBy,
-            CreatedAt = DateTime.UtcNow,
-        };
-        await _repo.AddAsync(entity);
-        await _uow.SaveChangesAsync();
+            var db = _uow.GetDbContext();
+            foreach (var itemId in itemIds.Distinct().OrderBy(x => x))
+                await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", itemId);
 
-        foreach (var line in dto.Lines)
-        {
-            var item = items.FirstOrDefault(i => i.Id == line.ItemId)
-                ?? throw new BadRequestException($"Không tìm thấy vật tư ID {line.ItemId}");
-
-            // FIFO: nếu FE truyền LotId → dùng lô đó; không thì lấy lô active cũ nhất
-            VppItemLot? lot = null;
-            if (line.LotId.HasValue)
+            // Sinh mã dùng chung khóa với VppRequestService.ApproveAsync — cả 2 nơi đều sinh mã
+            // "BK..." theo kiểu đếm-rồi-cộng-1, không khóa chung sẽ vẫn có thể trùng mã.
+            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", AdvisoryLockKeys.VppDispatchCode);
+            var code = await GenerateCodeAsync(dto.DispatchDate);
+            entity = new VppDispatch
             {
-                lot = await _lotRepo.GetByIdAsync(line.LotId.Value);
-            }
-            lot ??= await _lotRepo.GetAll()
-                .Where(l => l.ItemId == line.ItemId && l.Status == "active")
-                .OrderBy(l => l.LotNumber)
-                .FirstOrDefaultAsync();
+                Code = code,
+                DispatchDate = dto.DispatchDate,
+                Department = dto.Department,
+                Branch = dto.Branch,
+                RequestId = dto.RequestId,
+                AttachmentInvoice = dto.AttachmentInvoice,
+                AttachmentApproval = dto.AttachmentApproval,
+                Note = dto.Note,
+                CreatedBy = createdBy,
+                CreatedAt = DateTime.UtcNow,
+            };
+            await _repo.AddAsync(entity);
+            await _uow.SaveChangesAsync();
 
-            var price = lot?.UnitPrice ?? item.UnitPrice;
-            var vatAmount = price * item.VatRate * line.Quantity;
-
-            if (lot != null)
+            foreach (var line in dto.Lines)
             {
-                lot.RemainingQty -= line.Quantity;
-                if (lot.RemainingQty <= 0)
+                var item = items.FirstOrDefault(i => i.Id == line.ItemId)
+                    ?? throw new BadRequestException($"Không tìm thấy vật tư ID {line.ItemId}");
+
+                // FIFO: nếu FE truyền LotId → dùng lô đó; không thì lấy lô active cũ nhất
+                VppItemLot? lot = null;
+                if (line.LotId.HasValue)
                 {
-                    lot.RemainingQty = 0;
-                    lot.Status = "depleted";
+                    lot = await _lotRepo.GetByIdAsync(line.LotId.Value);
                 }
-                lot.UpdatedAt = DateTime.UtcNow.AddHours(7);
-            }
+                lot ??= await _lotRepo.GetAll()
+                    .Where(l => l.ItemId == line.ItemId && l.Status == "active")
+                    .OrderBy(l => l.LotNumber)
+                    .FirstOrDefaultAsync();
 
-            await _lineRepo.AddAsync(new VppDispatchLine
-            {
-                DispatchId = entity.Id,
-                ItemId = line.ItemId,
-                Quantity = line.Quantity,
-                UnitPrice = price,
-                VatAmount = vatAmount,
-                TotalAmount = price * line.Quantity + vatAmount,
-                LotId = lot?.Id,
-            });
+                var price = lot?.UnitPrice ?? item.UnitPrice;
+                var vatAmount = price * item.VatRate * line.Quantity;
+
+                if (lot != null)
+                {
+                    if (lot.RemainingQty < line.Quantity)
+                        throw new BadRequestException(
+                            $"Không đủ tồn kho — {item.Name}: xuất {line.Quantity}, lô #{lot.LotNumber} còn {lot.RemainingQty}"
+                        );
+                    lot.RemainingQty -= line.Quantity;
+                    if (lot.RemainingQty <= 0)
+                    {
+                        lot.RemainingQty = 0;
+                        lot.Status = "depleted";
+                    }
+                    lot.UpdatedAt = DateTime.UtcNow.AddHours(7);
+                }
+
+                await _lineRepo.AddAsync(new VppDispatchLine
+                {
+                    DispatchId = entity.Id,
+                    ItemId = line.ItemId,
+                    Quantity = line.Quantity,
+                    UnitPrice = price,
+                    VatAmount = vatAmount,
+                    TotalAmount = price * line.Quantity + vatAmount,
+                    LotId = lot?.Id,
+                });
+            }
+            await _uow.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
-        await _uow.SaveChangesAsync();
+        catch
+        {
+            if (transaction.GetDbTransaction().Connection != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+
         return (await GetByIdAsync(entity.Id))!;
     }
 

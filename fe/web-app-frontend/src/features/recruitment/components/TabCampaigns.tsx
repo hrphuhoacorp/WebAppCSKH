@@ -17,6 +17,7 @@ import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { usePermission } from '@/hooks/usePermission';
 import { useAuth } from '@/providers/AuthProviders';
+import { errMessage } from '@/lib/errMessage';
 import {
     recruitmentCampaignApi,
     RecruitmentCampaignDto,
@@ -92,7 +93,7 @@ export default function TabCampaigns() {
             else { await recruitmentCampaignApi.create(form); toast.success('Tạo chiến dịch thành công'); }
             qc.invalidateQueries({ queryKey: ['recruitment-campaigns'] });
             setDialogOpen(false);
-        } catch { toast.error('Có lỗi xảy ra'); } finally { setSaving(false); }
+        } catch (e) { toast.error(errMessage(e, 'Có lỗi xảy ra')); } finally { setSaving(false); }
     }
 
     async function handleDelete() {
@@ -103,7 +104,7 @@ export default function TabCampaigns() {
             toast.success('Đã xóa chiến dịch');
             qc.invalidateQueries({ queryKey: ['recruitment-campaigns'] });
             setDeleteId(null);
-        } catch { toast.error('Không thể xóa'); } finally { setDeleting(false); }
+        } catch (e) { toast.error(errMessage(e, 'Không thể xóa')); } finally { setDeleting(false); }
     }
 
     const statusDef = (val: string) => STATUSES.find(s => s.value === val) ?? STATUSES[2];

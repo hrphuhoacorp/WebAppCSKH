@@ -21,6 +21,7 @@ import { ordersApi } from '@/features/orders/api/orders.api';
 import { userApi } from '@/features/user/api/user.api';
 import toast from 'react-hot-toast';
 import { DispatchPrintView } from './DispatchPrintTemplate';
+import { errMessage } from '@/lib/errMessage';
 
 const PURPLE = '#7c3aed';
 const CARD_RADIUS = '20px';
@@ -40,11 +41,6 @@ function fmtDate(s?: string | null) {
 
 function fmtVND(v: number) {
     return Math.round(v).toLocaleString('vi-VN') + 'đ';
-}
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } }; message?: string })?.response?.data;
-    return data?.Message || data?.message || (err as { message?: string })?.message || fallback;
 }
 
 interface DispatchLine { itemId: number; unit: string; quantity: number; unitPrice: number; vatRate: number; lotId?: number; }

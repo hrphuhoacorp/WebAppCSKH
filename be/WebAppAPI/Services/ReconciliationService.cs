@@ -273,8 +273,8 @@ public class ReconciliationService : IReconciliationService
 
             var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == userId);
             await _auditLogService.SaveLogAsync(
-                userId: author.Id,
-                staffCode: author.StaffCode,
+                userId: author?.Id,
+                staffCode: author?.StaffCode,
                 action: "Reconciliation_Run",
                 tableName: "reconciliation_runs",
                 recordId: run.Id,
@@ -493,8 +493,8 @@ public class ReconciliationService : IReconciliationService
 
             var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == userId);
             await _auditLogService.SaveLogAsync(
-                userId: author.Id,
-                staffCode: author.StaffCode,
+                userId: author?.Id,
+                staffCode: author?.StaffCode,
                 action: "Reconciliation_Delete_Excess",
                 tableName: "reconciliation_excess_rows",
                 recordId: runId,

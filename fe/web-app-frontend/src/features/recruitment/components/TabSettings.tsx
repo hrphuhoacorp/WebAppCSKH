@@ -15,6 +15,7 @@ import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { usePermission } from '@/hooks/usePermission';
+import { errMessage } from '@/lib/errMessage';
 import { useAuth } from '@/providers/AuthProviders';
 import {
     recruitmentSettingsApi, CategoryItemDto, CategoryUpsertDto,
@@ -87,7 +88,7 @@ export default function TabSettings() {
             await recruitmentSettingsApi.upsertSettings(contactForm);
             toast.success('Lưu cài đặt thành công');
             qc.invalidateQueries({ queryKey: ['recruitment-settings'] });
-        } catch { toast.error('Lỗi khi lưu'); } finally { setSaving(false); }
+        } catch (e) { toast.error(errMessage(e, 'Lỗi khi lưu')); } finally { setSaving(false); }
     }
 
     // Category CRUD
@@ -113,7 +114,7 @@ export default function TabSettings() {
             else { await recruitmentSettingsApi.createCategory(catForm); toast.success('Thêm thành công'); }
             qc.invalidateQueries({ queryKey: ['recruitment-categories'] });
             setCatDialog(false);
-        } catch { toast.error('Lỗi'); } finally { setSaving(false); }
+        } catch (e) { toast.error(errMessage(e, 'Lỗi')); } finally { setSaving(false); }
     }
     async function handleDeleteCat(id: number) {
         if (!confirm('Xóa danh mục này?')) return;
@@ -122,7 +123,7 @@ export default function TabSettings() {
             await recruitmentSettingsApi.deleteCategory(id);
             toast.success('Đã xóa');
             qc.invalidateQueries({ queryKey: ['recruitment-categories'] });
-        } catch { toast.error('Không thể xóa'); } finally { setSaving(false); }
+        } catch (e) { toast.error(errMessage(e, 'Không thể xóa')); } finally { setSaving(false); }
     }
 
     // Mail template CRUD
@@ -155,7 +156,7 @@ export default function TabSettings() {
             }
             qc.invalidateQueries({ queryKey: ['recruitment-mail-templates'] });
             setTplDialog(false);
-        } catch { toast.error('Lỗi'); } finally { setSaving(false); }
+        } catch (e) { toast.error(errMessage(e, 'Lỗi')); } finally { setSaving(false); }
     }
 
     const mailTypeLabel = (v: string) => MAIL_TYPES.find(x => x.value === v)?.label ?? v;

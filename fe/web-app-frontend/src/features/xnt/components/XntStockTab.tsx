@@ -98,6 +98,7 @@ export default function XntStockTab() {
             queryClient.invalidateQueries({ queryKey: ['xnt-overview-kpis'] });
             queryClient.invalidateQueries({ queryKey: ['xnt-check-days'] });
             queryClient.invalidateQueries({ queryKey: ['xnt-all-active-rows'] });
+            queryClient.invalidateQueries({ queryKey: ['xnt-adjustment-logs'] });
         } catch (e) {
             const err = e as { response?: { data?: { Message?: string } }; message?: string };
             toast.error(err?.response?.data?.Message || err?.message || 'Lưu thất bại');

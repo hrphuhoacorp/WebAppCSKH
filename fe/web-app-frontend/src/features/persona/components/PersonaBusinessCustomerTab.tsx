@@ -11,11 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { personaApi, BusinessCustomerDto } from '../api/persona.api';
 import { BORDER, CARD_RADIUS } from '../styles';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
+import { errMessage } from '@/lib/errMessage';
 
 function formatDate(value?: string | null): string {
     if (!value) return '—';
@@ -50,7 +46,7 @@ export default function PersonaBusinessCustomerTab() {
             toast.success('Đã gỡ nhãn khách hàng doanh nghiệp');
             setRemoveTarget(null);
             qc.invalidateQueries({ queryKey: ['persona-business-customers'] });
-            qc.invalidateQueries({ queryKey: ['persona-overview'] });
+            qc.invalidateQueries({ queryKey: ['persona-dashboard'] });
         } catch (err) {
             toast.error(errMessage(err, 'Gỡ nhãn thất bại'));
         } finally {

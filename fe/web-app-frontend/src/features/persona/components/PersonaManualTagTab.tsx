@@ -15,11 +15,7 @@ import { BORDER, CARD_RADIUS, GREEN } from '../styles';
 import TagChip from './TagChip';
 import AssignTagDialog from './AssignTagDialog';
 import CustomerSignatureBar from './CustomerSignatureBar';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
+import { errMessage } from '@/lib/errMessage';
 
 function fmtCompactVnd(v: number): string {
     if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(2) + ' tỷ đ';

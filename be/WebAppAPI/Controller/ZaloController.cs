@@ -7,6 +7,7 @@ namespace WebAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ZaloController : ControllerBase
     {
         private readonly IZaloService _zalo;

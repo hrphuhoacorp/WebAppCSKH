@@ -37,15 +37,11 @@ import {
     personalFilesApi, personalFileContentUrl, personalFileDownloadUrl,
     PersonalFileDto, PersonalRecycleItemDto,
 } from '@/features/personal-files/api/personalFiles.api';
+import { errMessage } from '@/lib/errMessage';
 
 const GREEN = '#086839';
 const CARD_RADIUS = '20px';
 const BORDER = '#e2e8f0';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
 
 function nowMs(): number {
     return Date.now();

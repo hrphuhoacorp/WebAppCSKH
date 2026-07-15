@@ -10,6 +10,7 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import { useQuery } from '@tanstack/react-query';
 import { personaApi } from '../api/persona.api';
+import { errMessage } from '@/lib/errMessage';
 
 const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
@@ -65,7 +66,7 @@ function SectionCard({ title, subtitle, children }: { title: string; subtitle?: 
 }
 
 export default function PersonaRetentionTab() {
-    const { data, isLoading } = useQuery({ queryKey: ['persona-retention'], queryFn: personaApi.getRetentionStats });
+    const { data, isLoading, isError, error } = useQuery({ queryKey: ['persona-retention'], queryFn: personaApi.getRetentionStats });
 
     const months = (data?.monthlyTrend ?? []).map(m => fmtMonth(m.month));
 
@@ -107,6 +108,11 @@ export default function PersonaRetentionTab() {
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {isError && (
+                <Box sx={{ p: 2, borderRadius: '14px', border: '1px solid #fecaca', bgcolor: '#fef2f2', color: '#991b1b', fontSize: 13, fontWeight: 600 }}>
+                    {errMessage(error, 'Không tải được số liệu tỉ lệ quay lại')}
+                </Box>
+            )}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                 <Kpi icon={<ReplayRoundedIcon />} label="Tỉ lệ quay lại TB" value={`${(data?.avgReturnRatePercent ?? 0).toFixed(1)}%`}
                     sub="Trung bình 12 tháng gần nhất" accent={GREEN} loading={isLoading} />

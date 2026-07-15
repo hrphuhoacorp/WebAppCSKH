@@ -17,6 +17,7 @@ import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded
 import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { usePermission } from '@/hooks/usePermission';
+import { errMessage } from '@/lib/errMessage';
 import { useAuth } from '@/providers/AuthProviders';
 import {
     recruitmentCandidateApi, recruitmentSettingsApi,
@@ -76,7 +77,7 @@ export default function TabCvSummary({ onOpenCompose }: TabCvSummaryProps) {
             });
             await qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
             toast.success(`Đã cập nhật: ${c.candidateName}`);
-        } catch { toast.error('Cập nhật thất bại'); } finally { setQuickUpdating(false); }
+        } catch (e) { toast.error(errMessage(e, 'Cập nhật thất bại')); } finally { setQuickUpdating(false); }
     }
 
     const lane1Cards = all.filter(c => TBP_PENDING.includes(c.status));

@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { personaApi } from '../api/persona.api';
 import PersonaRevenueTrendChart from './PersonaRevenueTrendChart';
 import PersonaTopCategoriesChart from './PersonaTopCategoriesChart';
+import { errMessage } from '@/lib/errMessage';
 
 function fmtVnd(v: number): string {
     return v.toLocaleString('vi-VN') + 'đ';
@@ -70,13 +71,18 @@ function SectionCard({ title, subtitle, action, children }: {
 }
 
 export default function PersonaOverviewTab() {
-    const { data, isLoading } = useQuery({ queryKey: ['persona-dashboard'], queryFn: personaApi.getDashboard });
+    const { data, isLoading, isError, error } = useQuery({ queryKey: ['persona-dashboard'], queryFn: personaApi.getDashboard });
 
     const businessSharePercent = data && data.totalRevenue > 0 ? (data.businessRevenue / data.totalRevenue) * 100 : 0;
     const taggedSharePercent = data && data.totalCustomers > 0 ? (data.taggedCustomers / data.totalCustomers) * 100 : 0;
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {isError && (
+                <Box sx={{ p: 2, borderRadius: '14px', border: '1px solid #fecaca', bgcolor: '#fef2f2', color: '#991b1b', fontSize: 13, fontWeight: 600 }}>
+                    {errMessage(error, 'Không tải được số liệu tổng quan')}
+                </Box>
+            )}
             {/* ── Hero: doanh thu tổng ── */}
             <Paper elevation={0} sx={{
                 borderRadius: '24px', p: { xs: 3, md: 4 }, position: 'relative', overflow: 'hidden',

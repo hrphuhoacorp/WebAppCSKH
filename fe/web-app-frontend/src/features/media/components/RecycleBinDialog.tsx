@@ -30,6 +30,7 @@ import {
 import toast from 'react-hot-toast';
 import { mediaApi } from '@/features/media/api/media.api';
 import { RecycleItemDto } from '../schemas/recylcebin.schamas';
+import { errMessage } from '@/lib/errMessage';
 
 interface RecycleBinDialogProps {
     open: boolean;
@@ -62,8 +63,8 @@ export default function RecycleBinDialog({ open, onClose, onSuccess }: RecycleBi
             const data = await mediaApi.recycleBin();
             setItems(data.content || data);
             setExpandedFolders(new Set());
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message || 'Lỗi tải thùng rác');
+        } catch (error) {
+            toast.error(errMessage(error, 'Lỗi tải thùng rác'));
         } finally {
             setLoading(false);
         }
@@ -127,9 +128,8 @@ export default function RecycleBinDialog({ open, onClose, onSuccess }: RecycleBi
 
             await fetchItems();
             onSuccess();
-        } catch (error: any) {
-            const message = error?.response?.data?.Message;
-            toast.error(message);
+        } catch (error) {
+            toast.error(errMessage(error, 'Khôi phục thất bại'));
         } finally {
             setRestoring(null);
         }
@@ -150,8 +150,8 @@ export default function RecycleBinDialog({ open, onClose, onSuccess }: RecycleBi
             toast.success('Đã khôi phục tất cả');
             await fetchItems();
             onSuccess();
-        } catch (error: any) {
-            toast.error(error?.response?.data?.Message || 'Lỗi khôi phục');
+        } catch (error) {
+            toast.error(errMessage(error, 'Lỗi khôi phục'));
         } finally {
             setLoading(false);
         }

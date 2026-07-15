@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using WebAppInfractor.Models.Vpp;
 
 public interface IVppRequestService
@@ -280,25 +281,7 @@ public class VppRequestService : IVppRequestService
         if (linesToDispatch.Count == 0)
             throw new BadRequestException("Không có dòng nào hợp lệ để xuất kho");
 
-        // Kiểm tra tồn kho theo số lượng thực tế sẽ xuất
         var now = DateTime.UtcNow.AddHours(7);
-        var inventory = await _inventoryService.GetByPeriodAsync(now.Month, now.Year);
-        var insufficient = new List<string>();
-        foreach (var (line, qty) in linesToDispatch)
-        {
-            var inv = inventory.Rows.FirstOrDefault(r => r.ItemId == line.ItemId);
-            var available = inv?.ClosingQty ?? 0m;
-            if (qty > available)
-            {
-                var item = items.FirstOrDefault(i => i.Id == line.ItemId);
-                insufficient.Add(
-                    $"{item?.Name ?? $"ID {line.ItemId}"}: xuất {qty}, tồn {available}"
-                );
-            }
-        }
-        if (insufficient.Count > 0)
-            throw new BadRequestException($"Không đủ tồn kho — {string.Join("; ", insufficient)}");
-
         var user = await _userRepo
             .GetAll()
             .AsNoTracking()
@@ -306,42 +289,83 @@ public class VppRequestService : IVppRequestService
             .Select(u => new { u.Name, BranchName = u.Branches != null ? u.Branches.Name : "" })
             .FirstOrDefaultAsync();
 
-        var code = await GenerateDispatchCodeAsync();
-        var dispatch = new VppDispatch
+        // ClosingQty tính động từ lịch sử nhập/xuất (không có 1 cột "tồn hiện tại" để khóa
+        // trực tiếp), nên 2 lần duyệt cùng đụng 1 item có thể cùng đọc tồn kho trước khi cái
+        // nào commit, rồi cùng xuất vượt quá tồn thật. Dùng advisory lock của Postgres theo
+        // itemId để nghiêm túc hóa: lần duyệt thứ 2 phải chờ lần thứ nhất xong mới được đọc và
+        // trừ tồn. Khóa tự giải phóng khi transaction kết thúc (commit hoặc rollback).
+        using var transaction = await _uow.BeginTransactionAsync();
+        try
         {
-            Code = code,
-            DispatchDate = now,
-            Department = request.Department,
-            Branch = user?.BranchName ?? "",
-            RequestId = id,
-            CreatedBy = createdBy,
-            CreatedAt = DateTime.UtcNow,
-        };
-        await _dispatchRepo.AddAsync(dispatch);
-        await _uow.SaveChangesAsync();
+            var db = _uow.GetDbContext();
+            foreach (var itemId in linesToDispatch.Select(x => x.Line.ItemId).Distinct().OrderBy(x => x))
+                await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", itemId);
 
-        foreach (var (line, qty) in linesToDispatch)
-        {
-            var item = items.First(i => i.Id == line.ItemId);
-            var vatAmount = item.UnitPrice * item.VatRate * qty;
-            await _dispatchLineRepo.AddAsync(
-                new VppDispatchLine
+            var inventory = await _inventoryService.GetByPeriodAsync(now.Month, now.Year);
+            var insufficient = new List<string>();
+            foreach (var (line, qty) in linesToDispatch)
+            {
+                var inv = inventory.Rows.FirstOrDefault(r => r.ItemId == line.ItemId);
+                var available = inv?.ClosingQty ?? 0m;
+                if (qty > available)
                 {
-                    DispatchId = dispatch.Id,
-                    ItemId = line.ItemId,
-                    Quantity = qty,
-                    UnitPrice = item.UnitPrice,
-                    VatAmount = vatAmount,
-                    TotalAmount = item.UnitPrice * qty + vatAmount,
+                    var item = items.FirstOrDefault(i => i.Id == line.ItemId);
+                    insufficient.Add(
+                        $"{item?.Name ?? $"ID {line.ItemId}"}: xuất {qty}, tồn {available}"
+                    );
                 }
-            );
-        }
+            }
+            if (insufficient.Count > 0)
+                throw new BadRequestException($"Không đủ tồn kho — {string.Join("; ", insufficient)}");
 
-        request.Status = "dispatched";
-        request.DispatchId = dispatch.Id;
-        request.AdminNote = adminNote;
-        request.UpdatedAt = DateTime.UtcNow.AddHours(7);
-        await _uow.SaveChangesAsync();
+            // Khóa riêng để sinh mã phiếu xuất — đếm-rồi-cộng-1 không atomic, 2 lần duyệt khác
+            // item nhưng cùng tháng vẫn có thể ra trùng mã nếu không khóa chung 1 khóa cố định.
+            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", AdvisoryLockKeys.VppDispatchCode);
+            var code = await GenerateDispatchCodeAsync();
+            var dispatch = new VppDispatch
+            {
+                Code = code,
+                DispatchDate = now,
+                Department = request.Department,
+                Branch = user?.BranchName ?? "",
+                RequestId = id,
+                CreatedBy = createdBy,
+                CreatedAt = DateTime.UtcNow,
+            };
+            await _dispatchRepo.AddAsync(dispatch);
+            await _uow.SaveChangesAsync();
+
+            foreach (var (line, qty) in linesToDispatch)
+            {
+                var item = items.First(i => i.Id == line.ItemId);
+                var vatAmount = item.UnitPrice * item.VatRate * qty;
+                await _dispatchLineRepo.AddAsync(
+                    new VppDispatchLine
+                    {
+                        DispatchId = dispatch.Id,
+                        ItemId = line.ItemId,
+                        Quantity = qty,
+                        UnitPrice = item.UnitPrice,
+                        VatAmount = vatAmount,
+                        TotalAmount = item.UnitPrice * qty + vatAmount,
+                    }
+                );
+            }
+
+            request.Status = "dispatched";
+            request.DispatchId = dispatch.Id;
+            request.AdminNote = adminNote;
+            request.UpdatedAt = DateTime.UtcNow.AddHours(7);
+            await _uow.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction.GetDbTransaction().Connection != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
 
         return ToDto(request, user?.Name ?? "", user?.BranchName ?? "");
     }

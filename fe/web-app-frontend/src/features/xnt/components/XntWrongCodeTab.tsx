@@ -186,7 +186,15 @@ export default function XntWrongCodeTab() {
         queryFn: () => xntApi.getAdjustmentLogs(logFilter),
     });
     const logs = useMemo(() => logsQuery.data?.content ?? [], [logsQuery.data]);
-    const typeOptions = useMemo(() => [...new Set(logs.map(l => l.type).filter(Boolean))], [logs]);
+    // Danh sách "Loại thao tác" chỉ được PHÉP LỚN THÊM, không co lại — nếu lấy thẳng từ `logs`
+    // (đã bị lọc theo type đang chọn) thì chọn 1 loại rồi mở lại dropdown sẽ mất hết loại khác.
+    // Điều chỉnh state ngay trong lúc render (không dùng ref/useEffect) theo đúng pattern React
+    // cho phép: so sánh rồi setState có điều kiện trong thân render.
+    const [typeOptions, setTypeOptions] = useState<string[]>([]);
+    const newTypes = [...new Set(logs.map(l => l.type).filter((t): t is string => !!t && !typeOptions.includes(t)))];
+    if (newTypes.length > 0) {
+        setTypeOptions(prev => [...prev, ...newTypes]);
+    }
     const pagedLogs = logs.slice(logPage * LOG_PAGE_SIZE, (logPage + 1) * LOG_PAGE_SIZE);
 
     const [rollingBackId, setRollingBackId] = useState<number | null>(null);

@@ -20,6 +20,7 @@ import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { usePermission } from '@/hooks/usePermission';
 import { reconciliationApi, ReconciliationBreakdownItemDto, ReconciliationRunDetailDto, ReconciliationRunSummaryDto } from '@/features/reconciliation/api/reconciliation.api';
 import ReconciliationGuideDialog from '@/features/reconciliation/components/ReconciliationGuideDialog';
+import { errMessage } from '@/lib/errMessage';
 
 const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
@@ -36,11 +37,6 @@ function fmtDate(s?: string | null) {
 }
 function fmtVnd(v: number) { return Math.round(v).toLocaleString('vi-VN') + 'đ'; }
 function fmtShort(v: number) { return v >= 1_000_000_000 ? (Math.floor(v / 100_000_000) / 10).toFixed(1) + ' tỷ' : v >= 1_000_000 ? (Math.floor(v / 100_000) / 10).toFixed(1) + 'tr' : Math.round(v).toLocaleString('vi-VN') + 'đ'; }
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
 
 function ChartCard({ title, subtitle, children, height = 260 }: { title: string; subtitle?: string; children: React.ReactNode; height?: number }) {
     return (

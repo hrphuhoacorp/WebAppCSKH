@@ -22,6 +22,7 @@ import { vppApi, VppItemDto, VppItemUpsertDto, VPP_GREEN, VPP_GROUPS } from '../
 import toast from 'react-hot-toast';
 import { usePermission } from '@/hooks/usePermission';
 import * as XLSX from 'xlsx';
+import { errMessage } from '@/lib/errMessage';
 
 const GREEN = VPP_GREEN;
 const CARD_RADIUS = '20px';
@@ -93,18 +94,17 @@ export default function TabCatalog() {
 
     const createMut = useMutation({
         mutationFn: (dto: VppItemUpsertDto) => vppApi.createItem(dto),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onError: (err: any) => { toast.error(err?.response?.data?.message || err?.response?.data?.Message || 'Tạo vật tư thất bại'); },
+        onError: (err) => { toast.error(errMessage(err, 'Tạo vật tư thất bại')); },
     });
     const updateMut = useMutation({
         mutationFn: ({ id, dto }: { id: number; dto: VppItemUpsertDto }) => vppApi.updateItem(id, dto),
         onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); handleClose(); toast.success('Đã cập nhật vật tư'); },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onError: (err: any) => { toast.error(err?.response?.data?.message || err?.response?.data?.Message || 'Cập nhật thất bại'); },
+        onError: (err) => { toast.error(errMessage(err, 'Cập nhật thất bại')); },
     });
     const deleteMut = useMutation({
         mutationFn: (id: number) => vppApi.deleteItem(id),
         onSuccess: () => { qc.invalidateQueries({ queryKey: ['vpp-items'] }); setDeleteId(null); },
+        onError: (err) => { toast.error(errMessage(err, 'Xóa vật tư thất bại')); },
     });
     const toggleMut = useMutation({
         mutationFn: (id: number) => vppApi.toggleActive(id),
@@ -112,6 +112,7 @@ export default function TabCatalog() {
             qc.invalidateQueries({ queryKey: ['vpp-items'] });
             toast.success(res.isActive ? 'Đã kích hoạt vật tư' : 'Đã đặt thành ngừng nhập');
         },
+        onError: (err) => { toast.error(errMessage(err, 'Thao tác thất bại')); },
     });
 
     function handleOpen(item?: VppItemDto) {

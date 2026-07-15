@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using WebAppInfractor.Models.Vpp;
 
 public interface IVppItemService
@@ -137,48 +138,84 @@ public class VppItemService : IVppItemService
 
     public async Task<VppItemDto> AppendUniformReturnAsync(int id, UniformReturnRecordDto dto)
     {
-        var entity = await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy vật tư");
-        if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy vật tư");
-
-        var records = string.IsNullOrEmpty(entity.UniformReturnHistory)
-            ? new List<UniformReturnRecord>()
-            : System.Text.Json.JsonSerializer.Deserialize<List<UniformReturnRecord>>(entity.UniformReturnHistory)
-              ?? new List<UniformReturnRecord>();
-
-        records.Add(new UniformReturnRecord
+        // Khóa theo item trước khi đọc — cả mảng UniformReturnHistory được đọc/sửa/ghi đè
+        // nguyên khối (không phải bảng con), nên 2 người nộp cùng lúc cho cùng 1 item có thể
+        // mất bản ghi của người nộp trước (lost update) nếu không khóa. Khóa tự giải phóng khi
+        // transaction kết thúc.
+        using var transaction = await _uow.BeginTransactionAsync();
+        VppItemDto result;
+        try
         {
-            Date = dto.Date,
-            Quantity = dto.Quantity,
-            ReturnedBy = dto.ReturnedBy,
-            Note = dto.Note ?? "",
-        });
+            await _uow.GetDbContext().Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", id);
 
-        entity.UniformReturnHistory = System.Text.Json.JsonSerializer.Serialize(records);
-        entity.UpdatedAt = DateTime.UtcNow.AddHours(7);
-        await _uow.SaveChangesAsync();
-        return ToDto(entity);
+            var entity = await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy vật tư");
+            if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy vật tư");
+
+            var records = string.IsNullOrEmpty(entity.UniformReturnHistory)
+                ? new List<UniformReturnRecord>()
+                : System.Text.Json.JsonSerializer.Deserialize<List<UniformReturnRecord>>(entity.UniformReturnHistory)
+                  ?? new List<UniformReturnRecord>();
+
+            records.Add(new UniformReturnRecord
+            {
+                Date = dto.Date,
+                Quantity = dto.Quantity,
+                ReturnedBy = dto.ReturnedBy,
+                Note = dto.Note ?? "",
+            });
+
+            entity.UniformReturnHistory = System.Text.Json.JsonSerializer.Serialize(records);
+            entity.UpdatedAt = DateTime.UtcNow.AddHours(7);
+            await _uow.SaveChangesAsync();
+            result = ToDto(entity);
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction.GetDbTransaction().Connection != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+        return result;
     }
 
     public async Task<VppItemDto> DeleteUniformReturnAsync(int id, int index)
     {
-        var entity = await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy vật tư");
-        if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy vật tư");
+        using var transaction = await _uow.BeginTransactionAsync();
+        VppItemDto result;
+        try
+        {
+            await _uow.GetDbContext().Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", id);
 
-        var records = string.IsNullOrEmpty(entity.UniformReturnHistory)
-            ? new List<UniformReturnRecord>()
-            : System.Text.Json.JsonSerializer.Deserialize<List<UniformReturnRecord>>(entity.UniformReturnHistory)
-              ?? new List<UniformReturnRecord>();
+            var entity = await _repo.GetByIdAsync(id) ?? throw new NotFoundException("Không tìm thấy vật tư");
+            if (entity.DeletedAt != null) throw new NotFoundException("Không tìm thấy vật tư");
 
-        if (index < 0 || index >= records.Count)
-            throw new NotFoundException("Không tìm thấy bản ghi hoàn trả");
+            var records = string.IsNullOrEmpty(entity.UniformReturnHistory)
+                ? new List<UniformReturnRecord>()
+                : System.Text.Json.JsonSerializer.Deserialize<List<UniformReturnRecord>>(entity.UniformReturnHistory)
+                  ?? new List<UniformReturnRecord>();
 
-        records.RemoveAt(index);
-        entity.UniformReturnHistory = records.Count > 0
-            ? System.Text.Json.JsonSerializer.Serialize(records)
-            : null;
-        entity.UpdatedAt = DateTime.UtcNow.AddHours(7);
-        await _uow.SaveChangesAsync();
-        return ToDto(entity);
+            if (index < 0 || index >= records.Count)
+                throw new NotFoundException("Không tìm thấy bản ghi hoàn trả");
+
+            records.RemoveAt(index);
+            entity.UniformReturnHistory = records.Count > 0
+                ? System.Text.Json.JsonSerializer.Serialize(records)
+                : null;
+            entity.UpdatedAt = DateTime.UtcNow.AddHours(7);
+            await _uow.SaveChangesAsync();
+            result = ToDto(entity);
+
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            if (transaction.GetDbTransaction().Connection != null)
+                await transaction.RollbackAsync();
+            throw;
+        }
+        return result;
     }
 
     public async Task<VppItemDto> ToggleActiveAsync(int id)

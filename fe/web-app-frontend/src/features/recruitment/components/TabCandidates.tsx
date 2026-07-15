@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { usePermission } from '@/hooks/usePermission';
 import { useAuth } from '@/providers/AuthProviders';
+import { errMessage } from '@/lib/errMessage';
 import {
     recruitmentCandidateApi, recruitmentCampaignApi, recruitmentSettingsApi,
     RecruitmentCandidateDto, CandidateCreateDto,
@@ -257,7 +258,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             setCreateOpen(false);
             setForm(emptyCreate());
             setCvFile(null);
-        } catch { toast.error('Có lỗi xảy ra'); } finally { setSaving(false); }
+        } catch (e) { toast.error(errMessage(e, 'Có lỗi xảy ra')); } finally { setSaving(false); }
     }
 
     function openDetail(c: RecruitmentCandidateDto) {
@@ -276,7 +277,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
             qc.invalidateQueries({ queryKey: ['recruitment-candidate-detail', detailId] });
             setEditMode(false);
-        } catch { toast.error('Có lỗi xảy ra'); } finally { setSaving(false); }
+        } catch (e) { toast.error(errMessage(e, 'Có lỗi xảy ra')); } finally { setSaving(false); }
     }
 
     async function quickUpdate(c: RecruitmentCandidateDto, status: string, extra?: Record<string, string>) {
@@ -291,7 +292,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             });
             qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
             qc.invalidateQueries({ queryKey: ['recruitment-candidate-detail', c.id] });
-        } catch { toast.error('Cập nhật thất bại'); } finally { setQuickUpdating(false); }
+        } catch (e) { toast.error(errMessage(e, 'Cập nhật thất bại')); } finally { setQuickUpdating(false); }
     }
 
     async function handleUploadCvDetail(file: File) {
@@ -302,7 +303,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             toast.success('Upload CV thành công');
             qc.invalidateQueries({ queryKey: ['recruitment-candidate-detail', detailId] });
             qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
-        } catch { toast.error('Upload thất bại'); } finally { setUploading(false); }
+        } catch (e) { toast.error(errMessage(e, 'Upload thất bại')); } finally { setUploading(false); }
     }
 
     async function handleDownloadCv() {
@@ -336,7 +337,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
             toast.success('Đã xóa ứng viên');
             qc.invalidateQueries({ queryKey: ['recruitment-candidates'] });
             setDeleteId(null);
-        } catch { toast.error('Không thể xóa'); } finally { setDeleting(false); }
+        } catch (e) { toast.error(errMessage(e, 'Không thể xóa')); } finally { setDeleting(false); }
     }
 
     const detail = detailData?.content;

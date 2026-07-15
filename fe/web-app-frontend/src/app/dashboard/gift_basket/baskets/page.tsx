@@ -14,6 +14,7 @@ import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import toast from 'react-hot-toast';
 import * as signalR from '@microsoft/signalr';
+import { errMessage } from '@/lib/errMessage';
 
 const fmtVnd = (n?: number) => n != null ? n.toLocaleString('vi-VN') + ' ₫' : '';
 const groupLabel = (code?: string) => BASKET_GROUPS.find(g => g.code === code)?.name ?? '';
@@ -206,7 +207,7 @@ export default function BasketsPage() {
                     setPage(pg + 1);
                 }
             }
-        } catch { toast.error('Lỗi tải dữ liệu'); }
+        } catch (e) { toast.error(errMessage(e, 'Lỗi tải dữ liệu')); }
         finally { setLoading(false); setLoadingMore(false); }
     }, [page]);
 

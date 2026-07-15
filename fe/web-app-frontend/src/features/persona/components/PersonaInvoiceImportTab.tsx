@@ -10,11 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { personaApi } from '../api/persona.api';
 import { BORDER, CARD_RADIUS, GREEN } from '../styles';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
+import { errMessage } from '@/lib/errMessage';
 
 function formatDateTime(value?: string | null): string {
     if (!value) return '—';

@@ -13,6 +13,30 @@ export default function AssignTagDialog({ open, customerName, tags, existingTagI
     onClose: () => void;
     onSubmit: (tagId: number, note?: string) => Promise<void> | void;
 }) {
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS } } }}>
+            {open && (
+                <AssignTagDialogBody
+                    customerName={customerName}
+                    tags={tags}
+                    existingTagIds={existingTagIds}
+                    onClose={onClose}
+                    onSubmit={onSubmit}
+                />
+            )}
+        </Dialog>
+    );
+}
+
+// Chỉ mount khi dialog mở — state khởi tạo mới hoàn toàn mỗi lần, tránh giữ lại tag/ghi chú
+// đã chọn dở của khách trước đó khi bấm Hủy rồi mở lại cho khách khác.
+function AssignTagDialogBody({ customerName, tags, existingTagIds, onClose, onSubmit }: {
+    customerName: string;
+    tags: PersonaTagDto[];
+    existingTagIds: number[];
+    onClose: () => void;
+    onSubmit: (tagId: number, note?: string) => Promise<void> | void;
+}) {
     const [selectedTag, setSelectedTag] = useState<PersonaTagDto | null>(null);
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
@@ -32,7 +56,7 @@ export default function AssignTagDialog({ open, customerName, tags, existingTagI
     }
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: CARD_RADIUS } } }}>
+        <>
             <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Gắn tag cho {customerName}</DialogTitle>
             <DialogContent>
                 <Autocomplete
@@ -66,6 +90,6 @@ export default function AssignTagDialog({ open, customerName, tags, existingTagI
                     Gắn tag
                 </Button>
             </DialogActions>
-        </Dialog>
+        </>
     );
 }

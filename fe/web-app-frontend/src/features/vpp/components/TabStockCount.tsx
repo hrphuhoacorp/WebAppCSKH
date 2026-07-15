@@ -20,15 +20,11 @@ import toast from 'react-hot-toast';
 import { usePermission } from '@/hooks/usePermission';
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import { StockCountPrintView } from './StockCountPrintTemplate';
+import { errMessage } from '@/lib/errMessage';
 
 const TEAL = '#0f766e';
 const CARD_RADIUS = '20px';
 const BORDER = '#e2e8f0';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } }; message?: string })?.response?.data;
-    return data?.Message || data?.message || (err as { message?: string })?.message || fallback;
-}
 
 const fieldSx = {
     '& .MuiOutlinedInput-root': { borderRadius: '12px', '& fieldset': { borderColor: BORDER }, '&.Mui-focused fieldset': { borderColor: TEAL, borderWidth: 1.5 } },
@@ -96,6 +92,7 @@ export default function TabStockCount() {
             setEdited({});
             toast.success('Đã tạo phiếu kiểm kho — hãy nhập số lượng thực tế');
         },
+        onError: (err) => { toast.error(errMessage(err, 'Tạo phiếu kiểm kho thất bại')); },
     });
 
     const saveLineMut = useMutation({
@@ -112,6 +109,7 @@ export default function TabStockCount() {
             setConfirmId(null);
             toast.success('Đã xác nhận kiểm kho — tồn kho đã được điều chỉnh');
         },
+        onError: (err) => { toast.error(errMessage(err, 'Xác nhận kiểm kho thất bại')); },
     });
     const handlePrint = useReactToPrint({
         contentRef: printRef,

@@ -22,11 +22,7 @@ import TagFormDialog, { TagFormValues } from './TagFormDialog';
 import TagRuleDialog from './TagRuleDialog';
 import RunHistoryDialog from './RunHistoryDialog';
 import TagCustomerListDialog from './TagCustomerListDialog';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
+import { errMessage } from '@/lib/errMessage';
 
 export default function PersonaAutoClassificationTab() {
     const qc = useQueryClient();

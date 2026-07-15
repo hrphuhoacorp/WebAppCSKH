@@ -16,11 +16,7 @@ import { personaApi, PersonaCareScheduleDto, PersonaReminderDto } from '../api/p
 import { BORDER, CARD_RADIUS, GREEN } from '../styles';
 import ScheduleFormDialog, { ScheduleFormValues } from './ScheduleFormDialog';
 import { usePermission } from '@/hooks/usePermission';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
+import { errMessage } from '@/lib/errMessage';
 
 function fmtDate(iso: string): string {
     return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });

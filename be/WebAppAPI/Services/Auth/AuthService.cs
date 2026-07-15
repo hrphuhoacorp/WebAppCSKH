@@ -208,7 +208,12 @@ public class AuthService : IAuthService
         using var transaction = await _unitOfWork.BeginTransactionAsync();
         try
         {
-            var author = _userRepository.GetAll().FirstOrDefault(u => u.Id == authorId);
+            var author = await _userRepository.GetAll().FirstOrDefaultAsync(u => u.Id == authorId);
+
+            if (author == null)
+            {
+                throw new NotFoundException("Người dùng không tồn tại");
+            }
 
             var branchExists = await _branchRepository
                 .GetAll()

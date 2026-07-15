@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { personaApi, PersonaTagDto } from '../api/persona.api';
 import { BORDER, CARD_RADIUS } from '../styles';
 import CustomerSignatureBar from './CustomerSignatureBar';
+import { errMessage } from '@/lib/errMessage';
 
 function fmtCompactVnd(v: number): string {
     if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(2) + ' tỷ đ';
@@ -32,7 +33,7 @@ export default function TagCustomerListDialog({ open, tag, onClose }: {
         return () => clearTimeout(t);
     }, [search]);
 
-    const { data: customersPage, isLoading } = useQuery({
+    const { data: customersPage, isLoading, isError, error } = useQuery({
         queryKey: ['persona-tag-customer-list', tag?.id, debouncedSearch, page, pageSize],
         queryFn: () => personaApi.getCustomersWithTags({ search: debouncedSearch || undefined, tagId: tag!.id, page: page + 1, pageSize }),
         enabled: open && !!tag,
@@ -82,6 +83,8 @@ export default function TagCustomerListDialog({ open, tag, onClose }: {
                         <TableBody>
                             {isLoading ? (
                                 <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: '#94a3b8' }}>Đang tải...</TableCell></TableRow>
+                            ) : isError ? (
+                                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: '#dc2626', fontWeight: 600 }}>{errMessage(error, 'Không tải được danh sách khách hàng')}</TableCell></TableRow>
                             ) : items.length === 0 ? (
                                 <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6, color: '#94a3b8' }}>Không có khách hàng nào</TableCell></TableRow>
                             ) : items.map(c => (

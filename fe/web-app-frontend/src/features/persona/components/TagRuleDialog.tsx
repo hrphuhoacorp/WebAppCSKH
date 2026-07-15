@@ -10,11 +10,7 @@ import toast from 'react-hot-toast';
 import { personaApi, PersonaRuleConfig, PersonaTagDto } from '../api/persona.api';
 import { BORDER, CARD_RADIUS, GREEN } from '../styles';
 import RuleConditionBuilder from './RuleConditionBuilder';
-
-function errMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { Message?: string; message?: string } } })?.response?.data;
-    return data?.Message || data?.message || fallback;
-}
+import { errMessage } from '@/lib/errMessage';
 
 function fmtMoney(n: number): string {
     return n.toLocaleString('vi-VN') + 'đ';
