@@ -150,12 +150,13 @@ function ArticleCard({ item, onClick }: { item: NewsItem; onClick: () => void })
       {/* Ảnh */}
       <Box sx={{ overflow: 'hidden', borderRadius: '6px', mb: 2, bgcolor: '#f1f5f9' }}>
         {item.thumbnailUrl ? (
-          <Box sx={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
+          <Box sx={{ position: 'relative', width: '100%', height: 0, paddingBottom: '56.25%' }}>
             <Image
               className="card-img"
               src={item.thumbnailUrl}
               alt={item.title}
               fill
+              unoptimized
               sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 33vw"
               style={{ objectFit: 'cover', transition: 'transform 0.55s cubic-bezier(0.4,0,0.2,1)' }}
             />
@@ -218,9 +219,10 @@ function FeedItem({ item, onClick }: { item: NewsItem; onClick: () => void }) {
         <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '6px', flexShrink: 0, height: { xs: 72, md: 110 } }}>
           <Image
             className="feed-img"
-            src={item.thumbnailUrl!}
+            src={item.thumbnailUrl}
             alt={item.title}
             fill
+            unoptimized
             sizes="(max-width: 768px) 90px, 160px"
             style={{ objectFit: 'cover', transition: 'transform 0.5s cubic-bezier(0.4,0,0.2,1)' }}
           />
