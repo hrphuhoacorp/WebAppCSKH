@@ -150,16 +150,13 @@ function ArticleCard({ item, onClick }: { item: NewsItem; onClick: () => void })
       {/* Ảnh */}
       <Box sx={{ overflow: 'hidden', borderRadius: '6px', mb: 2, bgcolor: '#f1f5f9' }}>
         {item.thumbnailUrl ? (
-          <Box sx={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
-            <Image
-              className="card-img"
-              src={item.thumbnailUrl}
-              alt={item.title}
-              fill
-              sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 33vw"
-              style={{ objectFit: 'cover', transition: 'transform 0.55s cubic-bezier(0.4,0,0.2,1)' }}
-            />
-          </Box>
+          <Box
+            className="card-img"
+            component="img"
+            src={item.thumbnailUrl}
+            alt={item.title}
+            sx={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block', transition: 'transform 0.55s cubic-bezier(0.4,0,0.2,1)' }}
+          />
         ) : (
           <Box sx={{
             width: '100%', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -215,14 +212,13 @@ function FeedItem({ item, onClick }: { item: NewsItem; onClick: () => void }) {
         <MetaRow item={item} />
       </Box>
       {item.thumbnailUrl && (
-        <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '6px', flexShrink: 0, height: { xs: 72, md: 110 } }}>
-          <Image
+        <Box sx={{ overflow: 'hidden', borderRadius: '6px', flexShrink: 0 }}>
+          <Box
             className="feed-img"
-            src={item.thumbnailUrl!}
+            component="img"
+            src={item.thumbnailUrl}
             alt={item.title}
-            fill
-            sizes="(max-width: 768px) 90px, 160px"
-            style={{ objectFit: 'cover', transition: 'transform 0.5s cubic-bezier(0.4,0,0.2,1)' }}
+            sx={{ width: '100%', height: { xs: 72, md: 110 }, objectFit: 'cover', display: 'block', transition: 'transform 0.5s cubic-bezier(0.4,0,0.2,1)' }}
           />
         </Box>
       )}
