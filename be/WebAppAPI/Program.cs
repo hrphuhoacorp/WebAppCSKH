@@ -337,6 +337,7 @@ if (!string.IsNullOrWhiteSpace(mediaRoot))
 
     app.UseStaticFiles(
         new StaticFileOptions
+        
         {
             FileProvider = new PhysicalFileProvider(mediaRoot),
             RequestPath = mediaRequestPath,
