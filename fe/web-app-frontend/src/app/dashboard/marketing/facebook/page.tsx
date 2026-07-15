@@ -24,6 +24,7 @@ import { fbCampaignTagApi, FbCampaignTagDto } from '@/features/facebook/api/fbCa
 import { ordersApi } from '@/features/orders/api/orders.api';
 import TagCampaignDialog from '@/features/facebook/components/TagCampaignDialog';
 import CampaignPerformanceDialog from '@/features/facebook/components/CampaignPerformanceDialog';
+import { errMessage } from '@/lib/errMessage';
 
 const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
@@ -164,12 +165,14 @@ const BREAKDOWNS = [
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function FacebookAdsPage() {
-    const today = new Date().toISOString().slice(0, 10);
-    const ago30 = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
     const qc = useQueryClient();
 
-    const [since, setSince]       = useState(ago30);
-    const [until, setUntil]       = useState(today);
+    const thisMonth = new Date().toISOString().slice(0, 7); // "2026-07"
+    const [month, setMonth] = useState(thisMonth);
+
+    const since = `${month}-01`;
+    const _lastDay = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0);
+    const until = `${_lastDay.getFullYear()}-${String(_lastDay.getMonth() + 1).padStart(2, '0')}-${String(_lastDay.getDate()).padStart(2, '0')}`;
     const [level, setLevel]       = useState('campaign');
     const [mainTab, setMainTab]   = useState(0);
     const [breakdownTab, setBreakdownTab] = useState(0);
@@ -212,8 +215,8 @@ export default function FacebookAdsPage() {
             await fbCampaignTagApi.deleteTag(tag.id);
             toast.success('Đã gỡ nhãn chiến dịch');
             refreshTags();
-        } catch {
-            toast.error('Gỡ nhãn thất bại');
+        } catch (e) {
+            toast.error(errMessage(e, 'Gỡ nhãn thất bại'));
         }
     }
 
@@ -542,10 +545,9 @@ export default function FacebookAdsPage() {
                     <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>Bộ lọc</Typography>
                 </Box>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(4,1fr)' }, gap: 2 }}>
-                    <TextField size="small" type="date" label="Từ ngày" value={since}
-                        onChange={e => setSince(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth sx={fieldSx} />
-                    <TextField size="small" type="date" label="Đến ngày" value={until}
-                        onChange={e => setUntil(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth sx={fieldSx} />
+                    <TextField size="small" type="month" label="Tháng" value={month}
+                        onChange={e => setMonth(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} fullWidth sx={fieldSx}
+                        helperText={`${since} → ${until}`} />
                     <TextField select size="small" label="Cấp độ" value={level}
                         onChange={e => setLevel(e.target.value)} fullWidth sx={fieldSx}>
                         <MenuItem value="campaign">Chiến dịch (Campaign)</MenuItem>
@@ -778,33 +780,55 @@ export default function FacebookAdsPage() {
                                                             ) : (
                                                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                                                     {tags.map(t => (
-                                                                        <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', p: 1, borderRadius: '10px', bgcolor: '#f8fafc' }}>
-                                                                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', flex: 1, minWidth: 160 }}>
-                                                                                {t.categories.map(cat => (
-                                                                                    <Chip key={cat} size="small" label={cat} sx={{ fontSize: 10.5, height: 20, bgcolor: alpha(FB, 0.08), color: FB, fontWeight: 600 }} />
-                                                                                ))}
+                                                                        <Box key={t.id}
+                                                                            onClick={() => setPerfDialogTagId(t.id)}
+                                                                            sx={{
+                                                                                p: 1.25, borderRadius: '12px',
+                                                                                border: `1px solid ${BORDER}`,
+                                                                                bgcolor: '#f8fafc',
+                                                                                cursor: 'pointer',
+                                                                                transition: 'all 0.15s ease',
+                                                                                '&:hover': { bgcolor: alpha(FB, 0.04), borderColor: alpha(FB, 0.4), boxShadow: `0 2px 10px ${alpha(FB, 0.1)}` },
+                                                                            }}>
+                                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.4 }}>
+                                                                                        {t.categories.map(cat => (
+                                                                                            <Chip key={cat} size="small" label={cat}
+                                                                                                sx={{ fontSize: 10.5, height: 20, bgcolor: alpha(FB, 0.1), color: FB, fontWeight: 700 }} />
+                                                                                        ))}
+                                                                                    </Box>
+                                                                                    <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
+                                                                                        {branchLabel(t.branchIds)} · {t.dateFrom.slice(0, 10)} → {t.dateTo.slice(0, 10)}
+                                                                                    </Typography>
+                                                                                </Box>
+                                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                                                                                    <Box sx={{
+                                                                                        display: 'flex', alignItems: 'center', gap: 0.5,
+                                                                                        px: 1.25, py: 0.4, borderRadius: '8px',
+                                                                                        bgcolor: alpha(FB, 0.1), color: FB,
+                                                                                        fontSize: 11.5, fontWeight: 700,
+                                                                                        pointerEvents: 'none',
+                                                                                    }}>
+                                                                                        <InsightsRounded sx={{ fontSize: 13 }} />
+                                                                                        Phân tích
+                                                                                    </Box>
+                                                                                    <Tooltip title="Sửa" arrow>
+                                                                                        <IconButton size="small"
+                                                                                            onClick={e => { e.stopPropagation(); setTagDialogTarget({ campaign: c, existingTag: t }); }}
+                                                                                            sx={{ border: `1px solid ${BORDER}`, borderRadius: '8px', p: 0.5 }}>
+                                                                                            <EditRounded sx={{ fontSize: 14 }} />
+                                                                                        </IconButton>
+                                                                                    </Tooltip>
+                                                                                    <Tooltip title="Gỡ nhãn" arrow>
+                                                                                        <IconButton size="small"
+                                                                                            onClick={e => { e.stopPropagation(); handleDeleteTag(t); }}
+                                                                                            sx={{ border: `1px solid ${BORDER}`, borderRadius: '8px', p: 0.5, color: '#dc2626' }}>
+                                                                                            <DeleteOutlineRounded sx={{ fontSize: 14 }} />
+                                                                                        </IconButton>
+                                                                                    </Tooltip>
+                                                                                </Box>
                                                                             </Box>
-                                                                            <Typography sx={{ fontSize: 11.5, color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                                                                                {branchLabel(t.branchIds)} · {t.dateFrom.slice(0, 10)} → {t.dateTo.slice(0, 10)}
-                                                                            </Typography>
-                                                                            <Tooltip title="Xem hiệu suất" arrow>
-                                                                                <IconButton size="small" onClick={() => setPerfDialogTagId(t.id)}
-                                                                                    sx={{ border: `1px solid ${BORDER}`, borderRadius: '8px', p: 0.5 }}>
-                                                                                    <InsightsRounded sx={{ fontSize: 15, color: FB }} />
-                                                                                </IconButton>
-                                                                            </Tooltip>
-                                                                            <Tooltip title="Sửa" arrow>
-                                                                                <IconButton size="small" onClick={() => setTagDialogTarget({ campaign: c, existingTag: t })}
-                                                                                    sx={{ border: `1px solid ${BORDER}`, borderRadius: '8px', p: 0.5 }}>
-                                                                                    <EditRounded sx={{ fontSize: 15 }} />
-                                                                                </IconButton>
-                                                                            </Tooltip>
-                                                                            <Tooltip title="Gỡ nhãn" arrow>
-                                                                                <IconButton size="small" onClick={() => handleDeleteTag(t)}
-                                                                                    sx={{ border: `1px solid ${BORDER}`, borderRadius: '8px', p: 0.5, color: '#dc2626' }}>
-                                                                                    <DeleteOutlineRounded sx={{ fontSize: 15 }} />
-                                                                                </IconButton>
-                                                                            </Tooltip>
                                                                         </Box>
                                                                     ))}
                                                                 </Box>
