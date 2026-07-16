@@ -193,6 +193,8 @@ const PRESETS = [
     { key: 'custom',     label: 'Tùy chọn' },
 ];
 
+const EMPTY_INSIGHTS: FbInsight[] = [];
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function FacebookAdsPage() {
     const qc = useQueryClient();
@@ -261,13 +263,13 @@ export default function FacebookAdsPage() {
         placeholderData: (prev) => prev,
     });
     // Adset & ad level — only fetched when on Chiến dịch tab
-    const { data: insightsAdset = [], isFetching: loadAdset } = useQuery<FbInsight[]>({
+    const { data: insightsAdset = EMPTY_INSIGHTS, isFetching: loadAdset } = useQuery<FbInsight[]>({
         queryKey: ['fb-insights', since, until, 'adset'],
         queryFn: () => facebookApi.getInsights(since, until, 'adset'),
         placeholderData: (prev) => prev,
         enabled: mainTab === 1,
     });
-    const { data: insightsAd = [], isFetching: loadAd } = useQuery<FbInsight[]>({
+    const { data: insightsAd = EMPTY_INSIGHTS, isFetching: loadAd } = useQuery<FbInsight[]>({
         queryKey: ['fb-insights', since, until, 'ad'],
         queryFn: () => facebookApi.getInsights(since, until, 'ad'),
         placeholderData: (prev) => prev,
@@ -409,9 +411,16 @@ export default function FacebookAdsPage() {
         return outer;
     }, [insightsAd]);
 
-    // Auto-expand rows that match the search query
+    // Auto-expand rows that match the search query.
+    // Intentionally only depends on searchQuery — Maps are read from closure at fire time.
+    // Including Maps in deps caused infinite loops because new Map instances were created
+    // on every render when queries are disabled (default [] is a new reference each render).
     useEffect(() => {
-        if (!searchQuery.trim()) { setExpandedCampaigns(new Set()); setExpandedAdsets(new Set()); return; }
+        if (!searchQuery.trim()) {
+            setExpandedCampaigns(prev => prev.size === 0 ? prev : new Set());
+            setExpandedAdsets(prev => prev.size === 0 ? prev : new Set());
+            return;
+        }
         const q = searchQuery.toLowerCase();
         const newC = new Set<string>();
         const newA = new Set<string>();
@@ -425,7 +434,8 @@ export default function FacebookAdsPage() {
         }
         setExpandedCampaigns(newC);
         setExpandedAdsets(newA);
-    }, [searchQuery, adsetAggByCampaign, adAggByAdset]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchQuery]);
 
     const hierarchyCampaigns = useMemo(() => {
         const q = searchQuery.toLowerCase().trim();
