@@ -8,6 +8,7 @@ type LoadingOverlayProps = {
     open: boolean;
     text?: string;
     fullScreen?: boolean;
+    
 };
 
 export default function LoadingOverlay({
