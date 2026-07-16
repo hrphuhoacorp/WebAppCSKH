@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Box, CircularProgress, Typography } from '@mui/material';
 
@@ -14,9 +15,13 @@ export default function LoadingOverlay({
     text = 'Đang tải dữ liệu...',
     fullScreen = false,
 }: LoadingOverlayProps) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+
     if (!open) return null;
 
-    if (fullScreen && typeof document !== 'undefined') {
+    if (fullScreen) {
+        if (!mounted) return null;
         return createPortal(
             <div style={{
                 position: 'fixed',
