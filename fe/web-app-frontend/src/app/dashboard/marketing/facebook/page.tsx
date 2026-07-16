@@ -544,6 +544,12 @@ export default function FacebookAdsPage() {
     const loading = loadIns;
 
     // ── Hierarchy table row helper ─────────────────────────────────────────────
+    // Facebook ad names often arrive as "123456789012 (Short Label)" — show just the label
+    function cleanName(raw: string): string {
+        const m = raw.match(/^\d{8,}\s+\((.+)\)$/);
+        return m ? m[1] : raw;
+    }
+
     function rowMetrics(r: HierarchyRow) {
         return {
             pct:  totals.spend > 0 ? r.spend / totals.spend * 100 : 0,
@@ -704,12 +710,12 @@ export default function FacebookAdsPage() {
                                     ? <Box sx={{ p: 2 }}><Skeleton height={200} /></Box>
                                     : (
                                         <Box sx={{ overflowX: 'auto' }}>
-                                            <Table size="small">
+                                            <Table size="small" sx={{ minWidth: 1080 }}>
                                                 <TableHead>
                                                     <TableRow>
                                                         {COL_HEADERS.map((h, i) => (
                                                             <TableCell key={h} align={i === 0 ? 'left' : 'right'}
-                                                                sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', borderColor: '#f1f5f9', py: 1.2, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                                                                sx={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', borderColor: '#f1f5f9', py: 1.2, whiteSpace: 'nowrap', minWidth: i === 0 ? 240 : i === 1 ? 140 : undefined }}>{h}</TableCell>
                                                         ))}
                                                     </TableRow>
                                                 </TableHead>
@@ -727,15 +733,17 @@ export default function FacebookAdsPage() {
                                                             <React.Fragment key={campaign.id}>
                                                                 {/* Campaign row */}
                                                                 <TableRow sx={{ '& td': { borderColor: '#f1f5f9', py: 1 }, '&:hover': { bgcolor: alpha(FB, 0.025) }, bgcolor: '#fff' }}>
-                                                                    <TableCell sx={{ maxWidth: 300 }}>
+                                                                    <TableCell>
                                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                                             <IconButton size="small" onClick={() => toggleCampaign(campaign.id)}
-                                                                                sx={{ p: 0.25, color: adsets.length > 0 || loadAdset ? FB : '#cbd5e1', '&:hover': { bgcolor: alpha(FB, 0.08) } }}>
+                                                                                sx={{ p: 0.25, flexShrink: 0, color: adsets.length > 0 || loadAdset ? FB : '#cbd5e1', '&:hover': { bgcolor: alpha(FB, 0.08) } }}>
                                                                                 {isExpanded ? <ExpandMoreRounded sx={{ fontSize: 18 }} /> : <ChevronRightRounded sx={{ fontSize: 18 }} />}
                                                                             </IconButton>
-                                                                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                                {campaign.name}
-                                                                            </Typography>
+                                                                            <Tooltip title={campaign.name} arrow placement="top-start" enterDelay={600}>
+                                                                                <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
+                                                                                    {campaign.name}
+                                                                                </Typography>
+                                                                            </Tooltip>
                                                                         </Box>
                                                                     </TableCell>
                                                                     <TableCell align="right">
@@ -775,16 +783,18 @@ export default function FacebookAdsPage() {
                                                                     return (
                                                                         <React.Fragment key={adset.id}>
                                                                             {/* Adset row */}
-                                                                            <TableRow sx={{ '& td': { borderColor: '#f1f5f9', py: 0.9 }, '&:hover': { bgcolor: alpha(FB, 0.04) }, bgcolor: alpha(FB, 0.015) }}>
-                                                                                <TableCell sx={{ maxWidth: 300 }}>
+                                                                            <TableRow sx={{ '& td': { borderColor: '#f1f5f9', py: 0.9 }, '&:hover': { bgcolor: alpha(PURPLE, 0.03) }, bgcolor: alpha(FB, 0.015) }}>
+                                                                                <TableCell>
                                                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 3.5 }}>
                                                                                         <IconButton size="small" onClick={() => toggleAdset(adset.id)}
-                                                                                            sx={{ p: 0.25, color: ads.length > 0 || loadAd ? PURPLE : '#cbd5e1', '&:hover': { bgcolor: alpha(PURPLE, 0.08) } }}>
+                                                                                            sx={{ p: 0.25, flexShrink: 0, color: ads.length > 0 || loadAd ? PURPLE : '#cbd5e1', '&:hover': { bgcolor: alpha(PURPLE, 0.08) } }}>
                                                                                             {isAdsetExpanded ? <ExpandMoreRounded sx={{ fontSize: 16 }} /> : <ChevronRightRounded sx={{ fontSize: 16 }} />}
                                                                                         </IconButton>
-                                                                                        <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                                            {adset.name}
-                                                                                        </Typography>
+                                                                                        <Tooltip title={adset.name} arrow placement="top-start" enterDelay={600}>
+                                                                                            <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 280 }}>
+                                                                                                {adset.name}
+                                                                                            </Typography>
+                                                                                        </Tooltip>
                                                                                     </Box>
                                                                                 </TableCell>
                                                                                 <TableCell align="right">
@@ -821,12 +831,14 @@ export default function FacebookAdsPage() {
                                                                                 const dm = rowMetrics(ad);
                                                                                 return (
                                                                                     <TableRow key={ad.id} sx={{ '& td': { borderColor: '#f1f5f9', py: 0.8 }, '&:hover': { bgcolor: alpha(GREEN, 0.04) }, bgcolor: alpha(GREEN, 0.01) }}>
-                                                                                        <TableCell sx={{ maxWidth: 300 }}>
+                                                                                        <TableCell>
                                                                                             <Box sx={{ pl: 7.5, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                                                                                                <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: GREEN, flexShrink: 0 }} />
-                                                                                                <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                                                    {ad.name}
-                                                                                                </Typography>
+                                                                                                <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: GREEN, flexShrink: 0 }} />
+                                                                                                <Tooltip title={ad.name} arrow placement="top-start" enterDelay={400}>
+                                                                                                    <Typography sx={{ fontSize: 12, fontWeight: 500, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                                                                                                        {cleanName(ad.name)}
+                                                                                                    </Typography>
+                                                                                                </Tooltip>
                                                                                             </Box>
                                                                                         </TableCell>
                                                                                         <TableCell align="right">
