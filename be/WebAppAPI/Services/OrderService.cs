@@ -415,18 +415,16 @@ public class OrderService : IOrderService
             // Lưu toàn bộ dữ liệu dòng dư còn lại
             await _unitOfWork.SaveChangesAsync();
 
-            // Tự động tạo SapoSalesRow và sync NxtRow.SapoSold cho các dòng giỏ quà (SKU 200/600)
-            List<string> affectedSapoDates = new();
+            // Tự động tạo SapoSalesRow cho Dashboard Giỏ Quà (thống kê + quy đổi mã biến thể về
+            // 1 mã gốc, có note nguồn gốc) — KHÔNG dùng để nuôi NxtRow nữa, xem
+            // SyncNxtSapoSoldFromOrdersAsync bên dưới (đọc thẳng Order/OrderItem, mã thô).
             if (sapoGiftRows.Count > 0)
             {
                 var sapoRows = await _sapoService.BuildRowsFromOrderItemsAsync(
                     sapoGiftRows, currentImportId, userId.ToString()
                 );
                 if (sapoRows.Count > 0)
-                {
                     await _context.SapoSalesRows.AddRangeAsync(sapoRows);
-                    affectedSapoDates = sapoRows.Select(r => r.Date).Distinct().ToList();
-                }
             }
 
             //CẬP NHẬT LẠI KẾT QUẢ CHO IMPORT HISTORY BAN ĐẦU
@@ -456,9 +454,12 @@ public class OrderService : IOrderService
 
             await _unitOfWork.SaveChangesAsync();
 
-            // Sync NxtRow.SapoSold sau khi SapoSalesRows đã được ghi vào DB
-            if (affectedSapoDates.Count > 0)
-                await _sapoService.SyncNxtSapoSoldAsync(affectedSapoDates);
+            // Sync NxtRow.SapoSold TRỰC TIẾP từ Order/OrderItem vừa import (mã thô, không qua
+            // SapoSalesRow/ResolveCode) — xem SapoService.SyncNxtSapoSoldFromOrdersAsync.
+            if (sapoGiftRows.Count > 0)
+                await _sapoService.SyncNxtSapoSoldFromOrdersAsync(
+                    sapoGiftRows.Select(r => r.PurchaseDate).Distinct()
+                );
 
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -558,6 +559,15 @@ public class OrderService : IOrderService
                 }
             }
 
+            // Thu thập ngày mua trước khi xóa OrderItem — để sync lại NxtRow.SapoSold sau (đọc
+            // trực tiếp Order/OrderItem, không qua SapoSalesRow).
+            var rollbackPurchaseDates = await (
+                from oi in _context.Set<OrderItem>()
+                join o in _context.Set<Order>() on oi.OrderId equals o.Id
+                where oi.ImportHistoryId == importHistoryId
+                select o.PurchaseDate
+            ).Distinct().ToListAsync();
+
             // BƯỚC 2a: XÓA CỨNG ORDER ITEMS — bulk DELETE trực tiếp, không load vào RAM
             await _context
                 .Set<OrderItem>()
@@ -570,14 +580,7 @@ public class OrderService : IOrderService
                 .Where(o => o.ImportHistoryId == importHistoryId && o.DeletedAt == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(o => o.DeletedAt, crmNow));
 
-            // BƯỚC 2c: XÓA SapoSalesRows — thu thập ngày trước khi xóa để sync NxtRow sau
-            var rollbackSapoDates = await _context
-                .Set<SapoSalesRow>()
-                .Where(r => r.ImportHistoryId == importHistoryId)
-                .Select(r => r.Date)
-                .Distinct()
-                .ToListAsync();
-
+            // BƯỚC 2c: XÓA SapoSalesRows (dữ liệu Dashboard Giỏ Quà) của lượt import này
             await _context
                 .Set<SapoSalesRow>()
                 .Where(r => r.ImportHistoryId == importHistoryId)
@@ -612,9 +615,9 @@ public class OrderService : IOrderService
             // Lưu tất cả thay đổi xuống DB và commit transaction
             await _unitOfWork.SaveChangesAsync();
 
-            // Sync lại NxtRow.SapoSold sau khi SapoSalesRows đã xóa khỏi DB
-            if (rollbackSapoDates.Count > 0)
-                await _sapoService.SyncNxtSapoSoldAsync(rollbackSapoDates);
+            // Sync lại NxtRow.SapoSold TRỰC TIẾP từ Order/OrderItem sau khi đã xóa (mã thô)
+            if (rollbackPurchaseDates.Count > 0)
+                await _sapoService.SyncNxtSapoSoldFromOrdersAsync(rollbackPurchaseDates);
 
             await _unitOfWork.SaveChangesAsync();
             await transaction.CommitAsync();

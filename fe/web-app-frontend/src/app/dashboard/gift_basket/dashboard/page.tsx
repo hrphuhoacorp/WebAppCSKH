@@ -5,14 +5,7 @@ import { usePermission } from '@/hooks/usePermission';
 import {
     Alert,
     Box,
-    Button,
     Chip,
-    Collapse,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Divider,
     Paper,
     Table,
     TableBody,
@@ -21,8 +14,6 @@ import {
     TableRow,
     TextField,
     Typography,
-    IconButton,
-    Tooltip,
     Fade,
     Grow,
     alpha,
@@ -41,10 +32,6 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import CategoryIcon from '@mui/icons-material/Category';
 import HistoryIcon from '@mui/icons-material/History';
 import InfoIcon from '@mui/icons-material/Info';
-import DownloadIcon from '@mui/icons-material/Download';
-import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
-import KeyboardArrowUp from '@mui/icons-material/KeyboardArrowUp';
-import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -369,13 +356,11 @@ interface DashState {
     byCode: any[];
     quickInsights: any;
     usefulAnalysis: any;
-    imports: any[];
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function SapoDashboardPage() {
     const canViewSapo = usePermission('sales.sapo.view');
-    const canImport = usePermission('sales.sapo.import');
 
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<DashState | null>(null);
@@ -383,8 +368,6 @@ export default function SapoDashboardPage() {
     const [selectedMonth, setSelectedMonth] = useState('');
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
-    const [expandedImportId, setExpandedImportId] = useState<number | null>(null);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         const today = new Date();
@@ -414,48 +397,6 @@ export default function SapoDashboardPage() {
             setData(result.data);
         } catch (e: any) {
             const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Có lỗi xảy ra';
-            toast.error(msg);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleDownloadImport(importId: number, fileName: string) {
-        try {
-            setLoading(true);
-            const res = await api.get(`/sapo/import/${importId}/download`, { responseType: 'blob' });
-            const blob = new Blob([res.data]);
-            if (blob.size === 0) {
-                toast.error('File trống, không thể tải');
-                return;
-            }
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName || 'sapo-report.xlsx';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            toast.success('✓ Tải file thành công');
-        } catch (e: any) {
-            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Không thể tải file';
-            toast.error(`Lỗi: ${msg}`);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleDeleteLatest() {
-        try {
-            setLoading(true);
-            await api.post('/sapo/admin/delete-latest');
-            toast.success('Đã xóa lượt import gần nhất');
-            setShowDeleteConfirm(false);
-            const dashResult = await api.get('/sapo/dashboard', { params: { filter: 'latest_month' } });
-            setData(dashResult.data);
-        } catch (e: any) {
-            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Xóa thất bại';
             toast.error(msg);
         } finally {
             setLoading(false);
@@ -921,230 +862,8 @@ export default function SapoDashboardPage() {
                             </Grow>
                         ))}
                     </Box>
-
-                    {/* ── Import history ── */}
-                    <SectionHeader label="Lịch sử cập nhật gần nhất" sub="Quản lý và hoàn tác upload" />
-                    <TableContainer
-                        component={Paper}
-                        elevation={0}
-                        sx={tableContainerSx}
-                    >
-                        {(data.imports ?? []).length === 0 ? (
-                            <Box sx={{ p: 4, textAlign: 'center' }}>
-                                <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>Chưa có lịch sử import</Typography>
-                            </Box>
-                        ) : (
-                            <Table stickyHeader>
-                                <TableHead>
-                                    <TableRow sx={{ '& th': tableHeadCellSx }}>
-                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2, width: 52 }} />
-                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Thời gian</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>File</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Ngày dữ liệu</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Dòng</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Doanh thu</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.4px', py: 2 }}>Thao tác</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {(data.imports ?? []).slice(0, 10).map((r: any, i: number) => (
-                                        <React.Fragment key={i}>
-                                            {/* Main row */}
-                                            <TableRow
-                                                onClick={() => setExpandedImportId(expandedImportId === r.id ? null : r.id)}
-                                                sx={{
-                                                    cursor: 'pointer',
-                                                    bgcolor: i % 2 === 0 ? '#fff' : '#fbfefc',
-                                                    '& > *': { borderBottom: '1px solid #f1f5f9 !important' },
-                                                    '&:hover': { bgcolor: '#f0fdf4 !important' },
-                                                    '&:hover td:first-of-type': { borderLeftColor: GREEN },
-                                                    transition: 'background-color 0.15s',
-                                                }}
-                                            >
-                                                <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 1 }}>
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => setExpandedImportId(expandedImportId === r.id ? null : r.id)}
-                                                        sx={{
-                                                            width: 28, height: 28, borderRadius: '8px',
-                                                            bgcolor: expandedImportId === r.id ? alpha(GREEN, 0.1) : 'transparent',
-                                                            color: expandedImportId === r.id ? GREEN : '#94a3b8',
-                                                            '&:hover': { bgcolor: alpha(GREEN, 0.08), color: GREEN },
-                                                            transition: 'all 0.15s',
-                                                        }}
-                                                    >
-                                                        {expandedImportId === r.id
-                                                            ? <KeyboardArrowUp sx={{ fontSize: 18 }} />
-                                                            : <KeyboardArrowDown sx={{ fontSize: 18 }} />}
-                                                    </IconButton>
-                                                </TableCell>
-                                                <TableCell sx={{ fontSize: 12.5, fontWeight: 500, py: 1.5 }}>{r.importedAt}</TableCell>
-                                                <TableCell sx={{ fontSize: 12.5, py: 1.5 }}>
-                                                    <Chip
-                                                        label={r.sapoFileName}
-                                                        size="small"
-                                                        sx={{
-                                                            fontWeight: 600,
-                                                            fontSize: 12,
-                                                            bgcolor: GREEN_LIGHT,
-                                                            color: GREEN_DARK,
-                                                            borderRadius: '8px',
-                                                            maxWidth: 250,
-                                                            '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell sx={{ fontSize: 12.5, py: 1.5 }}>{displayDateRange(r.dateRange)}</TableCell>
-                                                <TableCell align="right" sx={{ fontSize: 12.5, py: 1.5 }}>{fmt(r.rowCount)}</TableCell>
-                                                <TableCell align="right" sx={{ fontSize: 12.5, fontWeight: 700, color: GREEN, py: 1.5 }}>{money(r.revenue ?? r.netRevenue)}</TableCell>
-                                                <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ py: 1.5 }}>
-                                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                                        <Tooltip title="Tải file này">
-                                                            <IconButton
-                                                                size="small"
-                                                                sx={{ color: '#0284c7', '&:hover': { bgcolor: '#e0f2fe' } }}
-                                                                onClick={() => handleDownloadImport(r.id, r.sapoFileName)}
-                                                                disabled={loading}
-                                                            >
-                                                                <DownloadIcon sx={{ fontSize: 16 }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        {i === 0 && canImport && (
-                                                            <Tooltip title="Xóa lượt import này (hoàn tác)">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    sx={{ color: '#dc2626', '&:hover': { bgcolor: '#fee2e2' } }}
-                                                                    onClick={() => setShowDeleteConfirm(true)}
-                                                                    disabled={loading}
-                                                                >
-                                                                    <DeleteForeverOutlinedIcon sx={{ fontSize: 16 }} />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        )}
-                                                    </Box>
-                                                </TableCell>
-                                            </TableRow>
-
-                                            {/* Expanded detail row */}
-                                            <TableRow>
-                                                <TableCell
-                                                    sx={{
-                                                        py: 0,
-                                                        bgcolor: '#f8fafc',
-                                                        borderBottom: expandedImportId === r.id
-                                                            ? '2px solid #334155 !important'
-                                                            : '0 !important',
-                                                        borderLeft: expandedImportId === r.id ? '3px solid #475569' : 'none',
-                                                    }}
-                                                    colSpan={7}
-                                                >
-                                                    <Collapse in={expandedImportId === r.id} timeout="auto" unmountOnExit>
-                                                        <Box sx={{ py: 2.5, px: { xs: 1.5, md: 3 } }}>
-                                                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                                                                <Box>
-                                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                                                                        File Sapo
-                                                                    </Typography>
-                                                                    <Typography sx={{ fontSize: 13, color: '#1e293b', fontWeight: 500 }}>
-                                                                        {r.sapoFileName}
-                                                                    </Typography>
-                                                                </Box>
-                                                                {r.mappingFileName && (
-                                                                    <Box>
-                                                                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                                                                            File đổi mã
-                                                                        </Typography>
-                                                                        <Typography sx={{ fontSize: 13, color: '#1e293b', fontWeight: 500 }}>
-                                                                            {r.mappingFileName}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                )}
-                                                                <Box>
-                                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                                                                        Số mã đã đổi
-                                                                    </Typography>
-                                                                    <Chip
-                                                                        label={`${r.mappingCount} mã`}
-                                                                        size="small"
-                                                                        sx={{ bgcolor: alpha(GREEN, 0.1), color: GREEN, fontWeight: 600 }}
-                                                                    />
-                                                                </Box>
-                                                                <Box>
-                                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                                                                        Cảnh báo
-                                                                    </Typography>
-                                                                    <Chip
-                                                                        label={`${r.warningCount} cảnh báo`}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            bgcolor: r.warningCount > 0 ? alpha('#f59e0b', 0.1) : alpha(GREEN, 0.1),
-                                                                            color: r.warningCount > 0 ? '#f59e0b' : GREEN,
-                                                                            fontWeight: 600
-                                                                        }}
-                                                                    />
-                                                                </Box>
-                                                                <Box>
-                                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                                                                        Người upload
-                                                                    </Typography>
-                                                                    <Typography sx={{ fontSize: 13, color: '#1e293b', fontWeight: 500 }}>
-                                                                        {r.uploadedBy || '-'}
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Box>
-                                                                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 0.5 }}>
-                                                                        Phiên bản
-                                                                    </Typography>
-                                                                    <Typography sx={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace' }}>
-                                                                        {r.version || '-'}
-                                                                    </Typography>
-                                                                </Box>
-                                                            </Box>
-                                                        </Box>
-                                                    </Collapse>
-                                                </TableCell>
-                                            </TableRow>
-                                        </React.Fragment>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </TableContainer>
                 </>
             )}
-
-            <Dialog
-                open={showDeleteConfirm}
-                onClose={loading ? undefined : () => setShowDeleteConfirm(false)}
-                maxWidth="xs"
-                fullWidth
-                slotProps={{ paper: { sx: { borderRadius: '20px', p: 1 } } }}
-            >
-                <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>
-                    Xóa lượt import gần nhất?
-                </DialogTitle>
-                <DialogContent>
-                    <Box sx={{ bgcolor: '#fff7ed', border: '1px dashed #fed7aa', borderRadius: '12px', p: 2 }}>
-                        <Typography sx={{ fontSize: 13.5, color: '#c2410c', lineHeight: 1.6 }}>
-                            Toàn bộ dữ liệu của lượt import gần nhất sẽ bị xóa. Thao tác này <b>không thể hoàn tác</b>. Sau khi xóa hãy import lại file đúng.
-                        </Typography>
-                    </Box>
-                </DialogContent>
-                <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-                    <Button
-                        fullWidth variant="outlined" onClick={() => setShowDeleteConfirm(false)} disabled={loading}
-                        sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700, borderColor: '#e2e8f0', color: '#64748b' }}
-                    >
-                        Hủy
-                    </Button>
-                    <Button
-                        fullWidth variant="contained" color="error" onClick={handleDeleteLatest} disabled={loading}
-                        sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 700 }}
-                    >
-                        {loading ? 'Đang xóa...' : 'Xác nhận xóa'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 }

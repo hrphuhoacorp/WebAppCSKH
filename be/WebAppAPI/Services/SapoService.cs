@@ -1,6 +1,4 @@
 using System.Text;
-using System.Text.Json;
-using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Data;
 using WebAppInfractor.Models;
@@ -350,213 +348,6 @@ public class SapoService
         };
     }
 
-    // ─── PARSE EXCEL / CSV ────────────────────────────────────────────────────
-
-    private static List<List<string>> MatrixFromBytes(byte[] bytes, string fileName)
-    {
-        if (
-            System.Text.RegularExpressions.Regex.IsMatch(
-                fileName,
-                @"\.xlsx?$",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            )
-        )
-            return ParseXlsx(bytes);
-        return ParseCsvSmart(Encoding.UTF8.GetString(bytes));
-    }
-
-    private static readonly System.Globalization.CultureInfo _viVN =
-        new System.Globalization.CultureInfo("vi-VN");
-
-    private static List<List<string>> ParseXlsx(byte[] bytes)
-    {
-        var result = new List<List<string>>();
-        using var ms = new MemoryStream(bytes);
-        using var wb = new XLWorkbook(ms);
-        var ws = wb.Worksheets.First();
-        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
-        var lastCol = ws.LastColumnUsed()?.ColumnNumber() ?? 0;
-        for (int r = 1; r <= lastRow; r++)
-        {
-            var row = new List<string>();
-            for (int c = 1; c <= lastCol; c++)
-            {
-                var cell = ws.Cell(r, c);
-                string val;
-                if (cell.DataType == XLDataType.Number)
-                    // GetString() uses InvariantCulture (. as decimal) which breaks Number().
-                    // Use vi-VN format (, as decimal) so Number() can parse correctly.
-                    val = cell.GetValue<decimal>().ToString("0.##########", _viVN);
-                else
-                    val = (cell.GetString() ?? "").Trim();
-                row.Add(val.Trim());
-            }
-            if (row.Any(v => !string.IsNullOrWhiteSpace(v)))
-                result.Add(row);
-        }
-        return result;
-    }
-
-    private static List<List<string>> ParseCsvSmart(string text)
-    {
-        text = text.TrimStart('﻿').Replace("\r\n", "\n").Replace("\r", "\n");
-        var first = string.Join("\n", text.Split('\n').Take(3));
-        var delimiter = (first.Count(c => c == ';') > first.Count(c => c == ',')) ? ';' : ',';
-        var rows = new List<List<string>>();
-        var row = new List<string>();
-        var cur = new StringBuilder();
-        bool q = false;
-        for (int i = 0; i < text.Length; i++)
-        {
-            var ch = text[i];
-            if (ch == '"')
-            {
-                if (q && i + 1 < text.Length && text[i + 1] == '"')
-                {
-                    cur.Append('"');
-                    i++;
-                }
-                else
-                    q = !q;
-            }
-            else if (ch == delimiter && !q)
-            {
-                row.Add(cur.ToString());
-                cur.Clear();
-            }
-            else if (ch == '\n' && !q)
-            {
-                row.Add(cur.ToString());
-                rows.Add(row);
-                row = new List<string>();
-                cur.Clear();
-            }
-            else
-                cur.Append(ch);
-        }
-        if (cur.Length > 0 || row.Count > 0)
-        {
-            row.Add(cur.ToString());
-            rows.Add(row);
-        }
-        return rows.Where(r => r.Any(c => !string.IsNullOrWhiteSpace(c))).ToList();
-    }
-
-    // ─── IMPORT LOGIC ─────────────────────────────────────────────────────────
-
-    private static List<SapoSalesRow> ParseSalesRows(
-        List<List<string>> matrix,
-        string batchId,
-        string uploadedAt,
-        string uploadedBy,
-        Dictionary<string, List<SapoCodeMapping>> mappingIndex,
-        ImportStats stats
-    )
-    {
-        var rows = new List<SapoSalesRow>();
-        if (matrix.Count == 0)
-            return rows;
-        var header = matrix[0].Select(NormalizeHeaderSimple).ToList();
-
-        bool hasAny(params string[] keys) =>
-            keys.Any(k => header.Contains(NormalizeHeaderSimple(k)));
-        var hasAJ =
-            hasAny("ngay")
-            && hasAny("ma sku", "sku")
-            && hasAny("ten phien ban")
-            && hasAny("sl hang thuc ban");
-        var hasAlt =
-            hasAny("ngay tao don", "ngay")
-            && hasAny("ma sku", "sku")
-            && hasAny("ten san pham", "san pham")
-            && hasAny("so luong", "sl hang thuc ban");
-        if (!hasAJ && !hasAlt)
-            return rows;
-
-        var idx = new
-        {
-            date = FindIdx(header, hasAJ ? "ngay" : "ngay tao don", "ngay"),
-            branch = FindIdx(header, "chi nhanh", "cua hang", "kho"),
-            productType = FindIdx(header, "loai san pham", "nhom san pham", "danh muc"),
-            sku = FindIdx(header, "ma sku", "sku"),
-            name = hasAJ
-                ? FindIdx(header, "ten phien ban", "ten san pham", "san pham")
-                : FindIdx(header, "ten san pham", "san pham", "ten phien ban"),
-            price = FindIdx(header, "don gia ban", "gia ban", "don gia"),
-            qty = FindIdx(header, "sl hang thuc ban", "so luong", "sl ban"),
-            orders = FindIdx(header, "sl don hang", "so don hang", "don hang"),
-            revenue = FindIdx(header, "doanh thu"),
-            netRevenue = FindIdx(header, "doanh thu thuan"),
-        };
-
-        for (int i = 1; i < matrix.Count; i++)
-        {
-            var r = matrix[i];
-            var date = NormalizeDate(Cell(r, idx.date));
-            var productName = Cell(r, idx.name);
-            var sku = Cell(r, idx.sku);
-            var productType = Cell(r, idx.productType);
-            if (string.IsNullOrEmpty(date) || string.IsNullOrEmpty(productName))
-                continue;
-
-            var qty = Number(Cell(r, idx.qty));
-            var orders = Number(Cell(r, idx.orders));
-            var revenue = Number(Cell(r, idx.revenue));
-            var netRevenue = Number(Cell(r, idx.netRevenue));
-            if ((qty != 0 || orders != 0) && revenue == 0 && netRevenue == 0)
-            {
-                stats.ZeroRevenueSkipped++;
-                continue;
-            }
-
-            var price = Number(Cell(r, idx.price));
-            if (price == 0 && qty != 0)
-                price = Math.Abs(revenue / qty);
-
-            var sapoCode = ExtractGiftCodeFromName(sku);
-            if (string.IsNullOrEmpty(sapoCode))
-                sapoCode = ExtractGiftCodeFromName(productName ?? "");
-            if (string.IsNullOrEmpty(sapoCode))
-                sapoCode = sku;
-            var resolved = ResolveCode(sapoCode, mappingIndex, date);
-            var reportCode = resolved.ReportCode ?? sapoCode;
-            var material = IsGiftMaterialRow(productType, sku, productName);
-
-            rows.Add(
-                new SapoSalesRow
-                {
-                    BatchId = batchId,
-                    Date = date,
-                    Branch =
-                        Cell(r, idx.branch) is var br && !string.IsNullOrEmpty(br) ? br : "Chưa rõ",
-                    ProductType = productType,
-                    Sku = sku,
-                    SapoCode = sapoCode,
-                    ReportCode = reportCode,
-                    ReportName = reportCode,
-                    ProductName = productName,
-                    BasketGroup = ClassifyBasket(sku, productName),
-                    PriceBucket = PriceBucket(price),
-                    Price = price,
-                    Qty = qty,
-                    Orders = orders,
-                    Revenue = revenue,
-                    NetRevenue = netRevenue,
-                    ResolveSource = resolved.ResolveSource,
-                    MatchedCode = resolved.MatchedCode,
-                    MappingPrice = resolved.MappingPrice,
-                    MappingDate = resolved.MappingDate,
-                    MappingNote = resolved.MappingNote,
-                    AutoGroupNote = resolved.AutoGroupNote,
-                    Warning = material ? "MATERIAL_EXCLUDED_FROM_DASHBOARD" : "",
-                    UploadedBy = uploadedBy,
-                    UploadedAt = uploadedAt,
-                }
-            );
-        }
-        return rows;
-    }
-
     private static List<SapoSalesRow> ApplyNearCodeAutoGrouping(List<SapoSalesRow> salesRows)
     {
         var directBasePrices = new Dictionary<string, HashSet<long>>();
@@ -591,206 +382,9 @@ public class SapoService
         return salesRows;
     }
 
-    private static (List<SapoSalesRow> rows, int skipped) DedupeSalesRows(List<SapoSalesRow> rows)
-    {
-        var seen = new HashSet<string>();
-        var kept = new List<SapoSalesRow>();
-        int skipped = 0;
-        foreach (var r in rows)
-        {
-            var key = JsonSerializer.Serialize(
-                new
-                {
-                    date = r.Date,
-                    branch = r.Branch,
-                    productType = r.ProductType,
-                    sku = r.Sku,
-                    sapoCode = r.SapoCode,
-                    productName = r.ProductName,
-                    price = (long)Math.Round(r.Price),
-                    qty = r.Qty,
-                    orders = r.Orders,
-                    revenue = (long)Math.Round(r.Revenue),
-                    netRevenue = (long)Math.Round(r.NetRevenue),
-                    reportCode = r.ReportCode,
-                }
-            );
-            if (seen.Contains(key))
-            {
-                skipped++;
-                continue;
-            }
-            seen.Add(key);
-            kept.Add(r);
-        }
-        return (kept, skipped);
-    }
-
-    // ─── PUBLIC IMPORT ────────────────────────────────────────────────────────
-
-    public async Task<ImportDashboardResult> ImportDashboardFilesAsync(
-        byte[] sapoBytes,
-        string sapoFileName,
-        byte[]? mappingBytes,
-        string? mappingFileName,
-        string uploadedBy = "webapp.local"
-    )
-    {
-        var uploadedAt = NowText();
-        var batchId =
-            "IMP-"
-            + uploadedAt.Replace("-", "").Replace(":", "").Replace(" ", "").Substring(0, 14)
-            + "-"
-            + Random.Shared.Next(10000);
-
-        var matrix = MatrixFromBytes(sapoBytes, sapoFileName);
-
-        var mappingResult = new MappingImportResult
-        {
-            MappingCount = await _db.SapoCodeMappings.CountAsync(),
-        };
-        if (mappingBytes != null && !string.IsNullOrEmpty(mappingFileName))
-            mappingResult = await ImportMappingBytesAsync(
-                mappingBytes,
-                mappingFileName,
-                uploadedAt
-            );
-
-        var mappingIndex = await BuildMappingIndexAsync();
-        var stats = new ImportStats();
-        var parsed = ApplyNearCodeAutoGrouping(
-            ParseSalesRows(matrix, batchId, uploadedAt, uploadedBy, mappingIndex, stats)
-        );
-        var (salesRows, dupSkipped) = DedupeSalesRows(parsed);
-        stats.DuplicateRowsSkipped = dupSkipped;
-
-        if (salesRows.Count == 0)
-            return new ImportDashboardResult
-            {
-                Ok = false,
-                AppVersion = APP_VERSION,
-                Message = "Backend đã đọc file nhưng chưa nhận ra dòng bán hàng.",
-                ImportResult = new ImportResultInfo
-                {
-                    RowCount = 0,
-                    MappingCount = mappingResult.MappingCount,
-                    MappingResult = mappingResult,
-                },
-            };
-
-        var dates = salesRows
-            .Select(r => r.Date)
-            .Distinct()
-            .Where(d => !string.IsNullOrEmpty(d))
-            .ToList();
-        var existingInDates = await _db
-            .SapoSalesRows.Where(r => dates.Contains(r.Date))
-            .ToListAsync();
-        bool changed = !SameSignature(existingInDates, salesRows);
-        bool mappingChanged = mappingResult.Added > 0;
-
-        var metrics = SummarizeRows(salesRows);
-        var dateRange =
-            dates.Count > 0 ? dates.Min() + (dates.Count > 1 ? " đến " + dates.Max() : "") : "";
-        var warningCount =
-            salesRows.Count(r => !string.IsNullOrEmpty(r.Warning))
-            + stats.ZeroRevenueSkipped
-            + dupSkipped
-            + mappingResult.Changed;
-
-        if (!changed && !mappingChanged)
-        {
-            return new ImportDashboardResult
-            {
-                Ok = true,
-                AppVersion = APP_VERSION,
-                Time = uploadedAt,
-                Message =
-                    $"File đã được kiểm tra. Không có dữ liệu Sapo mới cần cập nhật cho {dates.Count} ngày.",
-                ImportResult = new ImportResultInfo
-                {
-                    BatchId = batchId,
-                    SapoFileName = sapoFileName,
-                    RowCount = salesRows.Count,
-                    DateRange = dateRange,
-                    NetRevenue = metrics.NetRevenue,
-                    Revenue = metrics.Revenue,
-                    Qty = metrics.Qty,
-                    Orders = metrics.Orders,
-                    MappingCount = mappingResult.MappingCount,
-                    WarningCount = warningCount,
-                    UploadedBy = uploadedBy,
-                    SkippedNoChange = true,
-                    MappingResult = mappingResult,
-                },
-            };
-        }
-
-        if (changed)
-        {
-            var toRemove = existingInDates;
-            _db.SapoSalesRows.RemoveRange(toRemove);
-            await _db.SapoSalesRows.AddRangeAsync(salesRows);
-        }
-
-        var batchRow = new SapoImportBatch
-        {
-            BatchId = batchId,
-            ImportedAt = uploadedAt,
-            SapoFileName = sapoFileName,
-            MappingFileName = mappingFileName,
-            RowCount = salesRows.Count,
-            DateRange = dateRange,
-            NetRevenue = metrics.NetRevenue,
-            Revenue = metrics.Revenue,
-            Qty = metrics.Qty,
-            Orders = metrics.Orders,
-            MappingCount = mappingResult.MappingCount,
-            WarningCount = warningCount,
-            UploadedBy = uploadedBy,
-            Version = APP_VERSION,
-        };
-        await _db.SapoImportBatches.AddAsync(batchRow);
-        await _db.SaveChangesAsync();
-
-        var msgParts = new List<string>
-        {
-            changed
-                ? $"Đã cập nhật {salesRows.Count} dòng bán hàng cho {dates.Count} ngày dữ liệu."
-                : "Dữ liệu Sapo không thay đổi, giữ nguyên dữ liệu cũ.",
-            $"Đã bỏ {stats.ZeroRevenueSkipped} dòng doanh thu = 0. Đã bỏ {dupSkipped} dòng trùng giống hệt.",
-        };
-        if (mappingBytes != null)
-            msgParts.Add(
-                $"Mapping: thêm {mappingResult.Added}, bỏ qua {mappingResult.Skipped}, cảnh báo {mappingResult.Changed}."
-            );
-
-        return new ImportDashboardResult
-        {
-            Ok = true,
-            AppVersion = APP_VERSION,
-            Time = uploadedAt,
-            Message = string.Join("\n", msgParts),
-            ImportResult = new ImportResultInfo
-            {
-                BatchId = batchId,
-                SapoFileName = sapoFileName,
-                RowCount = salesRows.Count,
-                DateRange = dateRange,
-                NetRevenue = metrics.NetRevenue,
-                Revenue = metrics.Revenue,
-                Qty = metrics.Qty,
-                Orders = metrics.Orders,
-                MappingCount = mappingResult.MappingCount,
-                WarningCount = warningCount,
-                UploadedBy = uploadedBy,
-                MappingResult = mappingResult,
-            },
-        };
-    }
-
     // ─── AUTO-GENERATE TỪ ORDER IMPORT ──────────────────────────────────────────
-    // Chỉ xử lý SKU bắt đầu bằng 200 (giỏ mẫu) hoặc 600 (giỏ tự chọn).
+    // Chỉ xử lý SKU bắt đầu bằng 200 (giỏ mẫu), 600 (giỏ tự chọn), hoặc 700 mà tên
+    // sản phẩm có "Túi vải" (giỏ tự chọn đóng bằng túi vải, không có mã 600 riêng).
     // Kết quả được group-by (ngày, chi nhánh, sku, sapoCode) rồi cộng qty/doanh thu.
     // Caller chịu trách nhiệm AddRangeAsync + SaveChangesAsync (để nằm trong cùng transaction).
     // Đơn có "DỊCH VỤ ĐÓNG GÓI" hoặc "DỊCH VỤ GÓI QUÀ" trong cột Tên dịch vụ (ServiceName)
@@ -820,9 +414,11 @@ public class SapoService
             .Where(r =>
             {
                 var s = (r.Sku ?? "").Trim();
-                if (!s.StartsWith("200") && !s.StartsWith("600")) return false;
-                if (s.StartsWith("600") && RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI")) return false;
-                return true;
+                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI");
+                if (s.StartsWith("200")) return true;
+                if (s.StartsWith("600")) return !isTuiVai;
+                if (s.StartsWith("700")) return isTuiVai;
+                return false;
             })
             .Select(r => r.OrderCode)
             .ToHashSet();
@@ -831,10 +427,13 @@ public class SapoService
             .Where(r =>
             {
                 var sku = (r.Sku ?? "").Trim();
-                if (!sku.StartsWith("200") && !sku.StartsWith("600")) return false;
+                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI");
+                if (sku.StartsWith("200")) return true;
                 // SKU 600 mà tên SP là "Túi vải" → phụ kiện đóng gói, không phải giỏ → bỏ qua
-                if (sku.StartsWith("600") && RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI")) return false;
-                return true;
+                if (sku.StartsWith("600")) return !isTuiVai;
+                // SKU 700 mà tên SP là "Túi vải" → giỏ tự chọn đóng bằng túi vải → nhận
+                if (sku.StartsWith("700")) return isTuiVai;
+                return false;
             })
             .Select(r =>
             {
@@ -850,7 +449,7 @@ public class SapoService
                 }
                 else
                 {
-                    // SKU 600: giỏ tự chọn — dùng mã đơn hàng làm mã định danh
+                    // SKU 600 (giỏ tự chọn) hoặc SKU 700 túi vải — dùng mã đơn hàng làm mã định danh
                     sapoCode = r.OrderCode;
                 }
                 return new
@@ -974,49 +573,129 @@ public class SapoService
         return ApplyNearCodeAutoGrouping(result);
     }
 
-    // Đồng bộ NxtRow.SapoSold từ SapoSalesRows cho các ngày bị ảnh hưởng.
-    // Gọi sau import (sau khi SapoSalesRows đã được SaveChanges) VÀ sau rollback (sau khi đã xóa).
-    // Logic: re-query toàn bộ SapoSalesRows còn lại cho các ngày đó, group lại, SET NxtRow.
-    // Nếu không còn row nào cho (ngày, CN, mã), SapoSold về 0 (không xóa NxtRow vì có thể có dữ liệu khác).
-    public async Task SyncNxtSapoSoldAsync(IEnumerable<string> affectedDates)
+    // Đồng bộ NxtRow.SapoSold TRỰC TIẾP từ Order/OrderItem — KHÔNG qua SapoSalesRow, không
+    // ResolveCode/ApplyNearCodeAutoGrouping. Lý do: các cột khác trên cùng dòng NxtRow (GiftIn,
+    // Tồn CN, Chuyển CN, Hủy giỏ, Điều chỉnh) đều dùng mã THÔ do nhân viên tự gõ tay
+    // (NormalizeItemCode chỉ trim/uppercase, không quy đổi qua bảng mapping) — nếu SapoSold dùng
+    // mã đã gộp/đổi tên (ReportCode) sẽ lệch khóa (CloseDate, Branch, ItemCode) với các cột kia
+    // mỗi khi có mã từng đổi tên, làm sai công thức tồn kho thực tế. Việc quy đổi/gộp mã biến
+    // thể vẫn có ý nghĩa riêng cho Dashboard Giỏ Quà (xem BuildRowsFromOrderItemsAsync/ResolveCode),
+    // chỉ không áp dụng cho NxtRow.
+    // Gọi sau import (sau khi OrderItem đã SaveChanges) VÀ sau rollback (sau khi OrderItem đã xóa).
+    public async Task SyncNxtSapoSoldFromOrdersAsync(IEnumerable<DateTime> affectedPurchaseDates)
     {
-        var dates = affectedDates.Where(d => !string.IsNullOrEmpty(d)).Distinct().ToHashSet();
-        if (dates.Count == 0) return;
+        var dateSet = affectedPurchaseDates.Select(d => d.Date).Distinct().ToHashSet();
+        if (dateSet.Count == 0) return;
 
-        // Re-query tất cả SapoSalesRows còn lại cho các ngày này (không filter Warning vì muốn tổng thực)
-        var sapoRows = await _db.SapoSalesRows
-            .Where(r => dates.Contains(r.Date) && r.Warning != "MATERIAL_EXCLUDED_FROM_DASHBOARD")
-            .ToListAsync();
+        var minDate = dateSet.Min();
+        var maxDate = dateSet.Max().AddDays(1);
 
-        // Aggregate: (closeDate DD/MM/yyyy, branch, itemCode) → (sapoSold, revenue, orderCount)
-        var aggregated = sapoRows
-            .GroupBy(r => (
-                CloseDate: ToCloseDate(r.Date),
-                r.Branch,
-                ItemCode: (r.ReportCode ?? r.SapoCode ?? "").Trim()
-            ))
+        var rows = await (
+            from oi in _db.OrderItems
+            join o in _db.Orders on oi.OrderId equals o.Id
+            where o.DeletedAt == null && o.PurchaseDate >= minDate && o.PurchaseDate < maxDate
+            select new
+            {
+                oi.Sku,
+                oi.ProductName,
+                oi.ServiceName,
+                oi.Quantity,
+                oi.Revenue,
+                o.OrderCode,
+                o.PurchaseDate,
+                BranchName = o.Branches != null ? o.Branches.Name : null,
+            }
+        ).AsNoTracking().ToListAsync();
+
+        var relevantRows = rows.Where(r => dateSet.Contains(r.PurchaseDate.Date)).ToList();
+
+        // Nhánh 1: SKU 200 (giỏ mẫu) / 600 (giỏ tự chọn, trừ "Túi vải") / 700 (túi vải) — mã THÔ
+        bool IsRelevantSku(string sku, string productName)
+        {
+            var isTuiVai = RemoveDiacritics((productName ?? "").ToUpperInvariant()).Contains("TUI VAI");
+            if (sku.StartsWith("200")) return true;
+            if (sku.StartsWith("600")) return !isTuiVai;
+            if (sku.StartsWith("700")) return isTuiVai;
+            return false;
+        }
+
+        var handledOrderCodes = relevantRows
+            .Where(r => IsRelevantSku((r.Sku ?? "").Trim(), r.ProductName))
+            .Select(r => r.OrderCode)
+            .ToHashSet();
+
+        var branch1 = relevantRows
+            .Where(r => IsRelevantSku((r.Sku ?? "").Trim(), r.ProductName))
+            .Select(r =>
+            {
+                var sku = (r.Sku ?? "").Trim();
+                string rawCode;
+                if (sku.StartsWith("200"))
+                {
+                    rawCode = ExtractGiftCodeFromName(r.ProductName);
+                    if (string.IsNullOrEmpty(rawCode))
+                        rawCode = ExtractGiftCodeFromName(sku);
+                    if (string.IsNullOrEmpty(rawCode))
+                        rawCode = sku;
+                }
+                else
+                {
+                    // SKU 600 (giỏ tự chọn) hoặc SKU 700 túi vải — dùng mã đơn hàng làm mã định danh
+                    rawCode = r.OrderCode;
+                }
+                return new
+                {
+                    CloseDate = r.PurchaseDate.ToString("dd/MM/yyyy"),
+                    Branch = string.IsNullOrEmpty(r.BranchName) ? "Chưa rõ" : r.BranchName,
+                    RawCode = rawCode,
+                    r.Quantity,
+                    r.Revenue,
+                };
+            });
+
+        // Nhánh 2: đơn có "DỊCH VỤ ĐÓNG GÓI/GÓI QUÀ" nhưng không có SKU 200/600/700-túi-vải nào
+        // trong đơn — mỗi đơn = 1 giỏ tự chọn, qty=1, doanh thu = tổng các dòng trong đơn.
+        var branch2 = relevantRows
+            .Where(r => IsPackagingServiceRow(r.ServiceName) && !handledOrderCodes.Contains(r.OrderCode))
+            .GroupBy(r => new
+            {
+                r.OrderCode,
+                CloseDate = r.PurchaseDate.ToString("dd/MM/yyyy"),
+                Branch = string.IsNullOrEmpty(r.BranchName) ? "Chưa rõ" : r.BranchName,
+            })
+            .Select(g => new
+            {
+                g.Key.CloseDate,
+                g.Key.Branch,
+                RawCode = g.Key.OrderCode,
+                Quantity = 1m,
+                Revenue = g.Sum(x => x.Revenue),
+            });
+
+        var aggregated = branch1.Concat(branch2)
+            .GroupBy(x => (x.CloseDate, x.Branch, ItemCode: (x.RawCode ?? "").Trim()))
             .Where(g => !string.IsNullOrEmpty(g.Key.ItemCode))
             .Select(g => new
             {
                 g.Key.CloseDate,
                 g.Key.Branch,
                 g.Key.ItemCode,
-                SapoSold = g.Sum(r => r.Qty),
-                Revenue = g.Sum(r => r.Revenue),
-                OrderCount = (decimal)g.Sum(r => r.Orders),
+                SapoSold = g.Sum(x => x.Quantity),
+                Revenue = g.Sum(x => x.Revenue),
+                OrderCount = (decimal)g.Count(),
             })
             .ToList();
-
-        var closeDates = aggregated.Select(a => a.CloseDate).ToHashSet();
-
-        // Load NxtRows cho các closeDate bị ảnh hưởng
-        var nxtRows = await _db.NxtRows
-            .Where(r => closeDates.Contains(r.CloseDate))
-            .ToListAsync();
 
         var activeKeys = new HashSet<(string, string, string)>(
             aggregated.Select(a => (a.CloseDate, a.Branch, a.ItemCode))
         );
+
+        // Load NxtRows cho MỌI closeDate nằm trong dateSet (kể cả khi rollback xóa hết dữ liệu
+        // của ngày đó và aggregated không còn entry nào cho ngày đó nữa) để zero-out đúng.
+        var closeDatesToLoad = dateSet.Select(d => d.ToString("dd/MM/yyyy")).ToHashSet();
+        var nxtRows = await _db.NxtRows
+            .Where(r => closeDatesToLoad.Contains(r.CloseDate))
+            .ToListAsync();
 
         // SET SapoSold cho từng aggregated group
         foreach (var agg in aggregated)
@@ -1050,7 +729,8 @@ public class SapoService
             }
         }
 
-        // Với NxtRows cũ có SapoSold > 0 nhưng không còn SapoSalesRow nào → reset về 0
+        // Với NxtRows cũ có SapoSold != 0 nhưng không còn nằm trong aggregated → reset về 0
+        // (không xóa NxtRow vì các cột khác như GiftIn/Tồn CN có thể vẫn còn dữ liệu).
         foreach (var nxt in nxtRows.Where(r => r.SapoSold != 0))
         {
             var key = (nxt.CloseDate, nxt.Branch, nxt.ItemCode);
@@ -1071,177 +751,6 @@ public class SapoService
             System.Globalization.DateTimeStyles.None, out var d))
             return d.ToString("dd/MM/yyyy");
         return isoDate;
-    }
-
-    private static bool SameSignature(List<SapoSalesRow> a, List<SapoSalesRow> b)
-    {
-        static object Key(SapoSalesRow r) =>
-            new
-            {
-                r.Date,
-                r.Branch,
-                r.ProductType,
-                r.Sku,
-                r.SapoCode,
-                r.ProductName,
-                price = (long)Math.Round(r.Price),
-                r.Qty,
-                r.Orders,
-                revenue = (long)Math.Round(r.Revenue),
-                netRevenue = (long)Math.Round(r.NetRevenue),
-                r.ReportCode,
-            };
-        var sigA = JsonSerializer.Serialize(
-            a.Select(Key).OrderBy(k => JsonSerializer.Serialize(k))
-        );
-        var sigB = JsonSerializer.Serialize(
-            b.Select(Key).OrderBy(k => JsonSerializer.Serialize(k))
-        );
-        return sigA == sigB;
-    }
-
-    // ─── MAPPING IMPORT ───────────────────────────────────────────────────────
-
-    private async Task<MappingImportResult> ImportMappingBytesAsync(
-        byte[] bytes,
-        string fileName,
-        string uploadedAt
-    )
-    {
-        var matrix = MatrixFromBytes(bytes, fileName);
-        var result = new MappingImportResult
-        {
-            MappingCount = await _db.SapoCodeMappings.CountAsync(),
-        };
-        if (matrix.Count == 0)
-            return result;
-
-        // Find header row
-        int headerRow = 0;
-        for (int i = 0; i < Math.Min(matrix.Count, 12); i++)
-        {
-            var h = matrix[i].Select(NormalizeHeaderSimple).ToList();
-            var oldIdx = FindIdx(
-                h,
-                "oldCode",
-                "old code",
-                "ma truoc",
-                "ma goc",
-                "ma bao cao",
-                "ma cu"
-            );
-            var newIdx = FindIdx(
-                h,
-                "newCode",
-                "new code",
-                "ma sau",
-                "ma moi",
-                "ma sapo",
-                "ma dang ban"
-            );
-            if (oldIdx >= 0 && newIdx >= 0)
-            {
-                headerRow = i;
-                break;
-            }
-        }
-
-        var header = matrix[headerRow].Select(NormalizeHeaderSimple).ToList();
-        var idxOld = FindIdx(
-            header,
-            "oldCode",
-            "old code",
-            "ma truoc",
-            "ma goc",
-            "ma bao cao",
-            "ma cu"
-        );
-        var idxNew = FindIdx(
-            header,
-            "newCode",
-            "new code",
-            "ma sau",
-            "ma moi",
-            "ma sapo",
-            "ma dang ban"
-        );
-        var idxPrice = FindIdx(header, "price", "gia", "don gia", "gia ban");
-        var idxDate = FindIdx(
-            header,
-            "effectiveDate",
-            "effective date",
-            "ngay ap dung",
-            "ngay",
-            "tu ngay"
-        );
-        var idxNote = FindIdx(header, "note", "ghi chu", "dien giai", "noi dung");
-        var idxActive = FindIdx(header, "active", "kich hoat", "trang thai");
-
-        if (idxOld < 0)
-            idxOld = 0;
-        if (idxNew < 0)
-            idxNew = 1;
-        if (idxPrice < 0)
-            idxPrice = 2;
-        if (idxDate < 0)
-            idxDate = 3;
-        if (idxNote < 0)
-            idxNote = 4;
-
-        var incoming = new List<SapoCodeMapping>();
-        for (int i = headerRow + 1; i < matrix.Count; i++)
-        {
-            var r = matrix[i];
-            var oldCode = NormalizeSapoCode(Cell(r, idxOld));
-            var newCode = NormalizeSapoCode(Cell(r, idxNew));
-            if (string.IsNullOrEmpty(oldCode) || string.IsNullOrEmpty(newCode))
-                continue;
-            incoming.Add(
-                new SapoCodeMapping
-                {
-                    OldCode = oldCode,
-                    NewCode = newCode,
-                    Price = Number(Cell(r, idxPrice)) is var p && p != 0 ? p : null,
-                    EffectiveDate = NormalizeDate(Cell(r, idxDate)),
-                    Note = Cell(r, idxNote),
-                    Active =
-                        idxActive >= 0
-                            ? (Cell(r, idxActive) is var a && !string.IsNullOrEmpty(a) ? !a.Equals("FALSE", StringComparison.OrdinalIgnoreCase) : true)
-                            : true,
-                    UploadedAt = uploadedAt,
-                    Source = fileName,
-                }
-            );
-        }
-
-        static string KeyOf(SapoCodeMapping r) =>
-            $"{NormalizeSapoCode(r.OldCode)}|{NormalizeSapoCode(r.NewCode)}|{NormalizeDate(r.EffectiveDate)}";
-
-        var existing = await _db.SapoCodeMappings.ToListAsync();
-        var existingByKey = existing.ToDictionary(KeyOf);
-
-        var toAdd = new List<SapoCodeMapping>();
-        foreach (var r in incoming)
-        {
-            result.Total++;
-            var key = KeyOf(r);
-            if (!existingByKey.ContainsKey(key))
-            {
-                toAdd.Add(r);
-                existingByKey[key] = r;
-                result.Added++;
-            }
-            else
-                result.Skipped++;
-        }
-
-        if (toAdd.Count > 0)
-        {
-            await _db.SapoCodeMappings.AddRangeAsync(toAdd);
-            await _db.SaveChangesAsync();
-        }
-        result.MappingCount = await _db.SapoCodeMappings.CountAsync();
-        return result;
     }
 
     // ─── DASHBOARD ────────────────────────────────────────────────────────────
@@ -1288,27 +797,6 @@ public class SapoService
             m = int.Parse(parts[1]);
         int lastDay = DateTime.DaysInMonth(y, m);
         return await GetDashboardByRangeAsync($"{ym}-01", $"{ym}-{lastDay:D2}");
-    }
-
-    public async Task<object> DeleteLatestUploadAsync()
-    {
-        var batches = await _db.SapoImportBatches.OrderBy(b => b.ImportedAt).ToListAsync();
-        if (batches.Count == 0)
-            throw new InvalidOperationException("Chưa có lần upload nào để xóa.");
-        var latest = batches.Last();
-        var rowsToDelete = await _db
-            .SapoSalesRows.Where(r => r.BatchId == latest.BatchId)
-            .ToListAsync();
-        _db.SapoSalesRows.RemoveRange(rowsToDelete);
-        _db.SapoImportBatches.Remove(latest);
-        await _db.SaveChangesAsync();
-        var state = await GetDashboardAsync("last7");
-        return new
-        {
-            ok = true,
-            deleted = latest,
-            state,
-        };
     }
 
     // ─── DASHBOARD HELPERS ────────────────────────────────────────────────────
@@ -1539,8 +1027,9 @@ public class SapoService
             .OrderByDescending(a => a.NetRevenue)
             .ToList();
 
-        var imports = _db.SapoImportBatches.OrderByDescending(b => b.ImportedAt).Take(20).ToList();
-        var lastImportedAt = imports.Count > 0 ? imports[0].ImportedAt : "Chưa có";
+        // "Cập nhật" = lần gần nhất có SapoSalesRow được sinh ra (từ import đơn hàng) — không
+        // còn phụ thuộc SapoImportBatch (flow upload file Sapo độc lập đã gỡ bỏ).
+        var lastImportedAt = allRows.Count > 0 ? allRows.Max(r => r.UploadedAt) : "Chưa có";
         var mappingCount = _db.SapoCodeMappings.Count();
 
         var result = new Dictionary<string, object?>
@@ -1574,7 +1063,6 @@ public class SapoService
                 .ToList(),
             ["byPrice"] = byPrice,
             ["byCode"] = byCode,
-            ["imports"] = imports,
         };
         if (extra != null)
             foreach (var kv in extra)
@@ -1807,12 +1295,6 @@ public class SapoService
         public string? AutoGroupNote { get; init; }
     }
 
-    private class ImportStats
-    {
-        public int ZeroRevenueSkipped { get; set; }
-        public int DuplicateRowsSkipped { get; set; }
-    }
-
     private class AggregateItem
     {
         public string Key { get; set; } = "";
@@ -1837,111 +1319,4 @@ public class SapoService
         public decimal Aov { get; set; }
     }
 
-    public class MappingImportResult
-    {
-        public int Total { get; set; }
-        public int Added { get; set; }
-        public int Skipped { get; set; }
-        public int Changed { get; set; }
-        public int MappingCount { get; set; }
-        public List<string> Warnings { get; set; } = new();
-    }
-
-    public class ImportResultInfo
-    {
-        public string? BatchId { get; set; }
-        public string? SapoFileName { get; set; }
-        public int RowCount { get; set; }
-        public string? DateRange { get; set; }
-        public decimal NetRevenue { get; set; }
-        public decimal Revenue { get; set; }
-        public decimal Qty { get; set; }
-        public decimal Orders { get; set; }
-        public int MappingCount { get; set; }
-        public int WarningCount { get; set; }
-        public string? UploadedBy { get; set; }
-        public bool SkippedNoChange { get; set; }
-        public MappingImportResult? MappingResult { get; set; }
-    }
-
-    public class ImportDashboardResult
-    {
-        public bool Ok { get; set; }
-        public string? AppVersion { get; set; }
-        public string? Time { get; set; }
-        public string? Message { get; set; }
-        public ImportResultInfo? ImportResult { get; set; }
-    }
-
-    public async Task<(byte[] fileBytes, string fileName)> ExportImportDataAsync(int importId)
-    {
-        var batch = await _db.SapoImportBatches.FindAsync(importId);
-        if (batch == null)
-            throw new InvalidOperationException($"Import batch ID {importId} không tìm thấy");
-
-        var dateRange = batch.DateRange ?? "";
-        var fromDate = dateRange.Contains("đến") ? dateRange.Split("đến")[0].Trim() : dateRange;
-
-        if (string.IsNullOrEmpty(fromDate))
-            throw new InvalidOperationException("Không thể xác định ngày của import batch");
-
-        var rows = await _db
-            .SapoSalesRows.Where(r => r.BatchId == batch.BatchId)
-            .OrderBy(r => r.Date)
-            .ThenBy(r => r.Branch)
-            .ThenBy(r => r.SapoCode)
-            .ToListAsync();
-
-        if (rows.Count == 0)
-            throw new NotFoundException(
-                $"Import #{importId} không còn dữ liệu (đã bị ghi đè bởi import mới hơn cùng khoảng ngày)."
-            );
-
-        using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Sapo Sales");
-
-        ws.Cell("A1").Value = "Ngày";
-        ws.Cell("B1").Value = "Chi nhánh";
-        ws.Cell("C1").Value = "Mã Sapo";
-        ws.Cell("D1").Value = "Tên sản phẩm";
-        ws.Cell("E1").Value = "Loại";
-        ws.Cell("F1").Value = "SKU";
-        ws.Cell("G1").Value = "Giá";
-        ws.Cell("H1").Value = "Số lượng";
-        ws.Cell("I1").Value = "Số đơn";
-        ws.Cell("J1").Value = "Doanh thu";
-        ws.Cell("K1").Value = "Doanh thu thuần";
-        ws.Cell("L1").Value = "Mã báo cáo";
-
-        int row = 2;
-        foreach (var r in rows)
-        {
-            ws.Cell($"A{row}").Value = r.Date;
-            ws.Cell($"B{row}").Value = r.Branch;
-            ws.Cell($"C{row}").Value = r.SapoCode;
-            ws.Cell($"D{row}").Value = r.ProductName;
-            ws.Cell($"E{row}").Value = r.ProductType;
-            ws.Cell($"F{row}").Value = r.Sku;
-            ws.Cell($"G{row}").Value = r.Price;
-            ws.Cell($"H{row}").Value = r.Qty;
-            ws.Cell($"I{row}").Value = r.Orders;
-            ws.Cell($"J{row}").Value = r.Revenue;
-            ws.Cell($"K{row}").Value = r.NetRevenue;
-            ws.Cell($"L{row}").Value = r.ReportCode;
-            row++;
-        }
-
-        ws.Columns().AdjustToContents();
-        var header = ws.Range("A1:L1");
-        header.Style.Font.Bold = true;
-        header.Style.Fill.BackgroundColor = XLColor.FromArgb(8, 104, 57);
-        header.Style.Font.FontColor = XLColor.White;
-
-        using var ms = new MemoryStream();
-        wb.SaveAs(ms);
-        ms.Position = 0;
-
-        var fileName = $"sapo-{batch.BatchId}-{DateTime.Now:yyyyMMddHHmmss}.xlsx";
-        return (ms.ToArray(), fileName);
-    }
 }

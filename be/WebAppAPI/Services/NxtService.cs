@@ -39,13 +39,15 @@ public class NxtService : INxtService
     private readonly IUserRepository _userRepo;
     private readonly IActivityLogRepository _activityLogRepo;
     private readonly IUnitOfWork _uow;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public NxtService(
         INxtRowRepository nxtRowRepo,
         INxtSapoPendingRepository sapoPendingRepo,
         IUserRepository userRepo,
         IActivityLogRepository activityLogRepo,
-        IUnitOfWork uow
+        IUnitOfWork uow,
+        IHttpContextAccessor httpContextAccessor
     )
     {
         _nxtRowRepo = nxtRowRepo;
@@ -53,6 +55,7 @@ public class NxtService : INxtService
         _userRepo = userRepo;
         _activityLogRepo = activityLogRepo;
         _uow = uow;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     // Repo trả entity AsNoTracking() — mỗi lần query là 1 bản mới, tách rời khỏi change tracker.
@@ -393,6 +396,15 @@ public class NxtService : INxtService
         return user?.Id;
     }
 
+    // Đồng bộ với ActivityService.SaveLogAsync — nơi duy nhất khác trong dự án tự động lấy IP/UA
+    // từ HttpContext. NxtService tự AddAsync(ActivityLog) trực tiếp (không qua SaveLogAsync) nên
+    // phải tự lấy 2 field này để log Nxt không bị trống IP/User Agent trên trang Nhật ký.
+    private string? GetIpAddress() =>
+        _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+
+    private string? GetUserAgent() =>
+        _httpContextAccessor.HttpContext?.Request?.Headers.UserAgent.ToString();
+
     // ─── confirmInlineEdit port — nút "Sửa" trực tiếp trên Tổng quan ───
     // Chụp giá trị CŨ trước khi ghi đè, ghi 1 log riêng cho MỖI field thực sự thay đổi (không gộp
     // chung 1 log — để Truy vết khớp đúng field). Nếu actualStock/soldNotPicked đổi, cascade tồn
@@ -468,6 +480,8 @@ public class NxtService : INxtService
                     Action = "Sửa SL",
                     TableName = "nxt_rows",
                     CreatedAt = DateTime.UtcNow,
+                    IpAddress = GetIpAddress(),
+                    UserAgent = GetUserAgent(),
                     NewData = JsonSerializer.Serialize(
                         new
                         {
@@ -594,6 +608,8 @@ public class NxtService : INxtService
                     Action = "Xóa dòng",
                     TableName = "nxt_rows",
                     CreatedAt = DateTime.UtcNow,
+                    IpAddress = GetIpAddress(),
+                    UserAgent = GetUserAgent(),
                     NewData = JsonSerializer.Serialize(
                         new
                         {
@@ -687,6 +703,8 @@ public class NxtService : INxtService
             Action = actionType,
             TableName = "nxt_rows",
             CreatedAt = DateTime.UtcNow,
+            IpAddress = GetIpAddress(),
+            UserAgent = GetUserAgent(),
             NewData = JsonSerializer.Serialize(
                 new
                 {
@@ -733,7 +751,7 @@ public class NxtService : INxtService
             }
         }
 
-        await _activityLogRepo.AddAsync(BuildStockLog(dto));
+        await _activityLogRepo.AddAsync(await BuildStockLog(dto));
         await _uow.SaveChangesAsync();
 
         return new NxtApplyBatchResultDto { RowCount = dto.Rows.Count };
@@ -802,7 +820,7 @@ public class NxtService : INxtService
 
     // makeOpLog port cho Tồn CN — detail có thêm tag DTT/CTT nếu có, khớp đúng format cũ
     // ("{date}|{itemCode}:{qty}|{tag}") để Truy vết/rollbackLog parse đúng.
-    private ActivityLog BuildStockLog(NxtApplyStockRequestDto dto)
+    private async Task<ActivityLog> BuildStockLog(NxtApplyStockRequestDto dto)
     {
         var dates = string.Join(", ", dto.Rows.Select(r => r.CloseDate).Distinct());
         if (dates.Length > 40) dates = dates[..40];
@@ -825,12 +843,16 @@ public class NxtService : INxtService
             })
         );
 
+        var userId = await ResolveUserIdAsync(dto.LoginCode);
         return new ActivityLog
         {
+            UserId = userId,
             StaffCode = dto.LoginCode,
             Action = "Nạp Tồn CN",
             TableName = "nxt_rows",
             CreatedAt = DateTime.UtcNow,
+            IpAddress = GetIpAddress(),
+            UserAgent = GetUserAgent(),
             NewData = JsonSerializer.Serialize(
                 new
                 {
@@ -1180,6 +1202,8 @@ public class NxtService : INxtService
                 Action = dto.Type,
                 TableName = "nxt_rows",
                 CreatedAt = DateTime.UtcNow,
+                IpAddress = GetIpAddress(),
+                UserAgent = GetUserAgent(),
                 NewData = JsonSerializer.Serialize(
                     new
                     {
@@ -1248,6 +1272,8 @@ public class NxtService : INxtService
                 Action = "Giao hàng trễ",
                 TableName = "nxt_rows",
                 CreatedAt = DateTime.UtcNow,
+                IpAddress = GetIpAddress(),
+                UserAgent = GetUserAgent(),
                 NewData = JsonSerializer.Serialize(
                     new
                     {
@@ -1563,6 +1589,8 @@ public class NxtService : INxtService
                 Action = "Sửa SL",
                 TableName = "nxt_rows",
                 CreatedAt = DateTime.UtcNow,
+                IpAddress = GetIpAddress(),
+                UserAgent = GetUserAgent(),
                 NewData = JsonSerializer.Serialize(
                     new
                     {
@@ -1674,6 +1702,8 @@ public class NxtService : INxtService
                 Action = "Nạp Sapo treo",
                 TableName = "nxt_rows",
                 CreatedAt = DateTime.UtcNow,
+                IpAddress = GetIpAddress(),
+                UserAgent = GetUserAgent(),
                 NewData = JsonSerializer.Serialize(
                     new
                     {
@@ -1744,6 +1774,8 @@ public class NxtService : INxtService
                     Action = "Sapo treo hoàn thành",
                     TableName = "nxt_rows",
                     CreatedAt = DateTime.UtcNow,
+                    IpAddress = GetIpAddress(),
+                    UserAgent = GetUserAgent(),
                     NewData = JsonSerializer.Serialize(
                         new
                         {
@@ -1797,6 +1829,8 @@ public class NxtService : INxtService
                     Action = "Hủy Sapo treo",
                     TableName = "nxt_rows",
                     CreatedAt = DateTime.UtcNow,
+                    IpAddress = GetIpAddress(),
+                    UserAgent = GetUserAgent(),
                     NewData = JsonSerializer.Serialize(
                         new
                         {
