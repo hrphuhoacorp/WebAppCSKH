@@ -72,6 +72,7 @@ function HeroArticle({ item, onClick }: { item: NewsItem; onClick: () => void })
             alt={item.title}
             fill
             priority
+            unoptimized
             sizes="100vw"
             style={{ objectFit: 'cover', transition: 'transform 0.8s cubic-bezier(0.4,0,0.2,1)' }}
           />
