@@ -5,6 +5,7 @@ public interface IFacebookService
     Task<List<FbCampaign>> GetCampaignsAsync();
     Task<List<FbInsight>> GetInsightsAsync(string since, string until, string level = "campaign");
     Task<List<FbBreakdownInsight>> GetInsightsWithBreakdownAsync(string since, string until, string breakdown, string level = "campaign");
+    Task<List<FbAdCreative>> GetAdCreativesAsync(IEnumerable<string> adIds);
 }
 
 public class FbCampaign
@@ -49,6 +50,12 @@ public class FbInsight
     public long PostComments { get; set; }
     public long PostShares { get; set; }
     public long PageLikes { get; set; }
+}
+
+public class FbAdCreative
+{
+    public string AdId { get; set; } = "";
+    public string ThumbnailUrl { get; set; } = "";
 }
 
 public class FbBreakdownInsight
@@ -170,6 +177,28 @@ public class FacebookService : IFacebookService
                 });
             }
 
+        return result;
+    }
+
+    public async Task<List<FbAdCreative>> GetAdCreativesAsync(IEnumerable<string> adIds)
+    {
+        var ids = string.Join(",", adIds.Where(id => !string.IsNullOrWhiteSpace(id)));
+        if (string.IsNullOrEmpty(ids)) return [];
+
+        var url = $"{BaseUrl}?ids={ids}&fields=creative%7Bthumbnail_url%7D&access_token={Token}";
+        var root = await FetchAsync(url);
+        if (root == null) return [];
+
+        var result = new List<FbAdCreative>();
+        foreach (var prop in root.Value.EnumerateObject())
+        {
+            if (prop.Value.ValueKind != JsonValueKind.Object) continue;
+            var thumbnailUrl = "";
+            if (prop.Value.TryGetProperty("creative", out var creative))
+                thumbnailUrl = Str(creative, "thumbnail_url");
+            if (!string.IsNullOrEmpty(thumbnailUrl))
+                result.Add(new FbAdCreative { AdId = prop.Name, ThumbnailUrl = thumbnailUrl });
+        }
         return result;
     }
 

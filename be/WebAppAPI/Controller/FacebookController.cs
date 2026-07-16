@@ -37,6 +37,20 @@ namespace WebAppAPI.Controllers
         }
 
         /// <summary>
+        /// Lấy thumbnail URL của creative cho từng ad. adIds: danh sách ad ID phân cách bằng dấu phẩy.
+        /// </summary>
+        [HttpGet("ad-thumbnails")]
+        public async Task<IActionResult> GetAdThumbnails([FromQuery] string adIds)
+        {
+            if (string.IsNullOrWhiteSpace(adIds))
+                return BadRequest("Thiếu tham số adIds");
+
+            var ids = adIds.Split(',').Where(x => !string.IsNullOrWhiteSpace(x));
+            var data = await _fb.GetAdCreativesAsync(ids);
+            return Ok(new { content = data });
+        }
+
+        /// <summary>
         /// Breakdown theo nhân khẩu học / địa lý / thiết bị.
         /// breakdown: age | gender | region | device_platform | publisher_platform
         /// </summary>

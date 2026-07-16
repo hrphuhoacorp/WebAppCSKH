@@ -13,4 +13,9 @@ export const facebookApi = {
         const response = await api.get("Facebook/insights/breakdown", { params: { since, until, breakdown, level } });
         return response.data.content ?? [];
     },
+    getAdThumbnails: async (adIds: string[]): Promise<{ adId: string; thumbnailUrl: string }[]> => {
+        if (adIds.length === 0) return [];
+        const response = await api.get("Facebook/ad-thumbnails", { params: { adIds: adIds.join(',') } });
+        return response.data.content ?? [];
+    },
 };
