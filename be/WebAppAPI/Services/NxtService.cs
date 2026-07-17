@@ -751,7 +751,10 @@ public class NxtService : INxtService
             }
         }
 
-        await _activityLogRepo.AddAsync(await BuildStockLog(dto));
+        var stockRows    = dto.Rows.Where(r => !r.IsTransfer).ToList();
+        var transferRows = dto.Rows.Where(r =>  r.IsTransfer).ToList();
+        if (stockRows.Count    > 0) await _activityLogRepo.AddAsync(await BuildStockLog(dto, stockRows,    "Nạp Tồn CN"));
+        if (transferRows.Count > 0) await _activityLogRepo.AddAsync(await BuildStockLog(dto, transferRows, "Nạp Chuyển CN"));
         await _uow.SaveChangesAsync();
 
         return new NxtApplyBatchResultDto { RowCount = dto.Rows.Count };
@@ -818,22 +821,22 @@ public class NxtService : INxtService
         AppendTransferNote(toRow, "in", fromBranch, qty);
     }
 
-    // makeOpLog port cho Tồn CN — detail có thêm tag DTT/CTT nếu có, khớp đúng format cũ
+    // makeOpLog port cho Tồn CN / Chuyển CN — detail có thêm tag DTT/CTT nếu có, khớp đúng format cũ
     // ("{date}|{itemCode}:{qty}|{tag}") để Truy vết/rollbackLog parse đúng.
-    private async Task<ActivityLog> BuildStockLog(NxtApplyStockRequestDto dto)
+    private async Task<ActivityLog> BuildStockLog(NxtApplyStockRequestDto dto, List<NxtApplyStockRowDto> rows, string action)
     {
-        var dates = string.Join(", ", dto.Rows.Select(r => r.CloseDate).Distinct());
+        var dates = string.Join(", ", rows.Select(r => r.CloseDate).Distinct());
         if (dates.Length > 40) dates = dates[..40];
         var branches = string.Join(
             "/",
-            dto.Rows.SelectMany(r => r.IsTransfer ? new[] { r.FromBranch, r.ToBranch } : new[] { r.Branch })
+            rows.SelectMany(r => r.IsTransfer ? new[] { r.FromBranch, r.ToBranch } : new[] { r.Branch })
                 .Where(b => !string.IsNullOrWhiteSpace(b))
                 .Distinct()
         );
-        var qtyTotal = dto.Rows.Sum(r => Math.Abs(r.IsTransfer ? r.Qty : r.ActualStock));
+        var qtyTotal = rows.Sum(r => Math.Abs(r.IsTransfer ? r.Qty : r.ActualStock));
         var detail = string.Join(
             ", ",
-            dto.Rows.Select(r =>
+            rows.Select(r =>
             {
                 var qty = r.IsTransfer ? r.Qty : r.ActualStock;
                 var tag = r.IsTransfer ? null : GetStockStatusType(r.StockStatus);
@@ -848,7 +851,7 @@ public class NxtService : INxtService
         {
             UserId = userId,
             StaffCode = dto.LoginCode,
-            Action = "Nạp Tồn CN",
+            Action = action,
             TableName = "nxt_rows",
             CreatedAt = DateTime.UtcNow,
             IpAddress = GetIpAddress(),
@@ -859,7 +862,7 @@ public class NxtService : INxtService
                     closeDate = dates,
                     branch = branches,
                     qty = qtyTotal,
-                    note = $"{dto.Rows.Count} dòng",
+                    note = $"{rows.Count} dòng",
                     userName = dto.UserName ?? "",
                     status = "Đã áp dụng",
                     detail,

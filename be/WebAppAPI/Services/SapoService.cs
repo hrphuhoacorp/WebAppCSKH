@@ -417,7 +417,6 @@ public class SapoService
                 var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI");
                 if (s.StartsWith("200")) return true;
                 if (s.StartsWith("600")) return !isTuiVai;
-                if (s.StartsWith("700")) return isTuiVai;
                 return false;
             })
             .Select(r => r.OrderCode)
@@ -431,8 +430,6 @@ public class SapoService
                 if (sku.StartsWith("200")) return true;
                 // SKU 600 mà tên SP là "Túi vải" → phụ kiện đóng gói, không phải giỏ → bỏ qua
                 if (sku.StartsWith("600")) return !isTuiVai;
-                // SKU 700 mà tên SP là "Túi vải" → giỏ tự chọn đóng bằng túi vải → nhận
-                if (sku.StartsWith("700")) return isTuiVai;
                 return false;
             })
             .Select(r =>
@@ -449,7 +446,7 @@ public class SapoService
                 }
                 else
                 {
-                    // SKU 600 (giỏ tự chọn) hoặc SKU 700 túi vải — dùng mã đơn hàng làm mã định danh
+                    // SKU 600 (giỏ tự chọn) — dùng mã đơn hàng làm mã định danh
                     sapoCode = r.OrderCode;
                 }
                 return new
@@ -609,13 +606,12 @@ public class SapoService
 
         var relevantRows = rows.Where(r => dateSet.Contains(r.PurchaseDate.Date)).ToList();
 
-        // Nhánh 1: SKU 200 (giỏ mẫu) / 600 (giỏ tự chọn, trừ "Túi vải") / 700 (túi vải) — mã THÔ
+        // Nhánh 1: SKU 200 (giỏ mẫu) / 600 (giỏ tự chọn, trừ "Túi vải") — mã THÔ
         bool IsRelevantSku(string sku, string productName)
         {
             var isTuiVai = RemoveDiacritics((productName ?? "").ToUpperInvariant()).Contains("TUI VAI");
             if (sku.StartsWith("200")) return true;
             if (sku.StartsWith("600")) return !isTuiVai;
-            if (sku.StartsWith("700")) return isTuiVai;
             return false;
         }
 
@@ -640,7 +636,7 @@ public class SapoService
                 }
                 else
                 {
-                    // SKU 600 (giỏ tự chọn) hoặc SKU 700 túi vải — dùng mã đơn hàng làm mã định danh
+                    // SKU 600 (giỏ tự chọn) — dùng mã đơn hàng làm mã định danh
                     rawCode = r.OrderCode;
                 }
                 return new
