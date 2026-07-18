@@ -48,7 +48,7 @@ const fieldSx = {
 export default function VppRequestPage() {
     const { profile } = useAuth();
     const [view, setView] = useState<'form' | 'history'>('form');
-    const [department, setDepartment] = useState('');
+    const departmentFromRole = profile?.roles?.map(r => r.name).join(', ') ?? '';
     const [reason, setReason] = useState('');
     const [referencePrice, setReferencePrice] = useState('');
     const [lines, setLines] = useState<Line[]>([{ itemId: 0, quantity: 1, note: '' }]);
@@ -94,7 +94,7 @@ export default function VppRequestPage() {
     const submitMut = useMutation({
         mutationFn: () => vppApi.createRequest({
             branch: profile?.branchesName || undefined,
-            department: department.trim() || (profile?.branchesName ?? ''),
+            department: departmentFromRole || (profile?.branchesName ?? ''),
             reason: reason || undefined,
             referencePrice: referencePrice || undefined,
             lines: lines.filter(l => l.itemId > 0 && l.quantity > 0).map(l => ({
@@ -115,7 +115,7 @@ export default function VppRequestPage() {
         const stock = stockMap.get(l.itemId);
         return stock !== undefined && l.quantity > stock;
     });
-    const canSubmit = (department.trim() || profile?.branchesName) && validLines.length > 0 && !submitMut.isPending && !hasOverStock;
+    const canSubmit = (departmentFromRole || profile?.branchesName) && validLines.length > 0 && !submitMut.isPending && !hasOverStock;
 
     if (submitted) {
         return (
@@ -126,7 +126,7 @@ export default function VppRequestPage() {
                     <Typography sx={{ color: '#64748b', fontSize: 14, mb: 3, lineHeight: 1.6 }}>Bộ phận hành chính sẽ xem xét và phản hồi sớm nhất có thể.</Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Button variant="contained" fullWidth
-                            onClick={() => { setSubmitted(false); setLines([{ itemId: 0, quantity: 1, note: '' }]); setReason(''); setReferencePrice(''); setDepartment(''); }}
+                            onClick={() => { setSubmitted(false); setLines([{ itemId: 0, quantity: 1, note: '' }]); setReason(''); setReferencePrice(''); }}
                             sx={{ bgcolor: GREEN, '&:hover': { bgcolor: '#065f35' }, textTransform: 'none', fontWeight: 700, borderRadius: '12px', height: 44 }}>
                             Gửi đề nghị mới
                         </Button>
@@ -188,11 +188,10 @@ export default function VppRequestPage() {
                                 sx={{ ...fieldSx, minWidth: 180, '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
                             />
                             <TextField
-                                size="small" label="Bộ phận / Phòng ban *"
-                                value={department}
-                                onChange={e => setDepartment(e.target.value)}
-                                placeholder="VD: Kế toán, Marketing, Kho..."
-                                sx={{ ...fieldSx, minWidth: 220 }}
+                                size="small" label="Bộ phận / Phòng ban"
+                                value={departmentFromRole}
+                                slotProps={{ htmlInput: { readOnly: true } }}
+                                sx={{ ...fieldSx, minWidth: 220, '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
                             />
                             <TextField size="small" label="Lý do / mục đích" value={reason} onChange={e => setReason(e.target.value)} sx={{ ...fieldSx, flex: 1, minWidth: 220 }} />
                             <TextField size="small" label="Giá tham khảo" value={referencePrice} onChange={e => setReferencePrice(e.target.value)} placeholder="VD: ~50,000đ/cây" sx={{ ...fieldSx, minWidth: 180 }} />
