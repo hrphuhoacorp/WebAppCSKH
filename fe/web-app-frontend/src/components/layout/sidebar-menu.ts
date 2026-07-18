@@ -226,11 +226,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/profile',
                 icon: User,
             },
-            {
-                title: 'Quản Lý File Cá Nhân',
-                href: '/dashboard/personal-files',
-                icon: FolderOpen,
-            },
+            // {
+            //     title: 'Quản Lý File Cá Nhân',
+            //     href: '/dashboard/personal-files',
+            //     icon: FolderOpen,
+            // },
         ],
     },
 ];
