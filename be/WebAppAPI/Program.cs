@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GymManagementProject_Api.Middlewares;
@@ -171,6 +172,24 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 //upload
 builder.Services.Configure<MediaSettings>(builder.Configuration.GetSection("MediaSettings"));
 
+//rate limiting — 5 lần/phút cho login, 60 lần/phút cho các endpoint còn lại
+builder.Services.AddRateLimiter(o =>
+{
+    o.AddFixedWindowLimiter("login", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+    o.AddFixedWindowLimiter("global", opt =>
+    {
+        opt.PermitLimit = 60;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+    o.RejectionStatusCode = 429;
+});
+
 //cors
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
@@ -312,6 +331,7 @@ var app = builder.Build();
 
 // 1. CHỈ GỌI UseCors MỘT LẦN, đặt ở đầu pipeline
 app.UseCors("AllowAllOrigins");
+app.UseRateLimiter();
 
 // 3. Static files middleware
 app.UseStaticFiles();
@@ -351,9 +371,10 @@ if (!string.IsNullOrWhiteSpace(mediaRoot))
         }
     );
 }
-
+                                                                
 app.MapHub<ImportHub>("/hubs/import");
 app.MapHub<GiftBasketHub>("/hubs/gift-basket");
+app.MapHub<NotificationHub>("/hubs/notification");
 
 app.MapControllers();
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using WebAppAPI.Authorization;
 
 namespace WebAppAPI.Controllers
@@ -14,14 +15,21 @@ namespace WebAppAPI.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IHttpContextAccessor httpContextAccessor;
+        private readonly JwtAuthService _jwtService;
 
-        public AuthController(IAuthService authService, IHttpContextAccessor httpContextAccessor)
+        public AuthController(
+            IAuthService authService,
+            IHttpContextAccessor httpContextAccessor,
+            JwtAuthService jwtService
+        )
         {
+            _jwtService = jwtService;
             _authService = authService;
             this.httpContextAccessor = httpContextAccessor;
         }
 
         [HttpPost("Login")]
+        [EnableRateLimiting("login")]
         public async Task<IActionResult> Login(AuthLoginDTO dto)
         {
             var token = await _authService.Login(dto);
@@ -36,7 +44,7 @@ namespace WebAppAPI.Controllers
                     HttpOnly = true,
                     Secure = true,
                     SameSite = SameSiteMode.None,
-                    Expires = DateTimeOffset.UtcNow.AddDays(1),
+                    Expires = DateTimeOffset.UtcNow.AddDays(7),
                     Path = "/",
                 }
             );
@@ -199,6 +207,31 @@ namespace WebAppAPI.Controllers
                 "Khôi phục tài khoản thành công",
                 StatusReponse.Success
             );
+        }
+
+        [HttpPost("RefreshToken")]
+        [Authorize]
+        public async Task<IActionResult> RefreshToken()
+        {
+            var userId = int.Parse(
+                User.FindFirst("Id")?.Value
+                    ?? throw new UnauthorizedAccessException("Không tìm thấy thông tin người dùng")
+            );
+            var user = await _authService.GetUserForTokenAsync(userId);
+            var newToken = await _jwtService.GenerateTokenAsync(user);
+            Response.Cookies.Append(
+                "token",
+                newToken,
+                new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.None,
+                    Expires = DateTimeOffset.UtcNow.AddDays(7),
+                    Path = "/",
+                }
+            );
+            return Ok(new { Status = "Success", Message = "Token đã được làm mới" });
         }
     }
 }

@@ -75,14 +75,12 @@ public class GlobalExceptionMiddleware
                 break;
 
             // ⭐ EF CORE UNIQUE / CONSTRAINT
-            case DbUpdateException dbEx:
+            case DbUpdateException:
                 context.Response.StatusCode = (int)HttpStatusCode.Conflict;
                 error = new ErrorResponse
                 {
                     StatusCode = context.Response.StatusCode,
-                    Message =
-                        "Dữ liệu bị trùng hoặc vi phạm ràng buộc: "
-                        + (dbEx.InnerException?.Message ?? dbEx.Message),
+                    Message = "Dữ liệu bị trùng hoặc vi phạm ràng buộc.",
                     Error = "Conflict",
                 };
                 break;

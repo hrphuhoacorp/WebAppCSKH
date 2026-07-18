@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using WebAppInfractor.Models;
 
@@ -8,6 +9,7 @@ public interface IPermissionService
     Task UpdateUserPermissionsAsync(int userId, UpdateUserPermissionsDTO dto, int? actorId);
 }
 
+
 public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permRepo;
@@ -15,6 +17,7 @@ public class PermissionService : IPermissionService
     private readonly IUserRepository _userRepo;
     private readonly IActivityService _activityService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IHubContext<NotificationHub> _hub;
 
     public PermissionService(
         IPermissionRepository permRepo,
@@ -33,7 +36,8 @@ public class PermissionService : IPermissionService
 
     public async Task<List<PermissionGroupDTO>> GetAllAsync()
     {
-        var perms = await _permRepo.GetAll()
+        var perms = await _permRepo
+            .GetAll()
             .AsNoTracking()
             .OrderBy(p => p.Module)
             .ThenBy(p => p.Code)
@@ -45,36 +49,37 @@ public class PermissionService : IPermissionService
             {
                 Module = g.Key,
                 Permissions = g.Select(p => new PermissionDTO
-                {
-                    Id = p.Id,
-                    Code = p.Code,
-                    Name = p.Name,
-                }).ToList(),
+                    {
+                        Id = p.Id,
+                        Code = p.Code,
+                        Name = p.Name,
+                    })
+                    .ToList(),
             })
             .ToList();
     }
 
     public async Task<UserPermissionDetailDTO> GetUserPermissionsAsync(int userId)
     {
-        var user = await _userRepo.GetAll()
-            .Include(u => u.UserRoles)
+        var user =
+            await _userRepo
+                .GetAll()
+                .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
                 .ThenInclude(r => r.RolePermissions)
                 .ThenInclude(rp => rp.Permission)
-            .Include(u => u.UserPermissions)
+                .Include(u => u.UserPermissions)
                 .ThenInclude(up => up.Permission)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null)
             ?? throw new NotFoundException("Khong tim thay nguoi dung");
 
-        var rolePermCodes = user.UserRoles
-            .SelectMany(ur => ur.Role.RolePermissions)
+        var rolePermCodes = user
+            .UserRoles.SelectMany(ur => ur.Role.RolePermissions)
             .Select(rp => rp.Permission.Code)
             .ToHashSet();
 
-        var extraPermIds = user.UserPermissions
-            .Select(up => up.PermissionId)
-            .ToHashSet();
+        var extraPermIds = user.UserPermissions.Select(up => up.PermissionId).ToHashSet();
 
         return new UserPermissionDetailDTO
         {
@@ -85,32 +90,52 @@ public class PermissionService : IPermissionService
         };
     }
 
-    public async Task UpdateUserPermissionsAsync(int userId, UpdateUserPermissionsDTO dto, int? actorId)
+    public async Task UpdateUserPermissionsAsync(
+        int userId,
+        UpdateUserPermissionsDTO dto,
+        int? actorId
+    )
     {
-        var user = await _userRepo.GetAll()
-            .Include(u => u.UserPermissions)
-            .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null)
+        var user =
+            await _userRepo
+                .GetAll()
+                .Include(u => u.UserPermissions)
+                .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null)
             ?? throw new NotFoundException("Khong tim thay nguoi dung");
 
         // Capture old state for audit
         var oldPermIds = user.UserPermissions.Select(up => up.PermissionId).ToList();
-        var oldPerms = await _permRepo.GetAll()
+        var oldPerms = await _permRepo
+            .GetAll()
             .Where(p => oldPermIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Code, p.Name })
+            .Select(p => new
+            {
+                p.Id,
+                p.Code,
+                p.Name,
+            })
             .ToListAsync();
 
         // Replace extra permissions
         _userPermRepo.RemoveRange(user.UserPermissions);
         foreach (var permId in dto.ExtraPermissionIds.Distinct())
         {
-            await _userPermRepo.AddAsync(new UserPermission { UserId = userId, PermissionId = permId });
+            await _userPermRepo.AddAsync(
+                new UserPermission { UserId = userId, PermissionId = permId }
+            );
         }
         await _unitOfWork.SaveChangesAsync();
 
         // Capture new state for audit
-        var newPerms = await _permRepo.GetAll()
+        var newPerms = await _permRepo
+            .GetAll()
             .Where(p => dto.ExtraPermissionIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Code, p.Name })
+            .Select(p => new
+            {
+                p.Id,
+                p.Code,
+                p.Name,
+            })
             .ToListAsync();
 
         await _activityService.SaveLogAsync(
@@ -119,9 +144,21 @@ public class PermissionService : IPermissionService
             "UPDATE_PERMISSIONS",
             "users",
             userId,
-            new { targetUserId = userId, targetUserName = user.Name, permissions = oldPerms },
-            new { targetUserId = userId, targetUserName = user.Name, permissions = newPerms }
+            new
+            {
+                targetUserId = userId,
+                targetUserName = user.Name,
+                permissions = oldPerms,
+            },
+            new
+            {
+                targetUserId = userId,
+                targetUserName = user.Name,
+                permissions = newPerms,
+            }
         );
+
+        await _hub.Clients.User(userId.ToString()).SendAsync("PermissionsChanged");
     }
 }
 

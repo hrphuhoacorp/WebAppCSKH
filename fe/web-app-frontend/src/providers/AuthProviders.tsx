@@ -2,6 +2,7 @@
 
 import { authApi } from '@/features/auth/api/auth.api';
 import { UserProfile } from '@/features/user/schemas/user-profile';
+import * as signalR from '@microsoft/signalr';
 import {
     createContext,
     useCallback,
@@ -41,9 +42,27 @@ export function AuthProvider({
     }, []);
 
     useEffect(() => {
-
         loadProfile();
     }, [loadProfile]);
+
+    useEffect(() => {
+        const origin = process.env.NEXT_PUBLIC_DOTNET_API_ORIGIN ?? '';
+        const conn = new signalR.HubConnectionBuilder()
+            .withUrl(`${origin}/hubs/notification`, { withCredentials: true })
+            .withAutomaticReconnect()
+            .build();
+
+        conn.on('PermissionsChanged', async () => {
+            await fetch(`${origin}/api/Auth/RefreshToken`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            window.location.reload();
+        });
+
+        conn.start().catch(() => {});
+        return () => { conn.stop(); };
+    }, []);
 
     return (
         // Đưa loading vào value truyền xuống cho toàn hệ thống sử dụng

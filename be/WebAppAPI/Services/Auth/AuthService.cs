@@ -18,6 +18,7 @@ public interface IAuthService
         string newPassword,
         string confirmPassword
     );
+    Task<User> GetUserForTokenAsync(int userId);
     Task<string> ResetPassword(int userId);
     Task<string> DeleteAccount(int userId, DateTime updatedAt, int currentId);
     Task<string> RestoreAccount(int userId, int currentId);
@@ -493,6 +494,22 @@ public class AuthService : IAuthService
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    public async Task<User> GetUserForTokenAsync(int userId)
+    {
+        var user = await _userRepository
+            .GetAll()
+            .Include(u => u.UserRoles)
+            .ThenInclude(ur => ur.Role)
+            .Include(u => u.Branches)
+            .AsNoTracking()
+            .SingleOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+            throw new NotFoundException("Người dùng không tồn tại");
+
+        return user;
     }
 
     private static string BuildOtpEmail(string name, string otp) =>
