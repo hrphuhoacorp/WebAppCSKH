@@ -206,7 +206,7 @@ export const recruitmentCandidateApi = {
         form.append('file', file);
         if (actedBy) form.append('actedBy', actedBy);
         const res = await api.post(`/recruitment/candidates/${id}/upload-cv`, form, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+            headers: { 'Content-Type': undefined },
         });
         return res.data as { content: CvUploadResultDto; status: string; message: string };
     },
@@ -221,7 +221,7 @@ export const recruitmentCandidateApi = {
         if (dto.actedBy) form.append('actedBy', dto.actedBy);
         (dto.attachments ?? []).forEach(f => form.append('attachments', f));
         const res = await api.post(`/recruitment/candidates/${id}/send-mail`, form, {
-            headers: { 'Content-Type': 'multipart/form-data' },
+            headers: { 'Content-Type': undefined },
         });
         return res.data as { status: string; message: string };
     },
