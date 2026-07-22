@@ -33,6 +33,9 @@ const SECTIONS: { title: string; open?: boolean; body: string }[] = [
         <li>Bấm <b>Chạy rà soát</b> — hệ thống tự đọc file, so khớp với dữ liệu hiện có trong app của đúng tháng đó, rồi hiện kết quả ngay bên dưới.</li>
         <li>1 tháng có thể chạy lại nhiều lần (ví dụ sau khi đã xóa vài dòng dư) — mỗi lần chạy lưu thành 1 bản ghi riêng trong <b>Lịch sử các lần rà soát</b>, bấm vào 1 dòng lịch sử để xem lại kết quả lần đó.</li>
       </ul>
+      <div style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;color:#15803d;font-size:12.5px;">
+        📋 Trước khi xuất file từ Sapo, vào <b>Điều chỉnh cột hiển thị</b> và bật đủ các cột — đặc biệt cần bật thêm <b>Doanh thu thuần</b> (nằm sau cột Doanh thu). File thiếu cột này vẫn đọc được nhưng giá trị doanh thu thuần sẽ bằng 0.
+      </div>
     ` },
     {
         title: '3. Ý nghĩa 3 loại kết quả — cái nào xóa được, cái nào không', body: `

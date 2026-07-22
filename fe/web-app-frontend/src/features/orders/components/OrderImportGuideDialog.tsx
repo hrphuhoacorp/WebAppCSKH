@@ -37,7 +37,7 @@ const SECTIONS: { title: string; open?: boolean; body: string }[] = [
         <div>✅ SL hàng thực bán</div><div>✅ SL đơn hàng</div>
         <div>✅ Tiền hàng</div><div>✅ Tiền hàng trả lại</div>
         <div>✅ Tiền thuế</div><div>✅ Phí giao hàng</div>
-        <div>✅ Doanh thu</div><div>✅ Lợi nhuận gộp</div>
+        <div>✅ Doanh thu</div><div>✅ Doanh thu thuần</div>
         <div style="font-weight:700;color:#475569;border-bottom:1px solid #e2e8f0;padding-bottom:4px;grid-column:1/-1;margin-top:6px;">Khách hàng</div>
         <div>✅ Tên khách hàng</div><div>✅ Sđt khách hàng</div>
         <div>✅ Mã khách hàng</div><div></div>
