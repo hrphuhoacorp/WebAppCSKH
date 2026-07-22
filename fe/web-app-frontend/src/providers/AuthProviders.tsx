@@ -53,6 +53,7 @@ export function AuthProvider({
             .build();
 
         conn.on('PermissionsChanged', async () => {
+            console.log('[SignalR] PermissionsChanged received — refreshing token...');
             await fetch(`${origin}/api/Auth/RefreshToken`, {
                 method: 'POST',
                 credentials: 'include',

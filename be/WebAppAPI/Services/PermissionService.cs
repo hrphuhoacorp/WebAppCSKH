@@ -9,7 +9,6 @@ public interface IPermissionService
     Task UpdateUserPermissionsAsync(int userId, UpdateUserPermissionsDTO dto, int? actorId);
 }
 
-
 public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permRepo;
@@ -24,7 +23,8 @@ public class PermissionService : IPermissionService
         IUserPermissionRepository userPermRepo,
         IUserRepository userRepo,
         IActivityService activityService,
-        IUnitOfWork unitOfWork
+        IUnitOfWork unitOfWork,
+        IHubContext<NotificationHub> hub
     )
     {
         _permRepo = permRepo;
@@ -32,6 +32,7 @@ public class PermissionService : IPermissionService
         _userRepo = userRepo;
         _activityService = activityService;
         _unitOfWork = unitOfWork;
+        _hub = hub;
     }
 
     public async Task<List<PermissionGroupDTO>> GetAllAsync()

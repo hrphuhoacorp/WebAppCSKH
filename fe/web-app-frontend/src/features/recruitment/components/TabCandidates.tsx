@@ -6,7 +6,7 @@ import {
     Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
     Divider, IconButton, MenuItem, Paper, Skeleton, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, TablePagination, TextField, Tooltip,
-    Typography, alpha, InputAdornment, Tab, Tabs, LinearProgress,
+    Typography, alpha, InputAdornment, Tab, Tabs, LinearProgress, useMediaQuery, useTheme,
 } from '@mui/material';
 import AddCircleRoundedIcon from '@mui/icons-material/AddCircleRounded';
 import EditIcon from '@mui/icons-material/Edit';
@@ -170,6 +170,9 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
     const canEdit = usePermission('recruitment.edit');
     const { profile } = useAuth();
     const qc = useQueryClient();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const [mobileCol, setMobileCol] = useState(0);
 
     const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
     const [search, setSearch] = useState('');
@@ -367,6 +370,7 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
         } else if (s === "Không tới phỏng vấn") {
             btns.push({ label: "Soạn mail", color: G, onClick: () => onOpenCompose?.(c, 'reschedule') });
             btns.push({ label: "Hẹn lại", onClick: () => quickUpdate(c, "Hẹn lại PV") });
+            btns.push({ label: "Từ chối ✗", color: '#dc2626', onClick: () => quickUpdate(c, "Đã từ chối") });
         } else if (s === "Đã PV - chờ TBP báo KQ") {
             btns.push({ label: "Pass ✓", color: '#16a34a', onClick: () => quickUpdate(c, "Pass - chưa gửi thỏa thuận") });
             btns.push({ label: "Fail", color: '#dc2626', onClick: () => quickUpdate(c, "Fail - chưa mail") });
@@ -567,59 +571,89 @@ export default function TabCandidates({ onOpenCompose }: TabCandidatesProps) {
 
             {/* Kanban or Table */}
             {viewMode === 'kanban' ? (
-                <Box sx={{
-                    maxHeight: 'calc(100vh - 260px)', overflow: 'auto',
-                    '&::-webkit-scrollbar': { width: 6, height: 6 },
-                    '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3 },
-                }}>
-                    {lc ? (
-                        <Box sx={{ display: 'flex', gap: 2, p: 1 }}>
-                            {KANBAN_COLUMNS.map(col => (
-                                <Box key={col.id} sx={{ minWidth: 220, flex: '0 0 260px' }}>
-                                    <Skeleton height={40} sx={{ borderRadius: '10px', mb: 1 }} />
-                                    {[1, 2, 3].map(i => <Skeleton key={i} height={80} sx={{ borderRadius: '10px', mb: 1 }} />)}
-                                </Box>
-                            ))}
-                        </Box>
-                    ) : (
-                        <Box sx={{ display: 'flex', gap: 2, pb: 2, alignItems: 'flex-start', minWidth: 'max-content' }}>
-                            {KANBAN_COLUMNS.map(col => {
-                                const cards = displayRows.filter(c => col.statuses.includes(c.status));
+                isMobile ? (
+                    /* Mobile: tab per column */
+                    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 260px)' }}>
+                        <Tabs value={mobileCol} onChange={(_, v) => setMobileCol(v)} variant="scrollable" scrollButtons="auto"
+                            sx={{ mb: 1, minHeight: 36, '& .MuiTabs-indicator': { bgcolor: KANBAN_COLUMNS[mobileCol]?.color }, '& .MuiTab-root': { minHeight: 36, fontSize: 11, fontWeight: 700, textTransform: 'none', py: 0.5 } }}>
+                            {KANBAN_COLUMNS.map((col, i) => {
+                                const count = displayRows.filter(c => col.statuses.includes(c.status)).length;
                                 return (
-                                    <Box key={col.id} sx={{ width: 347, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-                                        <Paper elevation={0} sx={{
-                                            borderRadius: '14px', border: `1px solid ${BORDER}`,
-                                            overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                                            maxHeight: 'calc(100vh - 280px)',
-                                        }}>
-                                            {/* Column header */}
-                                            <Box sx={{ p: 1.5, bgcolor: col.bg, borderBottom: `3px solid ${col.color}` }}>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Typography sx={{ fontWeight: 800, fontSize: 13, color: col.color }}>{col.title}</Typography>
-                                                    <Chip label={cards.length} size="small" sx={{ bgcolor: col.color, color: '#fff', fontWeight: 800, fontSize: 11, height: 20, borderRadius: '6px' }} />
-                                                </Box>
-                                                <Typography sx={{ fontSize: 10, color: '#94a3b8', mt: 0.3 }}>{col.sub}</Typography>
-                                            </Box>
-                                            {/* Cards */}
-                                            <Box sx={{
-                                                flex: 1, overflowY: 'auto', p: 1,
-                                                bgcolor: '#fafafa',
-                                                '&::-webkit-scrollbar': { width: 4 },
-                                                '&::-webkit-scrollbar-thumb': { bgcolor: '#e2e8f0', borderRadius: 2 },
-                                            }}>
-                                                {cards.length === 0 ? (
-                                                    <Box sx={{ textAlign: 'center', py: 3 }}>
-                                                        <Typography sx={{ fontSize: 11, color: '#cbd5e1' }}>Không có ứng viên</Typography>
-                                                    </Box>
-                                                ) : cards.map(c => <KanbanCard key={c.id} c={c} />)}
-                                            </Box>
-                                        </Paper>
-                                    </Box>
+                                    <Tab key={col.id} label={
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <span>{col.title}</span>
+                                            <Chip label={count} size="small" sx={{ height: 16, fontSize: 9, fontWeight: 800, bgcolor: mobileCol === i ? col.color : '#e2e8f0', color: mobileCol === i ? '#fff' : '#64748b', borderRadius: '4px' }} />
+                                        </Box>
+                                    } sx={{ color: mobileCol === i ? col.color : '#94a3b8' }} />
                                 );
                             })}
-                        </Box>
-                    )}
-                </Box>
+                        </Tabs>
+                        {lc ? (
+                            <Box sx={{ p: 1 }}>{[1, 2, 3].map(i => <Skeleton key={i} height={80} sx={{ borderRadius: '10px', mb: 1 }} />)}</Box>
+                        ) : (() => {
+                            const col = KANBAN_COLUMNS[mobileCol];
+                            const cards = displayRows.filter(c => col.statuses.includes(c.status));
+                            return (
+                                <Box sx={{ flex: 1, overflowY: 'auto', px: 1, '&::-webkit-scrollbar': { width: 4 }, '&::-webkit-scrollbar-thumb': { bgcolor: '#e2e8f0', borderRadius: 2 } }}>
+                                    {cards.length === 0
+                                        ? <Box sx={{ textAlign: 'center', py: 6 }}><Typography sx={{ fontSize: 13, color: '#cbd5e1' }}>Không có ứng viên</Typography></Box>
+                                        : cards.map(c => <KanbanCard key={c.id} c={c} />)}
+                                </Box>
+                            );
+                        })()}
+                    </Box>
+                ) : (
+                    /* Desktop: all columns side by side */
+                    <Box sx={{
+                        width: '100%', minWidth: 0,
+                        maxHeight: 'calc(100vh - 260px)', overflowX: 'auto', overflowY: 'auto',
+                        '&::-webkit-scrollbar': { width: 6, height: 6 },
+                        '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 3 },
+                    }}>
+                        {lc ? (
+                            <Box sx={{ display: 'flex', gap: 2, p: 1 }}>
+                                {KANBAN_COLUMNS.map(col => (
+                                    <Box key={col.id} sx={{ flex: '1 1 0', minWidth: 220 }}>
+                                        <Skeleton height={40} sx={{ borderRadius: '10px', mb: 1 }} />
+                                        {[1, 2, 3].map(i => <Skeleton key={i} height={80} sx={{ borderRadius: '10px', mb: 1 }} />)}
+                                    </Box>
+                                ))}
+                            </Box>
+                        ) : (
+                            <Box sx={{ display: 'flex', gap: 2, pb: 2, alignItems: 'flex-start' }}>
+                                {KANBAN_COLUMNS.map(col => {
+                                    const cards = displayRows.filter(c => col.statuses.includes(c.status));
+                                    return (
+                                        <Box key={col.id} sx={{ flex: '1 1 0', minWidth: 220, display: 'flex', flexDirection: 'column' }}>
+                                            <Paper elevation={0} sx={{
+                                                borderRadius: '14px', border: `1px solid ${BORDER}`,
+                                                overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                                                maxHeight: 'calc(100vh - 280px)',
+                                            }}>
+                                                <Box sx={{ p: 1.5, bgcolor: col.bg, borderBottom: `3px solid ${col.color}` }}>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <Typography sx={{ fontWeight: 800, fontSize: 13, color: col.color }}>{col.title}</Typography>
+                                                        <Chip label={cards.length} size="small" sx={{ bgcolor: col.color, color: '#fff', fontWeight: 800, fontSize: 11, height: 20, borderRadius: '6px' }} />
+                                                    </Box>
+                                                    <Typography sx={{ fontSize: 10, color: '#94a3b8', mt: 0.3 }}>{col.sub}</Typography>
+                                                </Box>
+                                                <Box sx={{
+                                                    flex: 1, overflowY: 'auto', p: 1, bgcolor: '#fafafa',
+                                                    '&::-webkit-scrollbar': { width: 4 },
+                                                    '&::-webkit-scrollbar-thumb': { bgcolor: '#e2e8f0', borderRadius: 2 },
+                                                }}>
+                                                    {cards.length === 0
+                                                        ? <Box sx={{ textAlign: 'center', py: 3 }}><Typography sx={{ fontSize: 11, color: '#cbd5e1' }}>Không có ứng viên</Typography></Box>
+                                                        : cards.map(c => <KanbanCard key={c.id} c={c} />)}
+                                                </Box>
+                                            </Paper>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        )}
+                    </Box>
+                )
             ) : (
                 <TableContainer component={Paper} elevation={0} sx={{
                     flex: 1, minHeight: 0, borderRadius: R, border: `1px solid ${BORDER}`,

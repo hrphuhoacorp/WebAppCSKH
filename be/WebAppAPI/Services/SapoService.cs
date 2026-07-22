@@ -280,9 +280,7 @@ public class SapoService
 
     private async Task<Dictionary<string, List<SapoCodeMapping>>> BuildMappingIndexAsync()
     {
-        var rows = await _db
-            .SapoCodeMappings.Where(r => r.Active)
-            .ToListAsync();
+        var rows = await _db.SapoCodeMappings.Where(r => r.Active).ToListAsync();
 
         var index = new Dictionary<string, List<SapoCodeMapping>>();
         foreach (var r in rows)
@@ -394,7 +392,7 @@ public class SapoService
     private static bool IsPackagingServiceRow(string? serviceName)
     {
         var normalized = RemoveDiacritics((serviceName ?? "").ToUpperInvariant());
-        return normalized.Contains("DICH VU DONG GOI") || normalized.Contains("DICH VU GOI QUA");
+        return normalized.Contains("DICH VU GOI QUA");
     }
 
     public async Task<List<SapoSalesRow>> BuildRowsFromOrderItemsAsync(
@@ -414,9 +412,12 @@ public class SapoService
             .Where(r =>
             {
                 var s = (r.Sku ?? "").Trim();
-                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI");
-                if (s.StartsWith("200")) return true;
-                if (s.StartsWith("600")) return !isTuiVai;
+                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant())
+                    .Contains("TUI VAI");
+                if (s.StartsWith("200"))
+                    return true;
+                if (s.StartsWith("600"))
+                    return !isTuiVai;
                 return false;
             })
             .Select(r => r.OrderCode)
@@ -426,10 +427,13 @@ public class SapoService
             .Where(r =>
             {
                 var sku = (r.Sku ?? "").Trim();
-                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant()).Contains("TUI VAI");
-                if (sku.StartsWith("200")) return true;
+                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant())
+                    .Contains("TUI VAI");
+                if (sku.StartsWith("200"))
+                    return true;
                 // SKU 600 mà tên SP là "Túi vải" → phụ kiện đóng gói, không phải giỏ → bỏ qua
-                if (sku.StartsWith("600")) return !isTuiVai;
+                if (sku.StartsWith("600"))
+                    return !isTuiVai;
                 return false;
             })
             .Select(r =>
@@ -478,79 +482,23 @@ public class SapoService
             var resolved = ResolveCode(sapoCode, mappingIndex, date);
             var reportCode = resolved.ReportCode ?? sapoCode;
 
-            result.Add(new SapoSalesRow
-            {
-                BatchId = batchId,
-                Date = date,
-                Branch = g.Key.Branch,
-                ProductType = first.Category,
-                Sku = g.Key.Sku,
-                SapoCode = sapoCode,
-                ReportCode = reportCode,
-                ReportName = reportCode,
-                ProductName = first.ProductName,
-                BasketGroup = ClassifyBasket(g.Key.Sku, first.ProductName),
-                PriceBucket = PriceBucket(price),
-                Price = price,
-                Qty = qty,
-                Orders = g.Count(),
-                Revenue = revenue,
-                NetRevenue = revenue,
-                ResolveSource = resolved.ResolveSource,
-                MatchedCode = resolved.MatchedCode,
-                MappingPrice = resolved.MappingPrice,
-                MappingDate = resolved.MappingDate,
-                MappingNote = resolved.MappingNote,
-                AutoGroupNote = resolved.AutoGroupNote,
-                Warning = "",
-                UploadedBy = uploadedBy,
-                UploadedAt = uploadedAt,
-                ImportHistoryId = importHistoryId,
-            });
-        }
-
-        // ── Nhánh 2: Đơn có "DỊCH VỤ ĐÓNG GÓI" nhưng không có SKU 200/600 ──────
-        // Mỗi đơn = 1 giỏ tự chọn, qty=1, revenue = tổng tất cả dòng trong đơn.
-        var packagingOrderCodes = rowList
-            .Where(r => IsPackagingServiceRow(r.ServiceName) && !handledOrderCodes.Contains(r.OrderCode))
-            .Select(r => r.OrderCode)
-            .ToHashSet();
-
-        if (packagingOrderCodes.Count > 0)
-        {
-            var packagingGrouped = rowList
-                .Where(r => packagingOrderCodes.Contains(r.OrderCode))
-                .GroupBy(r => (
-                    Date: r.PurchaseDate.ToString("yyyy-MM-dd"),
-                    Branch: string.IsNullOrEmpty(r.BranchName) ? "Chưa rõ" : r.BranchName,
-                    OrderCode: r.OrderCode
-                ))
-                .ToList();
-
-            foreach (var g in packagingGrouped)
-            {
-                var revenue = g.Sum(x => x.Revenue);
-                var sapoCode = g.Key.OrderCode;
-                var date = g.Key.Date;
-                var resolved = ResolveCode(sapoCode, mappingIndex, date);
-                var reportCode = resolved.ReportCode ?? sapoCode;
-
-                result.Add(new SapoSalesRow
+            result.Add(
+                new SapoSalesRow
                 {
                     BatchId = batchId,
                     Date = date,
                     Branch = g.Key.Branch,
-                    ProductType = "Giỏ tự chọn",
-                    Sku = "",
+                    ProductType = first.Category,
+                    Sku = g.Key.Sku,
                     SapoCode = sapoCode,
                     ReportCode = reportCode,
                     ReportName = reportCode,
-                    ProductName = "DỊCH VỤ ĐÓNG GÓI",
-                    BasketGroup = "Nhóm khác",
-                    PriceBucket = PriceBucket(revenue),
-                    Price = revenue,
-                    Qty = 1,
-                    Orders = 1,
+                    ProductName = first.ProductName,
+                    BasketGroup = ClassifyBasket(g.Key.Sku, first.ProductName),
+                    PriceBucket = PriceBucket(price),
+                    Price = price,
+                    Qty = qty,
+                    Orders = g.Count(),
                     Revenue = revenue,
                     NetRevenue = revenue,
                     ResolveSource = resolved.ResolveSource,
@@ -563,7 +511,71 @@ public class SapoService
                     UploadedBy = uploadedBy,
                     UploadedAt = uploadedAt,
                     ImportHistoryId = importHistoryId,
-                });
+                }
+            );
+        }
+
+        // ── Nhánh 2: Đơn có "DỊCH VỤ ĐÓNG GÓI" nhưng không có SKU 200/600 ──────
+        // Mỗi đơn = 1 giỏ tự chọn, qty=1, revenue = tổng tất cả dòng trong đơn.
+        var packagingOrderCodes = rowList
+            .Where(r =>
+                IsPackagingServiceRow(r.ServiceName) && !handledOrderCodes.Contains(r.OrderCode)
+            )
+            .Select(r => r.OrderCode)
+            .ToHashSet();
+
+        if (packagingOrderCodes.Count > 0)
+        {
+            var packagingGrouped = rowList
+                .Where(r => packagingOrderCodes.Contains(r.OrderCode))
+                .GroupBy(r =>
+                    (
+                        Date: r.PurchaseDate.ToString("yyyy-MM-dd"),
+                        Branch: string.IsNullOrEmpty(r.BranchName) ? "Chưa rõ" : r.BranchName,
+                        OrderCode: r.OrderCode
+                    )
+                )
+                .ToList();
+
+            foreach (var g in packagingGrouped)
+            {
+                var revenue = g.Sum(x => x.Revenue);
+                var sapoCode = g.Key.OrderCode;
+                var date = g.Key.Date;
+                var resolved = ResolveCode(sapoCode, mappingIndex, date);
+                var reportCode = resolved.ReportCode ?? sapoCode;
+
+                result.Add(
+                    new SapoSalesRow
+                    {
+                        BatchId = batchId,
+                        Date = date,
+                        Branch = g.Key.Branch,
+                        ProductType = "Giỏ tự chọn",
+                        Sku = "",
+                        SapoCode = sapoCode,
+                        ReportCode = reportCode,
+                        ReportName = reportCode,
+                        ProductName = "DỊCH VỤ ĐÓNG GÓI",
+                        BasketGroup = "Nhóm khác",
+                        PriceBucket = PriceBucket(revenue),
+                        Price = revenue,
+                        Qty = 1,
+                        Orders = 1,
+                        Revenue = revenue,
+                        NetRevenue = revenue,
+                        ResolveSource = resolved.ResolveSource,
+                        MatchedCode = resolved.MatchedCode,
+                        MappingPrice = resolved.MappingPrice,
+                        MappingDate = resolved.MappingDate,
+                        MappingNote = resolved.MappingNote,
+                        AutoGroupNote = resolved.AutoGroupNote,
+                        Warning = "",
+                        UploadedBy = uploadedBy,
+                        UploadedAt = uploadedAt,
+                        ImportHistoryId = importHistoryId,
+                    }
+                );
             }
         }
 
@@ -582,7 +594,8 @@ public class SapoService
     public async Task SyncNxtSapoSoldFromOrdersAsync(IEnumerable<DateTime> affectedPurchaseDates)
     {
         var dateSet = affectedPurchaseDates.Select(d => d.Date).Distinct().ToHashSet();
-        if (dateSet.Count == 0) return;
+        if (dateSet.Count == 0)
+            return;
 
         var minDate = dateSet.Min();
         var maxDate = dateSet.Max().AddDays(1);
@@ -609,9 +622,12 @@ public class SapoService
         // Nhánh 1: SKU 200 (giỏ mẫu) / 600 (giỏ tự chọn, trừ "Túi vải") — mã THÔ
         bool IsRelevantSku(string sku, string productName)
         {
-            var isTuiVai = RemoveDiacritics((productName ?? "").ToUpperInvariant()).Contains("TUI VAI");
-            if (sku.StartsWith("200")) return true;
-            if (sku.StartsWith("600")) return !isTuiVai;
+            var isTuiVai = RemoveDiacritics((productName ?? "").ToUpperInvariant())
+                .Contains("TUI VAI");
+            if (sku.StartsWith("200"))
+                return true;
+            if (sku.StartsWith("600"))
+                return !isTuiVai;
             return false;
         }
 
@@ -652,7 +668,9 @@ public class SapoService
         // Nhánh 2: đơn có "DỊCH VỤ ĐÓNG GÓI/GÓI QUÀ" nhưng không có SKU 200/600/700-túi-vải nào
         // trong đơn — mỗi đơn = 1 giỏ tự chọn, qty=1, doanh thu = tổng các dòng trong đơn.
         var branch2 = relevantRows
-            .Where(r => IsPackagingServiceRow(r.ServiceName) && !handledOrderCodes.Contains(r.OrderCode))
+            .Where(r =>
+                IsPackagingServiceRow(r.ServiceName) && !handledOrderCodes.Contains(r.OrderCode)
+            )
             .GroupBy(r => new
             {
                 r.OrderCode,
@@ -668,7 +686,8 @@ public class SapoService
                 Revenue = g.Sum(x => x.Revenue),
             });
 
-        var aggregated = branch1.Concat(branch2)
+        var aggregated = branch1
+            .Concat(branch2)
             .GroupBy(x => (x.CloseDate, x.Branch, ItemCode: (x.RawCode ?? "").Trim()))
             .Where(g => !string.IsNullOrEmpty(g.Key.ItemCode))
             .Select(g => new
@@ -689,17 +708,15 @@ public class SapoService
         // Load NxtRows cho MỌI closeDate nằm trong dateSet (kể cả khi rollback xóa hết dữ liệu
         // của ngày đó và aggregated không còn entry nào cho ngày đó nữa) để zero-out đúng.
         var closeDatesToLoad = dateSet.Select(d => d.ToString("dd/MM/yyyy")).ToHashSet();
-        var nxtRows = await _db.NxtRows
-            .Where(r => closeDatesToLoad.Contains(r.CloseDate))
+        var nxtRows = await _db
+            .NxtRows.Where(r => closeDatesToLoad.Contains(r.CloseDate))
             .ToListAsync();
 
         // SET SapoSold cho từng aggregated group
         foreach (var agg in aggregated)
         {
             var existing = nxtRows.FirstOrDefault(r =>
-                r.CloseDate == agg.CloseDate &&
-                r.Branch == agg.Branch &&
-                r.ItemCode == agg.ItemCode
+                r.CloseDate == agg.CloseDate && r.Branch == agg.Branch && r.ItemCode == agg.ItemCode
             );
 
             if (existing != null)
@@ -711,17 +728,19 @@ public class SapoService
             }
             else
             {
-                _db.NxtRows.Add(new WebAppInfractor.Models.NxtRow
-                {
-                    CloseDate = agg.CloseDate,
-                    Branch = agg.Branch,
-                    ItemCode = agg.ItemCode,
-                    SapoSold = agg.SapoSold,
-                    Revenue = agg.Revenue,
-                    OrderCount = agg.OrderCount,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                });
+                _db.NxtRows.Add(
+                    new WebAppInfractor.Models.NxtRow
+                    {
+                        CloseDate = agg.CloseDate,
+                        Branch = agg.Branch,
+                        ItemCode = agg.ItemCode,
+                        SapoSold = agg.SapoSold,
+                        Revenue = agg.Revenue,
+                        OrderCount = agg.OrderCount,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                    }
+                );
             }
         }
 
@@ -742,9 +761,15 @@ public class SapoService
 
     private static string ToCloseDate(string isoDate)
     {
-        if (DateTime.TryParseExact(isoDate, "yyyy-MM-dd",
-            System.Globalization.CultureInfo.InvariantCulture,
-            System.Globalization.DateTimeStyles.None, out var d))
+        if (
+            DateTime.TryParseExact(
+                isoDate,
+                "yyyy-MM-dd",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var d
+            )
+        )
             return d.ToString("dd/MM/yyyy");
         return isoDate;
     }
@@ -1314,5 +1339,4 @@ public class SapoService
         public decimal Orders { get; set; }
         public decimal Aov { get; set; }
     }
-
 }
