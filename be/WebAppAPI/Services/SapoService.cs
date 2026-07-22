@@ -381,18 +381,19 @@ public class SapoService
     }
 
     // ─── AUTO-GENERATE TỪ ORDER IMPORT ──────────────────────────────────────────
-    // Chỉ xử lý SKU bắt đầu bằng 200 (giỏ mẫu), 600 (giỏ tự chọn), hoặc 700 mà tên
-    // sản phẩm có "Túi vải" (giỏ tự chọn đóng bằng túi vải, không có mã 600 riêng).
+    // Lọc theo Category: "Giỏ quà tặng trái cây" hoặc "Giỏ quà tặng bánh kẹo" — khớp với
+    // cách Sapo phân loại và cho phép so sánh trực tiếp với báo cáo xuất từ Sapo.
     // Kết quả được group-by (ngày, chi nhánh, sku, sapoCode) rồi cộng qty/doanh thu.
-    // Caller chịu trách nhiệm AddRangeAsync + SaveChangesAsync (để nằm trong cùng transaction).
-    // Đơn có "DỊCH VỤ ĐÓNG GÓI" hoặc "DỊCH VỤ GÓI QUÀ" trong cột Tên dịch vụ (ServiceName)
-    // nhưng không có SKU 600 → giỏ tự chọn không có mã chuẩn; dùng mã đơn hàng làm định danh
-    // giống SKU 600. Trước đây chỉ nhận "đóng gói", bỏ sót đơn dùng tên "gói quà" — đơn đó
-    // không khớp Nhánh 1 (Sku rỗng) lẫn Nhánh 2, nên bị rớt hoàn toàn khỏi Sapo bán.
     private static bool IsPackagingServiceRow(string? serviceName)
     {
         var normalized = RemoveDiacritics((serviceName ?? "").ToUpperInvariant());
         return normalized.Contains("DICH VU GOI QUA");
+    }
+
+    private static bool IsGiftBasketCategory(string? category)
+    {
+        var cat = RemoveDiacritics((category ?? "").Trim().ToUpperInvariant());
+        return cat.Contains("GIO QUA TANG TRAI CAY") || cat.Contains("GIO QUA TANG BANH KEO");
     }
 
     public async Task<List<SapoSalesRow>> BuildRowsFromOrderItemsAsync(
@@ -404,55 +405,20 @@ public class SapoService
         var uploadedAt = NowText();
         var batchId = $"ORDER-{importHistoryId}";
         var mappingIndex = await BuildMappingIndexAsync();
-        var rowList = rows.ToList();
 
-        // ── Nhánh 1: SKU 200 (giỏ mẫu) / SKU 600 (giỏ tự chọn có mã) ──────────
-        // Aggregate: (date, branch, sku, sapoCode) → sum qty / revenue / count orders
-        var handledOrderCodes = rowList
-            .Where(r =>
-            {
-                var s = (r.Sku ?? "").Trim();
-                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant())
-                    .Contains("TUI VAI");
-                if (s.StartsWith("200"))
-                    return true;
-                if (s.StartsWith("600"))
-                    return !isTuiVai;
-                return false;
-            })
-            .Select(r => r.OrderCode)
-            .ToHashSet();
+        var giftRows = rows.Where(r => IsGiftBasketCategory(r.Category)).ToList();
 
-        var grouped = rowList
-            .Where(r =>
-            {
-                var sku = (r.Sku ?? "").Trim();
-                var isTuiVai = RemoveDiacritics((r.ProductName ?? "").ToUpperInvariant())
-                    .Contains("TUI VAI");
-                if (sku.StartsWith("200"))
-                    return true;
-                // SKU 600 mà tên SP là "Túi vải" → phụ kiện đóng gói, không phải giỏ → bỏ qua
-                if (sku.StartsWith("600"))
-                    return !isTuiVai;
-                return false;
-            })
+        var grouped = giftRows
             .Select(r =>
             {
                 var sku = (r.Sku ?? "").Trim();
-                string sapoCode;
-                if (sku.StartsWith("200"))
-                {
-                    sapoCode = ExtractGiftCodeFromName(r.ProductName);
-                    if (string.IsNullOrEmpty(sapoCode))
-                        sapoCode = ExtractGiftCodeFromName(sku);
-                    if (string.IsNullOrEmpty(sapoCode))
-                        sapoCode = sku;
-                }
-                else
-                {
-                    // SKU 600 (giỏ tự chọn) — dùng mã đơn hàng làm mã định danh
-                    sapoCode = r.OrderCode;
-                }
+                // Ưu tiên extract mã giỏ từ tên sản phẩm; nếu không có thì dùng SKU;
+                // nếu SKU cũng rỗng (giỏ tự chọn không có mã) thì dùng mã đơn hàng.
+                var sapoCode = ExtractGiftCodeFromName(r.ProductName);
+                if (string.IsNullOrEmpty(sapoCode))
+                    sapoCode = ExtractGiftCodeFromName(sku);
+                if (string.IsNullOrEmpty(sapoCode))
+                    sapoCode = !string.IsNullOrEmpty(sku) ? sku : r.OrderCode;
                 return new
                 {
                     Date = r.PurchaseDate.ToString("yyyy-MM-dd"),
@@ -464,6 +430,7 @@ public class SapoService
                     r.UnitPrice,
                     r.Quantity,
                     r.Revenue,
+                    r.NetRevenue,
                 };
             })
             .GroupBy(x => (x.Date, x.Branch, x.Sku, x.SapoCode))
@@ -500,7 +467,7 @@ public class SapoService
                     Qty = qty,
                     Orders = g.Count(),
                     Revenue = revenue,
-                    NetRevenue = revenue,
+                    NetRevenue = g.Sum(x => x.NetRevenue),
                     ResolveSource = resolved.ResolveSource,
                     MatchedCode = resolved.MatchedCode,
                     MappingPrice = resolved.MappingPrice,
@@ -510,76 +477,53 @@ public class SapoService
                     Warning = "",
                     UploadedBy = uploadedBy,
                     UploadedAt = uploadedAt,
-                    ImportHistoryId = importHistoryId,
+                    ImportHistoryId = importHistoryId > 0 ? importHistoryId : null,
                 }
             );
         }
 
-        // ── Nhánh 2: Đơn có "DỊCH VỤ ĐÓNG GÓI" nhưng không có SKU 200/600 ──────
-        // Mỗi đơn = 1 giỏ tự chọn, qty=1, revenue = tổng tất cả dòng trong đơn.
-        var packagingOrderCodes = rowList
-            .Where(r =>
-                IsPackagingServiceRow(r.ServiceName) && !handledOrderCodes.Contains(r.OrderCode)
-            )
-            .Select(r => r.OrderCode)
-            .ToHashSet();
-
-        if (packagingOrderCodes.Count > 0)
-        {
-            var packagingGrouped = rowList
-                .Where(r => packagingOrderCodes.Contains(r.OrderCode))
-                .GroupBy(r =>
-                    (
-                        Date: r.PurchaseDate.ToString("yyyy-MM-dd"),
-                        Branch: string.IsNullOrEmpty(r.BranchName) ? "Chưa rõ" : r.BranchName,
-                        OrderCode: r.OrderCode
-                    )
-                )
-                .ToList();
-
-            foreach (var g in packagingGrouped)
-            {
-                var revenue = g.Sum(x => x.Revenue);
-                var sapoCode = g.Key.OrderCode;
-                var date = g.Key.Date;
-                var resolved = ResolveCode(sapoCode, mappingIndex, date);
-                var reportCode = resolved.ReportCode ?? sapoCode;
-
-                result.Add(
-                    new SapoSalesRow
-                    {
-                        BatchId = batchId,
-                        Date = date,
-                        Branch = g.Key.Branch,
-                        ProductType = "Giỏ tự chọn",
-                        Sku = "",
-                        SapoCode = sapoCode,
-                        ReportCode = reportCode,
-                        ReportName = reportCode,
-                        ProductName = "DỊCH VỤ ĐÓNG GÓI",
-                        BasketGroup = "Nhóm khác",
-                        PriceBucket = PriceBucket(revenue),
-                        Price = revenue,
-                        Qty = 1,
-                        Orders = 1,
-                        Revenue = revenue,
-                        NetRevenue = revenue,
-                        ResolveSource = resolved.ResolveSource,
-                        MatchedCode = resolved.MatchedCode,
-                        MappingPrice = resolved.MappingPrice,
-                        MappingDate = resolved.MappingDate,
-                        MappingNote = resolved.MappingNote,
-                        AutoGroupNote = resolved.AutoGroupNote,
-                        Warning = "",
-                        UploadedBy = uploadedBy,
-                        UploadedAt = uploadedAt,
-                        ImportHistoryId = importHistoryId,
-                    }
-                );
-            }
-        }
-
         return ApplyNearCodeAutoGrouping(result);
+    }
+
+    // Xóa toàn bộ SapoSalesRows và build lại từ OrderItems trong DB.
+    // Dùng khi cần đồng bộ lại sau khi thay đổi logic filter hoặc backfill data cũ.
+    public async Task<int> RebuildSapoSalesRowsAsync(string userId)
+    {
+        // 1. Xóa tất cả dữ liệu cũ
+        await _db.SapoSalesRows.ExecuteDeleteAsync();
+
+        // 2. Đọc toàn bộ OrderItems + Orders + Branch từ DB
+        var dbRows = await (
+            from oi in _db.OrderItems
+            join o in _db.Orders on oi.OrderId equals o.Id
+            join b in _db.Branches on o.BranchesId equals b.Id into bj
+            from b in bj.DefaultIfEmpty()
+            where o.DeletedAt == null
+            select new SapoImportRowDTO
+            {
+                PurchaseDate = o.PurchaseDate,
+                BranchName = b != null ? b.Name : "",
+                Category = oi.Category ?? "",
+                ProductName = oi.ProductName ?? "",
+                Sku = oi.Sku ?? "",
+                UnitPrice = oi.UnitPrice,
+                ServiceName = oi.ServiceName ?? "",
+                OrderCode = o.OrderCode,
+                Revenue = oi.Revenue,
+                NetRevenue = oi.GrossProfit,
+                Quantity = oi.Quantity,
+            }
+        ).AsNoTracking().ToListAsync();
+
+        // 3. Build SapoSalesRows theo Category filter mới
+        var sapoRows = await BuildRowsFromOrderItemsAsync(dbRows, 0, userId);
+
+        // 4. Lưu
+        if (sapoRows.Count > 0)
+            await _db.SapoSalesRows.AddRangeAsync(sapoRows);
+        await _db.SaveChangesAsync();
+
+        return sapoRows.Count;
     }
 
     // Đồng bộ NxtRow.SapoSold TRỰC TIẾP từ Order/OrderItem — KHÔNG qua SapoSalesRow, không
@@ -776,15 +720,17 @@ public class SapoService
 
     // ─── DASHBOARD ────────────────────────────────────────────────────────────
 
-    public async Task<object> GetDashboardAsync(string filterKey = "last7")
+    public async Task<object> GetDashboardAsync(string filterKey = "last7", string? branchName = null)
     {
         var allRows = await _db.SapoSalesRows.ToListAsync();
         var reportRows = allRows.Where(IsDashboardReportRow).ToList();
+        if (!string.IsNullOrWhiteSpace(branchName))
+            reportRows = reportRows.Where(r => r.Branch == branchName).ToList();
         var filtered = FilterRows(reportRows, filterKey);
         return BuildDashboardState(filtered, allRows, reportRows, filterKey);
     }
 
-    public async Task<object> GetDashboardByRangeAsync(string fromDate, string toDate)
+    public async Task<object> GetDashboardByRangeAsync(string fromDate, string toDate, string? branchName = null)
     {
         var from = NormalizeDate(fromDate);
         var to = NormalizeDate(toDate);
@@ -794,6 +740,8 @@ public class SapoService
             throw new BadRequestException("Từ ngày không được lớn hơn Đến ngày.");
         var allRows = await _db.SapoSalesRows.ToListAsync();
         var reportRows = allRows.Where(IsDashboardReportRow).ToList();
+        if (!string.IsNullOrWhiteSpace(branchName))
+            reportRows = reportRows.Where(r => r.Branch == branchName).ToList();
         var filtered = reportRows
             .Where(r => string.Compare(r.Date, from) >= 0 && string.Compare(r.Date, to) <= 0)
             .ToList();
@@ -806,7 +754,7 @@ public class SapoService
         );
     }
 
-    public async Task<object> GetDashboardByMonthAsync(string month)
+    public async Task<object> GetDashboardByMonthAsync(string month, string? branchName = null)
     {
         var ym = (month ?? "").Trim();
         if (ym.Length >= 7)
@@ -817,7 +765,7 @@ public class SapoService
         int y = int.Parse(parts[0]),
             m = int.Parse(parts[1]);
         int lastDay = DateTime.DaysInMonth(y, m);
-        return await GetDashboardByRangeAsync($"{ym}-01", $"{ym}-{lastDay:D2}");
+        return await GetDashboardByRangeAsync($"{ym}-01", $"{ym}-{lastDay:D2}", branchName);
     }
 
     // ─── DASHBOARD HELPERS ────────────────────────────────────────────────────

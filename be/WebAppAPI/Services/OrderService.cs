@@ -316,7 +316,7 @@ public class OrderService : IOrderService
                             pendingOrdersNeedReattach.Remove(orderKey);
                         }
                         orderEntity.Revenue += raw.Revenue;
-                        orderEntity.GrossProfit += raw.GrossProfit;
+                        orderEntity.GrossProfit += raw.NetRevenue;
                         orderEntity.ShippingFee += raw.ShippingFee;
                         orderEntity.TaxAmount += raw.TaxAmount;
                     }
@@ -329,7 +329,7 @@ public class OrderService : IOrderService
                             Customer = customerId > 0 ? null : customer,
                             PurchaseDate = raw.PurchaseDate,
                             Revenue = raw.Revenue,
-                            GrossProfit = raw.GrossProfit,
+                            GrossProfit = raw.NetRevenue,
                             ShippingFee = raw.ShippingFee,
                             TaxAmount = raw.TaxAmount,
                             Source = raw.Source,
@@ -357,7 +357,7 @@ public class OrderService : IOrderService
                         ServiceName = raw.ServiceName,
                         Unit = raw.Unit,
                         Revenue = raw.Revenue,
-                        GrossProfit = raw.GrossProfit,
+                        GrossProfit = raw.NetRevenue,
                         ShippingFee = raw.ShippingFee,
                         TaxAmount = raw.TaxAmount,
                         ImportHistoryId = currentImportId,

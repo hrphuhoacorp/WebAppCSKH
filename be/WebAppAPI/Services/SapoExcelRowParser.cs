@@ -32,7 +32,7 @@ public static class SapoExcelRowParser
             Revenue = FindImportCol(rawHeaders, "doanh thu", "thanh tien"),
             Shipping = FindImportCol(rawHeaders, "phi van chuyen", "phi ship", "phi giao"),
             Tax = FindImportCol(rawHeaders, "thue", "vat", "tien thue"),
-            GrossProfit = FindImportCol(rawHeaders, "loi nhuan gop", "loi nhuan"),
+            NetRevenue = FindImportCol(rawHeaders, "doanh thu thuan"),
             // Số lượng: ưu tiên "SL hàng thực bán" (cột thực tế), fallback "SL hàng bán ra"
             QtyStr = FindImportCol(rawHeaders, "sl hang ban ra", "so luong hang ban", "so luong"),
             Qty = FindImportCol(
@@ -124,7 +124,7 @@ public static class SapoExcelRowParser
             Source = map.Source >= 0 ? row.Cell(map.Source + 1).GetString().Trim() : "",
             QuantityStr = map.QtyStr >= 0 ? row.Cell(map.QtyStr + 1).GetString().Trim() : "",
             Revenue = GetDecimal(row.Cell(map.Revenue + 1)),
-            GrossProfit = map.GrossProfit >= 0 ? GetDecimal(row.Cell(map.GrossProfit + 1)) : 0,
+            NetRevenue = map.NetRevenue >= 0 ? GetDecimal(row.Cell(map.NetRevenue + 1)) : 0,
             ShippingFee = map.Shipping >= 0 ? GetDecimal(row.Cell(map.Shipping + 1)) : 0,
             TaxAmount = map.Tax >= 0 ? GetDecimal(row.Cell(map.Tax + 1)) : 0,
             Quantity = GetDecimal(row.Cell(map.Qty + 1)),

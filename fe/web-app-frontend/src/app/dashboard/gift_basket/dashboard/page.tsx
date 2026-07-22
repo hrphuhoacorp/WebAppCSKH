@@ -4,8 +4,19 @@ import React, { useEffect, useState } from 'react';
 import { usePermission } from '@/hooks/usePermission';
 import {
     Alert,
+    Autocomplete,
     Box,
+    Button,
     Chip,
+    CircularProgress,
+    Collapse,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    Divider,
+    IconButton,
     Paper,
     Table,
     TableBody,
@@ -22,6 +33,9 @@ import {
     TableContainer,
 } from '@mui/material';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import SyncIcon from '@mui/icons-material/Sync';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket';
@@ -36,6 +50,7 @@ import toast from 'react-hot-toast';
 import PageHeader from '@/components/common/PageHeader';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import { api } from '@/services/axios';
+import { ordersApi } from '@/features/orders/api/orders.api';
 
 // ── format helpers ────────────────────────────────────────────────────────────
 const fmt = (n: unknown) => Math.round(Number(n ?? 0)).toLocaleString('vi-VN');
@@ -368,6 +383,15 @@ export default function SapoDashboardPage() {
     const [selectedMonth, setSelectedMonth] = useState('');
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
+    const [rebuilding, setRebuilding] = useState(false);
+    const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [branch, setBranch] = useState<{ id: number; name: string } | null>(null);
+    const [branchOptions, setBranchOptions] = useState<{ id: number; name: string }[]>([]);
+
+    useEffect(() => {
+        ordersApi.getBranches().then((r: any) => setBranchOptions(r.content ?? [])).catch(() => {});
+    }, []);
 
     useEffect(() => {
         const today = new Date();
@@ -386,13 +410,14 @@ export default function SapoDashboardPage() {
     async function loadDashboard() {
         try {
             setLoading(true);
+            const branchParam = branch?.name ? { branchName: branch.name } : {};
             let result;
             if (filterMode === 'month' && selectedMonth) {
-                result = await api.get('/sapo/dashboard/month', { params: { month: selectedMonth } });
+                result = await api.get('/sapo/dashboard/month', { params: { month: selectedMonth, ...branchParam } });
             } else if (filterMode === 'range' && fromDate && toDate) {
-                result = await api.get('/sapo/dashboard/range', { params: { fromDate, toDate } });
+                result = await api.get('/sapo/dashboard/range', { params: { fromDate, toDate, ...branchParam } });
             } else {
-                result = await api.get('/sapo/dashboard', { params: { filter: 'latest_month' } });
+                result = await api.get('/sapo/dashboard', { params: { filter: 'latest_month', ...branchParam } });
             }
             setData(result.data);
         } catch (e: any) {
@@ -403,7 +428,22 @@ export default function SapoDashboardPage() {
         }
     }
 
-    useEffect(() => { if (canViewSapo) loadDashboard(); }, [canViewSapo, filterMode, selectedMonth, fromDate, toDate]);
+    useEffect(() => { if (canViewSapo) loadDashboard(); }, [canViewSapo, filterMode, selectedMonth, fromDate, toDate, branch]);
+
+    async function handleRebuild() {
+        setRebuildConfirmOpen(false);
+        try {
+            setRebuilding(true);
+            const res = await api.post('/sapo/rebuild-sales-rows');
+            toast.success(res.data?.message ?? 'Đã nạp lại dữ liệu thành công.');
+            await loadDashboard();
+        } catch (e: any) {
+            const msg = e.response?.data?.Message ?? e.response?.data?.message ?? e.message ?? 'Có lỗi khi nạp lại dữ liệu.';
+            toast.error(msg);
+        } finally {
+            setRebuilding(false);
+        }
+    }
 
     const q = data?.quickInsights ?? {};
     const analysis = data?.usefulAnalysis ?? {};
@@ -500,69 +540,105 @@ export default function SapoDashboardPage() {
             />
 
             {/* ── Filter Section ── */}
-            <Paper elevation={0} sx={{ ...cardSx, mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                    <CalendarTodayIcon sx={{ color: GREEN, fontSize: 18 }} />
-                    <Typography sx={{ fontWeight: 850, fontSize: 15, color: '#1e293b' }}>
-                        Lọc dữ liệu
-                    </Typography>
-                    <Chip
-                        label={filterMode === 'month' ? 'Theo tháng' : 'Theo khoảng ngày'}
-                        size="small"
-                        sx={{ bgcolor: '#f0fdf4', color: '#15803d', fontWeight: 800, fontSize: 11, height: 22, border: '1px solid #bbf7d0' }}
-                    />
-                </Box>
-                <Typography sx={{ fontSize: 12.5, color: '#94a3b8', mb: 2 }}>
-                    Dữ liệu được tổng hợp tự động từ đơn hàng đã import · không cần nạp file Sapo riêng
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
-                        <TextField
-                            select
+            <Paper elevation={0} sx={{ p: 2.5, borderRadius: '20px', mb: 2.5, border: '1px solid #e2e8f0', bgcolor: '#fff', boxShadow: '0 2px 16px rgba(8,104,57,0.05)' }}>
+                {/* Header row */}
+                <Box
+                    onClick={() => setFilterOpen(v => !v)}
+                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none', mb: 2 }}
+                >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <FilterListIcon sx={{ color: GREEN, fontSize: 18 }} />
+                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>Bộ lọc tìm kiếm</Typography>
+                        {branch && (
+                            <Chip label="Đang lọc" size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11, height: 20, border: '1px solid #bbf7d0' }} />
+                        )}
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Button
                             size="small"
-                            label="Chế độ lọc"
-                            value={filterMode}
-                            onChange={e => setFilterMode(e.target.value as any)}
-                            sx={filterFieldSx}
+                            variant="outlined"
+                            startIcon={rebuilding ? <CircularProgress size={13} color="inherit" /> : <SyncIcon sx={{ fontSize: '15px !important' }} />}
+                            disabled={rebuilding}
+                            onClick={e => { e.stopPropagation(); setRebuildConfirmOpen(true); }}
+                            sx={{
+                                borderRadius: '10px', borderColor: '#bbf7d0', color: GREEN,
+                                fontWeight: 700, fontSize: 12, textTransform: 'none', px: 1.5,
+                                '&:hover': { borderColor: GREEN, bgcolor: '#f0fdf4' },
+                            }}
                         >
-                            <MenuItem value="month">Theo tháng</MenuItem>
-                            <MenuItem value="range">Theo khoảng ngày</MenuItem>
-                        </TextField>
+                            {rebuilding ? 'Đang nạp lại...' : 'Nạp lại dữ liệu'}
+                        </Button>
+                        <IconButton size="small" sx={{ color: GREEN, pointerEvents: 'none' }}>
+                            <ExpandMoreIcon sx={{ transition: '0.2s', transform: filterOpen ? 'rotate(180deg)' : 'rotate(0deg)', fontSize: 20 }} />
+                        </IconButton>
+                    </Box>
+                </Box>
 
-                        {filterMode === 'month' && (
+                {/* Always visible: date filters */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                    <TextField
+                        select
+                        size="small"
+                        label="Chế độ lọc"
+                        value={filterMode}
+                        onChange={e => setFilterMode(e.target.value as any)}
+                        sx={filterFieldSx}
+                    >
+                        <MenuItem value="month">Theo tháng</MenuItem>
+                        <MenuItem value="range">Theo khoảng ngày</MenuItem>
+                    </TextField>
+
+                    {filterMode === 'month' && (
+                        <TextField
+                            type="month"
+                            size="small"
+                            label="Chọn tháng"
+                            value={selectedMonth}
+                            onChange={e => setSelectedMonth(e.target.value)}
+                            slotProps={{ inputLabel: { shrink: true } }}
+                            sx={filterFieldSx}
+                        />
+                    )}
+
+                    {filterMode === 'range' && (
+                        <>
                             <TextField
-                                type="month"
+                                type="date"
                                 size="small"
-                                label="Chọn tháng"
-                                value={selectedMonth}
-                                onChange={e => setSelectedMonth(e.target.value)}
+                                label="Từ ngày"
+                                value={fromDate}
+                                onChange={e => setFromDate(e.target.value)}
                                 slotProps={{ inputLabel: { shrink: true } }}
                                 sx={filterFieldSx}
                             />
-                        )}
-
-                        {filterMode === 'range' && (
-                            <>
-                                <TextField
-                                    type="date"
-                                    size="small"
-                                    label="Từ ngày"
-                                    value={fromDate}
-                                    onChange={e => setFromDate(e.target.value)}
-                                    slotProps={{ inputLabel: { shrink: true } }}
-                                    sx={filterFieldSx}
-                                />
-                                <TextField
-                                    type="date"
-                                    size="small"
-                                    label="Đến ngày"
-                                    value={toDate}
-                                    onChange={e => setToDate(e.target.value)}
-                                    slotProps={{ inputLabel: { shrink: true } }}
-                                    sx={filterFieldSx}
-                                />
-                            </>
-                        )}
+                            <TextField
+                                type="date"
+                                size="small"
+                                label="Đến ngày"
+                                value={toDate}
+                                onChange={e => setToDate(e.target.value)}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                sx={filterFieldSx}
+                            />
+                        </>
+                    )}
                 </Box>
+
+                {/* Collapsible: branch filter */}
+                <Collapse in={filterOpen} timeout="auto" unmountOnExit>
+                    <Divider sx={{ my: 2, borderStyle: 'dashed', borderColor: '#f1f5f9' }} />
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                        <Autocomplete
+                            size="small"
+                            options={branchOptions}
+                            getOptionLabel={o => o.name}
+                            value={branch}
+                            onChange={(_, v) => setBranch(v)}
+                            renderInput={params => <TextField {...params} label="Chi nhánh" />}
+                            sx={filterFieldSx}
+                        />
+                    </Box>
+                </Collapse>
             </Paper>
 
             {/* ── Data Notice ── */}
@@ -864,6 +940,32 @@ export default function SapoDashboardPage() {
                     </Box>
                 </>
             )}
+
+            <Dialog open={rebuildConfirmOpen} onClose={() => setRebuildConfirmOpen(false)} slotProps={{ paper: { sx: { borderRadius: '18px', p: 0.5 } } }}>
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#1e293b' }}>
+                    Xác nhận nạp lại dữ liệu?
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ fontSize: 13.5, color: '#475569' }}>
+                        Thao tác này sẽ <strong>xóa toàn bộ dữ liệu dashboard hiện tại</strong> và xây dựng lại từ đầu từ tất cả đơn hàng đã có trong hệ thống.
+                        <br /><br />
+                        Dữ liệu sẽ được lọc theo danh mục <strong>Giỏ quà tặng trái cây</strong> và <strong>Giỏ quà tặng bánh kẹo</strong>.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ px: 2.5, pb: 2 }}>
+                    <Button onClick={() => setRebuildConfirmOpen(false)} sx={{ borderRadius: '10px', textTransform: 'none', color: '#64748b' }}>
+                        Huỷ
+                    </Button>
+                    <Button
+                        onClick={handleRebuild}
+                        variant="contained"
+                        startIcon={<SyncIcon />}
+                        sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: GREEN, '&:hover': { bgcolor: GREEN_DARK } }}
+                    >
+                        Nạp lại
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

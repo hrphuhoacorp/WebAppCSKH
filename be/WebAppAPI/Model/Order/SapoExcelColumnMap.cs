@@ -17,7 +17,7 @@ public class SapoExcelColumnMap
     public int Revenue { get; set; } = -1;
     public int Shipping { get; set; } = -1;
     public int Tax { get; set; } = -1;
-    public int GrossProfit { get; set; } = -1;
+    public int NetRevenue { get; set; } = -1;
     public int QtyStr { get; set; } = -1;
     public int Qty { get; set; } = -1;
 

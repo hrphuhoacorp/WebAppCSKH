@@ -17,7 +17,7 @@ public class SapoImportRowDTO
     public string Source { get; set; } = "";
     public string QuantityStr { get; set; } = "";
     public decimal Revenue { get; set; }
-    public decimal GrossProfit { get; set; }
+    public decimal NetRevenue { get; set; }
     public decimal ShippingFee { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal Quantity { get; set; }
