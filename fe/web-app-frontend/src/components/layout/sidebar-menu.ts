@@ -23,6 +23,7 @@ import {
     Tags,
     Scale,
     BarChart2,
+    Printer,
 } from 'lucide-react';
 import React from 'react';
 
@@ -202,6 +203,11 @@ export const sidebarMenu: SidebarGroup[] = [
                 title: 'Đối Soát TCB × HĐDT',
                 href: '/dashboard/tools/bank_reconcile',
                 icon: Scale,
+            },
+            {
+                title: 'Trình Tạo Bảng Giá',
+                href: '/dashboard/tools/bang_gia',
+                icon: Printer,
             },
         ],
     },

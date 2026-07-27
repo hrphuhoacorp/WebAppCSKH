@@ -109,6 +109,11 @@ function logMatchesCell(log: CellLog, closeDate: string, branch: string, itemCod
     if (log.type === 'Cập nhật dữ liệu') return (log.detail || '').includes(`${meta.label}:`);
     if (log.type === 'Xung đột dữ liệu') return true;
 
+    // "Sửa SL" có thể sửa bất kỳ field nào — nhận dạng bằng source khớp label của field
+    if (log.type === 'Sửa SL' && (log.source || '') === meta.label) {
+        return (log.rightCode || '') === itemCode;
+    }
+
     if (meta.types.length && !meta.types.includes(log.type)) return false;
 
     const UPLOAD_TYPES = ['Nạp Gói ra', 'Nạp Hủy giỏ', 'Nạp Tồn CN', 'Nạp Chuyển CN', 'Nạp Sapo'];
