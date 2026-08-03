@@ -203,7 +203,7 @@ function getPromoPrintCss(pageWidthMm: number, pageHeightMm: number, orientation
 
 @media print{
   @page{ size:A4 ${orientation}; margin:0; }
-  body{ background:#fff !important; }
+  html,body{ margin:0 !important; padding:0 !important; background:#fff !important; }
   .print-preview-wrap{ display:block !important; margin:0 !important; padding:0 !important; }
   .a4-page{
     width:${pageWidthMm}mm !important;

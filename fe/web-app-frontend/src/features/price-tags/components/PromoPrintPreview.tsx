@@ -26,7 +26,7 @@ export const PROMO_TEMPLATE_LAYOUTS_QUERY_KEY = ['promo-template-layouts'];
 
 export default function PromoPrintPreview({ cards, settings, setSettings }: PromoPrintPreviewProps) {
     const [framePickerOpen, setFramePickerOpen] = useState(false);
-    const [gapSize, setGapSize] = useState("1mm");
+    const gapSize = "0.5mm";
     const [frameId, setFrameId] = useState("grid3");
     const [editorOpen, setEditorOpen] = useState(false);
     const qc = useQueryClient();
@@ -34,6 +34,9 @@ export default function PromoPrintPreview({ cards, settings, setSettings }: Prom
     const frame = PROMO_FRAMES.find(f => f.id === frameId) ?? PROMO_FRAMES.find(f => f.id === 'grid3')!;
     const resolved = resolveFrame(frame);
     const itemsPerPage = resolved.cardsPerPage;
+    const gapMm = parseFloat(gapSize) || 0;
+    const adjustedCardHeightMm = (resolved.pageHeightMm - gapMm * (resolved.rows - 1)) / resolved.rows;
+    const adjustedCardWidthMm = (resolved.pageWidthMm - gapMm * (resolved.columns - 1)) / resolved.columns;
 
     // Định nghĩa từng "loại bảng giá" (4 loại có sẵn + loại người dùng tự tạo) — lưu DB, áp dụng
     // cho mọi thẻ khuyến mãi tạo sau này. Thiếu key nào (chưa ai tuỳ chỉnh loại đó) thì rơi về
@@ -89,10 +92,11 @@ export default function PromoPrintPreview({ cards, settings, setSettings }: Prom
     const handlePrint = useReactToPrint({
         contentRef: printRef,
         documentTitle: `Khuyen_Mai_${new Date().getTime()}`,
+        pageStyle: `@page { margin: 0; } html, body { margin: 0 !important; padding: 0 !important; }`,
     });
 
     const handleReset = () => {
-        setGapSize("1mm");
+
         setSettings({
             borderColor: "transparent",
             textColor: "#075c4f",
@@ -175,17 +179,6 @@ export default function PromoPrintPreview({ cards, settings, setSettings }: Prom
                         )}
                     </div>
 
-                    {/* Gap */}
-                    <select
-                        value={gapSize}
-                        onChange={(e) => setGapSize(e.target.value)}
-                        className="text-xs border border-zinc-300 rounded-lg px-2 py-1.5 text-zinc-700 bg-white"
-                    >
-                        <option value="0mm">Sát nhau</option>
-                        <option value="1mm">Chuẩn in</option>
-                        <option value="3mm">Rộng nhẹ</option>
-                        <option value="5mm">Rộng</option>
-                    </select>
 
                     {/* Font title slider */}
                     <div className="flex items-center gap-2 min-w-[160px]">
@@ -236,8 +229,8 @@ export default function PromoPrintPreview({ cards, settings, setSettings }: Prom
                 pages={pages}
                 settings={settings}
                 gapSize={gapSize}
-                widthMm={resolved.cardWidthMm}
-                heightMm={resolved.cardHeightMm}
+                widthMm={adjustedCardWidthMm}
+                heightMm={adjustedCardHeightMm}
                 pageWidthMm={resolved.pageWidthMm}
                 pageHeightMm={resolved.pageHeightMm}
                 orientation={resolved.pageOrientation}

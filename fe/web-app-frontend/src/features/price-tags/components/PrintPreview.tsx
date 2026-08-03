@@ -53,12 +53,13 @@ export default function PrintPreview({ tags, settings, setSettings }: PrintPrevi
     return result;
   }, [tags, itemsPerPage]);
 
-  const [gapSize, setGapSize] = useState("0mm");
+  const gapSize = "0.5mm";
 
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: `Bang_Gia_${new Date().getTime()}`,
+    pageStyle: `@page { margin: 0; } html, body { margin: 0 !important; padding: 0 !important; }`,
   });
 
   // Border colors available
@@ -70,13 +71,6 @@ export default function PrintPreview({ tags, settings, setSettings }: PrintPrevi
     { name: "Đen tuyền", value: "#0f172a" }
   ];
 
-  // Grid Gaps
-  const gaps = [
-    { name: "Khít nhau (0mm)", value: "0mm" },
-    { name: "Hở nhẹ (1mm)", value: "1mm" },
-    { name: "Hở chuẩn (2mm)", value: "2mm" },
-    { name: "Hở rộng (3mm)", value: "3mm" }
-  ];
 
   const fontSizeControls: { label: string; key: FontSizeKey; def: number }[] = [
     { label: "Tên sản phẩm", key: "fontSizeName", def: 120 },
@@ -124,22 +118,6 @@ export default function PrintPreview({ tags, settings, setSettings }: PrintPrevi
             </TextField>
           </Box>
 
-          {/* Layout alignment spacing gaps */}
-          <Box>
-            <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#64748b', mb: 0.75 }}>Khoảng hở đường cắt</Typography>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              value={gapSize}
-              onChange={(e) => setGapSize(e.target.value)}
-              sx={fieldSx}
-            >
-              {gaps.map((g) => (
-                <MenuItem key={g.value} value={g.value}>{g.name}</MenuItem>
-              ))}
-            </TextField>
-          </Box>
 
           {/* Orientation selection */}
           <Box>
