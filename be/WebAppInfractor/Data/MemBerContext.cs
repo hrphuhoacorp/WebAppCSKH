@@ -30,6 +30,8 @@ public partial class MemBerContext : DbContext
 
     public virtual DbSet<MessageReport> MessageReports { get; set; }
 
+    public virtual DbSet<PromoTemplateLayout> PromoTemplateLayouts { get; set; }
+
     public virtual DbSet<MediaFile> MediaFiles { get; set; }
 
     public virtual DbSet<MediaFolder> MediaFolders { get; set; }
@@ -369,6 +371,25 @@ public partial class MemBerContext : DbContext
                 .HasForeignKey(d => d.CreatedBy)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("message_reports_created_by_fkey");
+        });
+
+        modelBuilder.Entity<PromoTemplateLayout>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("promo_template_layouts_pkey");
+            entity.ToTable("promo_template_layouts");
+            entity.HasIndex(e => e.TemplateKind).IsUnique().HasDatabaseName("ux_promo_template_layouts_kind");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.TemplateKind).HasMaxLength(60).HasColumnName("template_kind");
+            entity.Property(e => e.DisplayName).HasMaxLength(120).HasColumnName("display_name");
+            entity.Property(e => e.Badge).HasMaxLength(20).HasColumnName("badge");
+            entity.Property(e => e.FieldConfigJson).HasColumnType("jsonb").HasColumnName("field_config_json");
+            entity.Property(e => e.LayoutJson).HasColumnType("jsonb").HasColumnName("layout_json");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("now()")
+                .HasColumnName("updated_at");
         });
 
         modelBuilder.Entity<MediaFile>(entity =>

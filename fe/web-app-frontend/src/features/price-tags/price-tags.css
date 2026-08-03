@@ -1,0 +1,37 @@
+/* Scoped Tailwind for the price-tags module only.
+   Deliberately excludes the preflight layer — that base reset touches
+   bare button/input/h1 elements globally and would clash with the
+   MUI CssBaseline used by the rest of the dashboard. Imported only from
+   this route's own layout.tsx, never from the root layout. */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+/* Mini preflight, scoped to .pt-scope only. The ported Tailwind components
+   (copied verbatim from the original Vite app) assume Tailwind's usual
+   zero-margin baseline — e.g. a bare <h3> keeps the browser's ~1em default
+   margin without this, pushing the product-name text above the card's
+   overflow:hidden boundary and clipping it at the top.
+   MUI's own CssBaseline (already global, see providers/AppProviders.tsx)
+   does NOT zero heading/paragraph margins by itself — it only handles
+   html/body/box-sizing — so this still applies even alongside it. Kept
+   deliberately narrow (no blanket `.pt-scope *` margin/padding reset): this
+   module also has real MUI components (Button, TextField, TableCell...)
+   whose own internal padding must NOT be touched.
+   The `:not([class*="Mui"])` guard matters — MUI's <Typography> renders a
+   bare <p> tag by default, and this reset's specificity (class + tag) beats
+   Typography's own sx-generated margin class (tag alone), silently
+   cancelling out any mb/mt spacing set via sx on Typography. */
+.pt-scope h1:not([class*="Mui"]), .pt-scope h2:not([class*="Mui"]), .pt-scope h3:not([class*="Mui"]),
+.pt-scope h4:not([class*="Mui"]), .pt-scope h5:not([class*="Mui"]), .pt-scope h6:not([class*="Mui"]),
+.pt-scope p:not([class*="Mui"]), .pt-scope ul:not([class*="Mui"]), .pt-scope ol:not([class*="Mui"]),
+.pt-scope li:not([class*="Mui"]), .pt-scope figure:not([class*="Mui"]),
+.pt-scope blockquote:not([class*="Mui"]), .pt-scope dl:not([class*="Mui"]), .pt-scope dd:not([class*="Mui"]) {
+  margin: 0;
+  padding: 0;
+}
+.pt-scope table:not([class*="Mui"]) {
+  border-collapse: collapse;
+}
+.pt-scope img:not([class*="Mui"]) {
+  max-width: 100%;
+}
