@@ -194,21 +194,21 @@ export const sidebarMenu: SidebarGroup[] = [
                 href: '/dashboard/links',
                 icon: Link2,
             },
-            {
-                title: 'Kiểm Tra Mã Hàng Sapo',
-                href: '/dashboard/tools/sapo_checker',
-                icon: ScanSearch,
-            },
-            {
-                title: 'Đối Soát TCB × HĐDT',
-                href: '/dashboard/tools/bank_reconcile',
-                icon: Scale,
-            },
-            {
-                title: 'Trình Tạo Bảng Giá',
-                href: '/dashboard/tools/bang_gia',
-                icon: Printer,
-            },
+            // {
+            //     title: 'Kiểm Tra Mã Hàng Sapo',
+            //     href: '/dashboard/tools/sapo_checker',
+            //     icon: ScanSearch,
+            // },
+            // {
+            //     title: 'Đối Soát TCB × HĐDT',
+            //     href: '/dashboard/tools/bank_reconcile',
+            //     icon: Scale,
+            // },
+            // {
+            //     title: 'Trình Tạo Bảng Giá',
+            //     href: '/dashboard/tools/bang_gia',
+            //     icon: Printer,
+            // },
         ],
     },
     {
