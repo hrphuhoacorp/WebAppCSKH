@@ -668,6 +668,10 @@ public class SapoService
                 existing.SapoSold = agg.SapoSold;
                 existing.Revenue = agg.Revenue;
                 existing.OrderCount = agg.OrderCount;
+                // Dữ liệu Sapo mới ghi đè vào dòng này => dòng không còn "trống", phải bỏ cờ
+                // Inactive nếu trước đó đã bị DeactivateIfEmpty khoá cứng (khi mọi trường = 0),
+                // nếu không dòng sẽ tiếp tục bị ẩn khỏi Tổng quan dù SapoSold > 0.
+                if (agg.SapoSold != 0) existing.Inactive = false;
                 existing.UpdatedAt = DateTime.UtcNow;
             }
             else
