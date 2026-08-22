@@ -75,6 +75,26 @@ function parseLogDetail(detail: string): LogDetailItem[] {
     }).filter((x): x is LogDetailItem => x !== null);
 }
 
+// Bảng dịch field key (backend dùng nội bộ để tự parse lại khi Hoàn tác — xem
+// MoveTempCodeOccurrencesAsync/MoveSapoWrongCodeAsync trong NxtService.cs) sang nhãn tiếng Việt.
+// "Đổi mã tạm / nhập nhầm" và "Sai mã Sapo / check đơn" là 2 loại log DUY NHẤT ghi detail dạng
+// "{fieldKey}:{qty}, ..." thay vì "{ngày}|{mã}:{SL}" như các loại khác — nếu không dịch, người
+// dùng sẽ thấy thẳng tên field kiểu code ("openingStock", "giftIn"...) thay vì tiếng Việt.
+const MOVE_FIELD_LABEL: Record<string, string> = {
+    openingStock: 'Tồn đầu', giftIn: 'Gói ra', receiveBranch: 'Nhận CN', transferBranch: 'Chuyển CN',
+    cancelBasket: 'Hủy giỏ', actualStock: 'Tồn thực tế', soldNotPicked: 'DTT/Bán chưa lấy',
+    adjustment: 'Điều chỉnh', nextOpeningStock: 'Tồn đầu ngày sau', sapoSold: 'Sapo bán',
+    revenue: 'Doanh thu', orderCount: 'Số đơn',
+};
+
+function parseMoveFieldDetail(detail: string): [string, string][] {
+    const fieldsPart = (detail || '').split('|')[0];
+    return fieldsPart.split(',').map(s => s.trim()).filter(Boolean).map((s): [string, string] | null => {
+        const m = s.match(/^(\w+):(-?[\d.]+)$/);
+        return m ? [MOVE_FIELD_LABEL[m[1]] || m[1], m[2]] : null;
+    }).filter((x): x is [string, string] => x !== null);
+}
+
 function formatUserAgent(ua?: string): string {
     if (!ua) return '';
     const os = /Windows/i.test(ua) ? 'Windows'
@@ -385,12 +405,16 @@ export default function XntCellHistoryDialog({ open, onClose, closeDate, branch,
                 : (log.status || '').includes('Chờ')
                     ? { bgcolor: '#fef9c3', color: '#854d0e' }
                     : { bgcolor: '#f1f5f9', color: '#475569' };
-            const logItems = parseLogDetail(log.detail || '');
+            const isMoveType = log.type === 'Đổi mã tạm / nhập nhầm' || log.type === 'Sai mã Sapo / check đơn';
+            const logItems = isMoveType ? [] : parseLogDetail(log.detail || '');
+            const moveFields = isMoveType ? parseMoveFieldDetail(log.detail || '') : [];
             const matchItem = logItems.find(i => i.code === itemCode);
             const rowCloseDate = matchItem?.closeDate || log.closeDate || '—';
-            const detailShort = matchItem
-                ? `SL: ${matchItem.qty}${matchItem.status ? ` [${matchItem.status}]` : ''}${log.note ? ` · ${log.note}` : ''}`
-                : `${(log.detail || '').slice(0, 120)}${(log.detail || '').length > 120 ? '…' : ''}`;
+            const detailShort = isMoveType
+                ? `Đổi mã: ${log.wrongCode || '—'} → ${log.rightCode || '—'} · ${moveFields.map(([l, v]) => `${l}: ${v}`).join(', ') || 'Không có chi tiết'}`
+                : matchItem
+                    ? `SL: ${matchItem.qty}${matchItem.status ? ` [${matchItem.status}]` : ''}${log.note ? ` · ${log.note}` : ''}`
+                    : `${(log.detail || '').slice(0, 120)}${(log.detail || '').length > 120 ? '…' : ''}`;
             const detailId = log.id ?? idx;
             const isExpanded = expandedLogId === detailId;
             const detailRows: [string, string][] = [
@@ -420,8 +444,22 @@ export default function XntCellHistoryDialog({ open, onClose, closeDate, branch,
                     {isExpanded && (
                         <TableRow>
                             <TableCell colSpan={6} sx={{ p: '10px 14px', bgcolor: '#f8fafc', fontSize: 12 }}>
-                                <Typography sx={{ fontWeight: 700, color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.4px', mb: 0.5 }}>Toàn bộ mã trong bút ký này</Typography>
-                                {logItems.length ? (
+                                <Typography sx={{ fontWeight: 700, color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.4px', mb: 0.5 }}>
+                                    {isMoveType ? 'Các mục đã chuyển trong bút ký này' : 'Toàn bộ mã trong bút ký này'}
+                                </Typography>
+                                {isMoveType ? (
+                                    moveFields.length ? (
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                            {moveFields.map(([label, val], i) => (
+                                                <Box key={i} component="span" sx={{ display: 'inline-block', px: 1, py: '2px', borderRadius: '6px', fontSize: 11, bgcolor: label === meta.label ? '#dbeafe' : '#f1f5f9', color: label === meta.label ? '#1e40af' : '#475569', fontWeight: label === meta.label ? 700 : 500 }}>
+                                                    {label}: {val}
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ color: '#94a3b8', fontStyle: 'italic' }}>{log.detail || 'Không có chi tiết'}</Box>
+                                    )
+                                ) : logItems.length ? (
                                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                         {logItems.map((it, i) => (
                                             <Box key={i} component="span" sx={{ display: 'inline-block', px: 1, py: '2px', borderRadius: '6px', fontSize: 11, bgcolor: it.code === itemCode ? '#dbeafe' : '#f1f5f9', color: it.code === itemCode ? '#1e40af' : '#475569', fontWeight: it.code === itemCode ? 700 : 500 }}>
