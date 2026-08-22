@@ -385,7 +385,10 @@ public class NxtService : INxtService
         ["transferBranch"] = "Chuyển CN",
         ["cancelBasket"] = "Hủy giỏ",
         ["actualStock"] = "Tồn thực tế",
-        ["soldNotPicked"] = "Bán chưa lấy",
+        // Phải khớp CHÍNH XÁC CELL_FIELD_META.soldNotPicked.label bên fe (XntCellHistoryDialog.tsx)
+        // — Truy vết đối chiếu bằng so sánh chuỗi log.source === meta.label, lệch 1 ký tự cũng làm
+        // log "Sửa SL" cho field này biến mất khỏi Truy vết dù đã ghi log đúng.
+        ["soldNotPicked"] = "DTT/Bán chưa lấy",
         ["adjustment"] = "Điều chỉnh",
     };
 
@@ -1406,7 +1409,7 @@ public class NxtService : INxtService
         ["Chuyển CN"] = "transferBranch",
         ["Hủy giỏ"] = "cancelBasket",
         ["Tồn thực tế"] = "actualStock",
-        ["Bán chưa lấy"] = "soldNotPicked",
+        ["DTT/Bán chưa lấy"] = "soldNotPicked",
         ["Điều chỉnh"] = "adjustment",
         ["Sapo bán"] = "sapoSold",
     };
@@ -1566,6 +1569,16 @@ public class NxtService : INxtService
             extraDetail = " (đồng bộ tồn đầu ngày kế tiếp)";
         }
 
+        // Log riêng cho phía chi nhánh đối ứng (Nhận CN/Chuyển CN) — KHÔNG gộp chung vào log
+        // chính bên dưới, vì RollbackLogAsync (type "Sửa SL") lặp branches.Split('/') rồi set
+        // CÙNG 1 field cho MỌI branch trong list; nếu gộp branch "A/B" vào 1 log, hoàn tác sẽ set
+        // nhầm field (vd transferBranch) ở chi nhánh B thay vì đúng field receiveBranch của nó,
+        // hỏng dữ liệu B. Tách thành 1 log độc lập/chi nhánh (branch đơn, source đúng tên field
+        // counterpart) để Truy vết lẫn Hoàn tác ở phía B hoạt động đúng, không đụng logic cũ.
+        string? counterBranch = null;
+        string? counterFieldLabel = null;
+        decimal counterOldVal = 0;
+
         if (dto.Field == "transferBranch" || dto.Field == "receiveBranch")
         {
             if (string.IsNullOrWhiteSpace(dto.CounterBranch) || dto.CounterBranch == dto.Branch)
@@ -1573,11 +1586,14 @@ public class NxtService : INxtService
 
             var counterField = dto.Field == "transferBranch" ? "receiveBranch" : "transferBranch";
             var counterRow = await GetOrTrackRowAsync(cache, dto.CloseDate, dto.CounterBranch, itemCode);
+            counterOldVal = GetRowField(counterRow, counterField);
             SetRowField(counterRow, counterField, dto.NewValue);
             counterRow.UpdatedAt = DateTime.UtcNow;
             if (dto.NewValue != 0) counterRow.Inactive = false;
-            extraDetail =
-                $" (cập nhật {(counterField == "receiveBranch" ? "Nhận CN" : "Chuyển CN")} tại {dto.CounterBranch})";
+
+            counterBranch = dto.CounterBranch;
+            counterFieldLabel = EditFieldLabels[counterField];
+            extraDetail = $" (cập nhật {counterFieldLabel} tại {dto.CounterBranch})";
         }
 
         DeactivateIfEmpty(row);
@@ -1611,6 +1627,40 @@ public class NxtService : INxtService
                 ),
             }
         );
+
+        if (counterBranch != null && counterFieldLabel != null)
+        {
+            var counterDetail =
+                $"{counterFieldLabel}: {counterOldVal} → {dto.NewValue} (đồng bộ theo {fieldLabel} tại {dto.Branch})";
+            await _activityLogRepo.AddAsync(
+                new ActivityLog
+                {
+                    UserId = userId,
+                    StaffCode = dto.LoginCode,
+                    Action = "Sửa SL",
+                    TableName = "nxt_rows",
+                    CreatedAt = DateTime.UtcNow,
+                    IpAddress = GetIpAddress(),
+                    UserAgent = GetUserAgent(),
+                    NewData = JsonSerializer.Serialize(
+                        new
+                        {
+                            closeDate = dto.CloseDate,
+                            branch = counterBranch,
+                            source = counterFieldLabel,
+                            wrongCode = "",
+                            rightCode = itemCode,
+                            qty = dto.NewValue,
+                            note = dto.Reason,
+                            userName = dto.UserName ?? "",
+                            status = "Đã sửa",
+                            detail = counterDetail,
+                        }
+                    ),
+                }
+            );
+        }
+
         await _uow.SaveChangesAsync();
 
         return new NxtEditQtyResultDto

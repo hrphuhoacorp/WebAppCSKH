@@ -23,7 +23,7 @@ const CELL_FIELD_META: Record<string, { label: string; types: string[] }> = {
     transferBranch: { label: 'Chuyển CN', types: ['Nạp Chuyển CN'] },
     cancelBasket: { label: 'Hủy giỏ', types: ['Nạp Hủy giỏ'] },
     sapoSold: { label: 'Sapo bán', types: ['Nạp Sapo', 'Sai mã Sapo / check đơn'] },
-    adjustment: { label: 'Điều chỉnh', types: ['Sửa SL', 'Nạp Sapo treo', 'Sapo treo hoàn thành', 'Hủy Sapo treo'] },
+    adjustment: { label: 'Điều chỉnh', types: ['Sửa SL', 'Nạp Sapo treo', 'Sapo treo hoàn thành', 'Hủy Sapo treo', 'Giao hàng trễ'] },
     actualStock: { label: 'Tồn thực tế', types: ['Nạp Tồn CN'] },
     soldNotPicked: { label: 'DTT/Bán chưa lấy', types: ['Nạp Tồn CN'] },
 };
@@ -114,6 +114,17 @@ function logMatchesCell(log: CellLog, closeDate: string, branch: string, itemCod
         return (log.rightCode || '') === itemCode;
     }
 
+    // "Đổi mã tạm / nhập nhầm" di chuyển 1-nhiều field nội bộ (giftIn/actualStock/soldNotPicked/
+    // cancelBasket/transferBranch/receiveBranch/adjustment) giữa 2 mã tuỳ "source" người dùng chọn
+    // — KHÔNG cố định 1 field như "Sửa SL", nên không thể liệt kê sẵn trong meta.types (nếu để lọt
+    // xuống cổng bên dưới sẽ KHÔNG BAO GIỜ khớp field nào, vì không field nào có type này). Backend
+    // ghi field đã di chuyển vào detail dạng "{fieldKey}:{qty}" (NxtService.MoveTempCodeOccurrencesAsync)
+    // — dùng đúng field key (không phải label tiếng Việt) để nhận diện đúng field nào bị ảnh hưởng.
+    if (log.type === 'Đổi mã tạm / nhập nhầm') {
+        if (log.wrongCode !== itemCode && log.rightCode !== itemCode) return false;
+        return (log.detail || '').includes(`${fieldKey}:`);
+    }
+
     if (meta.types.length && !meta.types.includes(log.type)) return false;
 
     const UPLOAD_TYPES = ['Nạp Gói ra', 'Nạp Hủy giỏ', 'Nạp Tồn CN', 'Nạp Chuyển CN', 'Nạp Sapo'];
@@ -129,7 +140,7 @@ function logMatchesCell(log: CellLog, closeDate: string, branch: string, itemCod
     if (log.type === 'Sai mã Sapo / check đơn') {
         return log.wrongCode === itemCode || log.rightCode === itemCode;
     }
-    if (['Sửa SL', 'Nạp Sapo treo', 'Sapo treo hoàn thành', 'Hủy Sapo treo'].includes(log.type)) {
+    if (['Sửa SL', 'Nạp Sapo treo', 'Sapo treo hoàn thành', 'Hủy Sapo treo', 'Giao hàng trễ'].includes(log.type)) {
         return (log.rightCode || '') === itemCode;
     }
     return true;
@@ -308,16 +319,31 @@ export default function XntCellHistoryDialog({ open, onClose, closeDate, branch,
     const prevDayLogs = prevDayLogsQuery.data ?? EMPTY_LOGS;
     const sapoPending = sapoPendingQuery.data ?? EMPTY_SAPO_PENDING;
 
-    // openingStock = tồn CN của ngày trước → tìm trong prevDayLogs, không tìm trong dbLogs hiện tại
+    // openingStock = tồn CN của ngày trước → tìm trong prevDayLogs, không tìm trong dbLogs hiện tại.
+    // Tồn thực tế/DTT ngày trước có thể được sửa qua "Nạp Tồn CN" (dán hàng loạt) HOẶC qua "Sửa
+    // trực tiếp Tổng quan"/"tab Sửa SL" (cả 2 log loại "Sửa SL") — phải nhận cả 2 dạng, nếu không
+    // các trường hợp sửa qua Sửa SL sẽ luôn báo "chưa tìm thấy bút ký" dù dữ liệu đã cascade đúng.
     const relatedLogs = useMemo(() => {
         if (fieldKey === 'openingStock') {
-            return prevDayLogs.filter(l =>
-                l.type === 'Nạp Tồn CN' &&
-                (l.detail || '').split(',').some(p => {
-                    const s = p.trim();
-                    return s.includes(`|${itemCode}:`) || s.startsWith(`${itemCode}:`);
-                })
-            );
+            return prevDayLogs.filter(l => {
+                if (l.type === 'Nạp Tồn CN') {
+                    return (l.detail || '').split(',').some(p => {
+                        const s = p.trim();
+                        return s.includes(`|${itemCode}:`) || s.startsWith(`${itemCode}:`);
+                    });
+                }
+                if (l.type === 'Sửa SL') {
+                    return (l.rightCode || '') === itemCode
+                        && (l.source === CELL_FIELD_META.actualStock.label || l.source === CELL_FIELD_META.soldNotPicked.label);
+                }
+                // Đổi mã tạm với nguồn "Tồn CN"/"Tất cả phát sinh nội bộ" có thể cascade sang tồn
+                // đầu ngày SAU (SyncNextDayOpeningAfterCodeChangeAsync), ghi "nextOpeningStock:qty"
+                // trong CHÍNH log của ngày trước đó — không phải log riêng cho ngày sau.
+                if (l.type === 'Đổi mã tạm / nhập nhầm') {
+                    return (l.rightCode || '') === itemCode && (l.detail || '').includes('nextOpeningStock:');
+                }
+                return false;
+            });
         }
         return dbLogs.filter(l => logMatchesCell(l, closeDate, branch, itemCode, fieldKey));
     }, [dbLogs, prevDayLogs, closeDate, branch, itemCode, fieldKey]);
